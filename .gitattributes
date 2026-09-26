@@ -1,0 +1,24 @@
+# ============================================================
+#  换行与二进制标记
+#  · 仓库里一律存 LF（Windows 工作区按你的 git 设置检出 CRLF）
+#  · 二进制文件明确标出来，避免被当文本处理
+# ============================================================
+
+* text=auto
+
+*.cs     text
+*.md     text
+*.html   text
+*.txt    text
+*.json   text
+*.asmdef text
+*.unity  text
+*.prefab text
+*.asset  text
+*.meta   text
+
+*.png  binary
+*.jpg  binary
+*.xlsx binary
+*.dll  binary
+*.pdb  binary
