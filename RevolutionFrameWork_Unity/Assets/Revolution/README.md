@@ -35,6 +35,17 @@ Unity 游戏框架本体（框架的全部代码都在这个目录里，`git clo
 2. 菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → ① 打包配置 → 把「资源根目录」设为 `Assets/GameRes`；
 3. 直接 `RevSound.Play("ui_click")` / `RevSequence.Create(...)` 开始写业务。
 
+## 更新到最新版
+
+| 装法 | 更新命令 |
+|---|---|
+| ① clone 进 `Assets/` | `git -C Assets/Revolution pull` |
+| ② 子模块 | `git submodule update --remote Assets/Revolution` |
+| ③ UPM | Package Manager 里选中该包点 **Update**（或重新 Add package from git URL） |
+
+> `package` 分支由仓库的 GitHub Actions 自动同步（只同步 `Assets/Revolution/`）；也可手动同步：
+> `git subtree split --prefix=RevolutionFrameWork_Unity/Assets/Revolution -b package && git push -f origin package`
+
 ## 文档
 
 - 各模块《使用说明》与《使用指南》：仓库 `Revolution.Document/`

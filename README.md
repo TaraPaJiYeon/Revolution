@@ -33,6 +33,9 @@
 
 > 打包配置（`Assets/Editor/ABBuildConfig.asset`）属于**本机设置**，不在仓库里 —— 文件不存在时工具会自动生成一份默认的。
 
+> 上面用的 `package` 分支由 GitHub Actions 自动同步（`.github/workflows/sync-package-branch.yml`，只同步 `Assets/Revolution/` 这一个目录）；
+> 也可以本地手动同步：`git subtree split --prefix=RevolutionFrameWork_Unity/Assets/Revolution -b package && git push -f origin package`。
+
 ## 二、想直接跑示例（克隆整个仓库）
 
 ```bash
