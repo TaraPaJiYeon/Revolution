@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>事件系统 · 使用指南</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用指南</span>
+    <h1>事件系统 · 使用指南</h1>
+    <p>覆盖：<code>Assets\Revolution\Runtime\EventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
+    <p class="meta">目标：看完能独立完成"定义事件名 → 定义参数结构体 → 注册监听 → 派发 → 正确反注册"，并且知道它和旧版（唐老师框架）的每一处差别、每处差别为什么这么改</p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#s1">一、事件系统解决什么问题</a></li>
+      <li><a href="#s2">二、新版 vs 旧版</a></li>
+      <li><a href="#s3">三、运用了王者的哪些设计哲学</a></li>
+      <li><a href="#s4">四、新版事件系统怎么用</a></li>
+      <li><a href="#s5">五、必须知道的五个坑</a></li>
+      <li><a href="#s6">六、API 速查</a></li>
+      <li><a href="#s7">七、验证结果</a></li>
+      <li><a href="#s8">八、关键文件索引</a></li>
+      <li><a href="#s9">九、本期没做的</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <pre><span class="n">①</span> 事件名      业务侧集中定义静态常量：<span class="k">public const string</span> HeroSkinAdd = <span class="s">"Hero.Skin.Add"</span>;
+<span class="n">②</span> 参数        定义一个结构体：<span class="k">public readonly struct</span> HeroSkinAddArgs { ... }
+<span class="n">③</span> 注册/派发   RevEvent.AddEventListener&lt;HeroSkinAddArgs&gt;(GameEventId.HeroSkinAdd, OnSkinAdd, owner: <span class="k">this</span>);
+              RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroSkinAddArgs(<span class="n">1001</span>, <span class="n">2001</span>));</pre>
+    <p>就这三步。剩下的都是这三步的细节。</p>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>事件系统解决什么问题</h2>
+    <p>游戏里到处都是"一个地方发生、多个地方响应"：</p>
+    <pre>玩家获得皮肤
+    → 商城要刷新
+    → 英雄界面要刷新
+    → 弹窗要提示
+    → 埋点要上报</pre>
+    <p>直接调用的话，发事件的人得认识所有接收者 —— 加一个响应方就要改发事件的那段代码。事件系统把两边解开：
+      <b>发的只管发"我获得皮肤了"，谁关心谁自己监听</b>。</p>
+    <div class="callout warn">
+      <span class="t">唯一代价</span>
+      发出去没人收，是没有编译期保护的。所以这套系统的设计重心之一就是<b>让静默失败变得不可能</b>
+      （见 2.3 与 4.7）。
+    </div>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>新版 vs 旧版（唐老师框架 <code>Runtime\事件中心\</code>）</h2>
+
+    <h3>2.1 总览</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:20%">维度</th><th style="width:40%">旧版 <code>EventCenter.cs</code></th><th>新版 <code>Runtime\EventSystem\</code></th></tr></thead>
+        <tbody>
+          <tr><td>代码规模</td><td><b>1906 行 / 单文件</b>，89 KB</td><td><b>936 行 / 5 文件</b>（其中约三成是注释）</td></tr>
+          <tr><td><code>public</code> 方法/重载</td><td><b>119 个</b></td><td><b>26 个</b>（业务真正要认的只有 3 族共 15 个）</td></tr>
+          <tr><td>参数个数上限</td><td><code>EventInfo</code> 类定义到 <b>16 个参数</b>；<code>EventTrigger</code> 同步重载 <b>25 个</b>（写到 12 个参数）+ <code>EventTriggerAsync</code> <b>22 个</b></td><td><b>0 ~ 4</b>（超过就定义参数结构体）</td></tr>
+          <tr><td>事件键</td><td>枚举 <code>E_EventType</code> 和 <code>string</code> <b>两套字典并存</b></td><td>只有 <code>string</code> 一套，业务自定义静态常量</td></tr>
+          <tr><td>类型不匹配</td><td><code>as</code> 转换失败 → <code>?.Invoke</code> → <b>静默什么都不发生</b></td><td><b>明确报出</b>「监听者实际是 <code>Action&lt;Int32&gt;</code>，本次派发需要 <code>Action&lt;SkinArgs&gt;</code>」并跳过</td></tr>
+          <tr><td>派发中增删监听者</td><td>无保护（直接 <code>delegate +=</code> / <code>RemoveAll</code>）</td><td>标记删除 + 派发结束统一清理，嵌套派发也正确</td></tr>
+          <tr><td>派发中新增监听者</td><td>取决于当时集合实现，不可预期</td><td>明确约定：<b>本轮不执行，下一轮生效</b></td></tr>
+          <tr><td>异步派发</td><td><code>async void EventTriggerAsync</code>（异常被吞、顺序无保证）</td><td><b>不做</b>（需要就先 <code>await</code>，再派发）</td></tr>
+          <tr><td>异常隔离</td><td>一个监听者抛异常 → 整条派发链断掉</td><td>每个监听者独立 <code>try-catch</code> + 全局异常出口</td></tr>
+          <tr><td>优先级</td><td>每次 <code>AddAction</code> 都全量 <code>Sort</code> 一遍</td><td>只有真用了优先级才排一次，且同优先级严格保持注册顺序</td></tr>
+          <tr><td>内存 / GC</td><td>每次注册都 <code>new EventInfo</code> + <code>delegate +=</code>（产生新委托链）；监听者列表用默认容量 4</td><td>监听者节点走<b>对象池</b>；列表<b>容量预留 1</b>；派发过程<b>零复制</b></td></tr>
+          <tr><td>泄漏防护</td><td>只能逐个反注册，漏一个就泄漏</td><td><code>RemoveAllByOwner(this)</code> 一把摘干净</td></tr>
+          <tr><td>出错可观测性</td><td>以静默失败为主</td><td>日志出口 + 异常钩子 + "无人监听"告警开关 + 诊断 API</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>下面把几条关键差别展开讲。</p>
+
+    <h3>2.2 参数个数：从 16 收到 4 —— 少即是多</h3>
+    <p>旧版为"同一件事、不同参数个数"写了 <b>18 个 <code>EventInfo</code> 类</b>：</p>
+    <pre><span class="k">public class</span> EventInfo&lt;T&gt; : EventInfoBase            { <span class="k">public</span> Action&lt;T&gt; actions; ... }
+<span class="k">public class</span> EventInfo&lt;T1, T2&gt; : EventInfoBase       { <span class="k">public</span> Action&lt;T1, T2&gt; actions; ... }
+<span class="k">public class</span> EventInfo&lt;T1, T2, T3&gt; : EventInfoBase   { ... }
+<span class="c">// …一直写到 T16</span></pre>
+    <div class="callout good">
+      <b>这 18 个类其实什么都没多提供</b> —— 委托的参数类型本来就是"写在委托类型上"的，容器只需要存一个"委托"。
+      新版只用一个节点类型：
+    </div>
+    <pre><span class="c">// Runtime\EventSystem\Core\RevEventListener.cs</span>
+<span class="k">public</span> Delegate Handler;          <span class="c">// 实际类型是 Action / Action&lt;T1&gt; / … / Action&lt;T1,T2,T3,T4&gt; 之一</span></pre>
+    <p>一个 <code>Delegate</code> 字段替代 18 个类。派发时按当前事件需要的签名做一次类型检查：</p>
+    <pre><span class="k">if</span> (!(node.Handler <span class="k">is</span> Action&lt;T1&gt; typed)) { <span class="c">/* 报签名不匹配 */</span> <span class="k">continue</span>; }</pre>
+    <p>参数上限定在 <b>4</b>：超过 2 个参数时，裸参数列表已经开始"看不懂谁是谁"，正确做法是定义参数结构体（见 4.2）。
+      <b>这不是能力缩水，是把人往更好的写法上推。</b></p>
+
+    <h3>2.3 最坑的一处：类型不匹配会静默丢弃</h3>
+    <p>旧版的派发核心是这两句：</p>
+    <pre><span class="c">// 旧版 EventCenter.cs</span>
+<span class="k">if</span> (eventDic.ContainsKey(eventName))
+{
+    (eventDic[eventName] <span class="k">as</span> EventInfo&lt;T&gt;).actions?.Invoke(info);
+}</pre>
+    <div class="callout bad">
+      <span class="t">静默丢弃</span>
+      当"注册时的参数类型"和"派发时的参数类型"不一致时，<code>as</code> 会算出 <code>null</code>，<code>?.Invoke</code> 于是什么都不做
+      —— 不报错、不日志、不崩，事件就这么消失了。<br>
+      这类 bug 的表现是"我这个功能偶尔不刷新"，而排查方向会被引到错误的地方（怀疑生命周期、怀疑时序），
+      因为<b>没有任何线索指向事件系统</b>。
+    </div>
+    <p>新版把这件事变成必然可见：</p>
+    <pre><span class="c">// Runtime\EventSystem\Core\RevEventCenter.cs（1 参数派发的循环体）</span>
+<span class="k">if</span> (!(node.Handler <span class="k">is</span> Action&lt;T1&gt; typed))
+{
+    RevEvent.ReportSignatureMismatch(name, node.Handler, <span class="k">typeof</span>(Action&lt;T1&gt;));
+    <span class="k">continue</span>;                       <span class="c">// 跳过它，但不影响其余监听者</span>
+}</pre>
+    <p>报错长这样（两侧类型都点明）：</p>
+    <pre>[RevEvent] 事件 <span class="s">"Hero.Skin.Add"</span> 上有签名不匹配的监听者，已跳过：
+监听者实际是 Action&lt;Int32&gt;，本次派发需要 Action&lt;HeroSkinAddArgs&gt;。
+同一个事件名的所有监听者必须使用同一种签名（★ 推荐统一用事件参数结构体）。</pre>
+
+    <h3>2.4 一套键，不是两套</h3>
+    <p>旧版同时维护了两张表：</p>
+    <pre><span class="k">private</span> Dictionary&lt;E_EventType, EventInfoBase&gt; eventDic    = <span class="k">new</span> ...;   <span class="c">// 枚举键</span>
+<span class="k">private</span> Dictionary&lt;string, EventInfoBase&gt; stringEventDic   = <span class="k">new</span> ...;   <span class="c">// 字符串键</span></pre>
+    <p>结果是每个功能都要写两遍（<code>EventTrigger</code> 同步版就有 25 个重载、async 版 22 个，
+      同一件事在枚举键和字符串键下各写一遍），<b>两套之间还可能漏改</b>。</p>
+    <p>新版只留 <code>string</code>：</p>
+    <ul>
+      <li>业务侧集中定义静态常量（<code>GameEventId.HeroSkinAdd = "Hero.Skin.Add"</code>），拿到"拼错编译不过 + IDE 补全"的全部好处；</li>
+      <li>框架<b>不需要知道业务有哪些事件</b>，不用像王者那样搞一份自动生成的 <code>EventID.cs</code>；</li>
+      <li>排查时日志里直接是可读的事件名，而不是 <code>3017</code>。</li>
+    </ul>
+    <p>字典用 <code>StringComparer.Ordinal</code>，不受系统区域设置影响（否则土耳其语环境下 <code>I</code>/<code>i</code> 会互相匹配，属于经典冷坑）。</p>
+    <div class="callout">
+      <span class="t">性能顾虑？</span>
+      字符串字典查找是 O(1) 哈希，事件名是编译期常量；派发路径上<b>没有任何字符串拼接</b>。
+      和 <code>ulong</code> 版本的差距远小于"可读、可自定义"带来的收益。
+    </div>
+
+    <h3>2.5 派发中增删监听者：旧版没有保护</h3>
+    <p>这是事件系统最经典的事故现场：</p>
+    <pre>正在按索引遍历监听者列表派发
+    → 某个回调里反注册了自己（或别人）
+    → 列表被缩短，下标整体错位
+    → 漏调用、重复调用，甚至越界崩溃</pre>
+    <p>旧版没有任何保护：<code>RemoveAll</code> 直接改 <code>List</code>，<code>delegate +=/-=</code> 直接换委托链。</p>
+    <p>新版用王者那套"<b>标记删除 + 派发后统一清理</b>"：</p>
+    <pre><span class="c">// 删除时：正在派发 → 只打标记，不摘列表</span>
+<span class="k">if</span> (_dispatchDepth &gt; <span class="n">0</span>)
+{
+    _listeners[index].Abandon();       <span class="c">// Handler = null; IsAbandoned = true;</span>
+    _changedInDispatch = <span class="k">true</span>;
+    <span class="k">return</span>;
+}</pre>
+    <p>配套三条硬约定（都有断言验证，见第七章）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:46%">场景</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>回调里反注册自己</td><td>本次仍被调用 1 次（不重复），下一轮不再调用</td></tr>
+          <tr><td>回调里摘掉"还没轮到"的监听者</td><td>它本轮<b>不会</b>被执行</td></tr>
+          <tr><td>回调里新增监听者</td><td><b>本轮不执行</b>（派发范围在开始时已锁定），下一轮才生效</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>好处不止"不崩"：<b>整个派发过程零复制、零分配</b> —— 不用为了安全先拷一份列表（旧版那种做法）。</p>
+
+    <h3>2.6 不做 async 派发</h3>
+    <p>旧版有 22 个 <code>EventTriggerAsync</code> 重载，签名是 <code>public async void EventTriggerAsync&lt;T&gt;(...)</code>。<code>async void</code> 有两个硬伤：</p>
+    <ol>
+      <li><b>异常没法被捕获</b> —— 监听者里抛的异常不会回到调用方，直接进全局未处理异常；</li>
+      <li><b>顺序无保证</b> —— 你不知道谁先谁后，而事件系统的大量用法（"先刷数据再刷界面"）恰恰依赖顺序。</li>
+    </ol>
+    <p>新版<b>不提供异步派发</b>。正确姿势是：需要异步就先把异步做完，再派发。</p>
+    <pre><span class="c">// 该这样：await 完再派发</span>
+<span class="k">await</span> LoadSkinAsync(skinId);
+RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroSkinAddArgs(heroId, skinId));</pre>
+
+    <h3>2.7 内存与 GC</h3>
+    <p>旧版每次注册都会 <code>new EventInfo&lt;T&gt;(action)</code> 并 <code>actions += action</code>（产生新的委托链对象），
+      监听者列表用的是 <code>List</code> 默认容量 4，而且<b>优先级每次 <code>Add</code> 都全量 <code>Sort</code> 一遍</b>。</p>
+    <p>新版三处针对性优化（第 3.2、3.3 节详细说）：节点对象池、列表容量预留 1、优先级脏标记。
+      工程外实测：结构体载荷连续派发 10000 次、<code>AddEventListener</code>/<code>RemoveEventListener</code> 10000 轮，
+      <b>GC 分配均为 0 字节</b>。</p>
+
+    <h3>2.8 泄漏防护：销毁时一把摘干净</h3>
+    <p>旧版只能一个个 <code>RemoveXxx</code>。UI 界面注册了 5 个事件、销毁时漏掉一个，那一个就会让事件系统
+      <b>一直攥着已销毁的界面对象</b> —— 对象回收不了，而且下次派发还会执行到它（访问已销毁的 <code>GameObject</code>，直接报错）。</p>
+    <p>新版提供按归属对象批量移除：</p>
+    <pre><span class="k">private void</span> OnDestroy() =&gt; RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
+    <p>而且<b>不传 owner 也能兜底</b>：注册时若没显式指定 owner，会自动取 <code>Handler.Target</code>（委托的目标对象），
+      所以<b>注册实例方法</b>的场景天然支持批量移除。</p>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>运用了王者的哪些设计哲学</h2>
+    <p>对照《01-事件系统.md》（王者 <code>CEventDispatcher</code> 分析）里的五个亮点，逐条说落地情况：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:16%">王者的设计</th><th style="width:38%">王者里的实现</th><th>新版落地</th></tr></thead>
+        <tbody>
+          <tr><td>① 派发中修改保护</td><td><code>CEventHandler.m_isAbandon</code> + <code>m_isInDispatchingCounter</code> + <code>m_isHandlerListChangedInDispatching</code></td><td><code>RevEventListener.IsAbandoned</code> + <code>RevEventHandlerGroup</code> 的 <code>_dispatchDepth</code> / <code>_changedInDispatch</code>；<b>并额外覆盖嵌套派发</b></td></tr>
+          <tr><td>② 内存优化：容量预留 1</td><td><code>new ListView&lt;CEventHandler&gt;(1)</code>，"默认 4 会浪费约 75%"</td><td><code>new List&lt;RevEventListener&gt;(1)</code>，注释里写明来由</td></tr>
+          <tr><td>③ handler 对象池</td><td><code>Queue&lt;CEventHandler&gt; m_eventHandlerUnuse</code></td><td><code>RevEventListener</code> 静态池（上限 512），<code>Rent()</code> / <code>Return()</code></td></tr>
+          <tr><td>④ 异常隔离</td><td>每个监听者单独 try-catch + <code>s_onDispatchEventException</code> 全局回调</td><td>每个监听者独立 try-catch + <code>RevEvent.OnException</code> / <code>Log</code> 出口（另有 <code>RethrowOnException</code> 调试开关）</td></tr>
+          <tr><td>⑤ 按观察者批量移除</td><td><code>RemoveEventHandlersByObserver(object)</code></td><td><code>RevEvent.RemoveAllByOwner(object)</code>（并支持委托 Target 自动推断）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>3.1 派发中修改保护（最重要的一条）</h3>
+    <p>王者的解法是"标记删除 + 派发后统一清理"。新版实现里有两个细节值得单独说：</p>
+    <p><b>① 派发深度计数（支持嵌套派发）</b></p>
+    <pre><span class="k">internal void</span> EndDispatch()
+{
+    <span class="k">if</span> (_dispatchDepth &gt; <span class="n">0</span>) _dispatchDepth--;
+
+    <span class="k">if</span> (_dispatchDepth &gt; <span class="n">0</span>) <span class="k">return</span>;          <span class="c">// 嵌套派发没结束，先别动列表</span>
+    <span class="k">if</span> (!_changedInDispatch) <span class="k">return</span>;          <span class="c">// 期间没增删 → 无事可做（绝大多数情况走这里）</span>
+    _changedInDispatch = <span class="k">false</span>;
+    CleanupAbandoned();
+}</pre>
+    <p>"A 事件的回调里又派发 A"是真实存在的用法（比如"获得皮肤"里嵌套触发"英雄属性变化"）。
+      深度计数保证<b>清理只在最外层结束时做一次</b> —— 否则内层一结束就把还在遍历的列表改了。</p>
+    <p><b>② 派发范围在开始时锁定</b></p>
+    <pre>List&lt;RevEventListener&gt; list = group.Listeners;
+<span class="k">int</span> count = list.Count;                  <span class="c">// ★ 本次派发的范围在开始时锁定</span>
+<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; count; i++) { ... }</pre>
+    <p>循环用 <code>count</code> 而不是每次重新读 <code>list.Count</code>。这一行的差别是：
+      <b>派发中新增的监听者不会在本轮被"越派越多"地执行</b>，行为完全可预期。</p>
+
+    <h3>3.2 内存优化：容量预留 1</h3>
+    <p>王者的注释是这么说的：业务场景下绝大部分事件只有 1 个监听者，若让 <code>List</code> 按默认容量 4 分配，
+      每个事件浪费 3 个槽位；王者有几千个事件，合计约 75% 的浪费。</p>
+    <p>新版照抄这个判断：</p>
+    <pre><span class="c">// ★ 容量预留 1：绝大多数事件只有 1 个监听者</span>
+<span class="k">private readonly</span> List&lt;RevEventListener&gt; _listeners = <span class="k">new</span> List&lt;RevEventListener&gt;(<span class="n">1</span>);</pre>
+    <p>这是"<b>了解业务特征之后做针对性优化</b>"的典型 —— 不是拍脑袋调参数，而是先看业务长什么样。</p>
+
+    <h3>3.3 对象池</h3>
+    <p>节点在 <code>Add</code> / <code>Remove</code> 时频繁创建销毁，UI 反复开关（<code>OnEnable</code> / <code>OnDisable</code>）时尤其密集。新版让节点走池：</p>
+    <pre><span class="k">internal static</span> RevEventListener Rent()  =&gt; Pool.Count &gt; <span class="n">0</span> ? Pool.Dequeue() : <span class="k">new</span> RevEventListener();
+<span class="k">internal static void</span> Return(RevEventListener node) { node.Reset(); <span class="k">if</span> (Pool.Count &lt; PoolCapacity) Pool.Enqueue(node); }</pre>
+    <div class="callout warn">
+      关键细节：<code>Return</code> 前必须 <code>Reset()</code> 把 <code>Handler</code> / <code>Owner</code> 清空 ——
+      <b>否则池会替已销毁的对象"续命"，池自己就变成了泄漏源</b>。这一点在 <code>Reset()</code> 的注释里写死了。
+    </div>
+
+    <h3>3.4 异常隔离</h3>
+    <p>一个模块的 bug 不该拖垮整个事件系统，但也不能一声不响。新版的策略是"<b>隔离 + 必定有出口</b>"：</p>
+    <pre><span class="k">try</span> { typed(arg1); invoked++; }
+<span class="k">catch</span> (Exception e)
+{
+    RevEvent.ReportHandlerException(name, e, node);     <span class="c">// 上报（不影响其他监听者）</span>
+    <span class="k">if</span> (RevEvent.RethrowOnException) <span class="k">throw</span>;             <span class="c">// throw; 保留原始调用栈</span>
+}</pre>
+    <ul>
+      <li>默认：上报后继续执行其余监听者（隔离）；</li>
+      <li><code>RethrowOnException = true</code>（调试开关）：立刻向外抛，<b>调试器能停在真正出错的那一行</b>，而不是停在这段 catch 里；</li>
+      <li>上报信息里会<b>点名是哪个监听者</b>（<code>类型名.方法名(owner=…, priority=…)</code>），省掉"到底谁干的"的排查。</li>
+    </ul>
+    <div class="callout">
+      容易忽略的点：<code>RethrowOnException</code> 抛出异常时，整个派发是通过 <code>finally { group.EndDispatch(); }</code> 退出的，
+      所以<b>派发深度一定会退回去</b>，不会出现"这个事件永久卡在派发中"的二次事故（有断言专门验这一条）。
+    </div>
+
+    <h3>3.5 按观察者批量移除</h3>
+    <p>见 2.8。这条是防泄漏的"兜底网"，也是王者被评为 ★★★★★ 的设计。</p>
+
+    <h3>3.6 我故意和王者不一样的地方</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:14%">差异</th><th style="width:26%">王者做法</th><th style="width:26%">新版做法</th><th>为什么</th></tr></thead>
+        <tbody>
+          <tr><td>事件键</td><td><code>ulong</code> 事件 ID（自动生成的 <code>EventID.cs</code>）</td><td><code>string</code> + 业务自定义静态常量</td><td>王者有几千个事件、要求极致性能，且有大团队维护生成器；小项目里"业务自己能加事件、日志可读"更重要。差距是常量级的哈希查找，不是数量级</td></tr>
+          <tr><td>类型不匹配</td><td><code>as</code> 转换，失败即静默</td><td><b>大声报出两侧类型</b></td><td>王者那套有生成器保证 ID 和签名一致；这里没有生成器兜底，就必须让错误自己冒出来</td></tr>
+          <tr><td>局部事件路由</td><td><code>CLocalEventRouter</code>（子节点向上冒泡、任一层处理即停）</td><td><b>本期未纳入</b></td><td>它是独立子系统（适合 UI 层级事件），不影响全局事件；需要时可以按同样风格补一个</td></tr>
+          <tr><td>异步派发</td><td>无</td><td>无（旧框架有，被砍掉）</td><td><code>async void</code> 的异常与顺序问题大于它的便利</td></tr>
+          <tr><td>优先级</td><td>无</td><td><b>有</b>（可选，默认 0）</td><td>旧框架有、业务习惯有这个能力（如"先刷数据再埋点"），保留但做成"只有真用到才付排序代价"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>新版事件系统怎么用</h2>
+
+    <h3>4.1 定义事件名：静态常量类（别手写字符串）</h3>
+    <pre><span class="c">// 业务侧：把事件名集中在一处（建议放在你自己的 Config 或 Const 目录下）</span>
+<span class="k">public static class</span> GameEventId
+{
+    <span class="k">public const string</span> HeroSkinAdd   = <span class="s">"Hero.Skin.Add"</span>;
+    <span class="k">public const string</span> BagItemChange = <span class="s">"Bag.Item.Change"</span>;
+    <span class="k">public const string</span> SceneLoaded   = <span class="s">"Scene.Loaded"</span>;
+}</pre>
+    <ul>
+      <li><code>const</code> 而不是 <code>static readonly</code>：<code>const</code> 能被编译器直接内联，零访问成本；</li>
+      <li>命名建议 <code>模块.对象.动作</code>（<code>Hero.Skin.Add</code>）：日志里一眼看出谁发的，也天然避免了跨模块重名；</li>
+      <li><b>不要手写字符串字面量</b>。<code>DispatchEvent("Hero.Skin.Ad", …)</code> 拼错一个字母不会报错，只会没人响应。</li>
+    </ul>
+
+    <h3>4.2 定义事件参数：结构体</h3>
+    <pre><span class="c">// 业务侧：事件参数结构体（只放数据，不放对象引用）</span>
+<span class="k">public readonly struct</span> HeroSkinAddArgs
+{
+    <span class="k">public readonly</span> <span class="k">uint</span> HeroId;
+    <span class="k">public readonly</span> <span class="k">uint</span> SkinId;
+    <span class="k">public readonly</span> <span class="k">uint</span> From;        <span class="c">// 来源：商城 / 活动 / 赠送</span>
+
+    <span class="k">public</span> HeroSkinAddArgs(<span class="k">uint</span> heroId, <span class="k">uint</span> skinId, <span class="k">uint</span> from)
+    {
+        HeroId = heroId; SkinId = skinId; From = from;
+    }
+}</pre>
+    <p>为什么推荐结构体：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">好处</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>零装箱</td><td>泛型委托 <code>Action&lt;T&gt;</code> 的 <code>T</code> 是结构体时不会装箱（实测 10000 次派发 0 分配）</td></tr>
+          <tr><td>加字段不破坏签名</td><td>以后要加"来源"字段，注册方签名 <code>Action&lt;HeroSkinAddArgs&gt;</code> 一个字都不用改</td></tr>
+          <tr><td>语义清晰</td><td><code>DispatchEvent(id, args)</code> 里 <code>args.From</code> 比第三个裸 <code>uint</code> 好读得多</td></tr>
+          <tr><td>类型即签名</td><td>监听者写 <code>void OnSkinAdd(HeroSkinAddArgs a)</code>，越界传参会编译报错</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>配套约定：<b><code>readonly struct</code> + 只读字段</b>。事件参数是"传阅的通知单"，谁都不该改它
+      （结构体是值传递，改了别人也看不见，反而更容易写出自欺欺人的代码）。</p>
+
+    <h3>4.3 注册监听</h3>
+    <pre><span class="c">// 最简：参数类型由方法推断，不用写 &lt;HeroSkinAddArgs&gt;</span>
+RevEvent.AddEventListener(GameEventId.HeroSkinAdd, OnSkinAdd);
+
+<span class="k">private void</span> OnSkinAdd(HeroSkinAddArgs args) { <span class="c">/* 刷新英雄界面 */</span> }</pre>
+    <p>带 <code>owner</code>（<b>推荐</b>，销毁时能一把摘干净）：</p>
+    <pre>RevEvent.AddEventListener(GameEventId.HeroSkinAdd, OnSkinAdd, owner: <span class="k">this</span>);</pre>
+    <p>带优先级（越大越先执行，同优先级按注册顺序）：</p>
+    <pre>RevEvent.AddEventListener(GameEventId.HeroSkinAdd, RefreshData, priority: <span class="n">10</span>);   <span class="c">// 先刷数据</span>
+RevEvent.AddEventListener(GameEventId.HeroSkinAdd, Report,      priority: <span class="n">-10</span>);  <span class="c">// 再埋点上报</span></pre>
+    <p>三个可选参数（都是命名参数用法最清楚）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:16%">参数</th><th style="width:14%">默认</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>priority</code></td><td><code>0</code></td><td>越大越先执行；同优先级保持注册顺序</td></tr>
+          <tr><td><code>owner</code></td><td><code>null</code></td><td>归属对象，用于 <code>RemoveAllByOwner</code>；不传则取 <code>handler.Target</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.4 派发事件</h3>
+    <pre><span class="k">int</span> invoked = RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroSkinAddArgs(heroId, skinId, from));</pre>
+    <p>返回值是<b>实际被调用的监听者数量</b>，两个用途：</p>
+    <ol>
+      <li>写断言 / 单测时判断"到底有没有人收"；</li>
+      <li>排查时打印一句就知道链路通没通：<code>if (invoked == 0) Debug.LogWarning(...)</code>。</li>
+    </ol>
+    <div class="callout">
+      不想每次手写判断，就打开 <code>RevEvent.LogNoListener = true</code>（见 4.7），派发无人监听时框架会自己告警。
+    </div>
+
+    <h3>4.5 反注册的两种姿势</h3>
+    <p><b>姿势一：按委托精确移除</b>（返回是否真的移除了）</p>
+    <pre>RevEvent.RemoveEventListener(GameEventId.HeroSkinAdd, OnSkinAdd);</pre>
+    <p>方法组、缓存的委托变量都能匹配上 —— 比较的是"目标对象 + 方法"，不是引用。</p>
+    <p><b>姿势二：按归属对象批量移除</b>（★ 销毁时的标准动作）</p>
+    <pre><span class="k">private void</span> OnDestroy() =&gt; RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
+    <div class="callout good">
+      口诀：<b>注册的时候写了 <code>owner: this</code>，销毁的时候就写 <code>RemoveAllByOwner(this)</code>。</b>
+      一个对象注册了多个事件却逐个反注册，迟早会漏一个。
+    </div>
+
+    <h3>4.6 参数个数：0 ~ 4</h3>
+    <pre><span class="c">// 0 参数</span>
+RevEvent.AddEventListener(GameEventId.SceneLoaded, OnSceneLoaded);
+RevEvent.DispatchEvent(GameEventId.SceneLoaded);
+
+<span class="c">// 1 参数（推荐用结构体）</span>
+RevEvent.AddEventListener&lt;HeroSkinAddArgs&gt;(GameEventId.HeroSkinAdd, OnSkinAdd);
+RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, args);
+
+<span class="c">// 2 / 3 / 4 参数</span>
+RevEvent.AddEventListener&lt;<span class="k">int</span>, <span class="k">int</span>&gt;(GameEventId.BagItemChange, OnBagItemChange);
+RevEvent.DispatchEvent(GameEventId.BagItemChange, itemId, count);
+
+<span class="c">// 5 个参数以上？定义结构体，不要堆参数</span>
+<span class="k">public readonly struct</span> BattleResultArgs { <span class="c">/* 结果、时长、击杀数、评分… */</span> }</pre>
+
+    <h3>4.7 四个配置开关</h3>
+    <pre>RevEvent.Log                  = msg =&gt; Debug.LogWarning(msg);      <span class="c">// 普通消息出口</span>
+RevEvent.OnException          = (e, msg) =&gt; { <span class="c">/* 上报到埋点 */</span> };     <span class="c">// 监听者异常出口</span>
+RevEvent.RethrowOnException   = <span class="k">true</span>;                              <span class="c">// 调试：异常立刻抛出（定位完记得关）</span>
+RevEvent.LogNoListener        = <span class="k">true</span>;                              <span class="c">// 调试：派发无人监听就告警</span></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">成员</th><th style="width:30%">默认</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Log</code></td><td>Unity 下自动接 <code>Debug.LogWarning</code></td><td>空事件名、签名不匹配等消息的出口</td></tr>
+          <tr><td><code>OnException</code></td><td>Unity 下自动接 <code>Debug.LogError</code> + <code>Debug.LogException</code></td><td>监听者抛异常的出口；自定义上报时<b>记得自己也把异常打出来</b>，否则 Console 里会没有</td></tr>
+          <tr><td><code>RethrowOnException</code></td><td><code>false</code></td><td>打开后异常不再被隔离，调试器能停在真正出错的那一行</td></tr>
+          <tr><td><code>LogNoListener</code></td><td><code>false</code></td><td>打开后"发了没人收"会告警，<b>同一个事件名只提示一次</b>，不刷屏</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      Unity 下的默认出口由 <code>Support\RevEventUnityHooks.cs</code> 在进入 Play 时自动装上；<b>已经自己设过就不覆盖</b>。
+    </div>
+
+    <h3>4.8 诊断 API</h3>
+    <pre>RevEvent.GetListenerCount(GameEventId.HeroSkinAdd);   <span class="c">// 这个事件上挂了多少监听者</span>
+RevEvent.HasListener(GameEventId.HeroSkinAdd);        <span class="c">// 有没有人监听</span>
+RevEvent.GetAllEventNames();                          <span class="c">// 还有监听者的事件名清单（已排序，便于对比快照找泄漏）</span>
+RevEvent.Clear(GameEventId.HeroSkinAdd);              <span class="c">// 清空单个事件</span>
+RevEvent.ClearAll();                                  <span class="c">// 清空全部（切账号 / 回登录 / 重开一局）</span></pre>
+    <p>找泄漏的用法：在切界面前后各打一次 <code>GetAllEventNames()</code>，<b>多出来的那些就是没反注册干净的</b>。</p>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>必须知道的五个坑</h2>
+
+    <h3>5.1 用 lambda 注册，<code>RemoveEventListener</code> 匹配不上</h3>
+    <pre><span class="c">// ✗ 摘不掉：同一个 lambda 每次执行都会生成新的委托实例，比较不相等</span>
+RevEvent.AddEventListener(GameEventId.HeroSkinAdd, a =&gt; Refresh());
+RevEvent.RemoveEventListener(GameEventId.HeroSkinAdd, a =&gt; Refresh());   <span class="c">// 匹配不上！</span>
+
+<span class="c">// ✓ 姿势一：把委托存成字段</span>
+<span class="k">private</span> Action&lt;HeroSkinAddArgs&gt; _onSkinAdd;
+_onSkinAdd = OnSkinAdd;
+RevEvent.AddEventListener(GameEventId.HeroSkinAdd, _onSkinAdd);
+RevEvent.RemoveEventListener(GameEventId.HeroSkinAdd, _onSkinAdd);
+
+<span class="c">// ✓ 姿势二：传 owner，销毁时批量摘（推荐）</span>
+RevEvent.AddEventListener(GameEventId.HeroSkinAdd, a =&gt; Refresh(), owner: <span class="k">this</span>);
+RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
+
+    <h3>5.2 lambda 捕获了 <code>this</code>，<code>RemoveAllByOwner(this)</code> 也不会命中</h3>
+    <p>不传 <code>owner</code> 时，框架取的是 <code>handler.Target</code>。
+      <b>lambda 捕获 <code>this</code> 时，<code>Target</code> 是编译器生成的闭包对象，不是你的类实例</b>。所以：</p>
+    <pre>RevEvent.AddEventListener(GameEventId.HeroSkinAdd, a =&gt; Refresh(), owner: <span class="k">this</span>);   <span class="c">// ★ 显式传，别省</span></pre>
+
+    <h3>5.3 同一个事件名只能有一种签名</h3>
+    <p><code>"Hero.Skin.Add"</code> 的所有监听者必须都是 <code>Action&lt;HeroSkinAddArgs&gt;</code>。混用不会崩，
+      但每次派发都会报"签名不匹配"并跳过多余的那个 —— <b>这是一条硬约定，不是建议</b>。
+      排查时看到这条日志，说明有地方注册错了类型。</p>
+
+    <h3>5.4 派发中增删的约定（记不住就记这三条）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:46%">你在回调里做的事</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>反注册自己</td><td>本次仍会被调用 1 次；下一轮不再调用</td></tr>
+          <tr><td>反注册别人（还没轮到）</td><td>它本轮不会被执行</td></tr>
+          <tr><td>新增监听者</td><td>本轮不执行；下一轮生效</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.5 主线程 + 域重载</h3>
+    <ul>
+      <li><b>只在主线程用</b>：<code>AddEventListener</code> / <code>DispatchEvent</code> / <code>RemoveEventListener</code> 都是。
+        子线程里要发事件，先把数据切回主线程再派发。系统内部不加锁，这是有意的（Unity 的绝大多数 API 也是这个约定）。</li>
+      <li><b>静态数据会被自动重置</b>：关闭 Domain Reload 的"快速进入 Play 模式"下，静态字段不会自动清空。
+        <code>Support\RevEventUnityHooks.cs</code> 在 <code>SubsystemRegistration</code> 阶段调了一次 <code>RevEvent.ResetAll()</code>，
+        避免上一次运行的监听者"活到"这一次。</li>
+    </ul>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>API 速查</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:16%">分类</th><th style="width:46%">方法</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>注册</td><td><code>AddEventListener(name, handler, priority = 0, owner = null)</code></td><td>0~4 参数共 5 个重载</td></tr>
+          <tr><td>派发</td><td><code>DispatchEvent(name, …)</code></td><td>0~4 参数共 5 个重载，返回被调用的监听者数</td></tr>
+          <tr><td>反注册</td><td><code>RemoveEventListener(name, handler)</code></td><td>5 个重载，返回是否真的移除了</td></tr>
+          <tr><td>批量移除</td><td><code>RemoveAllByOwner(owner)</code></td><td>跨所有事件，返回移除数量</td></tr>
+          <tr><td>清理</td><td><code>Clear(name)</code> / <code>ClearAll()</code> / <code>ResetAll()</code></td><td>单个 / 全部 / 连对象池一起</td></tr>
+          <tr><td>诊断</td><td><code>GetListenerCount</code> / <code>HasListener</code> / <code>GetAllEventNames</code></td><td>最后一个会分配，仅调试用</td></tr>
+          <tr><td>配置</td><td><code>Log</code> / <code>OnException</code> / <code>RethrowOnException</code> / <code>LogNoListener</code></td><td>见 4.7</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>验证结果</h2>
+    <p>核心（<code>RevEvent</code> / <code>RevEventCenter</code> / <code>RevEventHandlerGroup</code> / <code>RevEventListener</code>）是
+      <b>纯 C#、不引用 UnityEngine</b>，所以能在工程外直接跑断言 —— 验的就是要提交的那份源码：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:58%">验证项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>行为断言（0~4 参数、派发中增删、嵌套派发、异常隔离、签名不匹配、优先级、owner 批量移除、清理与诊断…）</td><td><b>50 项全部通过</b></td></tr>
+          <tr><td>结构体载荷连续派发 10000 次</td><td><b>GC 分配 0 字节</b>（泛型委托没有装箱）</td></tr>
+          <tr><td><code>AddEventListener</code> / <code>RemoveEventListener</code> 10000 轮</td><td><b>GC 分配 0 字节</b>（节点确实走的对象池）</td></tr>
+          <tr><td><code>LangVersion 9.0</code>（对齐 Unity 2022.3）</td><td>编译通过</td></tr>
+          <tr><td>整个 <code>Revolution.Runtime</code> 程序集（Unity 真实引用 + <code>UNITY_EDITOR</code>）</td><td><b>0 错误 0 警告</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>其中几条最值得关注的断言（都是"写的时候看不错、跑起来才知道"的类型）：</p>
+    <ul>
+      <li>回调里反注册自己：本次仍被调用 1 次，下一轮不再调用；</li>
+      <li>摘掉"还没轮到"的监听者：本轮就不执行它；</li>
+      <li>嵌套派发同一事件：外层 1 次 + 内层 1 次，不死循环，且<b>内层不会提前清理列表</b>；</li>
+      <li><code>RethrowOnException</code> 抛出后：派发深度正常退回，事件不会"卡在派发中"；</li>
+      <li>签名不匹配：报错信息里同时含 <code>Action&lt;Int32&gt;</code> 和 <code>Action&lt;HeroSkinAddArgs&gt;</code>。</li>
+    </ul>
+  </section>
+
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>关键文件索引</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Runtime\EventSystem\Facade\RevEvent.cs</code></td><td><b>业务唯一入口</b>：<code>AddEventListener</code> / <code>DispatchEvent</code> / <code>RemoveEventListener</code> / 配置 / 诊断</td></tr>
+          <tr><td><code>Runtime\EventSystem\Core\RevEventCenter.cs</code></td><td>派发引擎：事件名 → 监听者集合的表 + 0~4 参数派发循环</td></tr>
+          <tr><td><code>Runtime\EventSystem\Core\RevEventHandlerGroup.cs</code></td><td>单个事件的监听者集合：派发中增删保护、优先级排序、清理</td></tr>
+          <tr><td><code>Runtime\EventSystem\Core\RevEventListener.cs</code></td><td>单个监听者节点 + 对象池</td></tr>
+          <tr><td><code>Runtime\EventSystem\Support\RevEventUnityHooks.cs</code></td><td>Unity 集成：日志出口 + 进 Play / 域重载重置</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>三方对照（想深挖设计取舍的话）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">参考资料</th><th>位置</th></tr></thead>
+        <tbody>
+          <tr><td>王者事件系统设计分析（五个亮点）</td><td><code>工作日志\第二月\第5周\2026年9月15日\框架\01-事件系统.md</code></td></tr>
+          <tr><td>旧版事件系统（对照用，未改动）</td><td><code>唐老师框架升级版\Runtime\事件中心\</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 九 ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>本期没做的（可后续扩展）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>局部事件路由（树形冒泡）</td><td>王者 <code>CLocalEventRouter</code>：子节点派发 → 自己处理不了就向上冒泡。适合 UI 层级事件，属独立子系统</td></tr>
+          <tr><td><code>AddOnce</code>（只监听一次）</td><td>目前可在回调第一行 <code>RemoveEventListener</code> 达到同样效果；真需要再补一个 <code>once</code> 参数</td></tr>
+          <tr><td>事件名生成器</td><td>像 <code>RevResPath</code> 那样扫代码生成 <code>GameEventId</code> 静态常量类，把"事件名来自哪里"也纳入编译期保护</td></tr>
+          <tr><td>异步派发</td><td>有意不做，见 2.6</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout good">
+      <b>一句话总结：这套系统的目标不是"功能更多"，而是"出错时一定看得见"</b> ——
+      参数收窄到 4 个逼你用结构体、类型不匹配大声报、派发中增删有明确约定、销毁有 owner 兜底、无人监听可告警。
+      这些加起来，才让"发了事件没人收"这类最难查的问题变得好查。
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets\Revolution\Runtime\EventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）。
+</footer>
+
+</body>
+</html>

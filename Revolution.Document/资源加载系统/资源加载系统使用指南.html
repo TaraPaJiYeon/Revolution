@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>资源加载系统 · 使用指南</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用指南</span>
+    <h1>资源加载系统 · 使用指南</h1>
+    <p>覆盖：<code>Assets\Revolution\Runtime\ResourceSystem\</code>（运行时）+ <code>Assets\Revolution\Editor\ResourceSystem\ABTool\</code>（打包工具）</p>
+    <p class="meta">目标：看完能独立完成"放资源 → 分包 → 打包 → 一行代码加载 → 正确释放"</p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#s1">一、一行代码加载资源</a></li>
+      <li><a href="#s2">二、资源应该放到哪个路径</a></li>
+      <li><a href="#s3">三、AB 包怎么划分</a></li>
+      <li><a href="#s4">四、打包流程与注意事项</a></li>
+      <li><a href="#s5">五、运行时生命周期</a></li>
+      <li><a href="#s6">六、加载失败排查表</a></li>
+      <li><a href="#s7">七、完整示例：界面开关</a></li>
+      <li><a href="#s8">八、关键文件索引</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <pre><span class="n">①</span> 资源放到      <b>「资源根目录」</b>下（先在打包窗口里指定，如 Assets/GameRes；目录随便分，嵌套多少级都行）
+<span class="n">②</span> 给文件夹设 AB 名（Inspector 右下角）→ 菜单 <b>Revolution.Tools/资源/LiteAB 打包工具</b>
+                →「检查」页签确认没有"漏标"资源 → 一键打包
+<span class="n">③</span> 加载          Sprite icon = ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);</pre>
+    <p>就这三步，剩下的都是这三步的细节。</p>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>一行代码加载资源</h2>
+
+    <h3>1.1 同步：一行（编辑器直读 / 已经缓存过）</h3>
+    <pre>Sprite icon = ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);</pre>
+    <ul>
+      <li>第一个参数是<b>根目录段</b>（用生成的 <code>RevResPath</code> 常量，见 1.4；<b>资源就在资源根目录下</b>时传 <code>""</code>）；</li>
+      <li>第二个参数是<b>资源名</b>（不带扩展名；也可以再带子目录，见第 2 章的多级嵌套）；</li>
+      <li>第三个参数是<b>资源分组</b>（决定切场景时会不会被整组卸掉，见第五章）；</li>
+      <li>两段会被拼成完整逻辑路径 <code>UI/Icon/Hero_1001</code> —— <b>拼这一步业务不用管，也不需要自己写 <code>/</code></b>；</li>
+      <li>失败返回 <code>null</code>；想拿失败原因就用 <code>LoadHandle&lt;T&gt;</code>（<b>同样用泛型，不用写 <code>typeof</code></b>）：</li>
+    </ul>
+    <pre>ResHandle handle = ResManager.LoadHandle&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);
+<span class="k">if</span> (!handle.IsLoaded) Debug.LogError($<span class="s">"加载失败：{handle.ErrorReason}"</span>);</pre>
+
+    <h3>1.2 异步：真机首次加载必须用这个</h3>
+    <div class="callout warn">
+      <span class="t">为什么必须异步</span>
+      真机上资源在 AB 包里，<code>AssetBundle.LoadFromFileAsync</code> 是异步操作，同步 <code>Load</code> 拿不到内容；编辑器里因为直读工程，同步才好使。
+      <b>"编辑器能跑、真机拿不到"就是这类系统的经典错觉。</b>
+    </div>
+    <p>系统提供的异步接口<b>用泛型就行，不需要写 <code>typeof</code></b>：</p>
+    <pre>ResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, sprite =&gt;
+{
+    <span class="k">if</span> (sprite == null) <span class="k">return</span>;          <span class="c">// 失败：回调收到的就是 null</span>
+    image.sprite = sprite;
+}, ResGroup.UI);</pre>
+    <div class="callout good">
+      <b>泛型填什么，框架内部就自动 <code>as</code> 成什么</b> —— 业务侧一行类型转换都不用写，也不用 <code>typeof</code>
+      （框架内部只有一句 <code>handle.Content as T</code>）。<br>
+      需要"失败原因 / 加载中"这类细节时，<b>把返回值接住就行</b>，不必换成别的重载：
+    </div>
+    <pre>ResHandle h = ResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, s =&gt; image.sprite = s, ResGroup.UI);
+<span class="k">if</span> (!h.IsLoaded) Debug.LogError($<span class="s">"失败：{h.ErrorReason}"</span>);</pre>
+
+    <h3>1.3 想要"一行"的异步写法？在业务侧包一层</h3>
+    <p>系统自带<b>自研 RevTask</b>（<code>Runtime\RevTask\</code>），包一层就能 <code>await</code>：</p>
+    <pre><span class="c">/// &lt;summary&gt;业务侧封装：把回调式异步变成 await 式（放在你自己的 ResExt.cs 里）&lt;/summary&gt;</span>
+<span class="k">public static</span> RevTask&lt;T&gt; LoadAsync&lt;T&gt;(<span class="k">string</span> rootPath, <span class="k">string</span> resName, ResGroup group = ResGroup.Unknown)
+    <span class="k">where</span> T : UnityEngine.Object
+{
+    <span class="k">var</span> source = RevTask&lt;T&gt;.CreateSource();
+    ResManager.LoadAsync&lt;T&gt;(rootPath, resName, obj =&gt;
+    {
+        <span class="k">if</span> (obj != null) { source.SetResult(obj); <span class="k">return</span>; }
+        <span class="c">// 失败原因从资源系统缓存里的句柄上取（查询同样是两参数）</span>
+        ResLoadErrorReason reason = ResManager.Get(rootPath, resName).ErrorReason;
+        <span class="c">// 要打日志时把两段拼成完整路径</span>
+        source.SetException(<span class="k">new</span> System.Exception(
+            $<span class="s">"[Res] {ResPathUtil.Join(rootPath, resName)} 加载失败：{reason}"</span>));
+    }, group);
+    <span class="k">return</span> source.Task;
+}
+
+<span class="c">// 用起来就是一行：</span>
+Sprite icon = <span class="k">await</span> LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);</pre>
+    <div class="callout good">
+      同一份资源被多处并发请求时<b>只会真正加载一次</b>，回调自动合并（<code>AsyncLoadPump</code> 负责排队限流，默认最多 4 个并发）。
+    </div>
+
+    <h3>1.4 更推荐：生成的 <code>RevResPath</code> 目录常量 + 两参数 API</h3>
+    <p>打包工具会扫描「资源根目录」下的<b>所有文件夹</b>（含多级嵌套），生成 <code>Assets/Revolution/Generation/RevResPath.cs</code>，
+      每个文件夹一条常量（值都带结尾 <code>/</code>）：</p>
+    <pre><span class="c">// ❌ 手写整条逻辑路径：资源名那一段写错，要等运行时才知道"资源找不到"</span>
+ResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Icon/Hero_1001"</span>, ResGroup.UI);          <span class="c">// ← 旧写法，现在的 API 参数对不上</span>
+
+<span class="c">// ✅ 目录段用常量（编译期保护 + IDE 补全），资源名单独一个参数</span>
+ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);</pre>
+    <p>生成物长这样（节选）：</p>
+    <pre><span class="k">public static class</span> RevResPath
+{
+    <span class="k">public const string</span> UI                      = <span class="s">"UI/"</span>;
+    <span class="k">public const string</span> UI_Icon                 = <span class="s">"UI/Icon/"</span>;
+    <span class="k">public const string</span> UI_UIPanel              = <span class="s">"UI/UIPanel/"</span>;
+    <span class="k">public const string</span> UI_UIPanel_LobbyPanel    = <span class="s">"UI/UIPanel/LobbyPanel/"</span>;
+    <span class="c">// ...</span>
+}</pre>
+    <p><b>为什么是"目录常量 + 资源名"两个参数，而不是一条完整路径字符串？</b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">对比项</th><th>两参数（现在）</th><th>一条完整路径</th></tr></thead>
+        <tbody>
+          <tr><td>新增资源</td><td><b>不用重新生成</b>（目录没变）</td><td>必须重跑生成，否则常量还不存在</td></tr>
+          <tr><td>生成物大小</td><td>只跟<b>目录数</b>有关</td><td>跟<b>资源数</b>成正比，几千行</td></tr>
+          <tr><td>编译期保护</td><td>目录这一段 ✔</td><td>整条路径 ✔</td></tr>
+          <tr><td>写法</td><td><code>RevResPath.UI_Icon, "Hero_1001"</code></td><td><code>"UI/Icon/Hero_1001"</code></td></tr>
+          <tr><td>性能</td><td>缓存命中时<b>完全不拼字符串</b>（直接用两段算键）</td><td>每次都要先拼出字符串再查</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>代价也很明确：<b>资源名那一段仍然是普通字符串，写错不会编译报错</b>，只会在运行时加载失败（建议从 Project 窗口复制名字）。
+      换来的是"加资源不用等生成"，这个交换在迭代期更划算。</p>
+    <div class="callout">
+      关于最后一行"不拼字符串"：<code>ResPathUtil.ComputeKey(rootPath, resName)</code> 与 <code>ComputeKey(Join(rootPath, resName))</code>
+      是<b>严格等价</b>的（工程外断言专门验过，含空根目录、<code>"Data/"</code> 这类边界），
+      所以<b>缓存命中的绝大多数请求一次字符串分配都没有</b>；只有未命中时才拼一次完整路径（映射表 / 句柄 / 日志都需要它）。
+    </div>
+
+    <h3>1.5 常用 API 速查</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:46%">API</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Load&lt;T&gt;(rootPath, resName, group)</code></td><td>同步，返回 <code>T</code> 或 <code>null</code></td></tr>
+          <tr><td><code>LoadHandle&lt;T&gt;(rootPath, resName, group)</code></td><td>同步，返回 <code>ResHandle</code>（带失败原因，泛型版）</td></tr>
+          <tr><td><code>LoadAsync&lt;T&gt;(rootPath, resName, onFinished, group, priority)</code></td><td><b>异步（推荐）</b>，回调直接拿到 <code>T</code></td></tr>
+          <tr><td><code>LoadAsync(rootPath, resName, type, onFinished, group, priority)</code></td><td>异步，回调拿到完整 <code>ResHandle</code>（进阶 / 框架内部用）</td></tr>
+          <tr><td><code>Release(rootPath, resName)</code></td><td>归还一次引用（归零后进入待释放队列）</td></tr>
+          <tr><td><code>UnloadGroup(group, force)</code></td><td>按业务域批量卸载</td></tr>
+          <tr><td><code>FlushUnused()</code></td><td>真正释放"引用已归零"的资源</td></tr>
+          <tr><td><code>UnloadAll()</code></td><td>全部清空（回登录界面用）</td></tr>
+          <tr><td><code>Contains(rootPath, resName)</code> / <code>GetRefCount(rootPath, resName)</code></td><td>查询缓存与引用数</td></tr>
+          <tr><td><code>CachedCount</code> / <code>UnusedCount</code></td><td>统计（调试窗口用）</td></tr>
+          <tr><td><code>OpenScope()</code></td><td>开一个资源域，<code>using</code> 结束自动全部归还</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>优先级</b>（排队顺序）：<code>Background(0)</code> 预加载 &lt; <code>Normal(100)</code> 默认 &lt; <code>Urgent(300)</code> 紧急资源。</p>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>资源应该放到哪个路径下面</h2>
+
+    <div class="callout">
+      <span class="t">一句话规则</span>
+      <b>逻辑路径 = 资源相对「资源根目录」的路径，去掉扩展名。</b><br>
+      资源根目录<b>由你在打包窗口里指定</b>（把 Assets 里的文件夹拖进那个槽，或点「选择…」）—— 代码里<b>没有任何默认路径</b>。<br>
+      没配置之前，逻辑路径压根算不出来，工具会直接提示你去设置（不会偷偷用某个猜出来的目录）。
+    </div>
+
+    <pre>Assets/GameRes/                     <span class="c">← 资源根目录（resRoot）</span>
+├── UI/
+│   ├── Icon/
+│   │   └── Hero_1001.png          →  逻辑路径 <b>"UI/Icon/Hero_1001"</b>
+│   └── HeroPanel.prefab           →  逻辑路径 <b>"UI/HeroPanel"</b>
+├── Hero/
+│   └── 1001.prefab                →  逻辑路径 <b>"Hero/1001"</b>
+├── Sound/
+│   └── Skill_1001.ogg             →  逻辑路径 <b>"Sound/Skill_1001"</b>
+└── Config/
+    └── Data/
+        └── Hero.txt               →  逻辑路径 <b>"Config/Data/Hero"</b></pre>
+
+    <pre>ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);
+ResManager.Load&lt;GameObject&gt;(RevResPath.Hero, <span class="s">"1001"</span>, ResGroup.Battle);</pre>
+
+    <p><b>多级嵌套随便用</b>，而且"在哪一段切开"是等价的 —— 内部拼出来的完整路径完全一样：</p>
+    <pre>ResManager.Load&lt;GameObject&gt;(RevResPath.UI_UIPanel_LobbyPanel, <span class="s">"MailPanel"</span>, ResGroup.UI);  <span class="c">// 常量用最深层</span>
+ResManager.Load&lt;GameObject&gt;(RevResPath.UI_UIPanel, <span class="s">"LobbyPanel/MailPanel"</span>, ResGroup.UI);  <span class="c">// 常量到中层</span>
+ResManager.Load&lt;GameObject&gt;(RevResPath.UI, <span class="s">"UIPanel/LobbyPanel/MailPanel"</span>, ResGroup.UI);  <span class="c">// 只用顶层常量</span>
+<span class="c">// 三者等价：逻辑路径都是 "UI/UIPanel/LobbyPanel/MailPanel"</span></pre>
+    <p>所以常量名太长、或者嫌目录太深时，<b>只把稳定的前缀做成常量、剩下的层级写进资源名</b>就行，缓存键不受影响。</p>
+
+    <h3>2.1 两种边角情况</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">资源位置</th><th style="width:36%">逻辑路径</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>在 <code>resRoot</code> 下</td><td>去掉「资源根目录」前缀，再去掉扩展名</td><td>常规情况</td></tr>
+          <tr><td>在 <code>Assets</code> 下但不属于 <code>resRoot</code></td><td>去掉 <code>Assets/</code> 前缀，再去掉扩展名</td><td>第三方库资源也能被打包，如 <code>Assets/ThirdParty/Foo/Bar.png</code> → <code>ThirdParty/Foo/Bar</code></td></tr>
+          <tr><td>在 <code>Assets/Resources</code> 下</td><td>加载时写 <code>"Res/xxx"</code></td><td>走 Resources 兜底策略，见下</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>2.2 三条必须记住的纪律</h3>
+    <ol>
+      <li><b>逻辑路径不带扩展名</b>。带扩展名会被当成另一条路径 —— 所以用生成的 <code>RevResPath</code> 目录常量 + 资源名的两参数写法最稳（<code>RevResPath.UI_Icon, "Hero_1001"</code>）。</li>
+      <li><b>不要手写 <code>Assets/...</code> 开头的路径</b>，那是把"资源怎么组织"泄漏进业务代码。</li>
+      <li><b>不要直接读 StreamingAssets / <code>Application.dataPath</code></b>。绕开资源系统 = 没有缓存、没有引用计数、平台分支自己写、还没法热更。<br>数据表系统就是靠这条纪律统一走资源系统的。</li>
+    </ol>
+
+    <h3>2.3 关于 <code>Resources</code> 兜底</h3>
+    <p><code>ResourcesResPolicy</code> 是策略链的<b>最后一环</b>，接两类请求：业务显式写 <code>"Res/xxx"</code> 前缀的、以及 AB 加载失败后允许兜底的。</p>
+    <div class="callout warn">
+      <code>Assets/Resources</code> 下的东西会被 Unity <b>无条件打进包体</b>、且无法按需卸载 —— <b>别把大资源丢进去</b>。
+      它的定位是"兜底 + 极小必需资源"，不是主通道。
+    </div>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>AB 包怎么划分</h2>
+
+    <h3>3.1 先说结论：按"一起用、一起卸"的粒度分包</h3>
+    <p>分包的<b>唯一目的</b>是控制"下载/更新的粒度"和"加载/卸载的粒度"。所以判断标准只有两条：</p>
+    <ul>
+      <li><b>生命周期一致</b>：会同时加载、同时卸载的资源放一个包（比如进战斗用的英雄模型 + 技能特效）。</li>
+      <li><b>业务域一致</b>：和 <code>ResGroup</code> 的划分对齐（UI / Battle / Sound / Scene），这样卸载能整组回收。</li>
+    </ul>
+
+    <h3>3.2 怎么设 AB 名：给文件夹设（推荐）</h3>
+    <p>Unity 的规则是"<b>资源自己身上写着属于哪个包</b>"，标记存在 <code>.meta</code> 里。最省事的方式是<b>给文件夹设 AB 名，子文件自动继承</b>：</p>
+    <pre>Assets/GameRes/UI/Icon/          <span class="c">← 选中这个文件夹，Inspector 右下角 AssetBundle 填 "ui"</span>
+                                    <span class="c">   下面所有图（含以后新增的）自动进 ui 包</span>
+
+Assets/GameRes/Hero/             <span class="c">← 填 "hero"</span>
+Assets/GameRes/Sound/            <span class="c">← 填 "sound"</span></pre>
+    <p>好处：<b>新加资源不用手动标记</b>，也不会漏。<code>ResMap</code> 里会长成：</p>
+    <pre>UI/Icon/Hero_1001|ui|Hero_1001
+Hero/1001|hero|1001</pre>
+
+    <h3>3.3 两种分包模式</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">模式</th><th style="width:44%">行为</th><th>适用</th></tr></thead>
+        <tbody>
+          <tr><td><code>ScanExisting</code>（<b>默认</b>）</td><td>只<b>读取</b>你设好的 AB 标记生成映射，<b>绝不改动任何标记</b></td><td>想精细控制分包（推荐）</td></tr>
+          <tr><td><code>AutoByFolder</code></td><td>按资源根目录下的<b>顶层目录名</b>自动分包（<code>UI/xxx</code> → 包名 <code>UI</code>），会<b>先清空所有旧标记</b>再重打</td><td>快速起步 / 资源目录已按业务域分好</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn"><code>AutoByFolder</code> 会清掉你手设的标记，两者不要混用。</div>
+    <p><b>两个排除列表的作用范围</b>（容易记混，这里说清）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">配置</th><th>手动分包（<code>ScanExisting</code>）</th><th><code>AutoByFolder</code></th></tr></thead>
+        <tbody>
+          <tr><td><code>excludeFolders</code>（默认 <code>Editor</code>、<code>Raw</code>）</td>
+              <td>用于<b>「漏标检测」</b>：这些目录下的资源不会被报"漏标"（放源文件、参考图最合适）</td>
+              <td>这些目录<b>不打标记</b>（不进包）</td></tr>
+          <tr><td><code>excludeExtensions</code>（默认 <code>.cs</code>、<code>.meta</code>）</td>
+              <td>这些后缀不进映射表</td>
+              <td>同左</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>3.4 六条分包实践</h3>
+    <ol>
+      <li><b>一个包别太大</b>：改一张图要重下整个包，热更成本直接等于包体积。</li>
+      <li><b>一个包别太碎</b>：单个资源的包会被校验器警告（"单资源包"），且 IO 次数多。</li>
+      <li><b>共享资源单独一个包</b>（如 <code>common</code>）：被多个包依赖的图集、Shader、通用字体放进公共包。否则依赖分析会报"共享资源被复制多份，体积膨胀"。</li>
+      <li><b>不要形成循环依赖</b>：校验器会直接报 <code>循环依赖</code> 错误，打包中止。</li>
+      <li><b>依赖会被自动递归加载</b>：加载 <code>hero</code> 时，系统会先按 Manifest 把它依赖的包全部加载好，业务不用管。</li>
+      <li><b>命名只用 <code>[A-Za-z0-9_-/.]</code></b>：中文、空格会被校验拦下；文件名建议全小写（Linux/Android 区分大小写，Windows 不区分）。</li>
+    </ol>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>打包流程与注意事项</h2>
+
+    <h3>4.1 流程（一键）</h3>
+    <p>菜单 <b><code>Revolution.Tools/资源/LiteAB 打包工具</code></b>：</p>
+    <ul class="steps">
+      <li><b>① 打包配置</b>　资源根目录（必填，可拖拽）+ 分包模式 + 压缩方式 + 是否拷到 StreamingAssets</li>
+      <li><b>② 操作</b>　收集并校验 / 扫描并生成映射 / 一键打包 / 生成路径常量 / 打开 RevResPath.cs</li>
+      <li><b>③ 校验结果</b>　红色 = 必须修（阻止打包），黄色 = 建议修
+        <br><b>★「漏标」</b>（资源没设 AB 名）也在红色里 —— 它会直接中止打包，见 4.4</li>
+      <li><b>④ 打包结果</b>　产物目录</li>
+      <li><b>⑤ 依赖报告</b>　直接依赖 / 共享资源 / 循环依赖</li>
+      <li>另有四个页签　<b>分包</b>（列表 + 新建/重命名/删除 + 拖拽）/ <b>依赖</b> / <b>体积</b> / <b>检查</b></li>
+    </ul>
+    <div class="callout">⭐ <b>第一次使用必须先设「资源根目录」</b>：代码里没有任何默认路径。
+      没设置时「一键打包」会弹框拦住你，「生成路径常量」会打警告并跳过 —— 都不会悄悄用猜出来的目录。</div>
+    <p><b>另一个页签：「分包浏览」</b>（也可以从菜单 <code>Revolution.Tools/资源/AB 分包浏览</code> 直接打开它）</p>
+    <p>左边是包列表、右边是选中包里的资源，分包可以在这里直接做完：</p>
+    <div class="callout good">
+      <b>自动同步（默认开启）</b>：Project 里拖拽、Inspector 右下角的 AssetBundle 栏、脚本批量改标记 ——
+      这个窗口都会<b>自动跟着更新</b>，不必手动点刷新；顶部有「自动同步」开关和"已同步 12:03:45"状态（悬停可看上次同步原因）。
+      关掉开关后「刷新」按钮依然可用。<br>
+      ⚠️ 它<b>只同步显示、不写任何文件</b>：<code>ResMap.txt</code> / <code>RevResPath.cs</code> 仍然要显式点按钮生成。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">操作</th><th>怎么做</th></tr></thead>
+        <tbody>
+          <tr><td>看现在分了哪些包</td><td>打开页签即可（<b>只读扫描，不会动你的标记</b>）</td></tr>
+          <tr><td><b>把资源加入某个包</b></td><td>从 Project 窗口把资源（或文件夹）<b>拖到左侧的包上</b>；也可以拖到右侧底部投放区（加进当前选中的包）</td></tr>
+          <tr><td>新建包</td><td>底部「新建包」→ 起名 → 创建（空包先挂在列表里，拖进资源才算真正存在）</td></tr>
+          <tr><td>重命名 / 删除包</td><td>选中包后在底部操作（删除 = 清空属于它的标记，<b>不会删资源文件</b>）</td></tr>
+          <tr><td>单独移出某个资源</td><td>右侧资源行点「移出」；若显示「继承自文件夹标记」，说明它归文件夹管，要去清那个文件夹的标记</td></tr>
+          <tr><td>在 Project 里定位</td><td>右侧资源行点「定位」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><b>为什么"新建包"要先挂在列表里？</b> Unity 里包不是实体，没有"创建包"这种 API ——
+      分包就是"资源身上写着属于哪个包"。所以一个<b>没有任何资源</b>的包在 Unity 里根本不存在。<br>
+      同理：「删除包」= 清空标记，「重命名」= 批量改标记（<b>文件夹也一起改</b>），否则会出现"删了包、资源却还在包里"这种怪现象。</div>
+    <div class="callout">⚠️ 如果配置里的分包模式是「按目录自动分包」，手动改的标记会在下次打包时被覆盖 —— 页签顶部会给你警告。</div>
+    <p><b>另外三个检查页签：「依赖」「体积」「检查」</b></p>
+    <p>它们和「分包」共用同一份扫描结果（改完分包会自动失效重算；也可能被 Inspector 等别处改过，所以每个页签都有自己的「刷新」）。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:16%">页签</th><th style="width:42%">看什么</th><th>怎么用它</th></tr></thead>
+        <tbody>
+          <tr><td><b>依赖</b></td>
+              <td>① 包 → 它依赖的包（有<b>循环依赖</b>时红色告警）<br>② <b>被多个包引用、又没分包</b>的资源</td>
+              <td>第 ② 项是体积膨胀的元凶：把它们单独打成一个共享包，通常是最省体积的一步</td></tr>
+          <tr><td><b>体积</b></td>
+              <td>每个包<b>自身</b>体积 + <b>含依赖</b>体积（条形对比，可按体积 / 名字排序）<br>+ 最大的 10 个资源</td>
+              <td>一眼看出"哪个包突然变大了"；条形深色 = 自身，浅色 = 含依赖</td></tr>
+          <tr><td><b>检查</b></td>
+              <td>① 同一包内资源重名（<code>LoadAsset("名字")</code> 取到哪个不确定）<br>② 逻辑路径冲突（<code>1001.prefab</code> vs <code>1001.png</code>）<br>③ 内容被复制多份<br>④ <b>没有 AB 标记的资源（漏标）</b></td>
+              <td>每条都能「定位」到 Project 里的具体文件，直接改名、拆包或补标记；第 ④ 项见 4.4</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">「依赖」和「体积」里的依赖分析是<b>编辑器侧估算</b>（用 <code>AssetDatabase.GetDependencies</code> 反推每个资源引用了谁，再看它归哪个包）。
+      好处是改完分包立刻能看、不用先打一次包。<br>
+      而「打包」页签里的<b>依赖报告</b>读的是 Unity 真正算出来的 <code>AssetBundleManifest</code> —— 那份更权威。
+      两者互补：一个用来<b>提前</b>发现问题，一个用来<b>事后</b>复核。</div>
+
+    <p>改完分包记得回「打包」页签点一次「扫描并生成映射」，映射表（<code>ResMap.txt</code>）和 <code>RevResPath</code> 才会跟着更新。</p>
+
+    <p>「一键打包」实际做了六步：</p>
+    <pre>收集 AB 标记 → 校验（有 error 就中止）→ BuildPipeline.BuildAssetBundles
+→ 依赖分析 → 写 ResMap.txt + BuildManifest.json → 生成路径常量 →（可选）拷到 StreamingAssets</pre>
+
+    <h3>4.2 产物都在哪</h3>
+    <pre>AssetBundles/PC/                  <span class="c">← 打包输出（OutputRoot/平台名）</span>
+├── <b>PC</b>                            <span class="c">← ★ 主包（名字 = 输出目录名，Unity 的规则）</span>
+├── PC.manifest                   <span class="c">← 依赖清单（运行时靠它查依赖）</span>
+├── ui / ui.manifest              <span class="c">← 你分的包</span>
+├── hero / hero.manifest
+└── BuildManifest.json            <span class="c">← 给人/CI 看：版本、平台、时间、每个包大小</span>
+
+Assets/Revolution/Resources/ResourceSystem/ResMap.txt  <span class="c">← 逻辑名|包名|资源名（框架自己的 Resources）</span>
+                                                          <span class="c">运行时 Resources.Load("ResourceSystem/ResMap") 读它</span>
+Assets/Revolution/Generation/RevResPath.cs     <span class="c">← 自动生成的目录前缀常量（扫描资源根目录下的文件夹）</span>
+Assets/StreamingAssets/PC/                  <span class="c">← 拷进来的运行时产物</span></pre>
+
+    <p><b>运行时的查找路径是 <code>StreamingAssets/&lt;平台名&gt;/&lt;包名&gt;</code></b>，平台名 = 产物目录名 = 主包名：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:50%">平台</th><th>目录名 = 主包名</th></tr></thead>
+        <tbody>
+          <tr><td>Windows / macOS / Linux</td><td><code>PC</code></td></tr>
+          <tr><td>Android</td><td><code>Android</code></td></tr>
+          <tr><td>iOS</td><td><code>iOS</code></td></tr>
+          <tr><td>WebGL（含微信 / QQ 小游戏）</td><td><code>WebGL</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.3 打包注意事项（按踩坑概率排序）</h3>
+
+    <div class="callout">
+      <span class="t">1. .txt 数据表：默认已支持，但别把它加回排除列表</span>
+      <code>excludeExtensions</code> 默认只剩 <code>.cs / .meta</code> —— 数据表 <code>Data/*.txt</code> 会正常进 <code>ResMap</code>。<br>
+      如果哪天你手动把 <code>.txt</code> 加了回去，数据表就会被<b>静默踢出包</b>，运行时只表现为 <code>PathNotMapped</code>（极难往"后缀"上想）。<br>
+      好在<b>校验器会直接告警</b>：<code>有 N 个资源被 excludeExtensions 排除，不会进包</code> —— 看到就去排除列表里删掉 <code>.txt</code>。
+    </div>
+
+    <ol>
+      <li><b>命名非法会直接中止打包</b>：只允许 <code>[A-Za-z0-9_-/.]</code>。中文、空格、括号都不行。</li>
+      <li><b>逻辑路径冲突会中止</b>：<code>Hero/1001.prefab</code> 和 <code>Hero/1001.png</code> 都会算成 <code>Hero/1001</code>，必须改名。</li>
+      <li><b>同一包内资源重名会中止</b>：<code>A/Icon.png</code> 与 <code>B/Icon.png</code> 都在 <code>ui</code> 包里 → <code>LoadAsset("Icon")</code> 取到哪个不确定。改名或拆包。</li>
+      <li><b>漏标会中止</b>：资源在资源根目录下、却没有任何 AB 标记 → 不进任何包，真机必然 <code>FileNotExist</code>。这是手动分包模式最常犯的错，工具会拦（详见 4.4）。</li>
+      <li><b>空包会中止</b>：标了 AB 名但一个资源都没有（资源删了/改名了的残留），去把标记清掉。</li>
+      <li><b>换平台必须重新打包</b>：AB <b>不跨平台</b>。把 Android 的包放到 PC 的目录里，加载会 <code>BundleLoadFail</code>。</li>
+      <li><b>压缩方式</b>：默认 <code>LZ4</code>（块压缩，加载快、体积中等，推荐）；首包/下载包可换 <code>LZMA</code>（更小、首次加载更慢）；<code>None</code> 只用于调试。</li>
+      <li><b>增量是自动的</b>：<code>forceRebuild</code> 关闭时，Unity 按内容 Hash 跳过没变的包；只有怀疑产物脏了才勾它。</li>
+      <li><b>编辑器默认不走 AB</b>：开发期 <code>EditorResPolicy</code> 直读工程（所有资源一律 <code>AssetDatabase</code> 读，不打包也能跑）。要验证 AB 链路，用菜单 <code>Revolution.Tools/资源/AB 加载模式（编辑器）</code> 切换，或直接出真机包验证。<br>
+        <b>⚠️ "编辑器能跑"不代表"真机能跑"，AB 链路一定要在真机上验一次。</b></li>
+      <li><b><code>copyToStreamingAssets</code> 打开后是"整目录覆盖"</b>：目标目录会被先删再拷，别往里放手写的东西。</li>
+      <li><b>任何 <code>Resources</code> 文件夹里的东西都会被无条件打进包体</b>：框架的 <code>ResMap.txt</code> 就放在它自己的
+        <code>Assets/Revolution/Resources/ResourceSystem/</code> 里（很小）。<b>别把大资源往任何 <code>Resources</code> 文件夹里放</b>
+        —— 包括框架这个：它存在的唯一目的就是让 <code>Resources.Load</code> 能读到这张小表。</li>
+    </ol>
+
+    <h3>4.4 漏标检测：手动分包最该防的一件事</h3>
+    <p><b>漏标</b> = 资源在「资源根目录」下，却没有被任何 AB 包收走（自己没设 AB 名，父文件夹也没设）。</p>
+    <p>它的可怕之处在于<b>隐形</b>：</p>
+    <pre>编辑器里：AssetDatabase 直读，照常能加载 —— 一切正常
+真机上：  ResMap 里查不到它 → PathNotMapped → 兜底 Resources 也没有 → FileNotExist</pre>
+    <p>所以工具在<b>打包前</b>就把它拦下来：</p>
+    <ul>
+      <li>走的是<b>反向扫描</b>：从资源根目录枚举所有资源，逐个查 <code>AssetDatabase.GetImplicitAssetBundleName</code>
+        （用 <code>Implicit</code> 版本，所以"只给文件夹设了标记、子文件自动继承"的资源<b>不会被误报</b>）；</li>
+      <li><code>.meta</code>、<code>excludeExtensions</code>、<code>excludeFolders</code> 里的一律跳过（它们本来就不该进包，报出来只会淹掉真问题）；</li>
+      <li>发现漏标 → <b>校验报错、中止打包</b>（CI 打包同样会因此失败退出），并在「检查」页签 <b>④</b> 列出完整清单，每条都能「定位」。</li>
+    </ul>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">情况</th><th>处理</th></tr></thead>
+        <tbody>
+          <tr><td>确实是该进包的资源</td><td>在 Project 里给它（或它所在的文件夹）设 AssetBundle 名</td></tr>
+          <tr><td>故意不进包（源文件、参考图、文档）</td><td>把它的目录加进 <code>excludeFolders</code>，或后缀加进 <code>excludeExtensions</code></td></tr>
+          <tr><td>干脆不要这个检查</td><td>关掉配置项 <code>checkUnmarkedAssets</code>（「检查」页签仍会列出来，方便你排查）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>运行时生命周期（别让资源泄漏）</h2>
+
+    <h3>5.1 引用计数</h3>
+    <pre>Load / LoadAsync        → RefCount <b>+1</b>（缓存命中也 +1）
+Release(rootPath,resName) → RefCount <b>-1</b>
+RefCount 归零           → 进入"待释放表"（不会立刻卸，防抖动）
+FlushUnused / 自动卸载  → 冷却期过后真正卸载 + Resources.UnloadUnusedAssets</pre>
+    <div class="callout"><b>业务纪律</b>：<code>Load</code> 了几次就要 <code>Release</code> 几次。</div>
+
+    <h3>5.2 分组：切界面 / 切场景整组回收</h3>
+    <pre>ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);
+
+<span class="c">// 关界面时：连同"还在被引用"的一起清账（force = true）</span>
+ResBootstrap.Instance.Shutdown(ResGroup.UI);
+
+<span class="c">// 只想清引用已归零的（更安全）</span>
+ResBootstrap.Instance.Shutdown(ResGroup.UI, force: <span class="k">false</span>);</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">分组</th><th>典型内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>Battle</code></td><td>战斗：技能特效、子弹、英雄模型</td></tr>
+          <tr><td><code>UI</code></td><td>界面：窗体、图标、字体</td></tr>
+          <tr><td><code>Sound</code></td><td>音效：BGM、技能音、语音</td></tr>
+          <tr><td><code>Config</code></td><td>配置表（建议改用 Resident 标志，全程要用）</td></tr>
+          <tr><td><code>Scene</code></td><td>场景：地图、光照贴图</td></tr>
+          <tr><td><code>Unknown</code></td><td>默认值：<b>不会被任何分组连带卸载</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>跨域共享的资源</b>（公共图集被 UI 和 Battle 同时用）要打 <code>ResInstanceFlag.Resident</code> 标志 —— 它永不参与分组卸载，连 <code>force</code> 也不会误伤。</p>
+
+    <h4>分组三连问：可选吗 / 要传吗 / 能自定义吗</h4>
+    <p><b>① 是可选参数吗？</b>　是。签名是 <code>group = ResGroup.Unknown</code>，不传就是 <code>Unknown</code>。</p>
+    <p><b>② 到底有没有必要传？</b>　取决于"这个资源将来要不要被<b>整组回收</b>"：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">场景</th><th style="width:22%">建议</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>界面 / 战斗 / 场景资源</td><td><b>一定要传</b></td><td>关界面、退战斗时一句 <code>Shutdown(group)</code> 整组回收，不用逐个 Release</td></tr>
+          <tr><td>长期持有、全程要用的（通用图集、常驻特效）</td><td>不传，或打 <code>Resident</code> 标志</td><td>它本来就不该被任何分组连带卸掉</td></tr>
+          <tr><td>一次性用完立刻 <code>Release</code> 的</td><td>可以不传</td><td>引用归零后自动卸载就会回收它，分组帮不上忙</td></tr>
+          <tr><td>随手 Load、从不 Release</td><td>不传反而"更安全"</td><td>不会被 <code>Shutdown</code> 误伤 —— 但<b>内存泄漏会悄悄发生</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      关键区别：<b>传了 = 能被整组回收；不传 = 只能靠"引用归零 + 自动卸载"</b>。<br>
+      所以"忘了传"的后果不是崩溃，而是"切了场景内存没降下来" —— 这类问题最难查，<b>建议默认都传</b>。
+    </div>
+    <p>⚠️ 另外记住：<b>归属"首次确定，之后不再变更"</b>。同一个资源被 A 域先加载、B 域后加载，它算 A 域的。跨域共享的资源请打 <code>ResInstanceFlag.Resident</code>。</p>
+
+    <p><b>③ 能自定义分组吗？</b>　能，两条路：<b>静态分组加枚举值</b>、<b>动态分组用 <code>ResGroupUtil.Custom(n)</code></b>。
+      （框架故意不做"字符串注册接口"，原因见本段末尾。）</p>
+
+    <p><b>路线 1：加枚举值 —— 静态分组（推荐）</b></p>
+    <p>适用：分组数量固定、编译期就知道（背包 / 商店 / 邮件…）。在 <code>ResDefine.cs</code> 的 <code>ResGroup</code> 里<b>往后追加</b>：</p>
+    <pre><span class="k">public</span> <span class="k">enum</span> ResGroup
+{
+    Unknown,    <span class="c">// 0</span>
+    Battle,     <span class="c">// 1</span>
+    UI,         <span class="c">// 2</span>
+    Sound,      <span class="c">// 3</span>
+    Config,     <span class="c">// 4</span>
+    Scene,      <span class="c">// 5</span>
+    Bag,        <span class="c">// 6  ← 新加的，只能追加在末尾</span>
+    Shop,       <span class="c">// 7</span>
+}</pre>
+    <p>业务侧立刻可用：</p>
+    <pre>ResManager.LoadAsync&lt;Sprite&gt;(bagIconPath, s =&gt; { }, ResGroup.Bag);
+ResBootstrap.Instance.Shutdown(ResGroup.Bag);       <span class="c">// 关背包 → 该组资源整组回收</span></pre>
+
+    <p><b>为什么加值是零风险的</b>（已核对全工程）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">检查项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>有没有 <code>switch (group)</code> 穷举分支</td><td><b>0 处</b> —— 加值不会漏 case</td></tr>
+          <tr><td>有没有序列化的 <code>ResGroup</code> 字段（MonoBehaviour / ScriptableObject）</td><td><b>0 处</b> —— 编号变化不会读错旧数据</td></tr>
+          <tr><td>现有用法</td><td>全是"默认参数值 / 赋值 / 相等比较"（<code>AssignGroup</code>、<code>UnloadGroup</code>、<code>CollectPreloaded</code>…）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      ⚠️ <b>只能追加到末尾，不能插在中间</b>：<code>ResGroup</code> 用的是默认编号（Unknown=0、Battle=1…），插值会让已有编号整体错位。
+    </div>
+
+    <p><b>路线 2：<code>ResGroupUtil.Custom(n)</code> —— 动态分组</b></p>
+    <p>适用：分组运行时才知道（活动 ID、副本 ID、房间号…），代码里没法写死一个枚举名。</p>
+    <pre>ResGroup g = ResGroupUtil.Custom(activityId);      <span class="c">// 映射到 CustomBase(1000) 之后的区间，不和内置值撞车</span>
+
+ResManager.LoadAsync&lt;Sprite&gt;(iconPath, s =&gt; { }, g);
+ResBootstrap.Instance.Shutdown(g);                 <span class="c">// 活动结束 → 该活动的资源整组卸掉</span></pre>
+    <p><code>ResGroupUtil</code> 的三个成员（都在 <code>ResDefine.cs</code>）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">成员</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>CustomBase = 1000</code></td><td>自定义编号起点，和内置的 0~5 留足间隔，永不撞车</td></tr>
+          <tr><td><code>Custom(int index)</code></td><td>取第 index 个自定义分组（建议直接用业务 ID）</td></tr>
+          <tr><td><code>IsCustom(ResGroup)</code></td><td>是否自定义分组（打日志 / 排查用）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>两条路怎么选</b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">场景</th><th style="width:24%">用哪个</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>分组固定、编译期就知道（背包 / 商店 / 邮件）</td><td><b>加枚举值</b></td><td>编译期检查 + IDE 补全，写错编译不过</td></tr>
+          <tr><td>分组运行时才知道（活动 ID、副本 ID）</td><td><b><code>Custom(n)</code></b></td><td>没法枚举，只能靠数值映射</td></tr>
+          <tr><td>不想碰框架文件</td><td><code>Custom(n)</code> + 自己集中声明</td><td>见下</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>不想碰框架文件时，把自定义分组<b>集中声明在一处</b>，别让 <code>Custom(1)</code> / <code>Custom(2)</code> 散落各地（回头记不住几号是几号）：</p>
+    <pre><span class="c">// 业务侧：自定义分组集中声明</span>
+<span class="k">public</span> <span class="k">static</span> <span class="k">class</span> MyGroups
+{
+    <span class="k">public</span> <span class="k">static</span> <span class="k">readonly</span> ResGroup Bag  = ResGroupUtil.Custom(1);
+    <span class="k">public</span> <span class="k">static</span> <span class="k">readonly</span> ResGroup Shop = ResGroupUtil.Custom(2);
+    <span class="k">public</span> <span class="k">static</span> <span class="k">readonly</span> ResGroup Mail = ResGroupUtil.Custom(3);
+}</pre>
+
+    <p><b>为什么不做成"字符串分组 / 注册接口"？</b></p>
+    <p>字符串分组要分配、要比内容，而且<b>拼错一个字母不会报错 —— 只会在卸载时"点名不到"</b>，等于把错误从编译期推迟到运行时，还是静默的。数值 ID 零成本、可断言、可比较，所以扩展方式就只有"编译期加枚举值 + 运行期数值映射"这两条。</p>
+    <p>真需要"名字 → 分组"时（比如策划表里写 <code>"Bag"</code>），应该在<b>业务层做一次映射</b>（读表时把字符串转成 <code>ResGroup</code>），而不是把字符串语义下沉进资源系统 —— 这样资源系统保持零成本，字符串的容错与报错留在它该在的地方。</p>
+
+    <h3>5.3 资源域：<code>using</code> 自动回收（最省心）</h3>
+    <pre><span class="k">using</span> (<span class="k">var</span> scope = ResManager.OpenScope())
+{
+    <span class="k">var</span> prefab = scope.Load&lt;GameObject&gt;(RevResPath.UI_MainForm, <span class="s">"MainForm"</span>, ResGroup.UI);
+    <span class="k">var</span> icon   = scope.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);
+}   <span class="c">// ← 出大括号自动 Release，中途 return 也保证执行</span></pre>
+
+    <h3>5.4 自动卸载门卫（不用管，但要会调）</h3>
+    <p><code>ResBootstrap.Init()</code> 时会启动 <code>ResAutoUnloader</code>，5 个触发源：定时检查 / 内存告急 / 缓存超阈值(LRU) / 空闲时才动手 / 切场景。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">参数</th><th style="width:14%">默认</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>Enable</code></td><td>true</td><td>总开关</td></tr>
+          <tr><td><code>CheckInterval</code></td><td>30s</td><td>定时体检间隔</td></tr>
+          <tr><td><code>UnusedCooldown</code></td><td>5s</td><td>归零后至少保留多久（防抖动）</td></tr>
+          <tr><td><code>MaxCachedHandles</code></td><td>800</td><td>缓存条目上限（超了按 LRU 淘汰）</td></tr>
+          <tr><td><code>OnlyWhenIdle</code></td><td>true</td><td>只在没有在途加载时动手</td></tr>
+          <tr><td><code>RunOnce(force)</code></td><td>—</td><td>手工触发一次（读条结束时想瘦身）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.5 预加载：进战斗前把资源铺好</h3>
+    <pre>ResPreloader.Preload(
+    <span class="k">new</span>[] { (RevResPath.Hero, <span class="s">"1001"</span>), (RevResPath.Skill, <span class="s">"1001_Effect"</span>) },  <span class="c">// 一批可跨多个目录</span>
+    group: ResGroup.Battle,
+    priority: ResLoadPriority.Background,          <span class="c">// 不抢前台</span>
+    onProgress: task =&gt; bar.value = task.Progress, <span class="c">// 0~1 进度</span>
+    onCompleted: task =&gt; Debug.Log($<span class="s">"预加载完成：{task.Finished}/{task.Total}，失败 {task.Failed}"</span>));
+
+<span class="c">// 同一目录下批量（简写）：</span>
+ResPreloader.Preload(RevResPath.UI_Icon, <span class="k">new</span>[] { <span class="s">"Hero_1001"</span>, <span class="s">"Hero_1002"</span> }, ResGroup.UI);
+
+<span class="c">// 只预加载一个：</span>
+ResPreloader.Preload(RevResPath.Hero, <span class="s">"1001"</span>, ResGroup.Battle);
+
+<span class="c">// 归还预加载持有的引用（不影响业务自己持有的引用）</span>
+ResPreloader.Release(ResGroup.Battle);</pre>
+    <p>预加载<b>会保留一份引用</b> —— 否则加载完没人引用，下一次自动卸载就把它清掉了，等于白做。</p>
+    <p><code>ResPreloadTask</code> 上还有 <code>IsDone</code> / <code>IsCancelled</code> / <code>Cancel()</code>，以及 <code>OnProgress</code> / <code>OnCompleted</code> 两个事件。</p>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>加载失败排查表</h2>
+    <p>失败一律不抛异常、不打日志，原因记在 <code>handle.ErrorReason</code> 上：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:18%">原因</th><th style="width:30%">含义</th><th>先查什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>PolicyNotFound</code></td><td>没有任何策略能处理这个路径</td><td>逻辑路径写错？前缀 <code>Res/</code> 拼错？</td></tr>
+          <tr><td><code>PathNotMapped</code></td><td><code>ResMap</code> 里查不到</td><td>① 资源忘了打包　② <b>被 <code>excludeExtensions</code> 排除了</b>（校验器会告警）　③ <b>资源漏标</b>（没设 AB 名，打包前就会被拦，见 4.4）</td></tr>
+          <tr><td><code>BundleLoadFail</code></td><td>包本身没加载出来</td><td>① 产物没拷到 <code>StreamingAssets/&lt;平台名&gt;/</code>　② 平台不匹配（Android 包放进了 PC 目录）　③ 主包缺失（<code>&lt;平台名&gt;</code> 文件不存在）</td></tr>
+          <tr><td><code>AssetLoadFail</code></td><td>包打开了，但里面没这个资源</td><td>资源名写错；资源被剥到别的包（如共享资源被移走）</td></tr>
+          <tr><td><code>FileNotExist</code></td><td>文件不存在</td><td>编辑器直读路径不对；<code>Resources</code> 下确实没有</td></tr>
+          <tr><td><code>TypeMismatch</code></td><td>类型对不上</td><td>按 <code>Texture</code> 加载了一个 <code>Prefab</code></td></tr>
+          <tr><td><code>Cancelled</code></td><td>被取消</td><td>切场景时 <code>AsyncLoadPump.CancelAll()</code> 中断了在途加载（正常现象）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout good">
+      <b>最省事的排查姿势</b>：先到「检查」页签扫一眼（漏标 / 重名 / 逻辑路径冲突一次看全），
+      再把编辑器切到 AB 模式（<code>Revolution.Tools/资源/AB 加载模式（编辑器）</code>）——
+      这样"打包 → 映射 → 加载"整条链在编辑器里就能复现，不用每次出真机包。
+    </div>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>完整示例：一个界面从打开到关闭</h2>
+    <pre><span class="k">public class</span> HeroPanel : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Image _icon;
+
+    <span class="k">private</span> ResScope _scope;
+
+    <span class="k">private void</span> OnEnable()
+    {
+        <span class="c">// ① 开一个资源域：这次界面加载的所有资源都挂在它身上</span>
+        _scope = ResManager.OpenScope();
+
+        <span class="c">// ② 加载（编辑器直读；真机走 AB，第一次加载请用异步版）</span>
+        _icon.sprite = _scope.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, ResGroup.UI);
+
+        <span class="c">// ③ 预加载下一个界面要用的资源（后台，不抢前台）</span>
+        ResPreloader.Preload(RevResPath.UI_Icon, <span class="k">new</span>[] { <span class="s">"Skin_1001"</span> }, ResGroup.UI);
+    }
+
+    <span class="k">private void</span> OnDisable()
+    {
+        <span class="c">// ④ 出域即回收：该界面独占的资源引用全部归还</span>
+        _scope?.Dispose();
+        _scope = <span class="k">null</span>;
+    }
+}</pre>
+    <p>切场景时统一收口：</p>
+    <pre>ResBootstrap.Instance.Shutdown(ResGroup.UI);   <span class="c">// 归还预加载引用 + 按组卸载 + 真正释放</span>
+ResBootstrap.Instance.ShutdownAll();           <span class="c">// 回登录界面：全清 + 释放所有 AB 包</span></pre>
+  </section>
+
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>附：关键文件索引</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Runtime\ResourceSystem\Core\ResManager.cs</code></td><td>统一门面（业务唯一入口：加载 / 引用计数 / 卸载）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Core\ResPathUtil.cs</code></td><td>两参数路径的拼接与键计算（<code>Join</code> / <code>ComputeKey</code>：<b>不拼字符串也能算出键</b>）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Core\ResHandle.cs</code></td><td>资源句柄（状态机 + 标志位 + 引用计数）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Core\ResDefine.cs</code></td><td>枚举（分组 / 标志 / 优先级 / 失败原因）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Support\ResBootstrap.cs</code></td><td>启动装配 + 切场景清理</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Support\AsyncLoadPump.cs</code></td><td>异步泵（排队限流 + 回调合并）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Support\ResPreloader.cs</code></td><td>预加载（持有引用，可批量归还）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Support\ResAutoUnloader.cs</code></td><td>自动卸载门卫</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Support\ResScope.cs</code></td><td>资源域（<code>using</code> 自动回收）</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Implementation\Policies\*</code></td><td>三条策略：编辑器直读 / AB / Resources 兜底</td></tr>
+          <tr><td><code>Runtime\ResourceSystem\Implementation\Loaders\ABLoader.cs</code></td><td>AB 加载（多平台路径 / 包引用计数）</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABCollector.cs</code></td><td>扫描 AB 标记 → 生成"逻辑名 → 包名+资源名"映射（含只读的<b>漏标检测</b>）</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABValidator.cs</code></td><td>打包前校验（拦截坏包 + 漏标）</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABBuilderCore.cs</code></td><td>打包 + 拷到 StreamingAssets</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABResPathGenerator.cs</code></td><td>生成 <code>RevResPath.cs</code> 目录常量（扫描资源根目录下的文件夹）</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABCIBuild.cs</code></td><td>无头打包入口（CI / 批处理：<code>-executeMethod Revolution.Editor.ABCIBuild.Build</code>）</td></tr>
+          <tr><td><code>Editor\ResourceSystem\ABTool\ABBuildWindow.cs</code></td><td>可视化窗口（<code>Revolution.Tools/资源/LiteAB 打包工具</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets\Revolution\Runtime\ResourceSystem\</code> + <code>Assets\Revolution\Editor\ResourceSystem\ABTool\</code>。
+</footer>
+
+</body>
+</html>

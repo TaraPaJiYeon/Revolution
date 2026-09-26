@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>动作序列 · 使用说明（手把手教程）</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15.5px; line-height:1.85; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+  .hero .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:2;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+  .hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+    animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+
+  main{max-width:1000px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;}
+  h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+  h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  h3{font-size:17px;margin:28px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:15px;margin:20px 0 8px;color:#2B3444;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:24px;}
+  li{margin:6px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;counter-reset:none;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  /* “人话”框：把术语翻译成日常说法 */
+  .plain{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14.5px;background:#F7F9FC;border:1px solid #E4E9F2;}
+  .plain .tag{display:inline-block;font-size:11.5px;background:#5B6B84;color:#fff;border-radius:999px;padding:1px 9px;margin-right:8px;vertical-align:2px;}
+  .plain p:first-child{margin-top:0;}
+  .plain p:last-child{margin-bottom:0;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14.5px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:15px 17px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.7;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  /* 能力卡片：什么时候用 / 怎么写 / 注意 */
+  .card{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 18px;margin:16px 0;}
+  .card > .h{font-weight:700;font-size:15.5px;margin-bottom:4px;}
+  .card > .when{font-size:13.5px;color:var(--text-sub);margin-bottom:10px;}
+  .card pre{margin:10px 0;}
+  .card .note{font-size:13px;color:var(--text-sub);margin-top:8px;}
+
+  /* 对错对比 */
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .cmp > div{border-radius:9px;padding:12px 14px;font-size:13.5px;border:1px solid;}
+  .cmp .no{background:var(--bad-soft);border-color:#F3C9C3;}
+  .cmp .yes{background:var(--good-soft);border-color:#BFE9D2;}
+  .cmp .h{font-weight:700;margin-bottom:6px;}
+  .cmp pre{margin:6px 0 0;font-size:12px;}
+
+  /* 示意图：一行的流程条 */
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+  .flow .n{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;}
+  .flow .n.on{border-color:var(--accent);background:var(--accent-soft);}
+  .flow .n.wait{border-color:#EBCF8A;background:var(--warn-soft);}
+  .flow .ar{color:var(--accent);font-weight:700;}
+
+  /* 动画：序列推进 */
+  .anim{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 16px 14px;margin:16px 0;}
+  .anim > .t{font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .anim > .t .tag{font-size:11px;background:var(--accent);color:#fff;border-radius:999px;padding:2px 9px;font-weight:400;}
+  .anim .hint{font-size:12.5px;color:var(--text-sub);margin-top:10px;line-height:1.65;}
+  @keyframes march{to{background-position:28px 0;}}
+  .seqrow{display:flex;align-items:stretch;gap:0;}
+  .step{flex:1;border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:10px 8px 12px;
+    text-align:center;position:relative;overflow:hidden;}
+  .step b{display:block;font-size:12.5px;margin-bottom:2px;}
+  .step em{font-style:normal;color:var(--text-sub);font-size:11px;}
+  .step i.bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);}
+  .sep{flex:0 0 18px;display:flex;align-items:center;justify-content:center;color:#B9C4D4;}
+  @keyframes st1{0%,3%{background:#fff;border-color:var(--border);}4%,30%{background:var(--accent-soft);border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,111,237,.12);}31%,100%{background:#F6F8FB;border-color:var(--border);box-shadow:none;}}
+  @keyframes bar3{0%,18%{width:0}44%,100%{width:100%}}
+  @keyframes st3{0%,14%{background:#fff;border-color:var(--border);}20%,56%{background:var(--warn-soft);border-color:#EBCF8A;}57%,100%{background:#F6F8FB;border-color:var(--border);}}
+  @keyframes bar4{0%,44%{width:0}72%,100%{width:100%}}
+  @keyframes st4{0%,44%{background:#fff;border-color:var(--border);}50%,84%{background:var(--warn-soft);border-color:#EBCF8A;}85%,100%{background:#F6F8FB;border-color:var(--border);}}
+  @keyframes st5{0%,74%{background:#fff;border-color:var(--border);}80%,94%{background:var(--good-soft);border-color:#9FD9B9;}95%,100%{background:#F6F8FB;border-color:var(--border);}}
+  #demo-flow .s1,#demo-flow .s2{animation:st1 12s linear infinite;}
+  #demo-flow .s3{animation:st3 12s linear infinite;}
+  #demo-flow .s3 i.bar{animation:bar3 12s linear infinite;}
+  #demo-flow .s4{animation:st4 12s linear infinite;}
+  #demo-flow .s4 i.bar{animation:bar4 12s linear infinite;}
+  #demo-flow .s5{animation:st5 12s linear infinite;}
+  .capstk{position:relative;height:48px;margin-top:12px;}
+  .capstk p{position:absolute;left:0;top:0;width:100%;margin:0;font-size:13px;opacity:0;line-height:1.55;}
+  .capstk p b{color:var(--accent);}
+  @keyframes fc1{0%,3%{opacity:1}4%,100%{opacity:0}}
+  @keyframes fc2{0%,14%{opacity:0}18%,56%{opacity:1}57%,100%{opacity:0}}
+  @keyframes fc3{0%,56%{opacity:0}60%,94%{opacity:1}95%,100%{opacity:0}}
+  #demo-flow .capstk p:nth-child(1){animation:fc1 12s linear infinite;}
+  #demo-flow .capstk p:nth-child(2){animation:fc2 12s linear infinite;}
+  #demo-flow .capstk p:nth-child(3){animation:fc3 12s linear infinite;}
+
+  /* 动画：取消也要收尾 */
+  .paths{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .path{border:1.5px solid var(--border);border-radius:9px;background:#fff;padding:12px;}
+  .path .ph{font-size:13px;font-weight:700;margin-bottom:8px;}
+  .path .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;margin:6px 0;}
+  .path .row .b{border:1px solid var(--border);border-radius:6px;background:#F8FAFC;padding:3px 8px;opacity:0;}
+  @keyframes bA{0%,8%{opacity:1;border-color:var(--accent);background:var(--accent-soft)}12%,60%{opacity:1;border-color:var(--border);background:#F8FAFC}64%,100%{opacity:1;border-color:var(--border);background:#F8FAFC}}
+  @keyframes bB{0%,14%{opacity:0}20%,60%{opacity:1;border-color:var(--accent);background:var(--accent-soft)}64%,100%{opacity:1;border-color:var(--border);background:#F8FAFC}}
+  @keyframes bC{0%,58%{opacity:0}64%,96%{opacity:1;border-color:#9FD9B9;background:var(--good-soft)}100%{opacity:0}}
+  @keyframes bGrey{0%,30%{opacity:1}36%,100%{opacity:.45;filter:grayscale(1)}}
+  #demo-cancel .ok .r1{animation:bA 10s linear infinite;}
+  #demo-cancel .ok .r2{animation:bC 10s linear infinite;}
+  #demo-cancel .bad .r1{animation:bA 10s linear infinite;}
+  #demo-cancel .bad .r2{animation:bGrey 10s linear infinite;}
+  #demo-cancel .bad .r3{animation:bC 10s linear infinite;}
+
+  /* 速查卡 */
+  .cheat{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:14px 0;}
+  .cheat div{border:1px solid var(--border);border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;}
+  .cheat div b{display:block;font-size:12.5px;color:var(--text-sub);font-weight:400;margin-bottom:2px;}
+
+  footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+    .cmp,.paths{grid-template-columns:1fr;}
+    .seqrow{flex-wrap:wrap;gap:8px;}
+    .step{flex:1 1 45%;}
+    .sep{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){ .hero .deco,.anim *,.paths *{animation:none !important;} }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc,.anim{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">手把手教程 · 从零到能写业务</span>
+    <h1>动作序列 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b></p>
+    <p class="meta">读完你能做到：3 分钟跑起第一条序列 · 看到需求就知道怎么写 · 知道哪 6 个坑会让人白干半天</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表</a></li>
+      <li><a href="#s3">三、五个最常用的写法（逐个讲透）</a></li>
+      <li><a href="#s4">四、谁来启动它：三种触发方式</a></li>
+      <li><a href="#s5">五、中途取消：怎么停、怎么收拾</a></li>
+      <li><a href="#s6">六、新手最容易白干的 6 个坑</a></li>
+      <li><a href="#s7">七、完整实战：宝箱开启全流程</a></li>
+      <li><a href="#s8">八、怎么确认它真的在跑 / 出问题怎么查</a></li>
+      <li><a href="#s9">九、一页速查卡（可打印）</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 4 个东西就能干活（真的）</span>
+      <pre style="margin:10px 0 6px">RevSequencePlayer.Play(                                <span class="c">// ① 播放（Unity 里连"每帧驱动"都不用管）</span>
+    RevSequence.Create(<span class="s">"开宝箱"</span>)                         <span class="c">// ② 开一张清单（名字会出现在日志里）</span>
+        .Do(<span class="s">"播音效"</span>, ctx =&gt; Sound.Play(<span class="s">"Box_Open"</span>))      <span class="c">// ③ 一步一步写：Do = 立刻做一件事</span>
+        .Wait(<span class="n">1f</span>)                                     <span class="c">//    Wait = 停一会儿</span>
+        .WaitUntil(<span class="s">"等玩家点击"</span>, ctx =&gt; 点了, <span class="n">15f</span>));   <span class="c">//    WaitUntil = 等条件成立（带超时保护）</span></pre>
+      <p style="margin-bottom:0">
+        上面是"一行到底"的写法，适合临时的一次性演出。<b>要被反复触发，就先 <code>.Build()</code> 存成静态字段再 Play</b>
+        （第 1 章一句话讲清：写一次、用一辈子）。<br>
+        就这 4 个 —— 剩下的（并行、事件、自定义步骤、服务注入……）都是<b>用到再看</b>的增值项。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>动作序列 = 一张"先做什么、再做什么"的清单，写成代码，交给框架按顺序执行。</b>
+      <p>清单里如果有一项是"等玩家点一下"，框架就停在那儿等，玩家点了再往下走。这个停等的过程中，游戏其它部分照常运行（不会卡住）。</p>
+    </div>
+
+    <h3>生活里它就长这样</h3>
+    <div class="flow">
+      <span class="n">① 烧水 3 分钟</span><span class="ar">→</span>
+      <span class="n">② 放面饼</span><span class="ar">→</span>
+      <span class="n">③ 等 2 分钟</span><span class="ar">→</span>
+      <span class="n">④ 放调料，开吃</span>
+    </div>
+    <p>游戏里的"开宝箱"是同一件事：</p>
+    <div class="flow">
+      <span class="n">① 播放出现音效</span><span class="ar">→</span>
+      <span class="n wait">② 等玩家点一下</span><span class="ar">→</span>
+      <span class="n">③ 播放开箱音效</span><span class="ar">→</span>
+      <span class="n">④ 通知门：可以开了</span>
+    </div>
+
+    <h3>它解决什么问题（如果你现在是这样写代码的）</h3>
+    <pre><span class="c">// 没有动作序列时，"先做 A、等条件、再做 B"通常长这样：</span>
+<span class="k">private bool</span> _clicked;          <span class="c">// ← 为了"等玩家点" 得先加个字段</span>
+<span class="k">private float</span> _timer;           <span class="c">// ← 为了"停 1 秒" 再加个字段</span>
+<span class="k">private int</span> _step;              <span class="c">// ← 为了记住"走到第几步" 还得加个字段</span>
+
+<span class="k">void</span> Update() {
+    <span class="k">switch</span> (_step) {
+        <span class="k">case</span> 0: PlaySound(<span class="s">"Box_Appear"</span>); _step = 1; <span class="k">break</span>;
+        <span class="k">case</span> 1: <span class="k">if</span> (_clicked) { PlaySound(<span class="s">"Box_Open"</span>); _step = 2; } <span class="k">break</span>;
+        <span class="c">// …再加需求就要再塞分支，而且"取消/回收"没地方放</span>
+    }
+}</pre>
+    <p>用动作序列写，上面那一坨变成：</p>
+    <pre>RevSequence.Create(<span class="s">"开宝箱"</span>)
+    .Do(<span class="s">"出现音效"</span>, ctx =&gt; PlaySound(<span class="s">"Box_Appear"</span>))
+    .WaitUntil(<span class="s">"等玩家点击"</span>, ctx =&gt; _clicked)
+    .Do(<span class="s">"开箱音效"</span>, ctx =&gt; PlaySound(<span class="s">"Box_Open"</span>))
+    .Do(<span class="s">"通知门"</span>,   ctx =&gt; ctx.Events.Publish(<span class="k">new</span> ChestOpened()))
+    .Build();</pre>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      多了三个字段、三个分支，全都不需要了：<b>"走到第几步""等了多久""点了没"这三件事由框架替你记</b>，你只写"要做哪些事"。
+    </div>
+
+    <h3>什么时候该用它 / 什么时候不该用</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:62%">你的需求</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>"先 A 再 B""B 要等条件成立才继续"</td><td>✅ 用它</td></tr>
+          <tr><td>"演出播完再进入下一步""资源加载完再继续"</td><td>✅ 用它</td></tr>
+          <tr><td>"这个流程要能被中途取消，取消后还得把现场收拾干净"</td><td>✅ 用它</td></tr>
+          <tr><td>"两件事要同时做（音乐 + 动画）"</td><td>✅ 用它</td></tr>
+          <tr><td>"状态之间互相跳转，比如眩晕 → 逃跑 → 追击"</td><td>❌ 用<b>状态机</b>，不要硬塞进序列</td></tr>
+          <tr><td>"每帧都要根据战场情况做决策（AI）"</td><td>❌ 用<b>状态机</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="t">一句话记住</span>
+      <b>序列管"一条路走到底"，状态机管"我现在是什么状态"。</b>实战里最常见的搭配是：状态机管形态（Boss 阶段），序列管演出（登场动画）；演出播完再让状态机切状态。
+    </div>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>3 分钟跑起来</h2>
+    <p class="lead">复制这一整段到任意脚本里，挂到场景任意物体上，运行就能看到日志。</p>
+
+    <pre><span class="k">using</span> UnityEngine;
+<span class="k">using</span> Revolution;        <span class="c">// ← 框架的命名空间（忘了它会报"找不到 RevSequence"）</span>
+
+<span class="k">public sealed class</span> MyFirstSequence : MonoBehaviour
+{
+    <span class="k">private void</span> Start()
+    {
+        <span class="c">// ① 写清单（只写一次，写完存起来 —— 后面第 6 章坑 5 会讲为什么）</span>
+        RevSequenceDefinition flow = RevSequence.Create(<span class="s">"我的第一个序列"</span>)
+            .Do(<span class="s">"打个招呼"</span>, ctx =&gt; Debug.Log(<span class="s">"你好，动作序列！"</span>))
+            .Wait(<span class="n">1f</span>)                                     <span class="c">// 停 1 秒（这 1 秒里游戏照常运行）</span>
+            .Do(<span class="s">"再说一句"</span>, ctx =&gt; Debug.Log(<span class="s">"1 秒过去了"</span>))
+            .Build();
+
+        <span class="c">// ② 让它开始跑（不用你每帧喂时间，Default 会自动创建驱动者）</span>
+        RevSequencePlayer.Default.Play(flow);
+    }
+}</pre>
+
+    <h3>这几行分别是什么意思</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:36%">这一行</th><th>意思</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevSequence.Create("名字")</code></td><td>拿一张空清单开始写。<b>名字会出现在报错与排查信息里</b>，所以起个看得懂的名字（"开宝箱""登录流程"）</td></tr>
+          <tr><td><code>.Do("名字", ctx =&gt; 做事())</code></td><td>加一步"马上做"的事。第一步的名字是"打个招呼"，将来排查问题时你会看到它</td></tr>
+          <tr><td><code>.Wait(1f)</code></td><td>加一步"停 1 秒"。<b>注意：这 1 秒不会卡住游戏</b>，只是这一条流程暂停在这里，其它系统照常跑</td></tr>
+          <tr><td><code>.Build()</code></td><td>清单定稿。<b>定稿之后不能再改</b>（所以要用变量/静态字段把它存起来复用）</td></tr>
+          <tr><td><code>RevSequencePlayer.Default</code></td><td>框架的"发动机"。第一次访问它会自动创建一个隐藏物体来每帧推进序列，<b>所以你在 Unity 里什么都不用配</b></td></tr>
+          <tr><td><code>.Play(flow)</code></td><td>开始跑。立刻返回一个"句柄"（钥匙），想取消时用它 —— 见第五章</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>把清单存起来（推荐从第一条序列就这么写）</h3>
+    <p>清单是"不可变的"（定稿后不能改），所以它天生适合放进静态字段，写一次、用一辈子：</p>
+    <pre><span class="k">private static readonly</span> RevSequenceDefinition Flow =      <span class="c">// ← 静态字段：整个游戏只构建一次</span>
+    RevSequence.Create(<span class="s">"我的第一个序列"</span>)
+        .Do(<span class="s">"打个招呼"</span>, ctx =&gt; Debug.Log(<span class="s">"你好"</span>))
+        .Wait(<span class="n">1f</span>)
+        .Build();
+
+<span class="c">// 需要时随时播放（想播几次播几次，一份清单可以被多个玩家/多个对象同时使用）</span>
+RevSequencePlayer.Default.Play(Flow);</pre>
+    <div class="plain">
+      <span class="tag">人话</span>
+      这就像"菜谱"和"做菜"的关系：<b>菜谱写一次贴在墙上（静态字段），谁都能照着做（Play）</b>。两个厨师同时照着同一张菜谱做菜，各做各的、不会串味 —— 这是它比"把状态写在脚本字段里"强的地方。
+    </div>
+
+    <h3>谁负责"每帧推进"（三种方式，挑一个）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">方式</th><th style="width:40%">怎么用</th><th>什么时候选它</th></tr></thead>
+        <tbody>
+          <tr><td><b>① 全局默认</b>（最常用）</td><td><code>RevSequencePlayer.Default.Play(flow);</code></td><td>什么都不想配 —— Unity 里九成场景够用</td></tr>
+          <tr><td><b>② 场景级组件</b></td><td>把 <code>RevSequencePlayer</code> 挂到场景物体上，勾选"使用自己的引擎"</td><td>这条流程属于某个玩法场景，希望它随场景卸载一起收掉</td></tr>
+          <tr><td><b>③ 自己 new + 自己喂时间</b></td><td><code>var r = new RevSequenceRunner(); r.Play(flow); r.Tick(dt);</code></td><td>单元测试、需要暂停/快进/慢放、或者你有自己的时间源</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="t">⚠ 选了 ③ 就必须自己每帧调 Tick</span>
+      忘了调 <code>Tick</code> 的症状是：<b>Play 了但什么都没发生</b>（因为没人推进它）。这是新手第一个坑，第六章会再提醒一次。
+    </div>
+  </section>
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>"我要做 X" 对照表</h2>
+    <p class="lead">写业务时 90% 的情况都在下面这张表里 —— 找到你要的，照抄即可。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">我想要</th><th style="width:38%">这样写</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>立刻做一件事</td><td><code>.Do("播个音效", ctx =&gt; Sound.Play("Box_Open"))</code></td><td>不等待，执行完就下一步</td></tr>
+          <tr><td>停一会儿</td><td><code>.Wait(0.5f)</code> / <code>.WaitFrames(6)</code></td><td>按秒 / 按帧。等待期间游戏不卡</td></tr>
+          <tr><td>等玩家点了再继续</td><td><code>.WaitUntil("等玩家点击", ctx =&gt; 点了, timeoutSeconds: 15f)</code></td><td>每帧问一次"好了吗"；<b>15 秒还没好就放弃并告警</b>，不会永远卡死</td></tr>
+          <tr><td>等资源 / 数据到位</td><td><code>.WaitUntil("等加载完", ctx =&gt; Res.IsDone)</code></td><td>同上，条件是"加载完了"</td></tr>
+          <tr><td>等一个异步任务</td><td><code>.WaitTask(ctx =&gt; 那个异步任务, "等服务器回包")</code></td><td>任务由 <code>ctx =&gt;</code> 工厂在<b>运行时</b>创建 → 清单可缓存、并发互不干扰</td></tr>
+          <tr><td>开始一个动作 + 每帧问它结束没</td><td><code>.DoBlocking("等移动完", ctx =&gt; 移动.Start(), ctx =&gt; 移动.Done)</code></td><td>适合"我做一次启动，然后盯着它结束"</td></tr>
+          <tr><td>两件事同时做</td><td><code>.Parallel("音乐和动画一起", p =&gt; p.Do(...).Do(...))</code></td><td>组内全部完成，这一步才算结束</td></tr>
+          <tr><td>重复几遍</td><td><code>.Repeat("闪三次", 3, r =&gt; r.Do("亮", ...).WaitFrames(6))</code></td><td>闪光、脉冲、轮播都用它</td></tr>
+          <tr><td>跑完这条，接着跑另一条</td><td><code>.Sequence("先开箱", ChestOpen)</code></td><td>把常用演出做成积木，拼装复用</td></tr>
+          <tr><td>通知别的序列 / 别的系统</td><td><code>.Publish(new ChestOpened(uid))</code></td><td>事件是强类型的，改名编译器会报错（不会悄悄断链）</td></tr>
+          <tr><td>取消时把东西收拾干净</td><td><code>.OnCancel(f =&gt; f.Do("回收", ctx =&gt; Pool.Recycle(go)))</code></td><td>第五章专门讲</td></tr>
+          <tr><td>跑完/被取消时通知我</td><td><code>.OnCompleted(run =&gt; ...)</code> / <code>.OnCancelled(run =&gt; ...)</code></td><td>接埋点、刷 UI、记日志</td></tr>
+          <tr><td>每走一步都记一下（埋点）</td><td><code>.Do("埋点", ctx =&gt; YourLog.Step())</code></td><td>框架不内建埋点：在步骤里自己打点即可</td></tr>
+          <tr><td>取消它 / 问它还在不在</td><td><code>handle.Stop()</code> / <code>handle.IsValid</code></td><td><code>Play</code> 的返回值就是句柄</td></tr>
+          <tr><td>在步骤里拿业务系统</td><td><code>ctx.Get&lt;ISoundService&gt;()</code></td><td>框架不认识你的系统，全靠这样注入（见第七章）</td></tr>
+          <tr><td>在步骤里知道"谁触发的"</td><td><code>ctx.Source</code></td><td>例如"是哪个玩家开的这个箱子"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">只用这张表就能写完整游戏流程</span>
+      上面 16 行覆盖了"顺序 + 等待 + 并行 + 重复 + 事件 + 取消 + 埋点"全套能力 —— 不需要先学任何理论。
+    </div>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>五个最常用的写法（逐个讲透）</h2>
+    <p class="lead">每个卡片都是"什么时候用 → 怎么写 → 要注意什么"。</p>
+
+    <div class="anim" id="demo-flow">
+      <div class="t"><span class="tag">动图</span>整条序列是怎么走完的（一眼看懂"等待"和"立刻"的区别）</div>
+      <div class="seqrow">
+        <div class="step s1"><b>Do 播音效</b><em>立刻</em></div>
+        <div class="sep">›</div>
+        <div class="step s2"><b>Do 开提示</b><em>立刻</em></div>
+        <div class="sep">›</div>
+        <div class="step s3"><b>Wait 1s</b><em>等 1 秒</em><i class="bar"></i></div>
+        <div class="sep">›</div>
+        <div class="step s4"><b>WaitUntil 等点击</b><em>等玩家</em><i class="bar"></i></div>
+        <div class="sep">›</div>
+        <div class="step s5"><b>Do 发奖励</b><em>立刻</em></div>
+      </div>
+      <div class="capstk">
+        <p>① 前两步是"立刻"的：<b>同一帧内连着就做完了</b>（不会一步占一帧）。</p>
+        <p>② 第 3 步是"等 1 秒"：进度条走完 1 秒才继续 —— 这期间游戏照常跑，别的序列也在跑。</p>
+        <p>③ 第 4 步是"等玩家点击"：条件成立才放行；最后一步又立刻做完，整条流程结束。</p>
+      </div>
+      <div class="hint">
+        看到"蓝色"= 正在执行；看到"黄色进度条"= 卡在等待中。<b>黄色就是"序列挂起"的样子</b> —— 它没死，只是在等。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">① <code>.Do("名字", ctx =&gt; 做事())</code> —— 立刻做一件事</div>
+      <div class="when">什么时候用：播音效、开界面、发奖励、改状态 …… 所有"做完就往下走"的事。</div>
+      <pre>.Do(<span class="s">"播放音效"</span>, ctx =&gt; ctx.Get&lt;ISoundService&gt;()?.PostEvent(<span class="s">"Play_Box_Open"</span>))
+.Do(<span class="s">"打开奖励面板"</span>, ctx =&gt; UIManager.Open(<span class="s">"RewardPanel"</span>))
+.Do(<span class="s">"加金币"</span>, ctx =&gt; ctx.Get&lt;IPlayerService&gt;()?.AddGold(<span class="n">100</span>))</pre>
+      <div class="note">✅ 名字要认真写 —— 排查问题时它就是你唯一的路标（"卡在 播放音效 这一步"）。<br>❌ 不要在 <code>Do</code> 里等东西（那会卡住主线程）：要等就用 <code>WaitUntil</code> / <code>WaitTask</code>。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">② <code>.WaitUntil("名字", ctx =&gt; 条件, 超时秒数)</code> —— 等一个条件成立</div>
+      <div class="when">什么时候用：等玩家点击、等动画播完、等资源加载完、等某个标志位变 true —— <b>"等外部状态"全靠它</b>。</div>
+      <pre><span class="c">// 等玩家点击（15 秒没点就放弃，并打一条告警）</span>
+.WaitUntil(<span class="s">"等玩家点击"</span>, ctx =&gt; ctx.Get&lt;IInputService&gt;()?.ConsumeClick() == <span class="k">true</span>, timeoutSeconds: <span class="n">15f</span>)
+
+<span class="c">// 等相机推近到位（用业务服务的状态）</span>
+.WaitUntil(<span class="s">"等镜头就位"</span>, ctx =&gt; ctx.Get&lt;ICameraService&gt;()?.IsArrived == <span class="k">true</span>)</pre>
+      <div class="note">✅ <b>一定要写超时</b>（最后一个参数）：万一条件永远不成立，序列会永远卡在那里 —— 原体系最典型的事故就是"某个动作永远不返回，序列停在半路"。<br>✅ 条件里读的必须是"能变的东西"（服务状态、字段）——别写 <code>ctx =&gt; true</code> 这种永远成立的假条件（除非你就是想占一帧）。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">③ <code>.DoBlocking("名字", 启动动作, 判断结束)</code> —— 我启动一件事，然后盯它结束</div>
+      <div class="when">什么时候用：播放一个时长不定的动画 / 让角色走过去 / 等一个"有开始也有结束"的动作。</div>
+      <pre>.DoBlocking(<span class="s">"等角色走过去"</span>,
+    execute:     ctx =&gt; ctx.Get&lt;IMoveService&gt;()?.MoveTo(target),
+    isCompleted: ctx =&gt; ctx.Get&lt;IMoveService&gt;()?.IsArrived == <span class="k">true</span>)</pre>
+      <div class="note">
+        ✅ 第一个参数只会执行一次（"启动"），第二个参数每帧问一次（"到了吗"）。<br>
+        ⚠️ <b>判断条件里别用"你在构造函数里存的字段"</b> —— 两个玩家同时触发会互相踩（第六章坑 3 有对错对比）。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">④ <code>.Parallel("名字", p =&gt; ...)</code> —— 两件事同时做</div>
+      <div class="when">什么时候用：音效 + 动画同时开始；几个特效一起播；界面打开的同时拉数据。</div>
+      <pre>.Parallel(<span class="s">"消失音效与飞行动画同时进行"</span>, p =&gt; p
+    .Do(<span class="s">"消失音效"</span>, ctx =&gt; ctx.Get&lt;ISoundService&gt;()?.PostEvent(<span class="s">"Play_Disappear"</span>))
+    .Step(<span class="k">new</span> MyFlyStep(duration: <span class="n">0.35f</span>)))      <span class="c">// 自定义步骤，见本节第 ⑥ 个卡片</span>
+<span class="c">// ↑ 两条都完成后，才继续后面的步骤</span></pre>
+      <div class="note">✅ 顺序执行是默认行为；只有你明确写 <code>Parallel</code> 才是并行。<br>✅ 还有 <code>.Repeat("名字", 次数, r =&gt; ...)</code>（重复）与 <code>.Sequence("名字", 别的清单)</code>（嵌套复用），用法同理。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">⑤ <code>.OnCancel(f =&gt; f.Do(...))</code> —— 取消时收拾现场</div>
+      <div class="when">什么时候用：这条流程里"产生了东西"（生成的特效、加载的资源、推近的镜头、注册的监听）—— 只要产生了，就得写。</div>
+      <pre>.OnCancel(finallySteps =&gt; finallySteps
+    .Do(<span class="s">"回收特效"</span>, ctx =&gt; ctx.Get&lt;IEffectService&gt;()?.Recycle(spawned))
+    .Do(<span class="s">"恢复镜头"</span>, ctx =&gt; ctx.Get&lt;ICameraService&gt;()?.Restore()))</pre>
+      <div class="note">
+        ✅ 玩家中途退出、切场景、掉线、被别的流程顶替 —— 这些都会触发它。<br>
+        ✅ 里面只能写"立刻做完"的步骤（不能等），所以它是"回收/反注册/恢复"的专属位置。<br>
+        ✅ <b>判断标准很简单：这条序列"占用了什么"，就在 OnCancel 里还回去。</b>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">⑥ 需要记住"这次运行自己"的中间值时（进阶，先知道有这回事）</div>
+      <div class="when">什么时候用：要记住"本次飞行的起点时间""本次随到的随机数"这类只有这一次运行才有的数据。</div>
+      <pre><span class="k">public sealed class</span> MyFlyStep : RevStepBase
+{
+    <span class="k">private sealed class</span> State { <span class="k">public float</span> Duration; }
+
+    <span class="k">public override string</span> Name =&gt; <span class="s">"抛物线飞向玩家"</span>;
+
+    <span class="k">public override void</span> Execute(RevSequenceRun run, RevSequenceContext ctx)
+        =&gt; GetOrCreateState&lt;State&gt;(run).Duration = <span class="n">0.35f</span>;     <span class="c">// ← 状态存这里，按"本次运行"隔离</span>
+
+    <span class="k">public override bool</span> IsCompleted(RevSequenceRun run, RevSequenceContext ctx)
+        =&gt; run.Elapsed &gt;= GetState&lt;State&gt;(run).Duration;
+}</pre>
+      <div class="note">写法就是这三段：<b>状态放内部类 → Execute 里准备 → IsCompleted 里判断</b>。不用它也行（<code>DoBlocking</code> 够用），但涉及"每个玩家各自一份状态"时就得用它。</div>
+    </div>
+  </section>
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>谁来启动它：三种触发方式</h2>
+    <p class="lead">清单写好了，接下来要回答"什么时候开始跑"。</p>
+
+    <h3>方式一：手动启动（最直接，够用一半场景）</h3>
+    <pre><span class="c">// 点按钮、流程里走到某一步 —— 直接 Play 就行</span>
+RevSequencePlayer.Default.Play(ChestOpen, source: gameObject);
+<span class="c">//                                     ↑ source = "是谁触发的"（第 4.4 节会讲它为什么重要）</span></pre>
+    <div class="plain">
+      <span class="tag">人话</span>
+      "谁触发的"这个概念有两个用处：① 判断重复触发时"是不是同一个玩家"；② 步骤里能让你知道"这次是给谁播的"（<code>ctx.Source</code>）。
+    </div>
+
+    <h3>方式二：玩家走进范围就播（区域触发）</h3>
+    <p>框架不内置"范围检测"（每个项目检测方式不同：Unity 物理 / 自研网格 / 服务端下发），但把它接到序列上只要 8 行：</p>
+    <pre><span class="c">// ① 让触发物实现"触发源契约"：有人进来，就喊一声</span>
+<span class="k">public sealed class</span> ChestZone : MonoBehaviour, RevITriggerSource
+{
+    <span class="k">public string</span> Name =&gt; <span class="s">"宝箱区域"</span>;
+    <span class="k">public event</span> Action&lt;RevTriggerSignal&gt; Triggered;
+    <span class="k">public void</span> Dispose() =&gt; Triggered = <span class="k">null</span>;          <span class="c">// 断开所有订阅</span>
+
+    <span class="c">// Unity 物理回调：谁走进来，就把"谁"喊出去</span>
+    <span class="k">private void</span> OnTriggerEnter(Collider other)
+        =&gt; Triggered?.Invoke(<span class="k">new</span> RevTriggerSignal(other.gameObject, Name));
+}
+
+<span class="c">// ② 绑一下：这个区域触发 → 播这条序列（写在 Awake 里）</span>
+<span class="k">var</span> zone = gameObject.AddComponent&lt;ChestZone&gt;();
+_binding = RevSequencePlayer.Default.Bind(zone, GameSequences.ChestOpen);
+
+<span class="c">// ③ 不需要时解绑（必须做，否则对象没了、回调还在被调用）</span>
+_binding.Dispose();</pre>
+    <div class="plain">
+      <span class="tag">人话</span>
+      框架只认"有人喊了一声"这件事 —— <b>怎么发现"有人进来"完全由你决定</b>：
+      Unity 物理回调、你自己的距离检测、甚至服务端推来的一句"玩家 X 进入宝箱区"，都能这么接。
+      <p style="margin-bottom:0"><b>触发源只有这一种写法</b>（实现 <code>RevITriggerSource</code>）——
+      框架刻意不提供"触发源基类"，就是为了不让你在"继承还是实现"之间选：MonoBehaviour 受 C# 单基类限制只能走接口，两条路并存只会踩坑。</p>
+    </div>
+
+    <h3>方式三：别的事件发生时启动（一行搞定）</h3>
+    <pre><span class="c">// 场景：宝箱开了 → 门就该开（门这条序列被"宝箱开启"事件触发）</span>
+RevSequencePlayer.Default.BindEvents&lt;ChestOpenedEvent&gt;(
+    RevSequencePlayer.Default.Events,      <span class="c">// 事件总线</span>
+    SlidingDoorOpen,                       <span class="c">// 要启动的序列</span>
+    e =&gt; e.Opener);                        <span class="c">// 从事件里取"是谁开的"</span>
+
+<span class="c">// 而"发事件"是这样发的（通常写在宝箱序列的最后一步）：</span>
+.Do(<span class="s">"广播宝箱已开"</span>, ctx =&gt; ctx.Events.Publish(<span class="k">new</span> ChestOpenedEvent(ctx.Source, uid)))</pre>
+    <div class="callout good">
+      <span class="t">事件是强类型的，这一点很重要</span>
+      原体系用字符串事件名（<code>"chest_opened"</code>）互相通知，改个名字就悄悄断链、跑起来才发现。
+      这里 <code>ChestOpenedEvent</code> 是一个类型，<b>改名编译器立刻报错</b>；事件里能带什么字段也由你定义。
+    </div>
+
+    <h3>三种方式怎么选</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">场景</th><th>选哪个</th></tr></thead>
+        <tbody>
+          <tr><td>UI 按钮 / 流程中的某一步 / 测试时手动跑</td><td><b>手动 <code>Play</code></b></td></tr>
+          <tr><td>玩家走近、进入某个区域、碰到东西</td><td><b>区域触发源</b>（+ 自己的检测）</td></tr>
+          <tr><td>别的序列/系统做了某件事之后要接力</td><td><b>事件触发</b>（<code>BindEvents</code>）</td></tr>
+          <tr><td>服务端下指令、定时器到点</td><td>手动 <code>Play</code>（在你收到指令的地方调）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.4 防止"连点两次跑两遍"：并发策略</h3>
+    <p>同一个玩家在极短时间内触发同一条序列（连点、快速进出区域），你希望怎样？框架给你三选一，<b>写清单的时候声明</b>：</p>
+    <pre>RevSequence.Create(<span class="s">"开宝箱"</span>, RevSequenceConcurrency.<b>RejectPerSource</b>)   <span class="c">// ← 第三个参数（不写就是 Free）</span>
+    .Do(...)
+    .Build();</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">策略</th><th style="width:34%">同一个玩家再触发一次时</th><th>典型场景</th></tr></thead>
+        <tbody>
+          <tr><td><code>Free</code>（默认）</td><td>再跑一条，两条并存</td><td>每个怪各播各的受击表现</td></tr>
+          <tr><td><code>ReplacePerSource</code></td><td><b>掐掉旧的，跑新的</b></td><td>连点采集 / 同一个 NPC 换目标，旧演出让位</td></tr>
+          <tr><td><code>RejectPerSource</code></td><td><b>忽略这次</b>（旧的继续跑完）</td><td>宝箱只能开一次、演出期间防连点</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="t">⚠ 用了后两种策略，Play 时必须传 source</span>
+      因为"是不是同一个"靠 <code>source</code> 判断。不传（<code>Play(清单)</code>）的话，所有人会被当成"同一个空触发者"，策略就变成了"全场只允许一条" —— 通常不是你想要的。
+      <b>这种情况框架会在开发期提醒你一次</b>（日志里会写清怎么改）。
+    </div>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>中途取消：怎么停、怎么收拾</h2>
+    <p class="lead">这是最容易被忽略、也最容易出事的一章。好消息是它只有两个 API。</p>
+
+    <h3>5.1 什么时候会被取消（大多数时候不是你主动取消）</h3>
+    <ul>
+      <li>玩家点了关闭 / 中途退出；</li>
+      <li>切场景、断线重连 —— 拥有这条序列的对象被销毁；</li>
+      <li>被"同源顶替"策略挤掉（第 4.4 节）；</li>
+      <li>你自己调了 <code>Stop</code>（比如玩家点了"取消加载"）。</li>
+    </ul>
+
+    <h3>5.2 两个 API</h3>
+    <pre><span class="c">// ① 存下句柄（Play 的返回值），想取消时用它</span>
+RevSequenceHandle handle = RevSequencePlayer.Default.Play(LoadingFlow, source: player);
+
+<span class="k">if</span> (玩家点了取消) handle.Stop();                          <span class="c">// 取消这一条（走它的收尾）</span>
+<span class="k">if</span> (切场景)        RevSequencePlayer.Default.StopAll();    <span class="c">// 全部取消（每条都走各自的收尾）</span>
+
+<span class="c">// ② 想知道它还在不在跑</span>
+<span class="k">if</span> (handle.IsValid) Debug.Log(<span class="s">"还在跑"</span>);</pre>
+    <div class="plain">
+      <span class="tag">人话</span>
+      句柄就是<b>"这场演出的票根"</b>：拿着它才能叫停、才能问"还在演吗"。演出结束后票根自动作废（<code>IsValid</code> 变 false），所以旧票根永远不会误停别的新演出。
+    </div>
+    <div class="callout">
+      <span class="t">取消是"下一个步骤边界"生效，不是立刻中断</span>
+      这是故意的：正在执行的步骤不会被打断（避免"做一半被砍"的脏状态），序列会在下一步之前停下来，然后走收尾。
+    </div>
+
+    <h3>5.3 收尾：<code>.OnCancel(...)</code></h3>
+    <pre>.OnCancel(finallySteps =&gt; finallySteps
+    .Do(<span class="s">"回收生成的特效"</span>, ctx =&gt; ctx.Get&lt;IEffectService&gt;()?.Recycle(spawned))
+    .Do(<span class="s">"恢复镜头与 HUD"</span>, ctx =&gt; ctx.Get&lt;ICameraService&gt;()?.Restore())
+    .Do(<span class="s">"反注册事件"</span>, ctx =&gt; _subscription?.Dispose()))</pre>
+
+    <div class="anim" id="demo-cancel">
+      <div class="t"><span class="tag">动图</span>两条路都通向"收尾"—— 一条是跑完，一条是被取消</div>
+      <div class="paths">
+        <div class="path ok">
+          <div class="ph">✅ 正常跑完</div>
+          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✓ 完成回调（OnCompleted）</span></div>
+          <div class="row" style="color:var(--text-sub);font-size:12px">收尾步骤<b>不</b>执行（没有被打断，没什么要收拾的）</div>
+        </div>
+        <div class="path bad">
+          <div class="ph">⚠ 跑到一半被取消（退出 / 切场景 / 顶替）</div>
+          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✗ 中途停住</span><span class="b r3">✓ 收尾（OnCancel）</span></div>
+          <div class="row" style="color:var(--text-sub);font-size:12px">不写收尾的话：特效留在场上、镜头还推着、事件还被监听</div>
+        </div>
+      </div>
+      <div class="hint">
+        <b>判断标准一句话：这条序列"占用了什么"，就在 OnCancel 里还回去。</b>
+        生成的物件、加载的资源、推近的镜头、注册的监听 —— 四样东西，对应四行收尾。
+      </div>
+    </div>
+
+    <div class="cmp">
+      <div class="no">
+        <div class="h">❌ 常见错误：只写回收，不写取消</div>
+        <pre>.Do(<span class="s">"生成特效"</span>, ctx =&gt; spawned = Effect.Spawn(<span class="s">"Fx_Open"</span>))
+.Do(<span class="s">"回收特效"</span>, ctx =&gt; Effect.Recycle(spawned))
+<span class="c">// 玩家中途退出 → 回收那一步永远走不到 → 特效留在场上</span></pre>
+      </div>
+      <div class="yes">
+        <div class="h">✅ 正确：把"还回去"放进收尾</div>
+        <pre>.Do(<span class="s">"生成特效"</span>, ctx =&gt; spawned = Effect.Spawn(<span class="s">"Fx_Open"</span>))
+.Do(<span class="s">"回收特效"</span>, ctx =&gt; Effect.Recycle(spawned))   <span class="c">// 正常路径</span>
+.OnCancel(f =&gt; f.Do(<span class="s">"回收特效"</span>, ctx =&gt; Effect.Recycle(spawned)))  <span class="c">// 取消路径</span></pre>
+      </div>
+    </div>
+
+    <h3>5.4 三种结束方式（对照表）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">结束方式</th><th style="width:44%">怎么发生的</th><th>收尾会执行吗</th></tr></thead>
+        <tbody>
+          <tr><td>正常跑完</td><td>所有步骤都放行了</td><td>不会（走 <code>OnCompleted</code> 回调）</td></tr>
+          <tr><td>被取消</td><td><code>handle.Stop()</code> / <code>StopAll()</code> / 宿主销毁 / 被顶替</td><td><b>会</b>（走 <code>OnCancelled</code> 回调）</td></tr>
+          <tr><td>步骤抛异常</td><td>某个步骤的代码报错</td><td>调试期直接报错给你；正式包记录错误并走收尾</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>新手最容易白干的 6 个坑</h2>
+    <p class="lead">每个坑都是"症状 → 原因 → 怎么改"。前两个坑占了新手问题的一大半。</p>
+
+    <div class="card">
+      <div class="h">坑 1：Play 了，但什么都没发生</div>
+      <div class="when">症状：日志里连"启动"都没有，或者日志有但画面没动。</div>
+      <p><b>原因（两种）</b>：</p>
+      <ul>
+        <li><b>没人"喂时间"</b>——你用自己 new 的引擎（方式 ③），但忘了每帧调 <code>Tick</code>；</li>
+        <li><b>被并发策略忽略了</b>——你把清单声明成 <code>RejectPerSource</code>，而同一个 <code>source</code> 已经有一条在跑。</li>
+      </ul>
+      <div class="cmp">
+        <div class="no"><div class="h">❌ 忘了 Tick</div><pre><span class="k">var</span> r = <span class="k">new</span> RevSequenceRunner();
+r.Play(Flow);   <span class="c">// 就没了 → 永远不动</span></pre></div>
+        <div class="yes"><div class="h">✅ 用 Default，或自己 Tick</div><pre>RevSequencePlayer.Default.Play(Flow);
+<span class="c">// 或</span>
+r.Play(Flow);  r.Tick(Time.deltaTime);</pre></div>
+      </div>
+      <div class="note">被策略忽略时会返回"空句柄"：<code>if (!handle.IsAssigned) Debug.Log("被策略忽略了")</code>。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">坑 2：等待时间不对（感觉快了一倍 / 动画加速了）</div>
+      <div class="when">症状：明明写 <code>Wait(2f)</code>，一秒就过去了；或者所有表现都加速。</div>
+      <p><b>原因</b>：场景里有<b>两个</b>在推进同一个引擎的驱动组件 —— 序列每帧被推进两次，等待时间自然减半。</p>
+      <div class="note">✅ 框架会自己发现并处理：第二个驱动组件会被自动关掉，并在 Console 打一条告警说明原因。<b>看到这条告警就删掉多余的组件</b>（或者它改成"使用自己的引擎"）。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">坑 3：两个玩家同时触发，表现互相串了</div>
+      <div class="when">症状：玩家甲采集灵果，结果玩家乙那边的动画乱了；或者"第一次跑对，第二次跑用了上次的数据"。</div>
+      <p><b>原因</b>：在写清单的 lambda 里用了"存在外面的变量"来记跨帧状态 —— 这份变量是全天下共享的。</p>
+      <div class="cmp">
+        <div class="no"><div class="h">❌ 用了外面的字段</div><pre><span class="k">private float</span> _start;   <span class="c">// 全天下共用一个</span>
+
+.DoBlocking(<span class="s">"飞"</span>,
+    ctx =&gt; _start = ctx.Elapsed,
+    ctx =&gt; ctx.Elapsed - _start &gt; <span class="n">0.35f</span>)
+<span class="c">// 甲触发把 _start 改了 → 乙的进度被算错</span></pre></div>
+        <div class="yes"><div class="h">✅ 状态放"服务"或"自定义步骤"</div><pre><span class="c">// (a) 状态放业务服务里（推荐）</span>
+.DoBlocking(<span class="s">"飞"</span>,
+    ctx =&gt; fly.Begin(uid),
+    ctx =&gt; fly.IsDone(uid))
+
+<span class="c">// (b) 或写成 RevStepBase 用状态槽</span>
+<span class="c">//     见第 3 章第 ⑥ 个卡片</span></pre></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">坑 4：清单只写一次，但又用 <code>Play(builder)</code> 播（同源策略会静默失效）</div>
+      <div class="when">症状：明明写了 <code>RejectPerSource</code>（只允许一次），连点两下却跑了两遍；或者没感觉到"防连点"生效。</div>
+      <p><b>原因</b>：<code>Play(builder)</code> 每次都会 <b>重新构建一份新清单</b>，而"同源策略"判定的是"<b>同一份清单实例</b>" —— 每次都是新的，自然永远不命中。</p>
+      <div class="cmp">
+        <div class="no"><div class="h">❌ 每次 Play 都新建清单</div><pre>_runner.Play(RevSequence.Create(<span class="s">"开宝箱"</span>,
+        RevSequenceConcurrency.RejectPerSource)      <span class="c">// 声明了"只能一次"</span>
+    .Do(...).Build(), gameObject);
+<span class="c">// 每次都是新实例 → 策略永远不命中</span></pre></div>
+        <div class="yes"><div class="h">✅ 构建一次，缓存复用</div><pre><span class="k">private static readonly</span> RevSequenceDefinition ChestOpen =
+    RevSequence.Create(<span class="s">"开宝箱"</span>, RevSequenceConcurrency.RejectPerSource)
+        .Do(...).Build();                             <span class="c">// 只构建一次</span>
+
+_runner.Play(ChestOpen, gameObject);                  <span class="c">// 反复播同一份 → 策略生效</span></pre></div>
+      </div>
+      <div class="note">✅ 开发期框架会就这一点告警一次（日志里会写清怎么改）。<br>
+      ✅ 反过来：<b>只播一次的临时演出</b>（一句提示、一次反馈）用 <code>Play(builder)</code> 完全没问题。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">坑 5：改了清单，跑起来还是老样子</div>
+      <div class="when">症状：改了步骤，运行结果没变；或者报错"已经 Build 过了"。</div>
+      <p><b>原因</b>：清单是<b>不可变</b>的（<code>Build()</code> 只能调一次）。你那句 <code>.Do(...)</code> 加在了已经 <code>Build</code> 之后，框架会直接报错拦你，而不是"悄悄不生效"。</p>
+      <div class="note">✅ 正确姿势：清单定义在一个 <code>static readonly</code> 字段里，改代码 → 重新编译 → 新清单自然生效。这也正是它比"Unity 里拖组件"好维护的地方（改动可 diff、可 Code Review）。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">坑 6：取消之后，东西没收拾干净</div>
+      <div class="when">症状：玩家中途退出后，特效还在场上、镜头还推着、界面还开着；或者下次进来事件被响应两次。</div>
+      <p><b>原因</b>：把"回收"写在了正常流程的末尾，而流程被中途取消时根本走不到那里。</p>
+      <div class="note">✅ <b>判断标准</b>：这条序列"占用了什么"（生成的物件 / 加载的资源 / 推近的镜头 / 注册的监听），就在 <code>.OnCancel(...)</code> 里还回去 —— 见第 5 章第 5.3 节的动图。</div>
+    </div>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>完整实战：宝箱开启全流程</h2>
+    <p class="lead">把前面学的东西拼起来。这段代码包含：业务服务注入 · 清单 · 区域触发 · 事件接力 · 取消收尾，一共约 70 行。</p>
+
+    <h3>7.1 先定义"业务服务"接口（框架不认识你的系统）</h3>
+    <pre><span class="k">using</span> UnityEngine;
+<span class="k">using</span> Revolution;
+
+<span class="c">// 这些接口由你（业务）定义，实现也是你写 —— 框架完全不知道它们的存在</span>
+<span class="k">public interface</span> ISoundService  { <span class="k">void</span> Play(<span class="k">string</span> eventName, <span class="k">object</span> emitter = <span class="k">null</span>); }
+<span class="k">public interface</span> IInputService  { <span class="k">bool</span> ConsumeClick(); }
+<span class="k">public interface</span> IUIService     { <span class="k">void</span> Open(<span class="k">string</span> panel); <span class="k">void</span> Close(<span class="k">string</span> panel); }
+<span class="k">public interface</span> ISceneService  { <span class="k">void</span> SetSlidingDoor(<span class="k">bool</span> open); }</pre>
+    <div class="plain">
+      <span class="tag">为什么要这样</span>
+      这样写的好处是：<b>清单只调接口，不直接调你的管理器</b>。于是同一份清单可以换实现跑 ——
+      真实现（跑游戏）、假实现（单元测试，甚至不用开 Unity）、录播实现（复现线上问题）。
+    </div>
+
+    <h3>7.2 定义"事件"：宝箱开完要通知门</h3>
+    <pre><span class="c">// 用 readonly struct：零分配，而且带什么字段由你决定</span>
+<span class="k">public readonly struct</span> ChestOpenedEvent
+{
+    <span class="k">public readonly object</span> Opener;      <span class="c">// 谁开的（会传给门那条序列）</span>
+    <span class="k">public readonly string</span> ChestUid;
+    <span class="k">public</span> ChestOpenedEvent(<span class="k">object</span> opener, <span class="k">string</span> uid) { Opener = opener; ChestUid = uid; }
+}</pre>
+
+    <h3>7.3 写两条清单（加载期构建一次）</h3>
+    <pre><span class="k">public static class</span> GameSequences
+{
+    <span class="k">private const string</span> ChestUid = <span class="s">"chest_1601"</span>;
+
+    <span class="c">// ① 开宝箱：出现音效 → 等点击 → 开箱音效 → 弹面板 → 通知门</span>
+    <span class="k">public static readonly</span> RevSequenceDefinition ChestOpen =
+        RevSequence.Create(<span class="s">"次元\\宝箱开启"</span>, RevSequenceConcurrency.RejectPerSource)   <span class="c">// 只能开一次</span>
+            .Do(<span class="s">"出现音效"</span>,     ctx =&gt; Sound(ctx)?.Play(<span class="s">"Play_Box_Appear"</span>, ctx.Source))
+            .WaitUntil(<span class="s">"等玩家点击"</span>,
+                       ctx =&gt; ctx.Get&lt;IInputService&gt;()?.ConsumeClick() == <span class="k">true</span>,
+                       timeoutSeconds: <span class="n">15f</span>)                                  <span class="c">// 15 秒没点就放弃并告警</span>
+            .Do(<span class="s">"开箱音效"</span>,     ctx =&gt; Sound(ctx)?.Play(<span class="s">"Play_Box_Open"</span>))
+            .Do(<span class="s">"弹出奖励面板"</span>, ctx =&gt; ctx.Get&lt;IUIService&gt;()?.Open(<span class="s">"RewardPanel"</span>))
+            .Do(<span class="s">"通知门：可以开了"</span>, ctx =&gt; ctx.Events.Publish(<span class="k">new</span> ChestOpenedEvent(ctx.Source, ChestUid)))
+            .OnCancel(f =&gt; f.Do(<span class="s">"收起面板"</span>, ctx =&gt; ctx.Get&lt;IUIService&gt;()?.Close(<span class="s">"RewardPanel"</span>)))  <span class="c">// 取消也要收</span>
+            .Build();
+
+    <span class="c">// ② 开门：被上面那条的事件触发（顺序里没写它，是事件接力的）</span>
+    <span class="k">public static readonly</span> RevSequenceDefinition SlidingDoorOpen =
+        RevSequence.Create(<span class="s">"次元\\宝箱门开启"</span>, RevSequenceConcurrency.ReplacePerSource)
+            .Do(<span class="s">"滑门音效"</span>, ctx =&gt; Sound(ctx)?.Play(<span class="s">"Play_Door_Slide"</span>))
+            .Do(<span class="s">"滑门打开"</span>, ctx =&gt; ctx.Get&lt;ISceneService&gt;()?.SetSlidingDoor(<span class="k">true</span>))
+            .Build();
+
+    <span class="k">private static</span> ISoundService Sound(RevSequenceContext ctx) =&gt; ctx.Get&lt;ISoundService&gt;();
+}</pre>
+
+    <h3>7.4 接上触发：玩家走进范围 → 开宝箱 → 门自动开</h3>
+    <pre><span class="c">// 区域触发源：谁走进来，喊一声（换成你自己的距离检测 / 服务端下发也一样）</span>
+<span class="k">public sealed class</span> ChestZone : MonoBehaviour, RevITriggerSource
+{
+    <span class="k">public string</span> Name =&gt; <span class="s">"宝箱区域"</span>;
+    <span class="k">public event</span> Action&lt;RevTriggerSignal&gt; Triggered;
+    <span class="k">public void</span> Dispose() =&gt; Triggered = <span class="k">null</span>;
+
+    <span class="k">private void</span> OnTriggerEnter(Collider other)
+        =&gt; Triggered?.Invoke(<span class="k">new</span> RevTriggerSignal(other.gameObject, Name));
+}
+
+<span class="k">public sealed class</span> ChestDemo : MonoBehaviour
+{
+    <span class="k">private</span> RevSequenceRunner _runner;
+    <span class="k">private</span> IDisposable _zoneBinding, _doorBinding;
+
+    <span class="k">private void</span> Awake()
+    {
+        _runner = RevSequencePlayer.Default;
+
+        <span class="c">// ① 注入业务服务（★ 泛型参数要写接口类型，不然步骤里 ctx.Get&lt;IXxx&gt;() 取不到）</span>
+        _runner.Services
+            .Add&lt;ISoundService&gt;(<span class="k">new</span> MySoundService())
+            .Add&lt;IInputService&gt;(<span class="k">new</span> MyInputService())
+            .Add&lt;IUIService&gt;(<span class="k">new</span> MyUIService())
+            .Add&lt;ISceneService&gt;(<span class="k">new</span> MySceneService());
+
+        <span class="c">// ② 区域触发 → 开宝箱清单（AddComponent 出来的就是上面那个实现接口的触发源）</span>
+        <span class="k">var</span> zone = gameObject.AddComponent&lt;ChestZone&gt;();
+        _zoneBinding = _runner.Bind(zone, GameSequences.ChestOpen);
+
+        <span class="c">// ③ 宝箱开完 → 门自动开（事件接力，一行）</span>
+        _doorBinding = _runner.BindEvents&lt;ChestOpenedEvent&gt;(
+            _runner.Events, GameSequences.SlidingDoorOpen, e =&gt; e.Opener);
+    }
+
+    <span class="k">private void</span> OnDestroy()
+    {
+        <span class="c">// ★ 注册什么就反注册什么（否则对象没了、回调还在）</span>
+        _zoneBinding?.Dispose();
+        _doorBinding?.Dispose();
+    }
+}</pre>
+
+    <h3>7.5 这段代码用到了前面哪几章</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">代码里的东西</th><th>出自</th></tr></thead>
+        <tbody>
+          <tr><td><code>.Do</code> / <code>.WaitUntil</code> / <code>.OnCancel</code></td><td>第 3 章五个常用写法</td></tr>
+          <tr><td><code>RejectPerSource</code>（只能开一次）</td><td>第 4 章 4.4 防连点</td></tr>
+          <tr><td>触发源 + <code>Bind</code>（走进去就播）</td><td>第 4 章方式二</td></tr>
+          <tr><td><code>Publish</code> + <code>BindEvents</code>（门自动开）</td><td>第 4 章方式三</td></tr>
+          <tr><td>服务注入 + <code>ctx.Get&lt;T&gt;()</code></td><td>第 7 章 7.1（也是坑 4 的正解）</td></tr>
+          <tr><td><code>timeoutSeconds</code>（防永久卡死）</td><td>第 3 章第 ② 个卡片</td></tr>
+          <tr><td>把清单放 <code>static readonly</code></td><td>第 1 章"把清单存起来"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout good">
+      <span class="t">想看更多实战？</span>
+      仓库里有一份可直接跑的 Demo（5 个王者真实场景：宝箱开门 / 灵果采集 / 农场礼盒 / NPC 特写 / 火箭演出）：
+      <code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>。把它挂在场景任意物体上，按 <code>1</code> ～ <code>9</code> 就能逐个体验。
+    </div>
+  </section>
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>怎么确认它真的在跑 / 出问题怎么查</h2>
+    <p class="lead">好消息：不用你自己加日志，框架已经打好了。</p>
+
+    <h3>8.1 框架不打日志、也不提供查询：排障靠回调</h3>
+    <p>框架<b>自身没有任何日志，也没有「现在几条在跑」「卡在哪一步」这类查询 API</b>（等框架日志系统统一接入后再接）—— 观察只有两个口子：</p>
+    <pre><span class="c">// ① 回调：想知道什么就在这里记什么（框架唯一主动给你的观察点）</span>
+runner.RunFinished += run =&gt; Debug.Log($"[序列] {run} 结束（{run.Status}，{run.Elapsed:F2}s）");
+
+<span class="c">// ② 句柄：只回答「还在不在跑」这一个问题</span>
+if (handle.IsValid) <span class="c">// 还在跑（已结束 / 被取消 / 残留句柄都是 false）</span></pre>
+    <ul>
+      <li><b>要「每步流水」</b>：在步骤里自己打 —— <code>.Do("日志", ctx =&gt; Debug.Log("[序列] 现在 xxx"))</code>；
+    <ul>
+      <li><b>步骤名就是你的路标</b> —— 所以第 3 章一直强调名字要认真写；
+      <li>要"每步流水"日志：在步骤里自己打 —— <code>.Do("日志", ctx =&gt; Debug.Log("[序列] 现在 xxx"))</code>；
+      <li>框架不自带日志，所以也不存在"正式包里的日志开销"这回事。
+    </ul>
+
+    <h3>8.2 三种典型问题，先看哪里</h3>
+    <h3>8.3 三种典型问题，先看哪里</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">现象</th><th style="width:30%">先看什么</th><th>通常是</th></tr></thead>
+        <tbody>
+          <tr><td>完全没反应</td><td>有没有人在喂时间 / <code>Play</code> 的返回值</td><td>"没 Tick"（坑 1）；被并发策略拦了（4.4，<code>Play</code> 返回空句柄）；忘了 <code>.Build()</code> 或传 null 会直接抛异常</td></tr>
+          <tr><td>停在半路不动</td><td>看看你回调里记下的「最后一步」</td><td>那一步的等待条件没满足：等点击但没收到输入 / 等加载但加载没触发。<b>带超时的等待最终会放行</b>（框架不打日志，要感知超时请在谓词里带上业务自己的失败标志）</td></tr>
+          <tr><td>表现乱了 / 两个玩家互相影响</td><td>这条序列的触发者是谁</td><td>坑 3（在清单里用了外面的变量）或 <code>source</code> 传错（4.4）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>8.3 想要"每步流水"日志怎么办</h3>
+    <p style="margin-bottom:0">框架刻意不自带日志门面 —— 等框架日志系统出来后，在步骤与回调里统一调用它即可：</p>
+    <pre>.Do("打日志", ctx =&gt; Debug.Log($"[序列] 现在：xxx"))        <span class="c">// 正式包也生效（走你自己的日志系统）</span>
+.OnCompleted(run =&gt; YourLog.Info($"做完 {run.Definition.Name}，用时 {run.Elapsed:F2}s"))
+.OnCancelled(run =&gt; YourLog.Warn($"被打断 {run.Definition.Name}"))</pre>
+  </section>
+
+  <!-- ==================== 九 ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>一页速查卡</h2>
+    <p class="lead">打印出来贴在显示器旁边，写序列时不用回来翻文档。</p>
+
+    <h3>写清单（Builder）</h3>
+    <div class="cheat">
+      <div><b>开一张清单</b><code>RevSequence.Create("名字", 策略)</code></div>
+      <div><b>立刻做一件事</b><code>.Do("名字", ctx =&gt; …)</code></div>
+      <div><b>停一会儿</b><code>.Wait(1f)</code> / <code>.WaitFrames(6)</code></div>
+      <div><b>等条件成立（建议带超时）</b><code>.WaitUntil("名字", ctx =&gt; 条件, 15f)</code></div>
+      <div><b>等异步任务</b><code>.WaitTask(ctx =&gt; 任务)</code>（任务运行时才创建，清单可缓存）</div>
+      <div><b>启动一个动作 + 盯它结束</b><code>.DoBlocking("名字", 启动, 判断结束)</code></div>
+      <div><b>两件事同时做</b><code>.Parallel("名字", p =&gt; p.Do(…).Do(…))</code></div>
+      <div><b>重复几遍</b><code>.Repeat("名字", 3, r =&gt; …)</code></div>
+      <div><b>嵌套另一条清单</b><code>.Sequence("名字", 别的清单)</code></div>
+      <div><b>发事件（通知别人）</b><code>.Publish(new 我的事件(…))</code></div>
+      <div><b>取消时收拾现场</b><code>.OnCancel(f =&gt; f.Do("回收", …))</code></div>
+      <div><b>跑完 / 被取消 回调</b><code>.OnCompleted / .OnCancelled</code></div>
+      <div><b>定稿（只能一次，结果存静态字段）</b><code>.Build()</code></div>
+      <div><b>来自定义步骤（要跨帧私有状态时）</b><code>.Step(new MyStep())</code></div>
+    </div>
+
+    <h3>跑起来 / 停掉</h3>
+    <div class="cheat">
+      <div><b>最省事地播放（Unity）</b><code>RevSequencePlayer.Default.Play(清单, source)</code></div>
+      <div><b>想 await 它跑完</b><code>await runner.PlayAsync(清单, source)</code></div>
+      <div><b>自己 new + 自己喂时间</b><code>new RevSequenceRunner(); r.Tick(dt)</code></div>
+      <div><b>取消一条 / 全部</b><code>handle.Stop()</code> / <code>runner.StopAll()</code></div>
+      <div><b>它还活着吗</b><code>handle.IsValid</code></div>
+      <div><b>想知道进度 / 卡在哪一步</b><code>在 .OnCompleted / RunFinished 里自己记</code></div>
+    </div>
+
+    <h3>触发 / 依赖注入</h3>
+    <div class="cheat">
+      <div><b>区域等触发源 → 清单</b><code>runner.Bind(触发源, 清单)</code></div>
+      <div><b>事件 → 清单（一行）</b><code>runner.BindEvents&lt;事件&gt;(bus, 清单, e =&gt; e.Owner)</code></div>
+      <div><b>注册业务服务</b><code>runner.Services.Add&lt;IXxxService&gt;(实现)</code></div>
+      <div><b>步骤里取服务 / 取触发者</b><code>ctx.Get&lt;IXxxService&gt;()</code> / <code>ctx.Source</code></div>
+      <div><b>步骤里的时间</b><code>ctx.Elapsed</code> / <code>ctx.DeltaTime</code>（别读 Time.time）</div>
+    </div>
+
+    <h3>三条永远不要忘</h3>
+    <div class="callout warn">
+      <p>① <b>清单只构建一次</b>（<code>static readonly</code>）—— 否则每次触发都付构建成本，而且"_同源顶替/拒绝"策略会失效。</p>
+      <p>② <b>用了后两种并发策略就要传 <code>source</code></b> —— 不传的话"同一个触发者"判断不出来，策略会变成"全场唯一"。</p>
+      <p>③ <b>这条序列占用了什么，就在 <code>.OnCancel</code> 里还回去</b> —— 生成的特效、加载的资源、推近的镜头、注册的监听。</p>
+    </div>
+
+    <div class="callout good">
+      <span class="t">下一步读什么</span>
+      <ul style="margin:6px 0 0">
+        <li>只想用起来：<b>就是本文件</b>（第 0～9 章够了）；</li>
+        <li>想搞懂"为什么这么设计""和王者原体系差在哪""它适合哪些业务"：看同目录的《<b>动作序列使用指南</b>》；</li>
+        <li>想直接跑起来看效果：<code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>（挂上入口脚本，按 <code>1</code>～<code>9</code> 体验五个王者真实场景）。</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  配套代码：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（同目录 <code>README.md</code> = 3 分钟上手；入口文件 <code>Core\RevSequence.cs</code>） · 可直接运行的例子：<code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>（挂上 <code>RevActionSequenceDemo</code> 按键体验）<br>
+  想看"它为什么这么设计""和王者原体系差在哪"—— 见同目录的《动作序列使用指南》。本文件只讲怎么用。
+</footer>
+
+</body>
+</html>

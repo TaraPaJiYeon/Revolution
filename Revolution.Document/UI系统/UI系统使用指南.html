@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI 系统 · 使用指南</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 6px;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:14.5px;margin:20px 0 8px;color:#2B3445;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用指南</span>
+    <h1>UI 系统 · 使用指南</h1>
+    <p>覆盖：<code>Assets\Revolution\Runtime\RevUISystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Implementation\</code> + <code>Interfaces\</code> + <code>Support\</code>）</p>
+    <p class="meta">目标：看完能独立完成"写一个面板 → 声明预制体路径 → 打开/关闭 → 数据刷新 → 复用与释放"，并且知道它和旧版（唐老师框架 <code>BasePanel + UIMgr</code>）的每一处差别、每处差别为什么这么改，以及从王者 UI 框架里取了哪些设计、砍掉了哪些复杂度。</p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#sp">★、设计哲学：一条主线</a></li>
+      <li><a href="#s1">一、UI 系统解决什么问题</a></li>
+      <li><a href="#s2">二、新版 vs 旧版（为什么这么设计）</a></li>
+      <li><a href="#s3">三、运用了王者的哪些设计哲学</a></li>
+      <li><a href="#s4">四、新版 UI 系统怎么用</a></li>
+      <li><a href="#s5">五、必须知道的八个坑</a></li>
+      <li><a href="#s6">六、API 速查</a></li>
+      <li><a href="#s7">七、验证结果</a></li>
+      <li><a href="#s8">八、关键文件索引</a></li>
+      <li><a href="#s9">九、本期没做的</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <pre><span class="n">①</span> 写面板      [RevUIPanel(RevResPath.UI_Panel)] 面板类继承 RevUIPanel（资源名默认 = 类名）
+<span class="n">②</span> 摆预制体    预制体名 = 面板类名，放在资源根目录下的 UI/Panel，并设好 AB 名
+<span class="n">③</span> 打开        RevUI.Open&lt;BagPanel&gt;(panel =&gt; { ... });        <span class="c">// 关闭：panel.CloseSelf()</span></pre>
+    <p>就这三步。剩下的都是这三步的细节。</p>
+  </section>
+
+  <!-- ==================== ★ 设计哲学 ==================== -->
+  <section id="sp">
+    <h2><span class="num">★</span>设计哲学：一条主线</h2>
+
+    <div class="callout good">
+      <span class="t">让"复用"安全，让"异常"可见，让"分层"靠结构而不是靠自觉。</span>
+      后面每一章的设计决策都是这三条的展开 —— 它们同时也是"为什么这么设计"和"好处是什么"的答案。
+    </div>
+
+    <h3>① 复用安全：复用是性能，也是 bug 温床</h3>
+    <p>界面关闭不销毁、下次直接复用是最省的做法（不加载、不实例化、不重新绑定），但<b>复用最大的风险是"上次的东西还在"</b>：
+    上一次的滚动位置、选中的页签、输入框里的字、面板还挂着上次的数据 —— 这类 bug 最难查，因为它"偶尔才出现"。</p>
+    <p>所以框架把"复用"做成一条<b>有契约的路径</b>，而不是让每个面板各凭自觉：</p>
+    <ul>
+      <li>实例池 + 必写钩子 <code>OnReuse()</code>（框架保证它一定被调用，业务只要在里面清<b>界面残留</b>）；</li>
+      <li>框架在 <code>OnReuse</code> 之前<b>先替你清空上一次的数据</b>（泛型面板连 <code>Data</code> 一起清）—— 不需要你记得清，也不会忘；</li>
+      <li>复用时再兜一次 <code>RevEvent.RemoveAllByOwner(this)</code>，避免"复用的实例还在收上一次的事件"。</li>
+    </ul>
+
+    <h3>② 异常可见：UI 的问题几乎都是"静默失败"</h3>
+    <p>UI 出问题的典型形态是"点了没反应""图不见了""数据不对"，而根源往往是：节点改名了、预制体没进包、控件类型写错了。
+    这些如果只是一句 <code>null</code>，就只能靠断点猜。</p>
+    <p>所以框架里凡是"本该成功却没成功"的地方，都报<b>能照着改</b>的错误：</p>
+    <ul>
+      <li>绑定找不到节点 → 打印"要找的名字 + <b>根节点下真实存在的节点名</b> + 两种改法"；</li>
+      <li>预制体加载不到 → 列出三条排查路径（资源根目录 / AB 标记 / 路径写法），并提示打包工具「检查」页签能看漏标；</li>
+      <li>预制体与脚本对不上 → 直接说"根节点上没有 XxxPanel 组件"，并提醒默认约定是"预制体名 = 类名"；</li>
+      <li>同步打开拿不到实例 → 明确告诉你改用哪个入口，而不是返回 null 让你查半天。</li>
+    </ul>
+
+    <h3>③ 分层靠结构：钩子职责分离，但仍然只有一个脚本</h3>
+    <p>王者的 UI 是 <code>View / Logic / System / BusinessLogic</code> 四层 + TS 桥接，分层很干净，代价是<b>一个界面要写好几个文件</b>。
+    你没有热更需求、也不想为一面板写一堆脚本，所以这里取的是王者文档《06-架构抽离与复用》自己给出的结论：
+    <b>用结构约束行为，而不是靠注释约定</b>。</p>
+    <pre><span class="k">protected override void</span> OnBindView()    { <span class="c">/* 只做表现装配：拿控件、挂交互 */</span> }
+<span class="k">protected override void</span> OnRefreshView() { <span class="c">/* 只做数据落屏：把 Data 画到界面 */</span> }
+<span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName) { <span class="c">/* 业务逻辑：改数据、请求数据、刷新 */</span> }</pre>
+    <p>带数据的界面继承 <code>RevUIPanel&lt;TData&gt;</code> 时，<code>OnRefreshView</code> 是<b>抽象方法</b> ——
+    有数据就必须写清楚"数据怎么落到界面上"，不允许糊过去；而纯静态界面（说明页、加载页）继承 <code>RevUIPanel</code> 就少写一个方法。</p>
+
+    <div class="callout">
+      <span class="t">好处（一句话版）</span>
+      一个界面写一个文件、改一处只影响一处；真机出问题能顺着报错文案直接定位，不用开断点猜；
+      面板之间"谁开谁关、谁挡谁、谁进池"由管理器统一保证，业务不用各自维护。
+    </div>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>UI 系统解决什么问题</h2>
+    <p>UI 是"最容易越写越乱"的一块：谁都能开界面、谁都能改界面，最后变成"改一个按钮崩三个界面"。这套系统盯的是四件事：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">要解决的问题</th><th>具体做法</th></tr></thead>
+        <tbody>
+          <tr><td><b>界面怎么找到</b></td><td>路径<b>写在面板类自己身上</b>（一行特性），打开时框架去读 —— 调用处一行路径都不写，也就没有"调用处拼错路径"</td></tr>
+          <tr><td><b>控件怎么拿到</b></td><td><code>[RevBind]</code> 字段按"<b>字段名 ↔ 节点名</b>"自动绑定；不想写字段就重写 <code>OnClick(节点名)</code> 按名字分发</td></tr>
+          <tr><td><b>表现 / 数据 / 逻辑怎么分</b></td><td>用<b>两个必写钩子</b>在结构上强制分开（<code>OnBindView</code> 只装配、<code>OnRefreshView</code> 只画数据），但<b>一个面板仍然只有一个脚本</b></td></tr>
+          <tr><td><b>开/关/复用的资源与状态怎么不出错</b></td><td>管理器统一管层级、遮罩、实例池、返回栈、互斥组、延迟销毁；关闭时<b>自动摘掉本面板注册的全部事件</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>新版 vs 旧版（唐老师框架 <code>Runtime\UI框架\</code>）</h2>
+
+    <h3>2.1 总览</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:14%">维度</th><th style="width:43%">旧版（<code>BasePanel</code> 219 行 + <code>UIMgr</code> 335 行）</th><th>新版（<code>RevUISystem\</code>，17 个文件）</th></tr></thead>
+        <tbody>
+          <tr><td>面板基类</td><td><code>BasePanel</code>：<code>ShowMe</code> / <code>HideMe</code> 两个钩子</td><td><code>RevUIPanel</code>：<b>生命周期 8 个钩子 + 2 个必写钩子</b>（表现 / 数据分离）</td></tr>
+          <tr><td>管理器</td><td><code>UIMgr.ShowPanel&lt;T&gt;()</code>：加载 + 层级 + 隐藏复用</td><td><code>RevUIManager</code> + <code>RevUI</code> 门面：打开 / 关闭 / 层级 / 池 / 互斥 / 返回栈 / 遮罩 / 诊断</td></tr>
+          <tr><td>控件获取</td><td><code>Awake</code> 里<b>把 Button/Toggle/Slider/InputField/Dropdown/ScrollRect/Text/Image… 全量扫进字典</b>，再用 <code>GetControl&lt;T&gt;("名字")</code> 弱类型取</td><td><code>[RevBind]</code> 强类型字段，<b>每类型只反射一次</b>（绑定计划缓存）；只扫"你重写了回调的那几类控件"</td></tr>
+          <tr><td>事件绑定</td><td>每个按钮 <code>AddListener(() =&gt; ClickBtn(名字))</code>（<b>每实例每次 Awake 都分配闭包</b>）</td><td>每个交互节点一个"继电器"对象，<b>实例创建时挂一次</b>，池化复用不再重挂</td></tr>
+          <tr><td>输入框事件</td><td><code>onValueChanged</code> 里同时回调"输入中"和"结束编辑"（每敲一个字都触发一次结束编辑）</td><td><code>onValueChanged</code> / <code>onEndEdit</code> <b>分开挂</b>，语义正确</td></tr>
+          <tr><td>资源路径</td><td>靠"预制体名 = 面板类名"约定 + AB 名写死 <code>ui_panel</code></td><td>同样默认"预制体名 = 类名"，但<b>根目录段写在特性里</b>，支持多级嵌套目录，可用 <code>RevResPath</code> 常量</td></tr>
+          <tr><td>层级</td><td><code>Bottom / Middle / Top / System</code> 四层（靠加载 <code>UI/Canvas</code> 预制体摆好）</td><td><code>Scene / Normal / Popup / Toast / Guide / Top</code> 六层，<b>代码建 Canvas</b>（零资源依赖）</td></tr>
+          <tr><td>遮罩 / 点穿</td><td>无（要每个弹窗预制体自己记得摆遮罩）</td><td>按层级<b>自动</b>给弹窗铺透明挡板，自动插到正确位置，点遮罩关最上面的弹窗</td></tr>
+          <tr><td>复用</td><td>"隐藏不销毁"（<code>SetActive(false)</code>），<b>没有清理契约</b></td><td>实例池 + <b><code>OnReuse</code> 清理钩子</b>，框架还会替你清掉上一次的数据</td></tr>
+          <tr><td>数据</td><td>没有数据这一层（数据在面板字段里，谁都能改）</td><td><code>RevUIPanel&lt;TData&gt;</code> + 纯 C# 数据对象 + <code>OnDataChanged(增量)</code> + <code>OnRefreshView</code></td></tr>
+          <tr><td>返回栈 / 互斥</td><td>无</td><td><code>RevUI.Back()</code> / <code>[RevUIPanel(..., ExclusiveGroup = "bag")]</code></td></tr>
+          <tr><td>加载合并</td><td>有（用 <code>PanelInfo</code> 占位 + 回调累加，思路很好，保留）</td><td>有，且更彻底：在途请求<b>真合并</b>，多份回调都收到同一个实例</td></tr>
+          <tr><td>诊断</td><td>无</td><td><code>RevUI.DumpStats()</code>（打开中 / 加载中 / 池中 + 每层顺序 + 被盖住状态）</td></tr>
+          <tr><td>第三方依赖</td><td>DOTween 扩展（<code>DOTweenPanelAnimationExtension</code> 等 1000+ 行，硬依赖）</td><td><b>零依赖</b>：转场是 <code>PlayOpenTransition(Action onDone)</code> 可插拔钩子</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>说明</b>：代码量比旧版大（旧版 554 行 ≈ 只做"开 / 关 / 隐藏"），因为补上了旧版<b>完全没有</b>的能力：
+      六层与自动遮罩、实例池 + 清理契约、互斥组、返回栈、数据驱动、Part 复用、绑定计划缓存、延迟销毁与延迟排序、异常隔离、诊断统计。
+      旧版那两个"方便"的点（<b>预制体名 = 类名</b>、<b>一个面板一个脚本</b>）不但保留，还是新版的主线。
+    </div>
+
+    <h3>2.2 为什么"表现 / 数据 / 逻辑"不拆成三个类</h3>
+    <p>王者的 UI 是 <code>View / Logic / System / BusinessLogic</code> 四层 + TS 热更桥接，分层干净，但<b>一个界面要写好几个文件、还要跨语言通信</b>。
+    你没有热更需求、也不想为一面板写一堆脚本，所以这里取的是王者文档《06-架构抽离与复用》自己给的结论：</p>
+    <div class="callout good"><b>用结构约束行为，而不是靠注释约定。</b></div>
+    <p>具体落地就是：<b>一个面板 = 一个脚本</b>，但每个钩子只许干一件事：</p>
+    <pre><span class="k">protected override void</span> OnBindView()    { <span class="c">/* 只做表现装配：拿控件、挂交互 */</span> }
+<span class="k">protected override void</span> OnRefreshView() { <span class="c">/* 只做数据落屏：把 Data 画到界面 */</span> }
+<span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName) { <span class="c">/* 业务逻辑：改数据、请求数据、刷新 */</span> }</pre>
+    <p>带数据的界面继承 <code>RevUIPanel&lt;TData&gt;</code> 时，<code>OnRefreshView</code> 是<b>抽象方法</b>——有数据就必须写清楚"数据怎么落到界面上"，不允许糊过去；
+    而纯静态界面（说明页、加载页）继承 <code>RevUIPanel</code> 就少写一个方法。</p>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>运用了王者的哪些设计哲学</h2>
+    <p>对照《00~07 UI框架》《05-UI中介者模式》《局外系统架构》《messagebox》里的结论，逐条说落地情况：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">王者的做法 / 结论</th><th>这里的落地</th></tr></thead>
+        <tbody>
+          <tr><td>① <b>路径寻址</b>（<code>OpenForm(path)</code>），且路径不该手写在调用处</td><td>路径写在<b>面板类的特性</b>上（<code>[RevUIPanel(root, layer, name)]</code>），打开时框架读；<code>name</code> 省略 = 类名</td></tr>
+          <tr><td>② <b>Form 专用对象池 + <code>ReUse()</code> 重置契约</b>（明确写过"form 不要用通用 GameObjectPool"）</td><td>专门的 <code>RevUIPanelPool</code>（<b>没有</b>套用框架的 <code>RevPool</code>）+ 必写钩子 <code>OnReuse()</code>，框架还会先替你清空上次的数据</td></tr>
+          <tr><td>③ <b>三层查找</b>：单例复用 → 池 → 新建</td><td>在途合并 → 已打开 → 实例池 → <b>资源缓存里同步实例化</b> → 异步加载新建（五级，见 4.4）</td></tr>
+          <tr><td>④ <b>绑定代替硬编码 <code>Find("Panel/Panel/Button")</code></b>（文档里把硬编码 Find 列为反面教材 ★☆☆☆☆）</td><td><code>[RevBind]</code> 字段 + 绑定计划缓存；找不到时报错会<b>列出根节点下真实存在的节点名</b></td></tr>
+          <tr><td>⑤ <b>按所有者批量注销事件</b>（防泄漏纪律，<code>RemoveEventHandlersByObserver(this)</code>）</td><td>关闭面板 / Part 时框架自动 <code>RevEvent.RemoveAllByOwner(this)</code> —— 机制保证，不靠纪律</td></tr>
+          <tr><td>⑥ <b>遍历中删除要延迟</b>（<code>m_formsWaitingRecycle</code>）、<b>排序用脏标记延迟批量做</b></td><td>关闭的面板下帧才销毁；层内排序由根节点 <code>Update</code> 按脏标记一次做完</td></tr>
+          <tr><td>⑦ <b>互斥组 + 打开序号决定层级</b>（<code>m_group</code> / <code>m_formOpenOrder</code>）</td><td><code>ExclusiveGroup</code>（开新的自动关同组旧的）；层内顺序 = 打开顺序</td></tr>
+          <tr><td>⑧ <b>消息框结论</b>：队列 + 优先级 + 去重；按钮只转发事件不处理业务；内容 / 容器分离</td><td>结构上已备齐（<code>InBackStack</code>、<code>CloseGroup</code>、遮罩点击关顶层）；MessageBox 本身列为"本期没做"，见第九章</td></tr>
+          <tr><td>⑨ <b>单向数据流</b>（UI 不改数据、系统不直接刷 UI、界面之间不直接通信）</td><td><code>SetData → OnDataChanged → OnRefreshView</code> 是唯一数据入口；Part 与 Part 之间必须经宿主中转（<code>IRevUIPartHost.NotifyPartChanged</code>）</td></tr>
+          <tr><td>⑩ <b>From / Part</b>（独立面板 / 依附的可复用单元）</td><td><code>RevUIPanel</code> / <code>RevUIPart</code>；Part 分<b>节点级</b>（摆宿主预制体里，零加载）与<b>预制体级</b>（可跨面板复用）</td></tr>
+          <tr><td>⑪ 异常隔离（一个 handler 抛异常不影响整条派发）</td><td>所有业务钩子都过 <code>RevUILog.Guard</code>；打开回调逐个 try/catch</td></tr>
+          <tr><td>⑫ 巨型方法（<code>OpenMessageBoxBase</code> 19 个参数）是反面教材</td><td>打开接口是 <code>Open&lt;T&gt;(data, onOpened)</code>；数据用<b>数据对象</b>传，而不是参数列表</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">砍掉的（都是"为 TS 热更 / 跨语言"而存在的那部分）</span>
+      Puerts 桥接、<code>LuaCallCs_*</code>、<code>CallTsViewFun</code>、<code>CUITsComponent / CPuertsProxyView</code>、<code>.mjs</code> + <code>InGamePath:</code> + CDN 寻址、跨语言事件转发。
+    </div>
+
+    <div class="callout">
+      <span class="t">简化的</span>
+      <code>View + Logic + System + BusinessLogic</code> 四层 → <b>一个面板类 + 职责钩子</b>；
+      王者的 <code>UI_BINDING</code> <b>代码生成流程</b> → 特性 + 反射（每类型一次，结果缓存）；三套事件系统 → <b>统一用本框架的 <code>RevEvent</code></b>。
+    </div>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>新版 UI 系统怎么用</h2>
+
+    <h3>4.1 一个面板长什么样</h3>
+
+    <h4>最小面板（没有数据）</h4>
+    <pre>[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]      <span class="c">// ← 资源路径写在类上，资源名默认 = 类名</span>
+<span class="k">public sealed class</span> SettingsPanel : RevUIPanel
+{
+    [RevBind] <span class="k">private</span> Button _btnClose;                   <span class="c">// 节点名 btnClose</span>
+    [RevBind] <span class="k">private</span> Slider _volume;                     <span class="c">// 节点名 volume</span>
+
+    <span class="k">protected override void</span> OnBindView()                  <span class="c">// ★ 只做表现装配</span>
+    {
+        _btnClose.onClick.AddListener(CloseSelf);
+    }
+
+    <span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName)      <span class="c">// 也可以不写字段，按节点名分发</span>
+    {
+        <span class="k">if</span> (nodeName == <span class="s">"btnReset"</span>) ResetToDefault();
+    }
+
+    <span class="k">private void</span> ResetToDefault() { <span class="c">/* 业务逻辑 */</span> }
+}</pre>
+
+    <h4>带数据的面板</h4>
+    <pre><span class="c">// 数据：纯 C# 对象（放哪都行，同一个文件也可以）—— 它不碰 UnityEngine，所以能被普通单测构造与断言</span>
+<span class="k">public sealed class</span> BagData
+{
+    <span class="k">public bool</span> UseCellLayout;
+    <span class="k">public</span> IReadOnlyList&lt;<span class="k">int</span>&gt; ItemIds;
+}
+
+[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal, name: <span class="s">"BagPanel"</span>)]
+<span class="k">public sealed class</span> BagPanel : RevUIPanel&lt;BagData&gt;
+{
+    [RevBind] <span class="k">private</span> ScrollRect _itemList;
+
+    <span class="k">protected override void</span> OnBindView()                  <span class="c">// ★ 只装配</span>
+    {
+        _itemList.gameObject.SetActive(<span class="k">false</span>);
+        RevEvent.AddEventListener(GameEventId.BagChanged, OnBagChanged, owner: <span class="k">this</span>);   <span class="c">// 关闭时自动摘</span>
+    }
+
+    <span class="k">protected override void</span> OnRefreshView()               <span class="c">// ★ 只画 Data（有数据的面板必须实现）</span>
+    {
+        _itemList.gameObject.SetActive(Data.UseCellLayout);
+        <span class="c">// Data.ItemIds → 列表…</span>
+    }
+
+    <span class="k">protected override void</span> OnDataChanged(BagData oldData, BagData newData)   <span class="c">// 可选：只更新变化的部分</span>
+    {
+        <span class="k">if</span> (oldData != <span class="k">null</span> &amp;&amp; oldData.UseCellLayout == newData.UseCellLayout) <span class="k">return</span>;   <span class="c">// 布局没变就不动</span>
+        <span class="c">// 只处理会变的那部分…</span>
+    }
+
+    <span class="k">private void</span> OnBagChanged() =&gt; RefreshView();         <span class="c">// 业务逻辑：数据变了就重画</span>
+}</pre>
+
+    <h3>4.2 资源路径声明（写在类上，加载时自动读）</h3>
+    <pre>[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]                          <span class="c">// 资源名 = 类名（BagPanel）</span>
+[RevUIPanel(<span class="s">"UI/UIPanel/Lobby"</span>, RevUILayer.Normal)]                           <span class="c">// 多级嵌套目录，随便多深</span>
+[RevUIPanel(<span class="s">"UI/Popup"</span>, RevUILayer.Popup, <span class="s">"Form_Confirm"</span>)]                    <span class="c">// 资源名与类名不一致时写第三个参数</span>
+[RevUIPanel(RevResPath.UI_Popup, RevUILayer.Popup,
+    CacheMode = RevUICacheMode.DestroyOnClose,                                <span class="c">// 关闭即销毁（不占内存）</span>
+    Mask = RevUIMaskMode.None,                                               <span class="c">// 不挡下面的点击</span>
+    ExclusiveGroup = <span class="s">"confirm"</span>,                                              <span class="c">// 同组只留一个</span>
+    InBackStack = <span class="k">false</span>)]                                                    <span class="c">// 不参与返回栈</span>
+<span class="k">public sealed class</span> ConfirmPanel : RevUIPanel&lt;ConfirmData&gt; { ... }</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:31%">特性字段</th><th style="width:26%">默认</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Root</code>（第一个参数，必填）</td><td>—</td><td>预制体所在的<b>资源根目录段</b>，和 <code>ResManager</code> 的 <code>rootPath</code> 同义；结尾带不带 <code>/</code>、用 <code>\</code> 还是 <code>/</code> 都会被规范化</td></tr>
+          <tr><td><code>Layer</code>（第二个参数）</td><td><code>Normal</code></td><td>挂哪一层</td></tr>
+          <tr><td><code>Name</code>（第三个参数）</td><td><code>null</code> → <b>类名</b></td><td>资源名（不带扩展名）</td></tr>
+          <tr><td><code>CacheMode</code></td><td><code>Unspecified</code> → 用 <code>RevUISetting.DefaultCacheMode</code></td><td><code>KeepAlive</code>（关闭进池复用）/ <code>DestroyOnClose</code></td></tr>
+          <tr><td><code>Mask</code></td><td><code>Auto</code></td><td>按层推断：Popup / Guide / Top 挡点击，其余不挡</td></tr>
+          <tr><td><code>ExclusiveGroup</code></td><td>空</td><td>互斥组名</td></tr>
+          <tr><td><code>InBackStack</code></td><td><code>true</code></td><td>是否参与 <code>RevUI.Back()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>预制体本身的要求（两条）</b>：</p>
+    <ul class="steps">
+      <li>根节点是 <code>RectTransform</code>，并且<b>挂上面板脚本</b>（框架对面板加了 <code>[RequireComponent(typeof(RectTransform))]</code>，漏了会自动补）；</li>
+      <li>预制体<b>名字</b>默认与面板类名一致（不一致就用特性第三个参数写清楚）。</li>
+    </ul>
+
+    <div class="callout">
+      面板预制体放哪：放在「资源根目录」下的任意目录（建议 <code>UI/Panel</code>），并给它（或它的父文件夹）<b>设 AB 名</b> —— 和普通资源完全一样。
+      打包工具的「检查」页签会替你确认没有漏标。
+    </div>
+
+    <h3>4.3 控件绑定与"控件监听"怎么处理（两种写法，可以混用）</h3>
+
+    <h4>写法一：强类型字段 + [RevBind]</h4>
+    <pre>[RevBind] <span class="k">private</span> Button _btnClose;          <span class="c">// 找名字叫 "btnClose" 的节点</span>
+[RevBind] <span class="k">private</span> Text   m_title;            <span class="c">// 同样找 "title"（m_ 前缀会被忽略）</span>
+[RevBind(<span class="s">"Top/Title"</span>)] <span class="k">private</span> Text _title;  <span class="c">// 层次深、或同名节点多时，写显式路径（相对面板根节点）</span></pre>
+
+    <p>节点名规则（<b>越少越好预测</b>）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">字段名</th><th style="width:30%">找的节点名</th><th>规则</th></tr></thead>
+        <tbody>
+          <tr><td><code>_btnClose</code></td><td><code>btnClose</code></td><td>去掉前导下划线</td></tr>
+          <tr><td><code>__btnClose</code></td><td><code>btnClose</code></td><td>多个下划线都去掉</td></tr>
+          <tr><td><code>m_title</code></td><td><code>title</code></td><td>去掉 <code>m_</code> 前缀</td></tr>
+          <tr><td><code>btnClose</code></td><td><code>btnClose</code></td><td>原样</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>查找顺序：<b>直接子节点 → 整个后代</b>（UI 嵌套三四层很常见）。同名节点有多个时用第一个并<b>告警</b>提示你改用显式路径；
+    找不到时报错会把"要找的名字"和"<b>根节点下真实存在的节点名</b>"一起打出来：</p>
+    <pre>BagPanel._btnClose（想要 Button）找不到节点：
+  找的是：名字 = <span class="s">"btnClose"</span>（按字段名推出来的）
+  根节点 BagPanel 下现有节点：<span class="s">"Bg"</span>  <span class="s">"Top"</span>  <span class="s">"btnClose2"</span>  <span class="s">"List"</span>  …
+  → 要么把节点改成这个名字，要么写清楚路径：[RevBind(<span class="s">"父节点/子节点"</span>)]</pre>
+
+    <p>字段类型可以是<b>任意 Component</b>（<code>Button</code> / <code>Image</code> / <code>Text</code> / TMP 的控件 / 你自己的控件 / <code>RevUIPart</code>）或 <code>GameObject</code>；
+    节点上直接没有、子节点里<b>唯一</b>有一个时会自动用它（多个就报错让你指清楚）。</p>
+
+    <h4>写法二：按节点名分发（原框架最方便的地方，保留）</h4>
+    <pre><span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName)
+{
+    <span class="k">switch</span> (nodeName)
+    {
+        <span class="k">case</span> <span class="s">"btnClose"</span>: CloseSelf(); <span class="k">break</span>;
+        <span class="k">case</span> <span class="s">"btnSort"</span>:  SortByQuality(); <span class="k">break</span>;
+    }
+}
+
+<span class="k">protected override void</span> OnToggleChanged(<span class="k">string</span> nodeName, <span class="k">bool</span> value) { }
+<span class="k">protected override void</span> OnSliderChanged(<span class="k">string</span> nodeName, <span class="k">float</span> value) { }
+<span class="k">protected override void</span> OnInputChanged(<span class="k">string</span> nodeName, <span class="k">string</span> value) { }
+<span class="k">protected override void</span> OnInputEndEdit(<span class="k">string</span> nodeName, <span class="k">string</span> value) { }
+<span class="k">protected override void</span> OnDropdownChanged(<span class="k">string</span> nodeName, <span class="k">int</span> index) { }
+<span class="k">protected override void</span> OnScrollChanged(<span class="k">string</span> nodeName, <span class="k">float</span> x, <span class="k">float</span> y) { }</pre>
+
+    <h4>控件监听：从声明到回调的完整链路</h4>
+    <p>旧框架的做法是"<code>Awake</code> 时把所有控件全扫一遍，每个按钮挂一个闭包，回调里再按名字 if/switch"。这里把这件事拆成五步，
+    每一步都解决旧做法的一个具体问题：</p>
+    <pre><span class="n">①</span> 类加载期（每个类型只做一次，结果缓存）
+   反射一次 → <b>绑定计划 RevUIBindPlan</b>：哪些字段要绑、字段名对应哪个节点、这个类是"重写了哪些交互回调"
+
+<span class="n">②</span> 实例创建期（面板 / Part 首次装配，只做一次）
+   <b>按计划绑字段</b>：显式路径 or 字段名 → 找节点 → 取组件 → 赋值
+   <b>只扫"你重写了回调"的控件类型</b>：没重写 OnToggleChanged 就<b>连 Toggle 都不扫</b>
+
+<span class="n">③</span> 挂监听（每个交互节点一个"继电器"对象，它自己记住自己叫什么）
+   btn.onClick.AddListener(relay.OnClick)
+   ↑ 不是 <span class="s">() =&gt; OnClick("btnClose")</span> 那种闭包；继电器是实例方法引用，也不会随"开 / 关界面"重复分配
+
+<span class="n">④</span> 事件触发（框架统一转发，业务钩子被异常隔离）
+   控件事件 → relay → IRevUIUserEvents.DispatchXxx(节点名) → RevUILog.Guard → 你的 OnClick / OnToggleChanged / …
+
+<span class="n">⑤</span> 生命周期收尾（自动，不用你记）
+   关闭面板 / Part 时 → RevEvent.RemoveAllByOwner(this)      <span class="c">// 你自己注册的事件全摘掉</span>
+   实例进池 → 控件引用保留（不重新绑定）；复用时 → OnReuse 清界面残留</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:27%">要挂的监听</th><th style="width:34%">怎么声明</th><th>什么时候用哪个</th></tr></thead>
+        <tbody>
+          <tr><td>按钮点击</td><td><code>[RevBind] Button _btnClose;</code> 或 <code>OnClick(节点名)</code></td><td>单个按钮要做特殊处理 → 用字段；一整屏按钮统一分发 → 用 <code>OnClick</code></td></tr>
+          <tr><td>开关 / 滑条 / 输入框 / 下拉 / 滚动</td><td>重写对应 <code>OnXxxChanged(节点名, 值)</code></td><td>这类控件天然是"按名字区分"，用名字分发最省代码</td></tr>
+          <tr><td>输入框"结束编辑"</td><td>重写 <code>OnInputEndEdit</code></td><td>提交 / 校验放在这里；<code>OnInputChanged</code> 只做实时反馈</td></tr>
+          <tr><td>自定义控件（TMP / 长按按钮 / 自研）</td><td><code>RevUI.RegisterAutoEvent&lt;T&gt;(...)</code></td><td>注册一次，之后所有面板里出现该类型控件都自动接上</td></tr>
+          <tr><td>框架之外的事件（业务事件 / 网络回调）</td><td><code>RevEvent.AddEventListener(..., owner: this)</code></td><td>写在 <code>OnBindView</code> 里，关闭时框架自动按 owner 摘掉</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre>RevUI.RegisterAutoEvent&lt;LongPressButton&gt;((dispatch, btn) =&gt;
+{
+    btn.onShortClick.AddListener(dispatch.Click);     <span class="c">// 短按 → OnClick(节点名)</span>
+    btn.onLongPress.AddListener(dispatch.Click);      <span class="c">// 长按 → 也走 OnClick(节点名)</span>
+});</pre>
+
+    <div class="callout good">
+      <b>两个关键点</b>：
+      ① <b>只挂你重写了的那些</b> —— 没重写 <code>OnToggleChanged</code>，框架连 <code>Toggle</code> 都不扫（旧版是无脑全扫 + 每个按钮一个闭包）；
+      ② <b>同一个按钮只会走一条路</b> —— 写了字段就用字段，重写了 <code>OnClick</code> 就按名字分发，两者不会重复触发。
+    </div>
+
+    <h3>4.4 打开、关闭、层级、遮罩</h3>
+
+    <h4>打开的五种姿势</h4>
+    <pre><span class="c">// ① 回调式（推荐；真机首次必然异步，这种写法最稳）</span>
+RevUI.Open&lt;BagPanel&gt;(panel =&gt; { <span class="c">/* 打开完成后回调；失败时收到 null */</span> });
+
+<span class="c">// ② await 式</span>
+BagPanel p = <span class="k">await</span> RevUI.OpenAsync&lt;BagPanel&gt;();
+
+<span class="c">// ③ 带数据（强类型，不装箱）</span>
+RevUI.Open&lt;BagPanel, BagData&gt;(data, panel =&gt; panel.RefreshView());
+BagPanel p2 = <span class="k">await</span> RevUI.OpenAsync&lt;BagPanel, BagData&gt;(data);
+
+<span class="c">// ④ 同步（只在"已经打开过 / 池里有 / 预制体已在资源缓存里"时能成功）</span>
+BagPanel p3 = RevUI.Open&lt;BagPanel&gt;();
+<span class="c">//   想让第一次打开也同步成功：先预热（编辑器直读模式下不预热也能成功）</span>
+RevUI.Preload&lt;BagPanel&gt;(() =&gt; { BagPanel p4 = RevUI.Open&lt;BagPanel&gt;(); });</pre>
+
+    <div class="callout warn">
+      <code>RevUI.Open&lt;T&gt;()</code> 走不通时会<b>报一条明确错误</b>并告诉你改用哪个入口，而不是静默返回 null 让你查半天。
+    </div>
+
+    <p><b>找实例的顺序（从快到慢）</b>：</p>
+    <pre><span class="n">①</span> 正在加载中  → 把本次请求并进在途那次（★ 真合并：并发 Open 同一面板只创建一个实例，两份回调都收到它）
+<span class="n">②</span> 已经打开    → 置顶 + 按最新数据重画
+<span class="n">③</span> 实例池里有  → 取出复用（不加载、不实例化、不重新绑定 —— 最快的一条路）
+<span class="n">④</span> 预制体已在资源缓存里（Preload 过 / 编辑器直读）→ 同步实例化
+<span class="n">⑤</span> 都没有      → 异步加载预制体 → 实例化 → 装配 → 打开</pre>
+
+    <h4>关闭与层级</h4>
+    <pre>panel.CloseSelf();                       <span class="c">// 面板内部关自己</span>
+RevUI.Close&lt;BagPanel&gt;();
+RevUI.Close(panel);
+RevUI.CloseAll(RevUILayer.Popup);         <span class="c">// 只关某一层</span>
+RevUI.CloseGroup(<span class="s">"confirm"</span>);             <span class="c">// 关掉互斥组当前占用的那个</span>
+RevUI.Back();                            <span class="c">// 返回上一层（关掉最晚打开、且参与返回栈的面板）</span>
+RevUI.ShutdownAll();                     <span class="c">// 回登录界面 / 切大版本：所有面板 + 实例池 + 根节点一起清</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:14%">层级</th><th style="width:54%">典型内容</th><th>默认挡点击</th></tr></thead>
+        <tbody>
+          <tr><td><code>Scene</code></td><td>主界面、大厅、全屏场景界面（对应旧版 <code>Bottom</code>）</td><td>否</td></tr>
+          <tr><td><code>Normal</code></td><td>二级界面、背包、商店（对应旧版 <code>Middle</code>）</td><td>否</td></tr>
+          <tr><td><code>Popup</code></td><td>确认框、奖励结算（对应旧版 <code>Top</code>）</td><td><b>是</b></td></tr>
+          <tr><td><code>Toast</code></td><td>飘字、跑马灯（不参与返回栈）</td><td>否</td></tr>
+          <tr><td><code>Guide</code></td><td>新手引导遮罩、手指提示</td><td><b>是</b></td></tr>
+          <tr><td><code>Top</code></td><td>断线重连、Loading、公告（对应旧版 <code>System</code>）</td><td><b>是</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>遮罩是自动的</b>：某层出现"要挡点击"的面板时，框架在该层铺一块<b>全屏透明挡板</b>（只挡点击、不遮画面；要半透明黑底就在面板预制体里自己画），
+    并自动插到"最上面那个弹窗"的正下方。点它会关掉该层最上面的弹窗（<code>RevUISetting.ClickMaskClosesTop = false</code> 可关掉这个行为）。</p>
+
+    <div class="callout">
+      <b>被盖住会通知你</b>：面板被上层遮罩盖住 / 恢复时会收到 <code>OnCovered(bool)</code> —— 用它可以暂停界面上的动画、音效、每帧逻辑。
+    </div>
+
+    <h3>4.5 Part：可复用的 UI 单元</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:14%"></th><th style="width:43%">节点级 Part</th><th>预制体级 Part</th></tr></thead>
+        <tbody>
+          <tr><td>怎么声明</td><td><b>不加特性</b>，就摆在宿主面板的预制体里</td><td><code>[RevUIPart("UI/Part")]</code>（可选第二个参数写资源名）</td></tr>
+          <tr><td>怎么拿到</td><td>面板上 <code>[RevBind] private RevShopTab _tab;</code>（拿到即自动初始化）</td><td><code>RevUIPart.Create&lt;ShopTabCell&gt;(this, slot, part =&gt; { ... })</code></td></tr>
+          <tr><td>加载成本</td><td>零（本来就在宿主预制体里）</td><td>一次资源加载（同实例复用，不会重复创建）</td></tr>
+          <tr><td>复用范围</td><td>只服务它所在的宿主类型</td><td><b>可跨面板复用</b>（背包、商城、活动共用一个商品格）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre>[RevUIPart(<span class="s">"UI/Part"</span>)]
+<span class="k">public sealed class</span> ShopTabCell : RevUIPart
+{
+    [RevBind] <span class="k">private</span> Button _btnBuy;
+
+    <span class="k">protected override void</span> OnBindView()                    <span class="c">// ★ 只装配</span>
+    {
+        _btnBuy.onClick.AddListener(() =&gt; NotifyHost());    <span class="c">// 通知宿主"我这儿点了"</span>
+    }
+
+    <span class="k">protected override void</span> OnPartRefresh() { <span class="c">/* 宿主让我刷就刷 */</span> }
+    <span class="k">protected override void</span> OnPartClose()   { <span class="c">/* 停协程、停特效 */</span> }
+}</pre>
+
+    <p><b>通信纪律</b>（Part 才能真的跨面板复用）：</p>
+    <ul>
+      <li>Part → 宿主：只认 <code>IRevUIPartHost</code>（<code>PartRoot</code> / <code>IsHostOpened</code> / <code>RequestClose()</code> / <code>NotifyPartChanged(this)</code>）；</li>
+      <li>Part ↔ Part：<b>不直接耦合</b>，经宿主中转（宿主在 <code>OnPartChanged(part)</code> 里协调）；</li>
+      <li>宿主 → Part：宿主直接调 Part 的公开方法，或 <code>RefreshParts()</code> 全部刷一遍。</li>
+    </ul>
+
+    <div class="callout">
+      加 Part 与面板一样<b>自动摘事件</b>：Part 关闭时框架执行 <code>RevEvent.RemoveAllByOwner(part)</code>。
+    </div>
+
+    <h3>4.6 生命周期与回调顺序</h3>
+    <pre>创建（实例化）
+  └─ 绑定控件（[RevBind] 字段此时已有值）→ OnBindView() → OnInit()          <span class="c">← 只发生一次</span>
+打开
+  └─ 状态 Opening → PlayOpenTransition() →（转场结束）State=Opened
+     → OnOpen() → OnRefreshView() → 打开身上所有 Part → 触发打开回调
+复用（从池里取出）
+  └─ 框架清空上次的数据 → OnReuse()（清界面残留）→ 摘事件 → 再走"打开"
+关闭
+  └─ 状态 Closing → 关闭所有 Part → PlayCloseTransition() →（转场结束）
+     → OnClose() → ★ 自动 RevEvent.RemoveAllByOwner(this) → State=Closed
+     → 回实例池（KeepAlive）或下一帧销毁（DestroyOnClose / 池满）
+销毁
+  └─ OnRelease() → 归还这一次的 prefab 资源引用 → Destroy(GameObject) → OnDestroy（兜底摘事件）</pre>
+
+    <div class="callout">
+      状态枚举里有 <code>Loading</code>，但那是<b>管理器的"在途加载"</b>在表示（这时面板实例还不存在）；
+      面板自己的状态只会走 <code>None → Opening → Opened → Closing → Closed</code>。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">你想做的事</th><th>该写在哪</th></tr></thead>
+        <tbody>
+          <tr><td>拿控件、挂交互、注册事件（<code>owner: this</code>）</td><td><code>OnBindView</code></td></tr>
+          <tr><td>每次打开都要做的准备（刷新数据、开始计时）</td><td><code>OnOpen</code></td></tr>
+          <tr><td>清掉上一次的残留（滚动位置、页签选中、输入框）</td><td><code>OnReuse</code></td></tr>
+          <tr><td>把数据画到界面</td><td><code>OnRefreshView</code></td></tr>
+          <tr><td>增量刷新（只更新变化的控件）</td><td><code>OnDataChanged(old, new)</code></td></tr>
+          <tr><td>业务规则、发请求、改数据</td><td><code>OnClick</code> 等交互回调</td></tr>
+          <tr><td>停协程 / 计时器 / 特效</td><td><code>OnClose</code></td></tr>
+          <tr><td>解绑外部引用、归还自申请的东西</td><td><code>OnRelease</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.7 转场动画（可插拔，框架不依赖任何缓动库）</h3>
+    <pre><span class="k">protected override void</span> PlayOpenTransition(Action onDone)
+{
+    <span class="c">// 用你项目的动画库（DOTween / 自研都可以）；★ 结束时必须调 onDone</span>
+    transform.localScale = Vector3.one * <span class="n">0.9f</span>;
+    <span class="c">// 例如：transform.DOScale(1f, 0.15f).OnComplete(() =&gt; onDone());</span>
+    onDone();
+}
+
+<span class="k">protected override void</span> PlayCloseTransition(Action onDone) { onDone(); }</pre>
+
+    <div class="callout warn">
+      默认实现是"无动画、立刻完成"。<b>注意</b>：<code>onDone</code> 不调 = 面板会一直停在 <code>Opening</code> / <code>Closing</code> 状态。
+    </div>
+
+    <h3>4.8 配置与诊断</h3>
+    <pre>RevUISetting.ReferenceResolution = <span class="k">new</span> Vector2(<span class="n">1920f</span>, <span class="n">1080f</span>);   <span class="c">// 设计分辨率（框架自建 Canvas 时用）</span>
+RevUISetting.MatchWidthOrHeight  = <span class="n">0.5f</span>;
+RevUISetting.SortOrderBase       = <span class="n">100</span>;                          <span class="c">// Canvas 排序基准</span>
+RevUISetting.DefaultCacheMode    = RevUICacheMode.KeepAlive;     <span class="c">// 面板没声明时用哪个</span>
+RevUISetting.MaxCachedPanels     = <span class="n">1</span>;                            <span class="c">// 同一面板最多缓存几个实例</span>
+RevUISetting.ClickMaskClosesTop  = <span class="k">true</span>;                         <span class="c">// 点遮罩关最上面的弹窗</span>
+RevUISetting.BindFailureIsError  = <span class="k">true</span>;                         <span class="c">// 绑定失败按错误报（不建议关）</span>
+RevUISetting.VerboseLog          = <span class="k">false</span>;                        <span class="c">// 打开 / 关闭 / 命中池的诊断日志</span></pre>
+
+    <pre>Debug.Log(RevUI.DumpStats());
+<span class="c">// RevUI：打开中 3 个，加载中 1 个，池中 2 个</span>
+<span class="c">// 打开顺序（从下到上）：</span>
+<span class="c">//   [Scene] UI/Panel/MainPanel  Opened</span>
+<span class="c">//   [Normal] UI/Panel/BagPanel  Opened（被上层遮罩盖住）</span>
+<span class="c">//   [Popup] UI/Popup/ConfirmBox  Opening（互斥组 confirm）</span></pre>
+
+    <p>框架会<b>自己建 UI 根节点</b>（第一次打开面板时）：<code>[RevUIRoot]</code>（Canvas + CanvasScaler + GraphicRaycaster，<code>DontDestroyOnLoad</code>）→ 六个层级空节点；
+    场景里没有 <code>EventSystem</code> 时会兜底建一个（已有自己的就完全不插手）。</p>
+
+    <h3>4.9 关于摄像机：需要吗？</h3>
+    <div class="callout good">
+      <b>不需要。</b>框架建的 Canvas 是 <code>Screen Space - Overlay</code>：
+      Unity 手册原话是"Canvas 被缩放以适合屏幕，然后<b>直接渲染而不参考场景或相机</b>"（即使场景中根本没有相机也会渲染 UI）。
+    </div>
+
+    <pre><span class="c">// RevUIRoot.Build()</span>
+_canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+_canvas.sortingOrder = RevUISetting.SortOrderBase;      <span class="c">// 只和"别的 Overlay Canvas"排先后，与场景 3D 无关</span></pre>
+
+    <p>具体到三个组件，Overlay 下和相机的关系是这样的：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">组件</th><th>Overlay 下和相机的关系</th></tr></thead>
+        <tbody>
+          <tr><td><code>Canvas</code></td><td>没有 Render Camera 字段可填，也不需要（不存在"忘了指定相机"这种错）</td></tr>
+          <tr><td><code>CanvasScaler</code></td><td>按<b>屏幕分辨率</b>算缩放，不经过相机（所以相机 FOV / 正交透视都不影响 UI 尺寸）</td></tr>
+          <tr><td><code>GraphicRaycaster</code></td><td>用<b>屏幕坐标</b>合成射线，不需要 <code>EventCamera</code> —— 这就是"UI 不用相机也能点"的原因</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>那旧框架为什么要加载 <code>UI/UICamera</code> 预制体？</b>
+      那台相机是给"UI 层里的 3D 模型 / 粒子特效"和"Camera 模式 Canvas"准备的，顺带沿用了模板；
+      代价是多三份资源、必须记得打 AB 包、配错（比如 culling mask 漏了 UI 层）要到运行时才发现整个 UI 不显示。
+      这里零资源依赖、零配置。</p>
+
+    <p><b>什么时候你会真的需要一台 UI 相机</b>（出现下面四种需求之一时）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">需求</th><th style="width:38%">为什么 Overlay 不行</th><th>怎么办</th></tr></thead>
+        <tbody>
+          <tr><td>面板里摆 <b>3D 模型</b>（立绘、旋转展示）</td><td>Overlay <b>永远</b>画在最上层，3D 模型会被 UI 盖住</td><td>切 <code>ScreenSpaceCamera</code> + 一台 UI 相机（或再加一台相机做相机堆叠）</td></tr>
+          <tr><td>面板里播 <b>粒子 / 特效</b></td><td>同上 —— 粒子和场景物体都压不过 Overlay</td><td>同上；或把粒子渲到 <code>RenderTexture</code> 再贴 <code>RawImage</code></td></tr>
+          <tr><td>要把 UI <b>渲进 RenderTexture</b>（UI 模糊背景、UI 截图、小地图外框）</td><td>Overlay <b>不由相机渲染</b>，不会出现在任何 RT 里</td><td>必须用 Camera / World Space 模式</td></tr>
+          <tr><td>要让 UI <b>被场景物体遮挡</b>（角色走到界面前面挡住它）</td><td>Overlay 不参与深度排序</td><td>World Space / Camera 模式</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">优先考虑不改模式的替代做法（改动最小）</span>
+      把 3D 模型 / 粒子单独用一台相机渲染到 <code>RenderTexture</code>，再在面板里用 <code>RawImage</code> 显示 ——
+      UI 仍然是 Overlay，"零配置 + 永远最上层"的好处全部保留。
+    </div>
+
+    <p><b>Camera 模式真正要接的线只有三条</b>（框架已经全替你接好，自己接的时候别漏）：</p>
+    <ol class="steps">
+      <li>指定相机：<code>canvas.worldCamera = uiCamera;</code></li>
+      <li>相机的 <b>Culling Mask 必须包含 UI 所在 Layer</b>（漏了 → 整个 UI 不渲染）；</li>
+      <li><b>Plane Distance</b> 要落在相机近裁剪面与远裁剪面之间（否则 Canvas 被裁掉）。</li>
+    </ol>
+    <div class="callout">
+      <b>不用管 <code>GraphicRaycaster.eventCamera</code></b> —— 它是<b>只读</b>属性，ugui 内部是
+      <code>m_EventCamera ?? canvas.worldCamera</code>，会自动取 Canvas 的 worldCamera。
+      所以"worldCamera 设对" = <b>显示与点击同时对</b>。
+      （只有工程里另外加了 <code>PhysicsRaycaster</code> / 自定义 Raycaster 时，才需要单独关心它们各自的 eventCamera。）
+    </div>
+
+    <div class="callout">
+      现在的默认选择（Overlay）换来的是：UI 永远在最上层；相机被销毁 / 禁用 / 改 culling mask / 改 FOV / 加后处理，<b>都不影响 UI</b>；
+      层内顺序靠 Canvas 子节点顺序天然保证，不需要谁去调 <code>sortingOrder</code>。代价就是上表那四种需求不满足。
+    </div>
+
+    <h3>4.10 Canvas 和 EventSystem 是谁建的？（都不用你手动建）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%"></th><th style="width:14%">谁建</th><th style="width:26%">什么时候建</th><th>会不会重复</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>[RevUIRoot]</code>（Canvas + CanvasScaler + GraphicRaycaster + 六层挂点）</td>
+            <td>框架，<b>代码建</b></td>
+            <td><b>第一次</b> <code>RevUI.Open&lt;T&gt;()</code> / <code>Preload&lt;T&gt;()</code>（懒创建，不是启动时）</td>
+            <td>不会：<code>EnsureReady</code> 用 Unity 的"假 null"判断，<code>ShutdownAll</code> 销毁后下次打开<b>自动重建</b></td>
+          </tr>
+          <tr>
+            <td><code>[RevUIEventSystem]</code>（EventSystem + <b>输入模块</b>：优先新输入系统，退回旧版）</td>
+            <td>框架，<b>仅当场景里一个 EventSystem 都没有、且 <code>RevUISetting.AutoCreateEventSystem</code> 打开</b>时</td>
+            <td>紧跟在根节点创建之后（同一时刻，只判断一次）</td>
+            <td>只在"你自己一个都没摆"时才建；已有自己的<b>完全不插手</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><span class="c">// RevUIRoot.Build() 的最后一步</span>
+EnsureEventSystem();   <span class="c">// 开关关了 → 直接返回；已有 EventSystem → 直接返回；否则建一个</span></pre>
+
+    <p><b>输入模块怎么选</b>（"UI 点不动"最常见的坑，框架已经替你处理）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:42%">工程情况</th><th style="width:34%">框架挂的模块</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>装了新输入系统（Input System Package）</td>
+              <td><code>InputSystemUIInputModule</code>（反射挂载，<b>自动分配默认操作</b>）</td>
+              <td>正常</td></tr>
+          <tr><td>没装新输入系统（就是旧版 Input）</td>
+              <td><code>StandaloneInputModule</code></td>
+              <td>正常</td></tr>
+          <tr><td>Active Input Handling = <b>New only</b> 且找不到新模块</td>
+              <td>退回 <code>StandaloneInputModule</code></td>
+              <td><b>报错告警</b>：UI 会点不动，去改 Active Input Handling 或自己摆一个</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      为什么用<b>反射</b>而不是直接写类型：新输入系统是可选包，直接 <code>using</code> 会让"没装这个包的工程"编译不过 ——
+      现在<b>装了就自动用上</b>（<code>AddComponent</code> 即可：官方文档写明，代码挂载的模块会在自己的 <code>OnEnable</code> 里自动分配
+      <code>DefaultInputActions</code>，不需要你手动 assign），<b>没装也照常工作</b>。
+    </div>
+
+    <p><b>两条纪律</b>（踩了会出问题）：</p>
+    <ol class="steps">
+      <li><b>你自己的 EventSystem 必须早于"第一次开面板"存在</b>。这个判断<b>只在建根节点那一刻做一次</b> ——
+        如果你的 EventSystem 是后来才实例化 / 后来场景才加载的，框架已经先建了一个 → 场景里两个 EventSystem，
+        Unity 会警告 <code>There are 2 event systems in the scene</code>，输入行为变得不确定。</li>
+      <li><b>想自己全权管 EventSystem（例如自带 <code>InputActionAsset</code> 的预制体）</b>：
+        把 <code>RevUISetting.AutoCreateEventSystem = false</code> 关掉，框架一行都不碰 ——
+        但同样要遵守上面第 1 条（自己的那个必须早于第一次开面板）。</li>
+    </ol>
+
+    <div class="callout warn">
+      另外 <code>FindObjectOfType</code> <b>只找启用中的对象</b>：场景里的 EventSystem 若是禁用状态，框架会当成"没有"而再建一个
+      （禁用状态的 EventSystem 本来也不收输入，所以通常没问题 —— 但别靠"运行时再把它启用"这种做法）。
+    </div>
+
+    <div class="callout good">
+      <b>结论</b>：给 UI 用的 Canvas <b>不用摆、也不要摆</b>（框架的根节点是 <code>DontDestroyOnLoad</code> 常驻的，你再摆一个只会变成两套 UI 根，
+      各排各的 <code>sortingOrder</code>，互相盖）；EventSystem 是"<b>你有就听你的、没有就兜一个</b>"。
+    </div>
+
+    <h3>4.11 怎么开相机模式（框架已内置：两个标准预制体 + 三个配置字段）</h3>
+    <p>相机模式不需要你改框架代码。标准模板放在 <code>Assets/Revolution/Resources/RevUIPrefab/</code>：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">文件</th><th style="width:40%">内容</th><th>干什么用</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>RevUICanvas.prefab</code></td>
+            <td>Canvas（<code>ScreenSpaceCamera</code>、sortingOrder <code>100</code>）+ CanvasScaler（1920×1080、match 0.5）+ GraphicRaycaster</td>
+            <td>当"UI 根节点模板"：可以在 Inspector 里调缩放 / 排序、加自己的背景层；★ <b>不要</b>往里放六个层级节点（框架自己建）</td>
+          </tr>
+          <tr>
+            <td><code>RevUICamera.prefab</code></td>
+            <td>Camera：<b>正交</b>、<code>Clear Flags = Depth only</code>、<code>Depth = 100</code>、<code>Culling Mask = UI</code> 层、近/远裁剪 <code>0.3 / 1000</code></td>
+            <td>当"UI 相机模板"：叠在主相机之上、只画 UI、不重复画 3D</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><span class="c">// ① 最省事：两个路径都指上 —— 渲染模式自动跟随预制体里选的 ScreenSpaceCamera</span>
+RevUISetting.CanvasPrefabPath   = <span class="s">"RevUIPrefab/RevUICanvas"</span>;
+RevUISetting.UICameraPrefabPath = <span class="s">"RevUIPrefab/RevUICamera"</span>;
+
+<span class="c">// ② 或者不用预制体，代码里显式指定（Canvas 由框架代码建，但模式按你指定的来）</span>
+RevUISetting.CanvasMode          = RevUICanvasMode.ScreenSpaceCamera;
+RevUISetting.UICamera            = myUiCamera;     <span class="c">// 你场景里的相机</span>
+RevUISetting.CanvasPlaneDistance = <span class="n">100f</span>;           <span class="c">// 必须落在相机近/远裁剪面之间</span>
+
+<span class="c">// ③ 什么都不配 = Auto → Overlay（行为与升级前完全一致）</span></pre>
+
+    <p><b>相机的查找顺序</b>（找到即用）：
+      <code>RevUISetting.UICamera</code> → <code>UICameraPrefabPath</code> 预制体 → 场景里名为 <code>UICamera</code> / <code>[RevUICamera]</code> 的相机 →
+      按标准参数代码兜底建一台。</p>
+
+    <p><b>图层是隐形前提</b>：相机 Culling Mask 只认 <code>RevUISetting.UILayerName</code>（默认 <code>"UI"</code>，即 Unity 第 5 号图层），
+      框架会把<b>根节点 / 六层挂点 / 每个面板实例 / 每个 Part / 遮罩</b>都设成这个图层 —— 你只要保证相机认它（示例相机预制体已经填好 <code>UI</code> 层）。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">现象</th><th>多半是这个原因</th></tr></thead>
+        <tbody>
+          <tr><td>面板开了，但屏幕上一个都没有</td><td>相机的 <b>Culling Mask 没包含 UI 图层</b></td></tr>
+          <tr><td>UI 有透视变形、边缘被拉伸</td><td>相机不是<b>正交</b>（<code>orthographic = true</code>）</td></tr>
+          <tr><td>UI 显示正常，但整个界面<b>点不动</b></td><td>缺 <code>EventSystem</code>（见 4.10），或 <code>canvas.worldCamera</code> 为空</td></tr>
+          <tr><td>Canvas 整个被裁掉</td><td><code>planeDistance</code> 不在相机近/远裁剪面之间</td></tr>
+          <tr><td>屏幕完全没有 UI</td><td>相机被禁用 / 销毁 → 框架会<b>退回 Overlay 并报错</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <b>兜底逻辑（保证不会"静默看不到 UI"）</b>：Camera 模式下如果一台相机都找不到，框架<b>报错 + 退回 <code>ScreenSpaceOverlay</code></b>；
+      如果只是没配相机路径，它会按标准参数建一台并<b>告警</b>提醒你换成自己的那台。
+    </div>
+
+    <div class="callout">
+      这两份预制体放在 <code>Resources</code> 下，会被无条件打进包（都很小）且<b>不参与 AB 分包</b> —— 它们是框架自用的模板，
+      打包工具里不需要做任何配置（也<b>不用</b>给它们设 AB 名，它们不走资源系统）。
+    </div>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>必须知道的八个坑</h2>
+    <ol>
+      <li><b>预制体名和类名不一致</b>：默认约定是"预制体名 = 面板类名"。不一致时用特性第三参数写清楚，否则会报"预制体根节点上没有 XxxPanel 组件"。</li>
+      <li><b>复用时忘了清残留</b>：控件引用不会重置、滚动位置不会自己回到顶部。写 <code>OnReuse()</code> —— 框架只替你清<b>数据</b>，界面上的残留只有你知道怎么清。</li>
+      <li><b>事件没用 <code>owner: this</code> 注册</b>：框架关闭时会 <code>RemoveAllByOwner(this)</code>，但它只能摘"登记在你名下的"。用别的 owner 注册的（如某个服务）框架摘不掉，那类监听要自己按生命周期管。</li>
+      <li><b>在 <code>OnRefreshView</code> 里发请求 / 改数据</b>：那就不是"落屏"而是逻辑了，会出现"刷新一次发一次请求"的死循环。请求放 <code>OnOpen</code> / 交互回调里。</li>
+      <li><b>面板里直接 <code>Destroy(gameObject)</code></b>：绕过管理器会让索引、池、资源引用对不上。关自己请用 <code>CloseSelf()</code>（= <code>RevUI.Close(this)</code>）。</li>
+      <li><b>把飘字放在参与返回栈的层</b>：<code>Toast</code> 层不参与 <code>Back()</code>；如果自定义了面板又希望它不被返回键关掉，设 <code>InBackStack = false</code>。</li>
+      <li><b>遮罩把不该挡的挡住了</b>：想"看一眼但不打断操作"的浮层，把 <code>Mask = RevUIMaskMode.None</code> 写清楚（<code>Auto</code> 在 Popup / Guide / Top 层默认是挡的）。</li>
+      <li><b>池里实例占内存</b>：<code>KeepAlive</code> 的界面会一直留着一份实例（连同它端的 prefab 引用）。大界面（战斗内的全屏界面）用 <code>CacheMode = DestroyOnClose</code>，或把 <code>MaxCachedPanels</code> 调小。</li>
+    </ol>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>API 速查</h2>
+
+    <p><b>门面 <code>RevUI</code>（业务唯一入口）</b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:18%">分类</th><th>API</th></tr></thead>
+        <tbody>
+          <tr><td>打开</td><td><code>Open&lt;T&gt;()</code>、<code>Open&lt;T&gt;(onOpened)</code>、<code>Open&lt;T, TData&gt;(data, onOpened)</code>、<code>OpenAsync&lt;T&gt;()</code>、<code>OpenAsync&lt;T, TData&gt;(data)</code></td></tr>
+          <tr><td>关闭</td><td><code>Close(panel)</code>、<code>Close&lt;T&gt;()</code>、<code>CloseAll(layer?)</code>、<code>CloseGroup(group)</code>、<code>Back()</code>、<code>ShutdownAll()</code></td></tr>
+          <tr><td>查询</td><td><code>Get&lt;T&gt;()</code>、<code>IsOpen&lt;T&gt;()</code>、<code>TopOf(layer)</code></td></tr>
+          <tr><td>预热</td><td><code>Preload&lt;T&gt;(onLoaded)</code></td></tr>
+          <tr><td>扩展 / 诊断</td><td><code>RegisterAutoEvent&lt;T&gt;(bind)</code>、<code>DumpStats()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>面板 <code>RevUIPanel</code> / <code>RevUIPanel&lt;TData&gt;</code></b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:18%">分类</th><th>成员</th></tr></thead>
+        <tbody>
+          <tr><td>元数据</td><td><code>Meta</code>、<code>PanelKey</code>、<code>PrefabRoot</code>、<code>PrefabName</code>、<code>Layer</code>、<code>State</code>、<code>IsOpened</code>、<code>IsCovered</code></td></tr>
+          <tr><td>数据</td><td><code>DataObject</code>、<code>SetData(object)</code>；泛型版：<code>Data</code>、<code>SetData(TData)</code></td></tr>
+          <tr><td>必写钩子</td><td><code>OnBindView()</code>；泛型版另加 <code>OnRefreshView()</code></td></tr>
+          <tr><td>可选钩子</td><td><code>OnInit</code> / <code>OnOpen</code> / <code>OnReuse</code> / <code>OnDataChanged</code> / <code>OnCovered</code> / <code>OnClose</code> / <code>OnRelease</code></td></tr>
+          <tr><td>交互回调</td><td><code>OnClick</code> / <code>OnToggleChanged</code> / <code>OnSliderChanged</code> / <code>OnInputChanged</code> / <code>OnInputEndEdit</code> / <code>OnDropdownChanged</code> / <code>OnScrollChanged</code></td></tr>
+          <tr><td>转场</td><td><code>PlayOpenTransition(onDone)</code> / <code>PlayCloseTransition(onDone)</code></td></tr>
+          <tr><td>便捷</td><td><code>RefreshView()</code>、<code>CloseSelf()</code>、<code>FindPart&lt;T&gt;()</code>、<code>RefreshParts()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>Part <code>RevUIPart</code></b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:18%">分类</th><th>成员</th></tr></thead>
+        <tbody>
+          <tr><td>元数据</td><td><code>Meta</code>、<code>PartKey</code>、<code>Host</code>、<code>HostPanel</code>、<code>IsOpened</code>、<code>IsPrefabPart</code></td></tr>
+          <tr><td>钩子</td><td><code>OnPartInit</code> / <code>OnBindView</code>（必写）/ <code>OnPartOpen</code> / <code>OnPartRefresh</code> / <code>OnPartClose</code></td></tr>
+          <tr><td>交互</td><td>与面板同名的七个回调；<code>NotifyHost()</code> 通知宿主</td></tr>
+          <tr><td>创建 / 关闭</td><td><code>RevUIPart.Create&lt;T&gt;(host, parent, onCreated)</code>、<code>ClosePart(destroy = true)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>声明</b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">特性</th><th>用在哪</th></tr></thead>
+        <tbody>
+          <tr><td><code>[RevUIPanel(root, layer, name?)]</code></td><td>面板类（必写；<code>root</code> 是资源根目录段）</td></tr>
+          <tr><td><code>[RevUIPart(root, name?)]</code></td><td>Part 类（只在"独立预制体、要跨面板复用"时写）</td></tr>
+          <tr><td><code>[RevBind(path?)]</code></td><td>面板 / Part 的字段（不写路径就按字段名找节点）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>验证结果</h2>
+    <p>分两层验：<b>纯逻辑内核在工程外跑真断言</b>，<b>整程序集用 Unity 真实引用编译</b>。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:56%">验证项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>工程外行为断言（路径解析 / 资源名默认 / 遮罩按层推断 / 字段名→节点名 / 显式路径 / 继承字段收集 / "只挂重写的回调" / 元数据与绑定计划缓存 / 忘了写特性的报错文案 …）</td><td><b>65 项全部通过</b></td></tr>
+          <tr><td>整个 <code>Revolution.Runtime</code> + <code>Revolution.Editor</code> 程序集（Unity 真实引用 + <code>UNITY_EDITOR</code>）</td><td><b>0 错误 0 新增警告</b></td></tr>
+          <tr><td><code>LangVersion 9.0</code>（对齐 Unity 2022.3）</td><td>编译通过</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>断言跑在"要提交的那份源码"上</b>（通过 csproj 直接链接真实文件，不是复制品），它验的都是"写的时候看不错、跑起来才知道"的规则：</p>
+    <ul>
+      <li>特性里写 <code>"UI/Panel/"</code>、<code>"\\UI\\Panel\\"</code>、<code>"  UI/Panel  "</code> → <b>都得到 <code>UI/Panel</code></b>（不会拼出双斜杠）；</li>
+      <li>省略资源名 → 取<b>类名</b>；显式写了 → 以显式为准；<code>Key</code> = <code>根目录 + 资源名</code>；</li>
+      <li><code>Popup</code> 层默认 <code>ClickBlock</code>、<code>Toast</code> 层默认不挡；显式声明永远优先；</li>
+      <li><code>_btnClose</code> / <code>m_title</code> / <code>__x</code> → 节点名 <code>btnClose</code> / <code>title</code> / <code>x</code>；全是下划线时原样返回（不会给出空名字）；</li>
+      <li>只重写了 <code>OnScrollChanged</code> → <b>只</b>挂滚动监听（<code>WantsClick == false</code>），一个都没重写 → 连扫子节点都省了；</li>
+      <li>基类与派生类里的 <code>[RevBind]</code> 字段<b>都</b>会被收集，且不重复；</li>
+      <li>元数据与绑定计划<b>被缓存</b>（每类型只解析 / 反射一次）。</li>
+    </ul>
+
+    <div class="callout bad">
+      <span class="t">这一轮验证各抓到 1 个真错误（都已修）</span>
+      ① 断言工程编译时就报了 <code>CS0103</code>：绑定条目里调 <code>RevUIBindPlan</code> 的静态方法漏写类名 —— 纯内核抽出来后，<b>Unity 还没打开就先红了一次</b>；<br>
+      ② Unity 引用编译时报 <code>RevTaskSource&lt;&gt;</code> 类型不存在：<code>RevTask&lt;T&gt;.CreateSource()</code> 返回的是 <code>RevTaskCompletionSource&lt;T&gt;</code> —— 门面里我按印象写错了类型名，编译把它拦下了。
+    </div>
+  </section>
+
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>附：关键文件索引</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Runtime\RevUISystem\Core\RevUIDefine.cs</code></td><td>公共词汇：层级 / 状态 / 缓存模式 / 遮罩模式（<b>纯 C#</b>，遮罩按层推断的规则也在这）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Core\RevUIAttributes.cs</code></td><td>声明式特性：<code>[RevUIPanel]</code> / <code>[RevUIPart]</code> / <code>[RevBind]</code>（<b>纯 C#</b>）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Core\RevUIPanel.cs</code></td><td><b>面板基类</b>：生命周期、状态、绑定触发、数据入口、自动摘事件、转场钩子</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Core\RevUIPanel.Generic.cs</code></td><td><code>RevUIPanel&lt;TData&gt;</code>：强类型数据 + 强制实现 <code>OnRefreshView</code></td></tr>
+          <tr><td><code>Runtime\RevUISystem\Core\RevUIPart.cs</code></td><td><b>Part 基类</b>：依附单元、宿主契约、预制体 Part 的创建 / 销毁与资源引用配对</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Interfaces\IRevUIPartHost.cs</code></td><td>Part 的宿主契约（Part 因此能跨面板复用）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Interfaces\IRevUIUserEvents.cs</code></td><td>控件事件 → 宿主回调 的内部转发口</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Facade\RevUI.cs</code></td><td><b>业务唯一入口</b>：打开 / 关闭 / 查询 / 预热 / 扩展 / 诊断</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Implementation\RevUIManager.cs</code></td><td>管理器：五级查找、在途合并、层级排序、互斥组、返回栈、遮罩与"被盖住"、诊断</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Implementation\RevUIPanelPool.cs</code></td><td><b>UI 专用实例池</b>（不套用通用对象池）+ 池快照</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Implementation\RevUIRoot.cs</code></td><td>UI 根节点：代码建 Canvas / 六层挂点 / 遮罩宿主 + 延迟销毁 + 每帧维护</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Implementation\RevUIPopupMask.cs</code></td><td>弹窗遮罩：按层自动铺透明挡板、自动摆位、点遮罩关顶层</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Support\RevUIPanelMeta.cs</code></td><td>面板 / Part 元数据解析（<b>纯 C#</b>，带缓存；报错文案也在这）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Support\RevUIBindPlan.cs</code></td><td>绑定计划（<b>纯 C#</b>）：字段 ↔ 节点 ↔ 类型、"这个类重写了哪些回调"</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Support\RevUIBinder.cs</code></td><td>绑定器：按计划赋值控件、安装按节点名分发的监听、自定义控件扩展口</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Support\RevUISetting.cs</code></td><td>全局配置 + 统一日志出口（含异常隔离 <code>Guard</code>）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Support\RevUIUnityHooks.cs</code></td><td>进 Play 前清索引（关掉"域重载"时也能正常反复运行）</td></tr>
+          <tr><td><code>Resources\RevUIPrefab\RevUICanvas.prefab</code></td><td><b>相机模式</b>的根节点模板（Canvas + Scaler + Raycaster；<code>RevUISetting.CanvasPrefabPath</code> 用）</td></tr>
+          <tr><td><code>Resources\RevUIPrefab\RevUICamera.prefab</code></td><td><b>相机模式</b>的 UI 相机模板（正交 / Depth clear / depth 100 / 只渲染 UI 层；<code>RevUISetting.UICameraPrefabPath</code> 用）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 九 ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>本期没做的（可后续扩展）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>面板清单窗口（编辑器工具）</td><td>列出所有面板的"类名 / 资源路径 / 层级 / 缓存方式"，一键校验"类名 ↔ 预制体"是否对得上、路径是否真的存在（可复用打包工具那套扫描）</td></tr>
+          <tr><td>按模板一键创建面板脚本</td><td>从选定目录生成"面板类 + 数据类 + 基础骨架"，省掉手写特性与钩子</td></tr>
+          <tr><td>MessageBox（按王者那份文档的结论做）</td><td>队列 + 优先级 + 去重 + "按钮只转发事件"；它是标准 <code>Panel</code>（独立遮罩与层级），自定义内容用"空壳 + Content 插槽"的装饰器做法</td></tr>
+          <tr><td>常用 Part</td><td>无限滚动列表、页签组、通用奖励格（都是"写一次多处复用"的典型）</td></tr>
+          <tr><td>面板资源分组可配</td><td>现在面板预制体统一走 <code>ResGroup.UI</code>；将来可以按面板声明自己的资源分组</td></tr>
+          <tr><td>打开优先级</td><td>现在打开是即时的；可以加 <code>RevUI.OpenAsync</code> 的优先级参数，让"读条期预加载"与"临时弹窗"排队更合理</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  对应代码版本：<code>Assets\Revolution\Runtime\RevUISystem\</code>（17 个文件）。
+</footer>
+
+</body>
+</html>

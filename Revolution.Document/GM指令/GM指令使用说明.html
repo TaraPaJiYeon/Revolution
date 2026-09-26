@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GM 指令框架 · 使用说明（零基础手把手）</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--page);color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15.5px;line-height:1.85;-webkit-font-smoothing:antialiased;}
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+  .hero .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:2;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+  .hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+    animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+  @keyframes march{to{background-position:28px 0;}}
+  main{max-width:1000px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;}
+  h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+  h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  h3{font-size:17px;margin:28px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:15px;margin:20px 0 8px;color:#2B3444;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:24px;}
+  li{margin:6px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+  .plain{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14.5px;background:#F7F9FC;border:1px solid #E4E9F2;}
+  .plain .tag{display:inline-block;font-size:11.5px;background:#5B6B84;color:#fff;border-radius:999px;padding:1px 9px;margin-right:8px;vertical-align:2px;}
+  .plain p:first-child{margin-top:0;}
+  .plain p:last-child{margin-bottom:0;}
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14.5px;border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:15px 17px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.7;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+  .card{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 18px;margin:16px 0;}
+  .card > .h{font-weight:700;font-size:15.5px;margin-bottom:4px;}
+  .card > .when{font-size:13.5px;color:var(--text-sub);margin-bottom:10px;}
+  .card .note{font-size:13px;color:var(--text-sub);margin-top:8px;}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .cmp > div{border-radius:9px;padding:12px 14px;font-size:13.5px;border:1px solid;}
+  .cmp .no{background:var(--bad-soft);border-color:#F3C9C3;}
+  .cmp .yes{background:var(--good-soft);border-color:#BFE9D2;}
+  .cmp .h{font-weight:700;margin-bottom:6px;}
+  .cmp pre{margin:6px 0 0;font-size:12px;}
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+  .flow .n{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;}
+  .flow .n.on{border-color:var(--accent);background:var(--accent-soft);}
+  .flow .ar{color:var(--accent);font-weight:700;}
+  .cheat{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:14px 0;}
+  .cheat div{border:1px solid var(--border);border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;}
+  .cheat div b{display:block;font-size:12.5px;color:var(--text-sub);font-weight:400;margin-bottom:2px;}
+  /* 动画：边打边联想 */
+  .anim{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 16px 14px;margin:16px 0;}
+  .anim > .t{font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .anim > .t .tag{font-size:11px;background:var(--accent);color:#fff;border-radius:999px;padding:2px 9px;font-weight:400;}
+  .anim .hint{font-size:12.5px;color:var(--text-sub);margin-top:10px;line-height:1.65;}
+  .gmbar{border:1.5px solid var(--border);border-radius:8px;background:#fff;padding:8px 12px;
+    font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;display:flex;align-items:center;gap:6px;}
+  .gmbar .lab{color:var(--text-sub);font-size:12px;padding-right:6px;border-right:1px solid var(--border);}
+  .gmbar .typed{color:#22304A;}
+  .gmbar .caret{color:var(--accent);animation:blink 1s step-end infinite;}
+  @keyframes blink{50%{opacity:0}}
+  .gmsug{list-style:none;margin:10px 0 0;padding:0;border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;}
+  .gmsug li{padding:7px 12px;font-size:12.5px;border-bottom:1px solid #EEF2F8;display:flex;gap:12px;align-items:baseline;opacity:.4;}
+  .gmsug li:last-child{border-bottom:0;}
+  .gmsug li em{font-style:normal;color:var(--text-sub);font-size:11.5px;}
+  .gmsug li b.hl{color:#B7791F;}
+  @keyframes sg1{0%,6%{opacity:.4;background:transparent}12%,38%{opacity:1;background:var(--accent-soft)}44%,100%{opacity:1;background:transparent}}
+  @keyframes sg2{0%,18%{opacity:.4;background:transparent}24%,62%{opacity:.9;background:#F8FAFC}68%,100%{opacity:.9;background:transparent}}
+  @keyframes sg3{0%,44%{opacity:.4}50%,92%{opacity:.65}100%{opacity:.65}}
+  #anim-type .g1{animation:sg1 10s linear infinite;}
+  #anim-type .g2{animation:sg2 10s linear infinite;}
+  #anim-type .g3{animation:sg3 10s linear infinite;}
+  .capstk{position:relative;height:52px;margin-top:12px;}
+  .capstk p{position:absolute;left:0;top:0;width:100%;margin:0;font-size:13px;opacity:0;line-height:1.55;}
+  .capstk p b{color:var(--accent);}
+  @keyframes cp1{0%,4%{opacity:1}6%,100%{opacity:0}}
+  @keyframes cp2{0%,26%{opacity:0}32%,60%{opacity:1}66%,100%{opacity:0}}
+  @keyframes cp3{0%,62%{opacity:0}68%,96%{opacity:1}100%{opacity:0}}
+  #anim-type .capstk p:nth-child(1){animation:cp1 10s linear infinite;}
+  #anim-type .capstk p:nth-child(2){animation:cp2 10s linear infinite;}
+  #anim-type .capstk p:nth-child(3){animation:cp3 10s linear infinite;}
+  footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+    .cmp{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){ .hero .deco,.anim *{animation:none !important;} }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc,.anim{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">零基础手把手 · 从"不会写"到"会写会查"</span>
+    <h1>GM 指令框架 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b></p>
+    <p class="meta">读完你能做到：3 分钟写出第一条指令 · 会用面板边打边联想地执行 · 知道参数怎么写 · 避开 8 个最容易白干的坑 · 知道怎么让它不上线</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、面板怎么用（含键位表）</a></li>
+      <li><a href="#s3">三、一行注册的六种形态</a></li>
+      <li><a href="#s4">四、参数怎么写（重点）</a></li>
+      <li><a href="#s5">五、命令体怎么写得"有话说"</a></li>
+      <li><a href="#s6">六、"我要做 X" 对照表</a></li>
+      <li><a href="#s7">七、八个最容易白干的坑</a></li>
+      <li><a href="#s8">八、完整实战：接上服务定位器</a></li>
+      <li><a href="#s9">九、正式包策略（怎么保证不上线）</a></li>
+      <li><a href="#s10">十、一页速查卡（可打印）</a></li>
+      <li><a href="#s11">十一、与王者原版的对照 + 已知边界</a></li>
+      <li><a href="#s12">十二、文件都在哪</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 〇 ============ -->
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的（一句话）</h2>
+    <p class="lead">一行代码注册一条 GM 指令；在编辑器面板里边打边联想、回车执行，成功/失败与耗时直接回显。</p>
+
+<pre><span class="c">// 一行一条：名字里的 / 会自动长成分组树</span>
+RevGM.Register(<span class="s">"经济/加金币"</span>, <span class="s">"给当前玩家加金币"</span>, args =&gt; AddGold(args.Int(0, 1000)),
+               RevGMArg.Int(<span class="s">"数量"</span>, 1000));</pre>
+
+    <div class="plain">
+      <span class="tag">面板在哪</span>
+      <p>菜单 <code>Revolution.Tools/GM 指令面板</code>，快捷键 <code>Ctrl+Shift+G</code>。
+      面板完全活在编辑器里（<code>EditorWindow</code> + IMGUI），<b>不占运行时、不进包体</b>。</p>
+    </div>
+
+    <h3>面板长这样（示意）</h3>
+<pre>┌────────────────────────────────────────────────────────────────────────────┐
+│ ● Play 中（可执行）  命令 42 条                        [命令来源][刷新][帮助] │
+│ 命令 [加金____________________________] [清空] [执行 (Enter)]               │
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │ <b>经</b>济/加金币          &lt;数量&gt;  给当前玩家加金币   ← 命中字高亮、↑↓ 选择 │ │
+│ │ 经济/清空金币                    把金币清零                            │ │
+│ │ 战斗/清空全场敌人  ⚠             高危：执行前二次确认                    │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+│ ┌── 分组树 ──────────┐ ┌── 详情 ─────────────────────────────────────────┐ │
+│ │ ▼ 经济 (2)         │ │ 经济/加金币                                     │ │
+│ │   加金币           │ │ 给当前玩家加金币                                │ │
+│ │   清空金币         │ │ 参数：· 数量|整数(默认 1000)                    │ │
+│ │ ▼ 战斗 (1)         │ │ [填入输入框] [复制命令名] [执行]                 │ │
+│ └────────────────────┘ └─────────────────────────────────────────────────┘ │
+│ ✔ 执行成功（1.20 ms）  经济/加金币 500 → 金币 = 1500                         │
+│ 历史（点一条重新填入） 12:31:07 ✔ 经济/加金币 500                            │
+└────────────────────────────────────────────────────────────────────────────┘</pre>
+
+    <div class="callout">
+      <span class="t">什么时候用它</span>
+      <p>任何"想在跑着的游戏里立刻改点东西 / 看看状态"的场合 —— 加资源、跳关卡、改数值、开无敌、切频道、模拟协议回包、复现 bug 的前置状态。</p>
+    </div>
+  </section>
+
+  <!-- ============ 一 ============ -->
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">三步：写注册入口 → 启动时调一次 → 面板里执行。</p>
+
+    <div class="card">
+      <div class="h">第 1 步：写一个注册入口（放一个静态类里）</div>
+<pre><span class="k">using</span> Revolution;
+
+<span class="k">public static class</span> MyGameCommands
+{
+    <span class="k">private static int</span> _gold;
+
+    [RevGMEntry(<span class="s">"战斗 / 经济 相关"</span>)]     <span class="c">// ← 想让面板在"不进 Play"时也能列出命令，就加它</span>
+    <span class="k">public static void</span> Register()
+    {
+        <span class="c">// ★ 一行注册：名字 / 说明 / 干什么 / 参数说明</span>
+        RevGM.Register(<span class="s">"经济/加金币"</span>, <span class="s">"给当前玩家加金币"</span>,
+                       args =&gt; { _gold += args.Int(0, 1000); <span class="k">return</span> $<span class="s">"金币 = {_gold}"</span>; },
+                       RevGMArg.Int(<span class="s">"数量"</span>, 1000));
+    }
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">第 2 步：让游戏启动时调一次</div>
+<pre><span class="c">// 你的启动流程里（游戏入口 / 场景 Boot / 或一个 [RuntimeInitializeOnLoadMethod]）：</span>
+MyGameCommands.Register();</pre>
+      <div class="note">正式包怎么办？<b>不调 Register 就等于不存在</b>（没有静态构造、没有反射扫描、没有每帧开销）。见第九章。</div>
+    </div>
+
+    <div class="card">
+      <div class="h">第 3 步：打开面板执行</div>
+      <ol>
+        <li>菜单 <code>Revolution.Tools/GM 指令面板</code>（或 <code>Ctrl+Shift+G</code>）；</li>
+        <li>搜索框里打 <code>加金</code> → 联想列表立刻出现 <code>经济/加金币</code>；</li>
+        <li><code>Tab</code> 补全 → 空格 → 输入 <code>500</code> → <code>Enter</code>；</li>
+        <li>下方显示：<code>✔ 执行成功（1.20 ms）  经济/加金币 500 → 金币 = 1500</code>。</li>
+      </ol>
+    </div>
+
+    <h3>也可以不用面板（游戏内控制台 / 自动化 / 单测）</h3>
+<pre>RevGMResult r = RevGM.Execute(<span class="s">"经济/加金币 500"</span>);
+<span class="k">if</span> (!r.Success) Debug.LogError(r.Message);      <span class="c">// Message 是人话，直接能看</span></pre>
+  </section>
+
+  <!-- ============ 二 ============ -->
+  <section id="s2">
+    <h2><span class="num">二</span>面板怎么用（4 步 + 键位表）</h2>
+    <p class="lead">整个过程可以只用键盘完成。</p>
+
+    <div class="anim" id="anim-type">
+      <div class="t">边打边联想 <span class="tag">纯 CSS 动画</span></div>
+      <div class="gmbar">
+        <span class="lab">命令</span>
+        <span class="typed">加金</span><span class="caret">|</span>
+      </div>
+      <ul class="gmsug">
+        <li class="g1"><span><b class="hl">加</b><b class="hl">金</b>经济/加金币</span><em>&lt;数量&gt; 给当前玩家加金币</em></li>
+        <li class="g2"><span>经济/清空金币</span><em>把金币清零</em></li>
+        <li class="g3"><span>战斗/清空全场敌人 ⚠</span><em>高危：执行前二次确认</em></li>
+      </ul>
+      <div class="capstk">
+        <p>① 打「加金」：命中字<b>高亮</b>，前缀命中排在最前 —— 不用记完整名字。</p>
+        <p>② <code>↑</code> <code>↓</code> 选、<b>Tab 补全</b>（自动补一个空格，接着打参数）。</p>
+        <p>③ <code>Enter</code> 执行：结果、成功失败、<b>耗时</b>直接显示在下方；<code>Ctrl+Enter</code> 跳过二次确认。</p>
+      </div>
+      <div class="hint">支持三种命中：<b>前缀</b>（加金）、<b>连续子串</b>（金币）、<b>字符级缩写</b>（英文名命令如 <code>agi</code> → <code>Battle/AddGoldInstant</code>）。中文命令请打中文子串（拼音缩写不在范围内）。</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="c" style="width:16%">键 / 操作</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td class="c"><code>↑</code> <code>↓</code></td><td>在联想列表里上下选择</td></tr>
+          <tr><td class="c"><code>Tab</code></td><td>用选中的联想项补全（补完自动加一个空格）</td></tr>
+          <tr><td class="c"><code>Enter</code></td><td>执行输入框里的命令</td></tr>
+          <tr><td class="c"><code>Ctrl+Enter</code></td><td>强制执行（跳过"高危命令"的二次确认）</td></tr>
+          <tr><td class="c"><code>Esc</code></td><td>清空输入框</td></tr>
+          <tr><td class="c">左树单击 / 双击</td><td>单击 = 看右侧详情；双击 = 把命令名填入输入框</td></tr>
+          <tr><td class="c">枚举候选值按钮</td><td>点一下就生成 <code>命令名 候选值</code>，省得手打</td></tr>
+          <tr><td class="c">历史那一行</td><td>点一下就重新填入（改个参数再执行很方便）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>两种模式（很重要）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">模式</th><th style="width:38%">命令清单来自</th><th>能不能执行</th></tr></thead>
+        <tbody>
+          <tr><td><b>编辑模式</b>（没点 Play）</td><td>调一遍所有 <code>[RevGMEntry]</code> 注册入口拿到的<b>快照</b></td><td>❌ 不能（命令体常要碰运行时对象，编辑器里会崩）</td></tr>
+          <tr><td><b>Play 模式</b>（游戏跑着）</td><td>运行期<b>真实注册表</b></td><td>✅ 能 —— 被测环境就是游戏本身，结果真实</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="t">这就是 <code>[RevGMEntry]</code> 的唯一目的</span>
+      <p>没有它，编辑模式下面板是空的（命令清单只有在代码真的跑起来后才存在）。加了它，注册方法会被面板在编辑期调一遍 ——
+      所以那条方法里<b>只做注册</b>，不要初始化业务（这也是"组合根"该有的样子）。</p>
+    </div>
+  </section>
+
+  <!-- ============ 三 ============ -->
+  <section id="s3">
+    <h2><span class="num">三</span>一行注册的六种形态（挑一种用）</h2>
+    <p class="lead">都是"一行"，区别只在写不写参数说明、要不要回显、要不要标记。</p>
+
+<pre><span class="c">// ① 最简单：无参数、无返回值（框架自动替你回 done）</span>
+RevGM.Register(<span class="s">"经济/清空金币"</span>, <span class="s">"把金币清零"</span>, args =&gt; _gold = 0);
+
+<span class="c">// ② 要回显一句话：返回 string 就是面板上那行结果</span>
+RevGM.Register(<span class="s">"工具/概览"</span>, <span class="s">"打印当前状态"</span>, args =&gt; $<span class="s">"金币={_gold}"</span>);
+
+<span class="c">// ③ 带参数说明（推荐）：面板显示帮助 + 执行前自动校验</span>
+RevGM.Register(<span class="s">"战斗/缩放主角"</span>, <span class="s">"把主控英雄缩放成指定倍数"</span>,
+               args =&gt; { _scale = args.Float(0); <span class="k">return</span> $<span class="s">"缩放 = {_scale}"</span>; },
+               RevGMArg.Float(<span class="s">"倍率"</span>, 1f));
+
+<span class="c">// ④ 高危：面板执行前二次确认（Ctrl+Enter 跳过）</span>
+RevGM.Register(<span class="s">"战斗/清空全场敌人"</span>, <span class="s">"把所有敌人血量清零"</span>, args =&gt; ClearEnemy(),
+               RevGMFlags.HighRisk);
+
+<span class="c">// ⑤ 隐藏：不进联想列表，但直接写完整名仍可执行（临时/废弃命令）</span>
+RevGM.Register(<span class="s">"工具/内部复位"</span>, <span class="s">"把演示状态复位"</span>, args =&gt; Reset(), RevGMFlags.Hidden);
+
+<span class="c">// ⑥ 逻辑复杂就别写大 lambda：把方法直接传进来（方法组）</span>
+RevGM.Register(<span class="s">"聊天/发消息"</span>, <span class="s">"往指定频道发消息"</span>, SendChatMessage,
+               RevGMArg.Enum(<span class="s">"频道"</span>, <span class="s">"lobby"</span>, <span class="s">"guild"</span>, <span class="s">"customteam"</span>), RevGMArg.Str(<span class="s">"内容"</span>, <span class="s">""</span>));
+
+<span class="k">private static string</span> SendChatMessage(RevGMArgs args)
+    =&gt; $<span class="s">"已发送到 {args.Str(0)}：{args.Str(1, "（空）")}"</span>;</pre>
+
+    <h3>lambda 支持情况（已逐条实测）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">写法</th><th style="width:22%">能否注册</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>表达式 lambda（无返回值）</td><td>✅</td><td><code>args =&gt; _counter++</code> → 匹配 <code>Action&lt;RevGMArgs&gt;</code></td></tr>
+          <tr><td>块 lambda（多行 + return）</td><td>✅</td><td>返回值会回显</td></tr>
+          <tr><td>表达式 lambda（返回 string）</td><td>✅</td><td>匹配 <code>Func&lt;RevGMArgs,string&gt;</code></td></tr>
+          <tr><td><b>闭包</b>（捕获外部变量）</td><td>✅</td><td>能读写捕获值；<b>但它会延长被捕获对象的生命周期</b>（见第七章坑 7）</td></tr>
+          <tr><td>忽略参数 <code>_ =&gt; ...</code></td><td>✅</td><td></td></tr>
+          <tr><td>方法组 / 局部函数</td><td>✅</td><td>逻辑长就推荐这种，注册处保持一行</td></tr>
+          <tr><td>返回 <code>null</code></td><td>✅</td><td>框架按 <code>done</code> 处理</td></tr>
+          <tr><td>lambda + 参数说明 + 高危标记</td><td>✅</td><td>参数校验对 lambda 同样生效</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="plain">
+      <span class="tag">只有两种签名</span>
+      <p><code>Action&lt;RevGMArgs&gt;</code>（不需要回显，框架自动返回 <code>done</code>）与 <code>Func&lt;RevGMArgs,string&gt;</code>（返回值<b>就是</b>面板上那行结果）。
+      所以 lambda 必须收一个 <code>RevGMArgs</code> 参数（不需要就写 <code>_</code>），参数一律从 <code>args.Int(0, 默认值)</code> 这类取值器里取。</p>
+    </div>
+  </section>
+
+  <!-- ============ 四 ============ -->
+  <section id="s4">
+    <h2><span class="num">四</span>参数怎么写（新手最容易含糊的地方）</h2>
+    <p class="lead">两步：声明参数说明（给人看 + 给框架校验）+ 用 args 取参数（不自己解析字符串）。</p>
+
+    <h3>4.1 声明参数说明：<code>RevGMArg</code></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:42%">写法</th><th style="width:26%">含义</th><th>帮助里显示成</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevGMArg.Int("数量", 1000)</code></td><td>整数，可省略</td><td><code>数量|整数(默认 1000)</code></td></tr>
+          <tr><td><code>RevGMArg.IntRequired("英雄ID")</code></td><td>整数，<b>必填</b></td><td><code>英雄ID|整数(必填)</code></td></tr>
+          <tr><td><code>RevGMArg.Float("倍率", 1f)</code></td><td>小数，可省略</td><td><code>倍率|小数(默认 1)</code></td></tr>
+          <tr><td><code>RevGMArg.Bool("开启", true)</code></td><td>开关（<code>true/false</code>、<code>1/0</code>、<code>on/off</code>、<code>是/否</code>、<code>开/关</code> 都认）</td><td><code>开启|开关(默认 true)</code></td></tr>
+          <tr><td><code>RevGMArg.Str("内容")</code></td><td>文本，必填</td><td><code>内容|文本(必填)</code></td></tr>
+          <tr><td><code>RevGMArg.Str("备注", "")</code></td><td>文本，可空</td><td><code>备注|文本(可空)</code></td></tr>
+          <tr><td><code>RevGMArg.Enum("频道", "lobby", "guild")</code></td><td>枚举，候选值<b>列在面板上</b>（点一下就填）</td><td><code>频道|枚举(lobby/guild)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.2 取参数：<code>args</code>（永远不要自己解析字符串）</h3>
+<pre>args.Count          <span class="c">// 参数个数</span>
+args.Has(1)         <span class="c">// 第 2 个参数有没有传</span>
+args.Raw(0)         <span class="c">// 原始字符串</span>
+args.Text           <span class="c">// 参数整体（原样拼回一行）</span>
+args.Str(0, <span class="s">"默认"</span>)   <span class="c">// 文本</span>
+args.Int(0, 1000)   <span class="c">// 整数（解析失败 → 抛一句人话）</span>
+args.Float(0, 1f)   <span class="c">// 小数</span>
+args.Bool(0, <span class="k">true</span>)  <span class="c">// 开关</span>
+args.Enum&lt;ChatChannel&gt;(0, ChatChannel.Lobby)   <span class="c">// 枚举</span></pre>
+
+    <h3>4.3 框架会<b>执行前</b>先校验一遍（只要有参数说明）</h3>
+    <p>所以下面这些错误<b>在业务代码跑之前</b>就被拦下并回显，不用等到业务里爆异常：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">你输入</th><th>面板显示</th></tr></thead>
+        <tbody>
+          <tr><td><code>经济/加金币 abc</code></td><td><code>经济/加金币 → 参数「数量」应该是整数，实际收到 "abc"</code></td></tr>
+          <tr><td><code>经济/加金币</code>（必填时）</td><td><code>经济/加金币 → 缺少必填参数「数量」（数量|整数(必填)）</code></td></tr>
+          <tr><td><code>聊天/发消息 notachannel</code></td><td><code>聊天/发消息 → 参数「频道」应该是 lobby / guild / customteam 之一，实际收到 "notachannel"</code></td></tr>
+          <tr><td>参数个数超过声明</td><td><code>参数多了 2 个（本命令最多接受 1 个参数；多个词请用引号括起来，例如 "王者 荣耀"）</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.4 带空格的参数要用引号</h3>
+<pre>工具/回显 <span class="s">"王者 荣耀"</span> 第二段    <span class="c">// 第 1 个参数是「王者 荣耀」，第 2 个是「第二段」</span></pre>
+    <div class="callout warn">
+      <span class="t">记住这条</span>
+      <p>命令名与参数用<b>空格</b>分开（中文全角空格、Tab 也算分隔符）；引号内的空格不拆。
+      但 <b>命令名里不能有空格</b>（分组用 <code>/</code>）—— 框架在注册时就会报错提醒你。</p>
+    </div>
+  </section>
+
+  <!-- ============ 五 ============ -->
+  <section id="s5">
+    <h2><span class="num">五</span>命令体怎么写得"有话说"（最容易踩的坑）</h2>
+    <p class="lead">三条规则：成功回一句话；业务不行抛 RevGMUsageException；真 bug 交给框架。</p>
+
+    <h3>5.1 成功：返回一句话（或什么都不返回）</h3>
+<pre>RevGM.Register(<span class="s">"经济/加金币"</span>, <span class="s">"给当前玩家加金币"</span>, args =&gt;
+{
+    AddGold(args.Int(0, 1000));
+    <span class="k">return</span> <span class="s">"已发放"</span>;           <span class="c">// ← 面板上显示这句话；返回 null 也没问题（显示 done）</span>
+});</pre>
+
+    <h3>5.2 "业务上说不行" → 抛 <code>RevGMUsageException</code></h3>
+<pre>RevGM.Register(<span class="s">"工具/领取每日奖励"</span>, <span class="s">"领取今天的奖励"</span>, args =&gt;
+{
+    <span class="k">if</span> (AlreadyClaimedToday) <span class="k">throw new</span> RevGMUsageException(<span class="s">"今天已经领过了"</span>);   <span class="c">// 原样显示在面板</span>
+    Claim();
+    <span class="k">return</span> <span class="s">"领取成功"</span>;
+});</pre>
+    <div class="callout">
+      <span class="t">这是王者那套最缺的一环</span>
+      <p>老框架里"界面上连报错都没有"，测试同学只能猜。本框架把<b>用法错误</b>和<b>真 bug</b>分开处理。</p>
+    </div>
+
+    <h3>5.3 真 bug（自己写错了）→ 什么都别做，让框架兜</h3>
+<pre>RevGM.Register(<span class="s">"工具/会崩的命令"</span>, <span class="s">"演示异常"</span>, args =&gt; <span class="k">throw new</span> InvalidOperationException(<span class="s">"故意崩一下"</span>));
+<span class="c">// 面板显示：执行「工具/会崩的命令」时抛异常：InvalidOperationException: 故意崩一下</span>
+<span class="c">//            at 你的堆栈首行...</span></pre>
+    <div class="callout good">
+      <span class="t">框架统一兜异常</span>
+      <p><code>RevGMUsageException</code> → 原样回显人话；其它异常 → 显示类型 + 消息 + 堆栈首行（直接定位）。
+      <b>绝不会出现"点了没反应"</b>。</p>
+    </div>
+  </section>
+
+  <!-- ============ 六 ============ -->
+  <section id="s6">
+    <h2><span class="num">六</span>"我要做 X" 对照表（背下就会用）</h2>
+    <p class="lead">左边是你脑子里的需求，右边是可以直接抄的代码。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">我想做的</th><th>写法</th></tr></thead>
+        <tbody>
+          <tr><td>注册一条无参数命令</td><td><code>RevGM.Register("组/名", "说明", args =&gt; { ... })</code></td></tr>
+          <tr><td>注册一条要回显的命令</td><td><code>RevGM.Register("组/名", "说明", args =&gt; "结果文本")</code></td></tr>
+          <tr><td>注册带参数说明的命令</td><td><code>..., handler, RevGMArg.Int("数量", 1000)</code></td></tr>
+          <tr><td>加一个<b>必填</b>参数</td><td><code>RevGMArg.IntRequired("英雄ID")</code></td></tr>
+          <tr><td>加一个<b>枚举</b>参数（面板列候选）</td><td><code>RevGMArg.Enum("频道", "lobby", "guild")</code></td></tr>
+          <tr><td>标记<b>高危</b>（执行前二次确认）</td><td><code>RevGM.Register(..., RevGMFlags.HighRisk)</code></td></tr>
+          <tr><td><b>不进联想</b>（临时/废弃命令）</td><td><code>RevGM.Register(..., RevGMFlags.Hidden)</code></td></tr>
+          <tr><td>动态注销一条命令</td><td><code>RevGM.Unregister("组/名")</code></td></tr>
+          <tr><td>清空所有命令（收尾 / 重进 Play）</td><td><code>RevGM.Clear()</code></td></tr>
+          <tr><td>临时关闭 GM（注册保留）</td><td><code>RevGM.Enabled = false</code></td></tr>
+          <tr><td>代码里执行 / 自动化脚本</td><td><code>RevGM.Execute("组/名 参数")</code> → 判 <code>result.Success</code></td></tr>
+          <tr><td>自己做一个输入联想</td><td><code>RevGM.Suggest("加金", 8)</code></td></tr>
+          <tr><td>让面板在编辑期也能列命令</td><td>给注册方法加 <code>[RevGMEntry("说明")]</code>（方法<b>必须 static、只做注册</b>）</td></tr>
+          <tr><td>拿命令数量 / 清单</td><td><code>RevGM.Count</code> / <code>RevGM.Commands</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 七 ============ -->
+  <section id="s7">
+    <h2><span class="num">七</span>八个最容易白干的坑</h2>
+    <p class="lead">每一条都有对应报错，看到就知道怎么改。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="c" style="width:5%">#</th><th style="width:26%">坑</th><th style="width:32%">现象 / 报错</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td class="c">1</td><td><b>命令名里带空格</b></td><td>注册时直接抛：<code>GM 命令名里不能有空格：「工具/打印 GM 概览」</code></td><td>用 <code>/</code> 分组，不要空格（<code>工具/打印GM概览</code>）</td></tr>
+          <tr><td class="c">2</td><td><b>两条命令重名</b></td><td>注册时抛：<code>GM 命令「x」已经注册过了</code></td><td>合并，或改分组（框架刻意不做静默覆盖）</td></tr>
+          <tr><td class="c">3</td><td><b>忘了调注册入口</b></td><td>面板一条命令都没有</td><td>启动流程里调一次；或给方法加 <code>[RevGMEntry]</code></td></tr>
+          <tr><td class="c">4</td><td><b>编辑模式下点执行</b></td><td><code>还没进入 Play：编辑模式只能查看与联想</code></td><td>按 Play 再来（执行按钮也会置灰）</td></tr>
+          <tr><td class="c">5</td><td><b>只写末段名但重名</b></td><td><code>「重置」匹配到 2 条命令（…）—— 请写完整名（含分组）</code></td><td>写完整名，或从面板联想里选</td></tr>
+          <tr><td class="c">6</td><td><b>参数说明与实际用法不一致</b></td><td>执行前被拦下（类型 / 必填 / 枚举不符）</td><td>让 <code>RevGMArg</code> 列表与 <code>args.Int(0)</code> 一一对应</td></tr>
+          <tr><td class="c">7</td><td><b>lambda 捕获了场景对象</b></td><td>对象不释放、或用的时候已被销毁</td><td>只捕获<b>服务接口 / 静态数据</b>，运行时再从定位器取真实对象（见第八章）</td></tr>
+          <tr><td class="c">8</td><td><b>联想打拼音缩写</b>（如 <code>jjb</code>）</td><td>没有匹配</td><td>联想是<b>字符级</b>的：中文打中文子串（<code>加金</code>）；英文名命令可用缩写 <code>agi</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">坑 7 展开说一句</span>
+      <p>注册表是<b>长期持有</b>这些委托的：lambda 捕获了什么，什么就不会被回收。
+      最稳的写法是"命令体只做翻译" —— 捕获服务接口（或直接用全局组合根），运行时再取真实对象。</p>
+    </div>
+  </section>
+
+  <!-- ============ 八 ============ -->
+  <section id="s8">
+    <h2><span class="num">八</span>完整实战：把 GM 指令接上服务定位器</h2>
+    <p class="lead">真实项目里，GM 命令不该自己 new 业务系统，而是从服务定位器里取 —— 两者是天然搭配。</p>
+
+    <div class="flow">
+      <span class="n on">启动期：装配服务 + 注册 GM</span><span class="ar">→</span>
+      <span class="n">面板输入：经济/加金币 500</span><span class="ar">→</span>
+      <span class="n on">命令体：取服务 → 调业务</span><span class="ar">→</span>
+      <span class="n">回显：金币 = 1500</span>
+    </div>
+
+    <div class="card">
+      <div class="h">① 启动期：装配服务 + 注册 GM（组合根，只写一处）</div>
+<pre><span class="k">public static class</span> GameBoot
+{
+    <span class="c">// 服务定位器那份文档里说过：真要"全局入口"，就自己在启动代码里放一个 static readonly 字段</span>
+    <span class="k">public static readonly</span> RevServiceLocator Services = RevServiceLocator.Create()
+        .AddSingleton&lt;IPlayerService, PlayerService&gt;()
+        .AddSingleton&lt;IBattleService, BattleService&gt;()
+        .Build();
+
+    [RuntimeInitializeOnLoadMethod]          <span class="c">// 或者你的游戏入口</span>
+    <span class="k">public static void</span> Boot()
+    {
+        GameCommands.Register();             <span class="c">// 注册 GM 指令（正式包不调这一行 = 不存在）</span>
+    }
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">② GM 指令只做"翻译"：把面板输入翻译成业务调用</div>
+<pre><span class="k">public static class</span> GameCommands
+{
+    [RevGMEntry(<span class="s">"局内：经济 / 战斗"</span>)]
+    <span class="k">public static void</span> Register()
+    {
+        RevGM.Register(<span class="s">"经济/加金币"</span>, <span class="s">"给当前玩家加金币（不填默认 1000）"</span>,
+            args =&gt;
+            {
+                <span class="k">var</span> player = GameBoot.Services.GetRequired&lt;IPlayerService&gt;();   <span class="c">// ← 运行时取服务</span>
+                <span class="k">int</span> amount = args.Int(0, 1000);
+                player.AddGold(amount);
+                <span class="k">return</span> $<span class="s">"金币 = {player.Gold}"</span>;
+            },
+            RevGMArg.Int(<span class="s">"数量"</span>, 1000));
+
+        RevGM.Register(<span class="s">"战斗/秒杀当前目标"</span>, <span class="s">"把当前选中目标血量清零"</span>,
+            args =&gt;
+            {
+                <span class="k">var</span> battle = GameBoot.Services.Get&lt;IBattleService&gt;();     <span class="c">// 可选能力：没进战斗就是 null</span>
+                <span class="k">if</span> (battle == null) <span class="k">throw new</span> RevGMUsageException(<span class="s">"当前不在战斗中"</span>);
+                <span class="k">if</span> (!battle.HasTarget) <span class="k">throw new</span> RevGMUsageException(<span class="s">"没有选中目标"</span>);
+                battle.KillTarget();
+                <span class="k">return</span> <span class="s">"已秒杀"</span>;
+            },
+            RevGMFlags.HighRisk);        <span class="c">// ← 高危：面板会二次确认</span>
+    }
+}</pre>
+    </div>
+
+    <div class="callout good">
+      <span class="t">为什么这么写</span>
+      <p>① 命令体<b>只做翻译</b>（参数 → 业务调用），业务逻辑仍在 <code>IPlayerService</code> / <code>IBattleService</code> 里 —— GM 指令不会长成第二个业务系统；<br>
+      ② 环境不满足时抛 <code>RevGMUsageException</code>，测试同学看到的是"当前不在战斗中"，而不是空引用；<br>
+      ③ 高危命令加 <code>RevGMFlags.HighRisk</code>，避免手滑。</p>
+    </div>
+  </section>
+
+  <!-- ============ 九 ============ -->
+  <section id="s9">
+    <h2><span class="num">九</span>正式包策略（怎么保证它不上线）</h2>
+    <p class="lead">本框架没有用编译宏裁剪，而是用更硬的一条：没人在启动期注册 = 不存在。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">手段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>不注册 = 不存在</b>（推荐）</td><td>正式包里没人调 <code>RevGM.Register(...)</code> → 注册表是空的；程序集里只有几十行"空转"代码，<b>没有静态构造、没有反射扫描、没有每帧开销</b></td></tr>
+          <tr><td><b>一键关闭</b></td><td><code>RevGM.Enabled = false</code>（注册保留，所有执行一律被拒绝）</td></tr>
+          <tr><td><b>整块删除</b></td><td>删掉注册入口 + 命令实现文件即可（框架代码可留可删，没有耦合）</td></tr>
+          <tr><td><b>真正的权限</b></td><td>客户端不做权限伪造：<code>HighRisk</code> 只是"提醒 + 二次确认"，<b>真权限必须由服务端裁决</b>（与王者的结论一致）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cmp">
+      <div class="no">
+        <div class="h">✗ 王者那套：靠多层编译宏</div>
+        <pre><span class="c">// 真码里是这种矩阵，还要靠人工纪律</span>
+//#define ENABLE_CHEAT_COMMANDS
+#if ENABLE_CHEAT_COMMANDS &amp;&amp; ENABLE_AITEST ...
+<span class="c">// 结果：89% 的命令处于注释死代码状态</span></pre>
+      </div>
+      <div class="yes">
+        <div class="h">✓ 本框架：靠"注册即存在"</div>
+        <pre><span class="c">// 正式包不调这一行，就什么都不存在</span>
+MyGameCommands.Register();
+<span class="c">// 需要临时关：RevGM.Enabled = false</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 十 ============ -->
+  <section id="s10">
+    <h2><span class="num">十</span>一页速查卡（可打印）</h2>
+    <p class="lead">贴在显示器旁边，写指令时不用回来翻文档。</p>
+
+    <div class="cheat">
+      <div><b>注册（无参数）</b><code>RevGM.Register("组/名", "说明", args =&gt; { ... })</code></div>
+      <div><b>注册（要回显）</b><code>RevGM.Register("组/名", "说明", args =&gt; "文本")</code></div>
+      <div><b>带参数说明</b><code>..., RevGMArg.Int("数量", 1000)</code></div>
+      <div><b>必填 / 枚举</b><code>RevGMArg.IntRequired("ID")</code> · <code>RevGMArg.Enum("频道","a","b")</code></div>
+      <div><b>高危 / 隐藏</b><code>RevGMFlags.HighRisk</code> · <code>RevGMFlags.Hidden</code></div>
+      <div><b>取参数</b><code>args.Int(0, 默认)</code> · <code>Float</code> · <code>Bool</code> · <code>Str</code> · <code>Enum&lt;T&gt;</code></div>
+      <div><b>成功</b><code>return "一句话"</code>（或不返回 → 自动 done）</div>
+      <div><b>业务说不行</b><code>throw new RevGMUsageException("为什么")</code></div>
+      <div><b>面板</b><code>Revolution.Tools/GM 指令面板</code>（Ctrl+Shift+G）</div>
+      <div><b>面板键位</b>↑↓ 选 · Tab 补全 · Enter 执行 · Ctrl+Enter 跳过确认 · Esc 清空</div>
+      <div><b>代码里执行</b><code>RevGM.Execute("组/名 参数")</code></div>
+      <div><b>自己联想的接口</b><code>RevGM.Suggest("加金", 8)</code></div>
+      <div><b>编辑期也能列命令</b><code>[RevGMEntry("说明")]</code>（方法必须 static、只做注册）</div>
+      <div><b>关闭 / 清空</b><code>RevGM.Enabled = false</code> · <code>RevGM.Clear()</code></div>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">三条铁律</span>
+      <p>① 注册只写在一处（组合根），命令体里不要再注册别的命令；<br>
+      ② 参数不要自己解析字符串 —— 用 <code>args.Int(0, 默认值)</code>，解析失败会给你一句人话；<br>
+      ③ 业务拒绝要"有话说" —— 抛 <code>RevGMUsageException</code>，别用静默 <code>return</code>。</p>
+    </div>
+  </section>
+
+  <!-- ============ 十一 ============ -->
+  <section id="s11">
+    <h2><span class="num">十一</span>与王者原版的对照 + 已知边界</h2>
+    <p class="lead">完整 12 条精华 + 16 条糟粕（每条带王者出处）在代码目录的 README 第四节。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:50%">✓ 保留的精华</th><th>✗ 改掉的糟粕</th></tr></thead>
+        <tbody>
+          <tr><td>命令名即层级（<code>组/子组/名</code> → 自动分组树）</td><td>反射扫全程序集注册（IL2CPP/AOT 风险，真码要靠 <code>[Preserve]</code> 打补丁）</td></tr>
+          <tr><td>参数元数据自动拼帮助</td><td>同名命令静默覆盖</td></tr>
+          <tr><td>模板方法固定流程 + <code>done</code> 约定</td><td>必须手输完整名、没有补全</td></tr>
+          <tr><td>只写末段名也能执行</td><td>参数靠业务手解字符串（失败抛英文异常）</td></tr>
+          <tr><td>"永不静默失败"（异常转可读返回）</td><td>枚举候选值不校验，只能执行完回一段长文案</td></tr>
+          <tr><td>面板要能模糊搜（且不用"去掉 <code>/</code>"再搜）</td><td>异常处理推给业务（实测"界面上连报错都没有"）</td></tr>
+          <tr><td>风险 / 可见性标记</td><td>没有风险等级，只能把注意事项写进命令名</td></tr>
+          <tr><td>一行注册（TS 侧 <code>RegisteCommand</code> 形态）</td><td>靠多层编译宏裁剪（宏矩阵复杂、难体检）</td></tr>
+          <tr><td>—</td><td>面板占运行时（PC / 手机 / 性能三套视图）</td></tr>
+          <tr><td>—</td><td>多套入口并存（类式 / 静态方法式 / 网络式 / 帧式 / TS / 控制台变量）</td></tr>
+          <tr><td>—</td><td>单文件 7000 行塞 384 条命令；89% 的命令处于注释死代码状态</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>已知边界（诚实清单）</h3>
+    <ul>
+      <li><b>联想是"字符级"匹配</b>：中文命令请打中文子串（<code>加金</code> → <code>经济/加金币</code>）；<b>拼音首字母缩写（如 <code>jjb</code>）不支持</b>（需要一张拼音表，不在轻量范围内）。英文名命令支持缩写（<code>agi</code> → <code>Battle/AddGoldInstant</code>）。</li>
+      <li><b>编辑模式不执行命令</b>：避免"命令体碰了运行时对象、在编辑器里直接崩"。</li>
+      <li><b>不做客户端权限伪造</b>：<code>HighRisk</code> = 提醒 + 二次确认，真权限留给服务端。</li>
+      <li><b>命令名不能有空格</b>（空格是命令与参数的分隔符），分组用 <code>/</code>。</li>
+      <li><b>面板不记录跨会话历史</b>（只在当前编辑器会话内保留最近 50 条）。</li>
+    </ul>
+  </section>
+
+  <!-- ============ 十二 ============ -->
+  <section id="s12">
+    <h2><span class="num">十二</span>文件都在哪（你只需要读两个）</h2>
+    <p class="lead">运行时：<code>Assets\Revolution\Runtime\RevGMCommand\</code>　编辑器：<code>Assets\Revolution\Editor\RevGMCommand\</code></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">文件</th><th>要不要读</th></tr></thead>
+        <tbody>
+          <tr><td><code>Core\RevGM.cs</code></td><td>★ 必读：一行注册（6 个重载）/ <code>Execute</code> / <code>Suggest</code></td></tr>
+          <tr><td><code>Core\RevGMArgs.cs</code></td><td>★ 必读：取参数（<code>Int</code> / <code>Float</code> / <code>Bool</code> / <code>Str</code> / <code>Enum</code>）</td></tr>
+          <tr><td><code>Core\RevGMArg.cs</code> · <code>RevGMFlags.cs</code> · <code>RevGMResult.cs</code> · <code>RevGMUsageException.cs</code></td><td>用到再读（参数说明 / 标记 / 结果 / 用法错误）</td></tr>
+          <tr><td><code>Engine\RevGMRegistry.cs</code> · <code>RevGMCommand.cs</code> · <code>RevGMParser.cs</code> · <code>RevGMMatcher.cs</code></td><td>不用读（注册表 / 记录 / 分词 / 匹配打分）</td></tr>
+          <tr><td><code>Extras\RevGMEntryAttribute.cs</code></td><td>想让面板编辑期列命令时读</td></tr>
+          <tr><td><code>Editor\RevGMCommand\RevGMWindow.cs</code> · <code>RevGMEditorCatalog.cs</code></td><td>想改面板时读（共 820 行）</td></tr>
+          <tr><td><code>Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs</code></td><td>★ 建议先读这个（9 条示例，直接抄）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">下一步读什么</span>
+      <p>想搞清楚"为什么这么设计"（以及王者那套每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevGMCommand\README.md</code>。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：运行时 <code>Assets\Revolution\Runtime\RevGMCommand\</code>（11 个 <code>.cs</code> / 1023 行）·
+  编辑器 <code>Assets\Revolution\Editor\RevGMCommand\</code>（2 个 <code>.cs</code> / 820 行）·
+  示例 <code>Assets\Revolution.Demo\RevGMCommand.Demo\</code>（9 条命令）。<br>
+  验证情况：运行时内核行为验证 34 / 34 通过（含开箱示例）· lambda 注册形态 13 / 13 通过 · 编辑器程序集编译 0 错。<br>
+  本文档面向零基础；HTML 版含 1 段纯 CSS 动画（边打边联想），无外部依赖。
+</footer>
+
+</body>
+</html>

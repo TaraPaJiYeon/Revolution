@@ -1,0 +1,60 @@
+# ============================================================
+#  Revolution · Unity 框架 —— 仓库排除规则
+#
+#  原则：只提交「必要的代码与文档」。
+#  Unity 自动生成物、构建产物、IDE 文件、本机配置都不进仓库。
+# ============================================================
+
+# ---------------- Unity 自动生成 / 本机状态 ----------------
+/RevolutionFrameWork_Unity/[Ll]ibrary/
+/RevolutionFrameWork_Unity/[Tt]emp/
+/RevolutionFrameWork_Unity/[Oo]bj/
+/RevolutionFrameWork_Unity/[Bb]uild/
+/RevolutionFrameWork_Unity/[Bb]uilds/
+/RevolutionFrameWork_Unity/[Ll]ogs/
+/RevolutionFrameWork_Unity/[Uu]ser[Ss]ettings/
+/RevolutionFrameWork_Unity/[Mm]emoryCaptures/
+/RevolutionFrameWork_Unity/[Rr]ecordings/
+/RevolutionFrameWork_Unity/ExportedObj/
+/RevolutionFrameWork_Unity/crashlytics-build.properties
+/RevolutionFrameWork_Unity/sysinfo.txt
+
+# Unity / IDE 生成的工程文件（重新打开 Unity 会自动重建）
+/RevolutionFrameWork_Unity/*.csproj
+/RevolutionFrameWork_Unity/*.sln
+/RevolutionFrameWork_Unity/*.unityproj
+/RevolutionFrameWork_Unity/*.user
+/RevolutionFrameWork_Unity/*.pidb
+/RevolutionFrameWork_Unity/*.booproj
+/RevolutionFrameWork_Unity/*.svd
+/RevolutionFrameWork_Unity/*.opendb
+/RevolutionFrameWork_Unity/.vs/
+/RevolutionFrameWork_Unity/.idea/
+/RevolutionFrameWork_Unity/.vscode/
+/RevolutionFrameWork_Unity/.consulo/
+
+# ---------------- 打包产物（由工具生成） ----------------
+/RevolutionFrameWork_Unity/AssetBundles/
+/RevolutionFrameWork_Unity/Assets/StreamingAssets/
+
+# 本机打包配置：每台机器在「LiteAB 打包工具」窗口里自己配；
+# 文件不存在时工具会自动生成一份默认的（所以不进仓库）
+/RevolutionFrameWork_Unity/Assets/Editor/ABBuildConfig.asset
+/RevolutionFrameWork_Unity/Assets/Editor/ABBuildConfig.asset.meta
+
+# ---------------- .NET / 导表工具 ----------------
+bin/
+obj/
+*.user
+*.suo
+*.cache
+.vs/
+
+# ---------------- 其它二进制 / 临时文件 ----------------
+*.pdb
+*.mdb
+*.opendb
+*.lock
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolution 导表工具 · 使用指南</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+  td.bad{color:var(--bad);font-weight:700;}
+  td.good{color:var(--good);font-weight:700;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  .ui{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:14px 0;}
+  .ui .bar{background:#F3F6FB;padding:6px 12px;font-size:12px;color:var(--text-sub);border-bottom:1px solid var(--border);}
+  .ui .body{padding:14px 16px;background:#FBFCFE;}
+  .ui .row{margin:6px 0;font-size:13.5px;}
+  .ui .row b{color:var(--accent);}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){ .hero h1{font-size:23px;} section{padding:18px 16px;} }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用指南</span>
+    <h1>Revolution 导表工具 · 使用指南</h1>
+    <p>配套阅读：《导表工具对比与设计说明》（讲"为什么这么设计"）</p>
+    <p class="meta">本文只讲怎么用：Excel 怎么写 → 界面怎么点 → 输出什么 → 怎么接进 Unity → 报错怎么修</p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、30 秒上手</a></li>
+      <li><a href="#s1">一、准备（环境 / 启动 / 界面）</a></li>
+      <li><a href="#s2">二、Excel 该怎么写</a></li>
+      <li><a href="#s3">三、字段类型与取值规则</a></li>
+      <li><a href="#s4">四、主键规则</a></li>
+      <li><a href="#s5">五、命名规则</a></li>
+      <li><a href="#s6">六、界面操作流程（六步）</a></li>
+      <li><a href="#s7">七、输出物详解</a></li>
+      <li><a href="#s8">八、接入 Unity</a></li>
+      <li><a href="#s9">九、报错对照表</a></li>
+      <li><a href="#s10">十、局限与边界</a></li>
+      <li><a href="#s11">十一、文件索引</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>30 秒上手</h2>
+    <pre><span class="n">①</span> 写 Excel：第 1 行字段名 / 第 2 行类型 / 第 3 行描述 / 第 4 行起数据（第一个字段是主键）
+<span class="n">②</span> 启动工具 → 选 Excel → 读取 → 选三个输出目录 → 开始导出
+<span class="n">③</span> 把 Code\ 拷到 <b>Assets/Revolution/Generation\</b>，把 Data\ 拷到 <b>「资源根目录」\Data\</b>（如 Assets/GameRes/Data）
+<span class="n">④</span> 业务代码：
+     <span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+     HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out var</span> h);</pre>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>准备</h2>
+
+    <h3>1.1 运行环境</h3>
+    <ul>
+      <li><b>.NET 8 桌面运行时</b>（Windows）。工程目标框架是 <code>net8.0-windows</code>。</li>
+      <li>工具是 <b>WPF 独立程序，不需要开 Unity</b>，也不需要装 Excel（自带 xlsx 解析）。</li>
+    </ul>
+
+    <h3>1.2 启动方式</h3>
+    <pre><span class="c"># 方式一：命令行（开发期常用）</span>
+cd RevolutionFramework\Revolution.ExcelTool
+dotnet run
+
+<span class="c"># 方式二：直接跑 exe（打包给策划/TA 用）</span>
+Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
+    <div class="callout">发布给别人用：<code>dotnet publish -c Release</code>，把产物目录整个拷走即可（<b>零第三方依赖</b>，只有一个 exe + dll）。</div>
+
+    <h3>1.3 界面长什么样</h3>
+    <div class="ui">
+      <div class="bar">Revolution 导表工具</div>
+      <div class="body">
+        <div class="row"><b>① Excel 数据源</b>　[路径输入框]　[选择文件] [选择目录] [读取]</div>
+        <div class="row"><b>② 表列表</b>　　　　<b>③ 表结构预览</b>（字段摘要 + 前 50 行数据）</div>
+        <div class="row"><b>④ 输出路径</b>　　　数据结构类 / 容器类 / TXT 数据文件</div>
+        <div class="row"><b>⑤ [开始导出]</b>　　状态提示</div>
+        <div class="row"><b>⑥ 日志</b>　　　　　每一步的结果都在这里，成功失败都看得见</div>
+      </div>
+    </div>
+    <p><b>首次启动会自动猜你的 Unity 工程路径</b>（在工具目录附近找 <code>RevolutionFrameWork_Unity</code>），猜到了就预填好三个输出目录；猜不到也不影响使用，手动选一下即可。</p>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>Excel 该怎么写</h2>
+
+    <h3>2.1 四行结构（这是唯一的契约）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:16%">行</th><th style="width:18%">内容</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>第 1 行</b></td><td><b>字段名</b></td><td>要能当 C# 字段名（见第五章）</td></tr>
+          <tr><td><b>第 2 行</b></td><td><b>字段类型</b></td><td>只支持 <code>int</code> / <code>float</code> / <code>string</code> / <code>bool</code></td></tr>
+          <tr><td><b>第 3 行</b></td><td><b>字段描述</b></td><td>只生成代码注释和 txt 表头，不参与数据</td></tr>
+          <tr><td><b>第 4 行起</b></td><td><b>数据</b></td><td>一行一条记录</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li><b>第一个字段（第一列）就是主键</b>，不需要额外标记。</li>
+      <li><b>一个工作表 = 一张表</b>，表名就是工作表名（<code>Hero</code> → 生成 <code>Hero</code> 结构体 + <code>HeroTable</code> 容器）。</li>
+    </ul>
+
+    <h3>2.2 一个完整示例（可以直接抄）</h3>
+    <p>工作表名：<code>Hero</code></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th class="c">A</th><th class="c">B</th><th class="c">C</th><th class="c">D</th><th class="c">E</th><th class="c">F</th><th class="c">G</th><th class="c">H</th><th class="c">I</th></tr></thead>
+        <tbody>
+          <tr><td><b>1</b></td><td>ID</td><td>Name</td><td>Quality</td><td>Attack</td><td>Hp</td><td>MoveSpeed</td><td>IsRanged</td><td>Camp</td><td>Desc</td></tr>
+          <tr><td><b>2</b></td><td>int</td><td>string</td><td>int</td><td>float</td><td>int</td><td>float</td><td>bool</td><td>string</td><td>string</td></tr>
+          <tr><td><b>3</b></td><td>英雄ID</td><td>英雄名</td><td>品质(1-5)</td><td>攻击力</td><td>生命值</td><td>移动速度</td><td>是否远程</td><td>所属阵营</td><td>英雄描述</td></tr>
+          <tr><td><b>4</b></td><td>1001</td><td>亚瑟</td><td>3</td><td>120.5</td><td>3600</td><td>3.8</td><td>false</td><td>秩序</td><td>持剑的圣骑士</td></tr>
+          <tr><td><b>5</b></td><td>1002</td><td>妲己</td><td>3</td><td>95</td><td>3200</td><td>3.6</td><td>true</td><td>无序</td><td>魅惑的狐妖法师</td></tr>
+          <tr><td><b>6</b></td><td>1003</td><td>后羿</td><td>4</td><td>160.8</td><td>3100</td><td>3.7</td><td>true</td><td>秩序</td><td>射日的神射手</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>工作表名：<code>Buff</code>（演示 <b>string 主键</b>）</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th class="c">A</th><th class="c">B</th><th class="c">C</th><th class="c">D</th><th class="c">E</th><th class="c">F</th></tr></thead>
+        <tbody>
+          <tr><td><b>1</b></td><td>ID</td><td>Name</td><td>Type</td><td>Duration</td><td>Stackable</td><td>Desc</td></tr>
+          <tr><td><b>2</b></td><td><b>string</b></td><td>string</td><td>int</td><td>float</td><td>bool</td><td>string</td></tr>
+          <tr><td><b>3</b></td><td>状态ID</td><td>状态名</td><td>类型</td><td>持续(秒)</td><td>可否叠加</td><td>状态描述</td></tr>
+          <tr><td><b>4</b></td><td>BUFF_ATK_UP</td><td>攻击提升</td><td>1</td><td>5</td><td>false</td><td>攻击力提升 20%</td></tr>
+          <tr><td><b>5</b></td><td>DEBUFF_STUN</td><td>眩晕</td><td>3</td><td>1.5</td><td>false</td><td>无法移动与释放技能</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout good">完整可运行的样例见 <code>Revolution.Demo\ExcelTool\Excel\DemoConfig.xlsx</code>（4 张表：Hero / Item / Skill / Buff）。</div>
+
+    <h3>2.3 列的处理规则</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">情况</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>第 1 行<b>该列留空</b></td><td>整列被忽略（Excel 右侧常见的空列，不用管）</td></tr>
+          <tr><td>列名以 <code>#</code> 开头</td><td>视为<b>策划备注列</b>，整列忽略（可以写"策划：这列别删"）</td></tr>
+          <tr><td>列数不一致</td><td>以第 1 行的字段数为准；某行少填的列按<b>空值</b>处理</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>2.4 行的处理规则</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">情况</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>整行为空</td><td>跳过</td></tr>
+          <tr><td>该行<b>第一列以 <code>#</code> 开头</b></td><td>视为<b>注释行</b>，整行跳过（可以在表尾写备注）</td></tr>
+          <tr><td>主键列为空</td><td class="bad">报错（主键必填）</td></tr>
+          <tr><td>主键重复</td><td class="bad">报错</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>字段类型与取值规则</h2>
+
+    <h3>3.1 四种类型</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">Excel 里写</th><th style="width:26%">生成的 C# 类型</th><th>运行时解析器</th></tr></thead>
+        <tbody>
+          <tr><td><code>int</code></td><td><code>int</code></td><td><code>DataFieldParser.ToInt</code></td></tr>
+          <tr><td><code>float</code></td><td><code>float</code></td><td><code>DataFieldParser.ToFloat</code></td></tr>
+          <tr><td><code>string</code></td><td><code>string</code></td><td><code>DataFieldParser.ToStr</code></td></tr>
+          <tr><td><code>bool</code></td><td><code>bool</code></td><td><code>DataFieldParser.ToBool</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>大小写不敏感、前后空格会被去掉（<code>Int</code>、<code> int </code> 都认）。</p>
+
+    <h3>3.2 容错与默认值</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:18%">类型</th><th style="width:26%">空单元格 / 解析失败</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>int</code></td><td><code>0</code></td><td>用 <code>InvariantCulture</code> 解析</td></tr>
+          <tr><td><code>float</code></td><td><code>0f</code></td><td>同上（<b>系统小数点是逗号也不会读错</b>）</td></tr>
+          <tr><td><code>bool</code></td><td><code>false</code></td><td>见下表</td></tr>
+          <tr><td><code>string</code></td><td><code>""</code></td><td><code>null</code> 统一成空串，省得业务到处判空</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b><code>bool</code> 认这些写法</b>（不区分大小写）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:50%">真</th><th>假</th></tr></thead>
+        <tbody><tr><td><code>true</code> / <code>1</code> / <code>是</code> / <code>yes</code> / <code>y</code></td><td><code>false</code> / <code>0</code> / <code>否</code> / <code>no</code> / <code>n</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="callout">为什么这么宽？策划表里这几种写法都会出现。与其让策划改表，不如读取端宽容一点。</div>
+
+    <div class="callout bad">
+      <b>注意</b>：<code>int</code> 列填了 <code>abc</code> 会在<b>导表时</b>报错（<code>第 5 行 [Cost]："abc" 不是合法的 int</code>），不会被静默变成 0。
+    </div>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>主键规则</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:20%">规则</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>谁是主键</td><td><b>第一个字段</b>（第一列），不需要额外标记</td></tr>
+          <tr><td>类型</td><td><code>int</code> / <code>string</code> 都行 → 分别生成 <code>DataTable&lt;int, T&gt;</code> / <code>DataTable&lt;string, T&gt;</code></td></tr>
+          <tr><td>必填</td><td>主键列为空 → 报错</td></tr>
+          <tr><td>唯一</td><td>主键重复 → 报错（导出期就拦截，不留到运行时）</td></tr>
+          <tr><td>类型体检</td><td>用 <code>float</code> 或 <code>bool</code> 做主键会<b>给出警告</b>（浮点精度会导致"表里明明有却查不到"；bool 最多两行数据）</td></tr>
+          <tr><td>⚠️ 别踩</td><td>主键值<b>不要以 <code>#</code> 开头</b>（会被当成注释行整行跳过）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>字符串主键的典型用法（业务代号做主键）：</p>
+    <pre>BUFF_ATK_UP / DEBUFF_STUN / ITEM_SWORD_01</pre>
+    <p>运行时就是：</p>
+    <pre>BuffTable.Instance.FindByKey(<span class="s">"BUFF_ATK_UP"</span>, <span class="k">out</span> Buff buff);</pre>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>命名规则</h2>
+
+    <h3>5.1 字段名 → C# 字段名</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">Excel 里的字段名</th><th style="width:22%">生成的 C# 字段</th><th>规则</th></tr></thead>
+        <tbody>
+          <tr><td><code>ID</code></td><td><code>Id</code></td><td>长度 ≤ 3 且全大写 → 首字母大写、其余小写</td></tr>
+          <tr><td><code>HP</code></td><td><code>Hp</code></td><td>同上</td></tr>
+          <tr><td><code>Name</code></td><td><code>Name</code></td><td>原样（首字母已是大写）</td></tr>
+          <tr><td><code>moveSpeed</code></td><td><code>MoveSpeed</code></td><td>首字母改大写</td></tr>
+          <tr><td><code>英雄名</code></td><td><code>英雄名</code></td><td>汉字是合法 C# 标识符，允许</td></tr>
+          <tr><td><code>英雄 id</code></td><td class="bad">报错</td><td>有空格 → 不能作为标识符</td></tr>
+          <tr><td><code>2Name</code></td><td class="bad">报错</td><td>数字开头</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.2 表名（工作表名）→ 类名</h3>
+    <pre>工作表名 <b>"Hero"</b>      → 结构体 Hero      + 容器 HeroTable     + 数据文件 Hero.txt
+工作表名 <b>"Buff"</b>      → 结构体 Buff      + 容器 BuffTable     + 数据文件 Buff.txt
+工作表名 <b>"HeroSkin"</b>  → 结构体 HeroSkin  + 容器 HeroSkinTable + 数据文件 HeroSkin.txt</pre>
+    <div class="callout warn">
+      <b>表名建议只用一个英文单词</b>（首字母大写最好）。表名只做"首字母大写"处理，<b>不做驼峰转换</b>：
+      <code>my_hero</code> 会生成 <code>My_hero</code> 这种不好看的类名和文件名。
+    </div>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>界面操作流程（六步）</h2>
+    <ul class="steps">
+      <li>
+        <b>选数据源</b><br>
+        「选择文件」→ 可多选 <code>.xlsx</code>（Excel 的临时文件 <code>~$xxx.xlsx</code> 会自动跳过）；<br>
+        「选择目录」→ 扫描该目录下<b>顶层</b>的所有 <code>.xlsx</code>（不递归）。<br>
+        选中后会自动读取一次。<br>
+        <b>源会被记住</b>：下次启动会<b>自动加载</b>上次的源（窗口先出来，表随后加载）；
+        点「选择文件 / 选择目录」时，对话框也直接落在上次那个目录。
+        源要是已被删 / 改名，只在日志里提示一句（不会刷红色错误），点「选择文件」重选即可。
+      </li>
+      <li>
+        <b>点「读取」</b><br>
+        日志里会列出每张表：<code>### 表 Hero：主键=ID(int)，9 字段 / 5 行 / 有效=True</code>；有问题的表会打出 <code>[提示]</code> / <code>[错误]</code>。
+      </li>
+      <li><b>看左侧「表列表」</b>　每项显示"字段数 · 行数"；<b>有错误的表会标红</b>（点开看预览区里的具体错误）。</li>
+      <li><b>看右侧「表结构预览」</b>　显示字段摘要（<code>★ID:int，Name:string…</code>）+ 数据<b>前 50 行</b>，可以直接核对。</li>
+      <li>
+        <b>选三个输出目录</b>（选过就会被记住，下次启动自动填回）
+        <div class="table-wrap" style="margin-top:8px">
+          <table>
+            <thead><tr><th style="width:24%">输出</th><th style="width:44%">建议位置</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>数据结构类目录</td><td><code>Assets\Revolution\Generation\DataStructures</code></td><td>生成 <code>RevDataStructures.cs</code></td></tr>
+              <tr><td>容器类目录</td><td><code>Assets\Revolution\Generation\DataTables</code></td><td>生成 <code>RevDataTables.cs</code></td></tr>
+              <tr><td>TXT 数据文件目录</td><td><code>&lt;资源根目录&gt;\Data</code>（如 <code>Assets\GameRes\Data</code>）</td><td>每张表一个 <code>&lt;表名&gt;.txt</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">工具<b>与 Unity 完全解耦</b>：不预填、也不读 Unity 那边的配置，只记住<b>你自己上次用过的源与目录</b> ——
+          存在本机 <code>%APPDATA%\Revolution\ExcelTool\settings.txt</code>。想让它忘掉，删掉那个文件即可。<br>
+          目录不存在也没关系，导出时会自动创建。</div>
+      </li>
+      <li>
+        <b>点「开始导出」</b> → 看⑥日志区
+        <pre>数据结构类 → ...\RevDataStructures.cs
+容器类     → ...\RevDataTables.cs
+数据文件   → ...\Data（4 个表，18 条数据）
+导出成功：4 张表，共 18 条数据。</pre>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>输出物详解</h2>
+
+    <h3>7.1 <code>RevDataStructures.cs</code>（数据结构类）</h3>
+    <pre><span class="k">namespace</span> Revolution
+{
+    <span class="c">/// &lt;summary&gt;Hero —— 配置表的一条数据（对应 Excel 一行；struct：值类型，零 GC）&lt;/summary&gt;</span>
+    [Serializable]
+    <span class="k">public struct</span> Hero
+    {
+        <span class="c">/// &lt;summary&gt;英雄ID（★ 主键）&lt;/summary&gt;</span>
+        <span class="k">public int</span> Id;
+
+        <span class="c">/// &lt;summary&gt;英雄名&lt;/summary&gt;</span>
+        <span class="k">public string</span> Name;
+        <span class="c">// ...</span>
+    }
+}</pre>
+    <ul>
+      <li><b><code>struct</code> 而不是 <code>class</code></b>：上万行配置不会在托管堆上分配，几乎不产生 GC。</li>
+      <li>字段是 <code>public</code> 字段（不是属性）—— 生成代码直接赋值，零反射零装箱。</li>
+      <li>描述来自 Excel 第 3 行，直接变成 XML 注释，写代码时鼠标悬停就能看到。</li>
+    </ul>
+
+    <h3>7.2 <code>RevDataTables.cs</code>（容器类）</h3>
+    <pre><span class="k">namespace</span> Revolution
+{
+    <span class="c">/// &lt;summary&gt;Hero 表的容器（主键：ID，9 个字段，5 条数据）&lt;/summary&gt;</span>
+    <span class="k">public sealed class</span> HeroTable : DataTable&lt;<span class="k">int</span>, Hero&gt;
+    {
+        <span class="c">/// &lt;summary&gt;便捷访问；未加载时为 null（先 DataTableManager.LoadAsync&lt;HeroTable&gt;()）&lt;/summary&gt;</span>
+        <span class="k">public static</span> HeroTable Instance =&gt; DataTableManager.Get&lt;HeroTable&gt;();
+
+        <span class="k">public</span> HeroTable() : <span class="k">base</span>(<span class="s">"Hero"</span>) { }
+
+        <span class="k">protected override int</span> GetKey(<span class="k">in</span> Hero data) =&gt; data.Id;
+
+        <span class="k">protected override bool</span> ParseRow(<span class="k">string</span>[] cells, <span class="k">out</span> Hero data)
+        {
+            data = <span class="k">default</span>;
+            <span class="k">if</span> (cells.Length &lt; 9) <span class="k">return false</span>;      <span class="c">// 列数不够 → 数据文件与结构不匹配</span>
+
+            data.Id = DataFieldParser.ToInt(cells[<span class="n">0</span>]);      <span class="c">// 英雄ID</span>
+            data.Name = DataFieldParser.ToStr(cells[<span class="n">1</span>]);    <span class="c">// 英雄名</span>
+            <span class="c">// ...</span>
+            <span class="k">return true</span>;
+        }
+    }
+}</pre>
+    <div class="callout">
+      <b>数据文件的位置是怎么定的</b>：容器基类把"路径"拆成<b>两段</b>（和资源系统 <code>ResManager</code> 的参数口径完全一致）——
+      <code>ResourceRoot</code> 默认 <code>"Data/"</code>（也就是生成的 <code>RevResPath.Data</code>），
+      <code>ResourceName</code> 默认 = 表名。所以 <code>base("Hero")</code> 等价于 <code>("Data/", "Hero")</code>。
+      要把某张表放到别的目录就显式写：<code>public HeroTable() : base("Hero", "Data/Activity/", "Hero") { }</code>
+    </div>
+    <p><b>每张表只生成两个方法</b>（<code>GetKey</code> / <code>ParseRow</code>），查询能力全部继承自运行时基类 <code>DataTable&lt;TKey, TData&gt;</code>：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">能力</th><th>用法</th></tr></thead>
+        <tbody>
+          <tr><td>按主键查</td><td><code>FindByKey(key, out data)</code> / <code>TryGet(key, out data)</code> / <code>Get(key)</code></td></tr>
+          <tr><td>按下标查</td><td><code>GetByIndex(index)</code></td></tr>
+          <tr><td>遍历</td><td><code>Count</code> + <code>GetByIndex</code> 或 <code>All</code></td></tr>
+          <tr><td>判存在</td><td><code>ContainsKey(key)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>一张表生成代码只有二十来行，而且<b>改工具重新生成时不会动到数据结构文件</b>（两个文件分开的用意）。</p>
+
+    <h3>7.3 TXT 数据文件</h3>
+    <p>以 <code>Buff.txt</code> 为例：</p>
+    <pre><span class="c">#Buff</span>
+<span class="c">#ID	Name	Type	Duration	Stackable	Desc</span>
+<span class="c">#状态ID	状态名	类型	持续(秒)	可否叠加	状态描述</span>
+BUFF_ATK_UP	攻击提升	1	5	false	攻击力提升 20%
+DEBUFF_STUN	眩晕	3	1.5	false	无法移动与释放技能</pre>
+
+    <p><b>格式规范</b>：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">规则</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>一行一条记录</td><td>字段之间用 <b><code>\t</code>（制表符）</b> 分隔</td></tr>
+          <tr><td><code>#</code> 开头整行是注释</td><td>运行时整行跳过（表名 / 字段名 / 描述都放这里，方便肉眼核对与 git diff）</td></tr>
+          <tr><td>空行跳过</td><td>—</td></tr>
+          <tr><td>行分隔符</td><td>写文件统一用 <code>\n</code>，读的时候兼容 <code>\r\n</code></td></tr>
+          <tr><td>编码</td><td>UTF-8 <b>不带 BOM</b>（带 BOM 会让文件首字符变成 <code>\uFEFF</code>，注释行会失效）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><b>转义规则</b>（字符串里出现这些字符时会被写成两个字符，运行时还原）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">原字符</th><th>文件里写成</th></tr></thead>
+        <tbody>
+          <tr><td><code>\</code></td><td><code>\\</code></td></tr>
+          <tr><td>制表符</td><td><code>\t</code></td></tr>
+          <tr><td>回车</td><td><code>\r</code></td></tr>
+          <tr><td>换行</td><td><code>\n</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">这就是为什么"字段名注释行里有制表符、数据行里也有制表符"不会互相干扰 —— 数据里的制表符是被转义过的。</div>
+
+    <p><b>空白单元格</b>：保留为空，运行时取该类型的默认值：</p>
+    <pre>3004	女王崇拜	1002	35		true	连续三次冲击...   <span class="c">← Damage 列空着 → 运行时读到 0f</span></pre>
+    <p><b>为什么用 txt 而不是 json / 二进制</b>：可读、可 diff、可手工核对（详见对比文档第三章）。</p>
+  </section>
+
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>接入 Unity</h2>
+
+    <h3>8.1 两个输出目录怎么选</h3>
+    <pre>Revolution.Demo\ExcelTool\Code\   →   <b>Assets\Revolution\Generation\</b>   <span class="c">← 生成代码（asmdef 已引用 Revolution.Runtime）</span>
+Revolution.Demo\ExcelTool\Data\   →   <b>Assets\GameRes\Data\</b>             <span class="c">← 数据文件（逻辑路径正好是 Data\&lt;表名&gt;）</span></pre>
+    <ul>
+      <li><code>Assets\Revolution\Generation\</code> 下的 <code>Revolution.Generation.asmdef</code> 已引用 <code>Revolution.Runtime</code>，所以生成出来的容器类能直接继承 <code>DataTable&lt;,&gt;</code>。</li>
+      <li><code>Assets\GameRes\</code> 只是<b>示例</b>：资源根目录由你在打包工具窗口里配置（代码里没有默认值），放在根目录下的文件逻辑路径 = 相对路径去掉扩展名，所以 <code>&lt;资源根目录&gt;/Data/Hero.txt</code> 的逻辑路径就是 <b><code>Data/Hero</code></b> —— 正好等于生成代码里 <code>base("Hero")</code> 推出的默认路径。</li>
+    </ul>
+    <p>导出后回 Unity，会自动刷新并编译（日志里也会提示）。</p>
+
+    <h3>8.2 运行时加载（三行）</h3>
+    <pre><span class="c">// ① 加载（走资源系统：编辑器直读工程、真机走 AB）</span>
+<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+
+<span class="c">// ② 查询</span>
+<span class="k">if</span> (HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out</span> Hero hero))
+    Debug.Log($<span class="s">"{hero.Name} 攻击力 {hero.Attack} 是否远程 {hero.IsRanged}"</span>);
+
+<span class="c">// ③ 用完卸载（归还资源引用）</span>
+DataTableManager.Unload&lt;HeroTable&gt;();</pre>
+    <p>字符串主键 / 字符串表名同样支持：</p>
+    <pre>BuffTable.Instance.FindByKey(<span class="s">"BUFF_ATK_UP"</span>, <span class="k">out</span> Buff buff);   <span class="c">// 字符串主键</span>
+DataTableManager.Get(<span class="s">"Buff"</span>);                                  <span class="c">// 按表名取表</span>
+DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl);  <span class="c">// 按表名取具体容器</span></pre>
+
+    <h3>8.3 走 AB 模式：数据表直接就能进包</h3>
+    <p>数据文件是 <code>.txt</code>，而打包工具的排除后缀 <code>excludeExtensions</code> 默认只剩 <code>.cs / .meta</code> ——
+      所以数据表<b>会正常进 <code>ResMap</code></b>，不需要任何额外设置。</p>
+    <p>⚠️ 但反过来要注意：如果你手动把 <code>.txt</code> 加进排除列表，数据表就会被<b>静默踢出包</b>：</p>
+    <pre>不会进 ResMap → ABResPolicy 查不到 → <b>PathNotMapped</b></pre>
+    <div class="callout">好在<b>校验器会直接告警</b>（<code>有 N 个资源被 excludeExtensions 排除，不会进包</code>），
+      看到那条就去把 <code>.txt</code> 删掉。<br>
+      编辑器直读模式下不受影响（<code>EditorResPolicy</code> 是按路径直接读工程的）。</div>
+    <p>详见《资源加载系统使用指南》第四章「打包注意事项」。</p>
+  </section>
+
+  <!-- ==================== 九 ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>报错对照表</h2>
+    <p>导出的报错都带<b>行号</b>（和 Excel 左上角行号一致），直接指给策划看：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">报错信息</th><th style="width:26%">原因</th><th>怎么改</th></tr></thead>
+        <tbody>
+          <tr><td><code>表 [X] 行数不足 3 行</code></td><td>缺表头</td><td>补全"字段名 / 类型 / 描述"三行</td></tr>
+          <tr><td><code>表 [X] 一个有效字段都没有</code></td><td>第 1 行全空</td><td>填字段名</td></tr>
+          <tr><td><code>字段 [X] 的类型 "xxx" 不支持</code></td><td>类型写了别的</td><td>改成 <code>int</code> / <code>float</code> / <code>string</code> / <code>bool</code></td></tr>
+          <tr><td><code>字段名 [X] 重复</code></td><td>两列同名</td><td>改名</td></tr>
+          <tr><td><code>字段名 [X] 不能作为 C# 标识符</code></td><td>有空格/标点/数字开头</td><td>改名（汉字可以）</td></tr>
+          <tr><td><code>第 N 行：主键 [X] 为空</code></td><td>主键列没填</td><td>填上</td></tr>
+          <tr><td><code>第 N 行：主键 [X] = v 重复</code></td><td>主键重复</td><td>改值或删行</td></tr>
+          <tr><td><code>第 N 行 [X]："abc" 不是合法的 int</code></td><td>类型与数据不符</td><td>改数据或改类型</td></tr>
+          <tr><td><code>表 [X] 用 float 做主键不推荐</code></td><td>警告</td><td>建议改 <code>int</code> / <code>string</code></td></tr>
+          <tr><td><code>表 [X] 用 bool 做主键</code></td><td>警告</td><td>基本是配错了，确认一下</td></tr>
+          <tr><td><code>表 [X] 校验未通过，已跳过导出（N 个错误）</code></td><td>该表有错</td><td>按上面逐条修；<b>其它表照常导出</b></td></tr>
+          <tr><td><code>所有表都未通过校验，没有任何可导出的表</code></td><td>全军覆没</td><td>同上</td></tr>
+          <tr><td><code>存在同名表 [X]（来自 Y）</code></td><td>不同文件里出现同名工作表</td><td>改工作表名（会生成重复类名，编译不过）</td></tr>
+          <tr><td><code>未指定XX目录</code></td><td>输出路径为空</td><td>在④里选目录</td></tr>
+          <tr><td><code>创建XX目录失败：...</code></td><td>权限 / 路径非法</td><td>换一个可写目录</td></tr>
+          <tr><td><code>[错误] 读取 X 失败：...</code></td><td>文件损坏或不是 xlsx</td><td>用 Excel 打开后"另存为 .xlsx"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十 ==================== -->
+  <section id="s10">
+    <h2><span class="num">10</span>局限与边界（用之前先知道）</h2>
+    <ol>
+      <li><b>只支持 <code>.xlsx</code></b>（Excel 2007+）。老的 <code>.xls</code> 是 OLE 复合文档，不是 zip，读不了 —— 用 Excel 另存为 xlsx 即可。</li>
+      <li><b>不处理</b>图表、批注、条件格式、合并单元格；<b>公式取其缓存值</b>（Excel 保存时会写入计算结果，够导表用）。</li>
+      <li><b>只支持 4 种类型</b>（int / float / string / bool），不支持数组、嵌套结构、枚举。</li>
+      <li><b>只支持单主键</b>，且必须是第一个字段。</li>
+      <li><b>每次导出会整体重写两个代码文件</b>（表很多时会变大，并触发 Unity 重编译）。</li>
+      <li><b>没有 schema 版本号</b>：靠"导表同时覆盖代码与数据"保证一致，别只拷其中一个。</li>
+      <li><b>坏表会被跳过</b>（而非中止），所以<b>导出后一定看一眼日志有没有 <code>[提示]</code></b>，别以为"没报红色就全导了"。</li>
+    </ol>
+  </section>
+
+  <!-- ==================== 十一 ==================== -->
+  <section id="s11">
+    <h2><span class="num">11</span>附：文件索引</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Revolution.ExcelTool\Core\XlsxReader.cs</code></td><td>xlsx 解析（zip + XML）</td></tr>
+          <tr><td><code>Revolution.ExcelTool\Core\ExcelTable.cs</code></td><td>表模型 + 配置规则校验</td></tr>
+          <tr><td><code>Revolution.ExcelTool\Core\CodeGenerator.cs</code></td><td>生成数据结构类 + 容器类</td></tr>
+          <tr><td><code>Revolution.ExcelTool\Core\DataTextWriter.cs</code></td><td>生成 TXT 数据文件</td></tr>
+          <tr><td><code>Revolution.ExcelTool\Core\ExportService.cs</code></td><td>导出编排（过滤 / 重名检查 / 编码 / 落盘）</td></tr>
+          <tr><td><code>Revolution.ExcelTool\MainWindow.xaml(.cs)</code></td><td>界面</td></tr>
+          <tr><td><code>Runtime\DataLoad\Core\DataTable.cs</code></td><td>容器基类（字典 + 顺序表 + 查询 API）</td></tr>
+          <tr><td><code>Runtime\DataLoad\Core\DataTextFormat.cs</code></td><td>TXT 格式（<b>★ 与工具共用同一份源码</b>）</td></tr>
+          <tr><td><code>Runtime\DataLoad\Core\DataFieldParser.cs</code></td><td>字段取值（容错 + InvariantCulture）</td></tr>
+          <tr><td><code>Runtime\DataLoad\Manager\DataTableManager.cs</code></td><td>运行时入口（加载 / 查询 / 卸载）</td></tr>
+          <tr><td><code>Revolution.Demo\ExcelTool\</code></td><td>可直接使用的样例（Excel + 生成产物）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\DataLoad</code>。
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>服务定位器 · 使用说明（零基础手把手）</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--page);color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15.5px;line-height:1.85;-webkit-font-smoothing:antialiased;}
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+  .hero .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:2;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+  .hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+    animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+  main{max-width:1000px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;}
+  h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+  h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  h3{font-size:17px;margin:28px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:15px;margin:20px 0 8px;color:#2B3444;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:24px;}
+  li{margin:6px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+  .plain{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14.5px;background:#F7F9FC;border:1px solid #E4E9F2;}
+  .plain .tag{display:inline-block;font-size:11.5px;background:#5B6B84;color:#fff;border-radius:999px;padding:1px 9px;margin-right:8px;vertical-align:2px;}
+  .plain p:first-child{margin-top:0;}
+  .plain p:last-child{margin-bottom:0;}
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14.5px;border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:15px 17px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.7;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+  .card{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 18px;margin:16px 0;}
+  .card > .h{font-weight:700;font-size:15.5px;margin-bottom:4px;}
+  .card > .when{font-size:13.5px;color:var(--text-sub);margin-bottom:10px;}
+  .card .note{font-size:13px;color:var(--text-sub);margin-top:8px;}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .cmp > div{border-radius:9px;padding:12px 14px;font-size:13.5px;border:1px solid;}
+  .cmp .no{background:var(--bad-soft);border-color:#F3C9C3;}
+  .cmp .yes{background:var(--good-soft);border-color:#BFE9D2;}
+  .cmp .h{font-weight:700;margin-bottom:6px;}
+  .cmp pre{margin:6px 0 0;font-size:12px;}
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+  .flow .n{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;}
+  .flow .n.on{border-color:var(--accent);background:var(--accent-soft);}
+  .flow .ar{color:var(--accent);font-weight:700;}
+  .cheat{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:14px 0;}
+  .cheat div{border:1px solid var(--border);border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;}
+  .cheat div b{display:block;font-size:12.5px;color:var(--text-sub);font-weight:400;margin-bottom:2px;}
+  /* 动画：作用域隔离 */
+  .anim{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 16px 14px;margin:16px 0;}
+  .anim > .t{font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .anim > .t .tag{font-size:11px;background:var(--accent);color:#fff;border-radius:999px;padding:2px 9px;font-weight:400;}
+  .anim .hint{font-size:12.5px;color:var(--text-sub);margin-top:10px;line-height:1.65;}
+  @keyframes march{to{background-position:28px 0;}}
+  .scopegrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:stretch;}
+  .scope{border:1.5px solid var(--border);border-radius:9px;background:#fff;padding:10px 12px;font-size:12.5px;}
+  .scope .h{font-weight:700;margin-bottom:6px;text-align:center;}
+  .scope .obj{border:1px solid var(--border);border-radius:7px;background:#F8FAFC;padding:5px 8px;margin:6px 0;font-size:12px;}
+  .capstk{position:relative;height:52px;margin-top:12px;}
+  .capstk p{position:absolute;left:0;top:0;width:100%;margin:0;font-size:13px;opacity:0;line-height:1.55;}
+  .capstk p b{color:var(--accent);}
+  @keyframes oa{0%,6%{border-color:var(--accent);background:var(--accent-soft)}12%,100%{border-color:var(--border);background:#F8FAFC}}
+  @keyframes ob{0%,26%{border-color:var(--border);background:#F8FAFC}32%,60%{border-color:var(--good);background:var(--good-soft)}66%,100%{border-color:var(--border);background:#F8FAFC}}
+  @keyframes oc{0%,62%{border-color:var(--border);background:#F8FAFC}68%,94%{border-color:var(--accent);background:var(--accent-soft)}100%{border-color:var(--border);background:#F8FAFC}}
+  @keyframes ca1{0%,3%{opacity:1}5%,100%{opacity:0}}
+  @keyframes ca2{0%,25%{opacity:0}30%,60%{opacity:1}65%,100%{opacity:0}}
+  @keyframes ca3{0%,62%{opacity:0}68%,96%{opacity:1}100%{opacity:0}}
+  #anim-scope .objA{animation:oa 9s linear infinite;}
+  #anim-scope .objB{animation:oc 9s linear infinite;}
+  #anim-scope .objS{animation:ob 9s linear infinite;}
+  #anim-scope .capstk p:nth-child(1){animation:ca1 9s linear infinite;}
+  #anim-scope .capstk p:nth-child(2){animation:ca2 9s linear infinite;}
+  #anim-scope .capstk p:nth-child(3){animation:ca3 9s linear infinite;}
+  footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+    .cmp{grid-template-columns:1fr;}
+    .scopegrid{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){ .hero .deco,.anim *{animation:none !important;} }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc,.anim{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">零基础手把手 · 从"听不懂"到"能上手写"</span>
+    <h1>服务定位器 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b></p>
+    <p class="meta">读完你能做到：3 分钟把服务装起来 · 分清"全局一份"和"每局一份" · 看懂每一句报错 · 避开 6 个最容易白干的坑</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表</a></li>
+      <li><a href="#s3">三、四个核心概念（讲透）</a></li>
+      <li><a href="#s4">四、完整演练：底层要播声音</a></li>
+      <li><a href="#s5">五、六个最容易白干的坑</a></li>
+      <li><a href="#s6">六、报错信息怎么读</a></li>
+      <li><a href="#s7">七、怎么验证它在工作</a></li>
+      <li><a href="#s8">八、一页速查卡（可打印）</a></li>
+      <li><a href="#s9">九、与王者原版的对照</a></li>
+      <li><a href="#s10">十、文件都在哪（只需读两个）</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 〇 ============ -->
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的（一句话）</h2>
+    <p class="lead">把「我用到的某个能力」和「这个能力具体由谁实现」分开。</p>
+
+    <div class="cmp">
+      <div class="no">
+        <div class="h">✗ 不用它：底层反向依赖上层</div>
+        <pre><span class="c">// 底层框架想播声音，就得认识上层的声音类</span>
+SoundManager.GetInstance().Play(<span class="s">"Play_Box_Appear"</span>);
+<span class="c">// 但程序集依赖只能单向（上层 → 底层），写不通</span></pre>
+      </div>
+      <div class="yes">
+        <div class="h">✓ 用它：底层只认接口</div>
+        <pre><span class="c">// 实现在启动期"注册"进来，谁实现都行</span>
+services.GetRequired&lt;ISoundService&gt;()
+        .Play(<span class="s">"Play_Box_Appear"</span>);</pre>
+      </div>
+    </div>
+
+    <div class="plain">
+      <span class="tag">一句话对照</span>
+      <p>王者荣耀原版用<b>三套机制</b>解决这件事：静态委托 <code>SysMgr</code>（约 250 个字段）+ 系统注册表 <code>CSystemManager</code> + 世界级容器 <code>DimensionWorld</code>。
+      本框架把它收成<b>一套</b>：<b>注册 → 取用 → 作用域 → 释放</b>。</p>
+    </div>
+
+    <h3>什么时候用它 / 别用它</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:50%">✅ 该用</th><th>❌ 别用</th></tr></thead>
+        <tbody>
+          <tr><td>底层模块要调用上层能力（UI 要播声音、动作序列要发奖励、资源系统要报日志）</td><td>只是"少写一个构造参数" —— 直接传参更清楚</td></tr>
+          <tr><td>同一服务类型在不同场景/局面需要<b>各一份</b>（一局战斗一份战斗上下文）</td><td>需要自动解析复杂依赖图（那是 DI 容器的活，且与 IL2CPP 热路径相性差）</td></tr>
+          <tr><td>想把业务依赖从框架里赶出去，并且<b>能在不启游戏的情况下跑单测</b></td><td>进程内只有唯一实现的简单工具类 —— 一个 <code>static class</code> 更直接</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 一 ============ -->
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">五步：定接口 → 写实现 → 启动期装配 → 运行期取用 → 一局的边界（作用域）。</p>
+
+    <div class="card">
+      <div class="h">第 1 步：定义你要用的能力（接口）</div>
+      <div class="when">放在底层模块里 —— 谁都能引用它，因为它只是一个接口</div>
+<pre><span class="k">public interface</span> ISoundService
+{
+    <span class="k">void</span> Play(<span class="k">string</span> eventName);
+}
+
+<span class="k">public interface</span> IConfigService
+{
+    <span class="k">string</span> SoundBankPath { <span class="k">get</span>; }
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">第 2 步：写实现（业务层）</div>
+      <div class="when">构造函数里只初始化自己；要依赖别人就实现 RevIServiceInit</div>
+<pre><span class="c">// ① 没有依赖的实现</span>
+<span class="k">public sealed class</span> SoundService : ISoundService
+{
+    <span class="k">public void</span> Play(<span class="k">string</span> eventName) { <span class="c">/* 真的调你的音频系统 */</span> }
+}
+
+<span class="c">// ② 需要依赖别人：实现 RevIServiceInit，在 OnInit 里取</span>
+<span class="k">public sealed class</span> SoundServiceWithDeps : ISoundService, RevIServiceInit
+{
+    <span class="k">private</span> IConfigService _config;
+
+    <span class="k">public void</span> OnInit(RevIServiceLocator services)
+        =&gt; _config = services.GetRequired&lt;IConfigService&gt;();   <span class="c">// ← 这里取依赖</span>
+
+    <span class="k">public void</span> Play(<span class="k">string</span> eventName) { }
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">第 3 步：启动期装配（整个游戏只写一处）</div>
+      <div class="when">只 Build 一次，缓存到 static readonly</div>
+<pre><span class="k">public static class</span> GameServices
+{
+    <span class="k">public static readonly</span> RevServiceLocator Root = RevServiceLocator.Create()
+        .AddSingleton&lt;ISoundService, SoundServiceWithDeps&gt;()   <span class="c">// 接口 → 实现（零反射，启动期不创建）</span>
+        .AddSingleton&lt;IConfigService&gt;(Config.Load())           <span class="c">// 已有实例（容器不释放它）</span>
+        .Build();
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">第 4 步：运行期取用（一行）</div>
+      <div class="when">必需用 GetRequired，可选用 Get</div>
+<pre><span class="k">var</span> sound = GameServices.Root.GetRequired&lt;ISoundService&gt;();  <span class="c">// 必须有：没注册就报错</span>
+sound.Play(<span class="s">"Play_Box_Appear"</span>);
+
+GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="c">// 可选能力：没有就是 null</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="h">第 5 步：一局 / 一个场景的边界（作用域）</div>
+      <div class="when">共享 Singleton、各持一份 Scoped、退出即释放</div>
+<pre><span class="k">using</span> (<span class="k">var</span> battle = GameServices.Root.CreateScope())
+{
+    <span class="k">var</span> ctx = battle.GetRequired&lt;ICombatContext&gt;();   <span class="c">// 这一局独有的一份</span>
+    battle.Tick(Time.deltaTime);                     <span class="c">// 驱动这一局里实现了 RevITickable 的服务</span>
+}   <span class="c">// ← 离开 using：这一局的服务按"逆创建序"释放</span></pre>
+    </div>
+
+    <div class="callout good">
+      <span class="t">为什么第 3 步要写 .Build()？</span>
+      <p>不写就编译不过 —— <code>Create()</code> 返回的是"构建器"，只有 <code>Build()</code> 才给你容器。
+      这样"忘了冻结装配"是<b>编译期问题</b>，而不是运行到一半才发现的事故。</p>
+    </div>
+  </section>
+
+  <!-- ============ 二 ============ -->
+  <section id="s2">
+    <h2><span class="num">二</span>"我要做 X" 对照表（背下就会用）</h2>
+    <p class="lead">左边是你脑子里的需求，右边是可以直接抄的代码。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">我想做的</th><th>写法</th></tr></thead>
+        <tbody>
+          <tr><td>注册"全局一份"的服务</td><td><code>.AddSingleton&lt;ISoundService, SoundService&gt;()</code></td></tr>
+          <tr><td>注册一个<b>已经存在的对象</b></td><td><code>.AddSingleton&lt;IConfigService&gt;(Config.Load())</code>（容器不释放它）</td></tr>
+          <tr><td>注册需要构造参数的服务</td><td><code>.AddSingleton&lt;ISoundService&gt;(s =&gt; new SoundService(s.GetRequired&lt;IConfigService&gt;().SoundBankPath))</code></td></tr>
+          <tr><td>注册"每局一份"的服务</td><td><code>.AddScoped&lt;ICombatContext, CombatContext&gt;()</code></td></tr>
+          <tr><td>冻结装配、拿到容器</td><td><code>.Build()</code>（只能调一次，调两次会报错）</td></tr>
+          <tr><td>取一个<b>必需</b>的服务</td><td><code>services.GetRequired&lt;ISoundService&gt;()</code></td></tr>
+          <tr><td>取一个<b>可选</b>的服务</td><td><code>services.Get&lt;IDebugService&gt;()?.Draw()</code> 或 <code>if (services.TryGet&lt;IDebugService&gt;(out var d)) ...</code></td></tr>
+          <tr><td>开一局/一个场景的边界</td><td><code>using (var scope = services.CreateScope()) { ... }</code></td></tr>
+          <tr><td>每帧驱动服务</td><td><code>services.Tick(Time.deltaTime)</code>（服务要实现 <code>RevITickable</code>）</td></tr>
+          <tr><td>释放（退出场景 / 关游戏）</td><td><code>services.Dispose()</code>（幂等，重复调用没事）</td></tr>
+          <tr><td>让服务在创建后取依赖</td><td>服务实现 <code>RevIServiceInit.OnInit(RevIServiceLocator)</code></td></tr>
+          <tr><td><b>单测里替换实现</b></td><td>另建一个 <code>RevServiceLocator.Create()...Build()</code>，注入假实现（不动生产那份）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 三 ============ -->
+  <section id="s3">
+    <h2><span class="num">三</span>四个核心概念（讲透，别跳）</h2>
+    <p class="lead">只有四个，理解了就不会用错。</p>
+
+    <h3>3.1 Singleton：整个应用一份</h3>
+    <ul>
+      <li><b>第一次被取用时才创建</b>（启动期不会创建，所以不会因为"装了一堆系统"变慢）；</li>
+      <li>根容器与它下面的所有作用域<b>共享同一个实例</b>；</li>
+      <li>直到根容器 <code>Dispose()</code> 才释放。</li>
+    </ul>
+    <div class="plain"><span class="tag">适合</span>配置、音频、网络、任务系统、日志 —— 那些"全局只有一个才合理"的东西。</div>
+
+    <h3>3.2 Scoped：每个作用域一份</h3>
+    <ul>
+      <li>每个 <code>CreateScope()</code> 出来的容器<b>各持一份</b>（也就是"同一类型多实例"）；</li>
+      <li>第一次被取用时创建，随作用域 <code>Dispose()</code> 释放；</li>
+      <li>★ <b>在根容器上取 Scoped 服务会直接报错</b> —— 这是刻意的：根没有"一轮"的语义，取到全局唯一的一份就是 bug 的起点。</li>
+    </ul>
+
+    <div class="anim" id="anim-scope">
+      <div class="t">作用域隔离长什么样 <span class="tag">纯 CSS 动画</span></div>
+      <div class="scopegrid">
+        <div class="scope">
+          <div class="h">scope A（第一局）</div>
+          <div class="obj objA">ICombatContext ← A 自己的一份</div>
+          <div class="obj objA">ISession ← A 自己的一份</div>
+        </div>
+        <div class="scope">
+          <div class="h">根容器</div>
+          <div class="obj objS">IClock（Singleton：全局唯一，共享）</div>
+          <div class="obj objS">IConfig（Singleton：共享）</div>
+        </div>
+        <div class="scope">
+          <div class="h">scope B（第二局）</div>
+          <div class="obj objB">ICombatContext ← B 自己的一份</div>
+          <div class="obj objB">ISession ← B 自己的一份</div>
+        </div>
+      </div>
+      <div class="capstk">
+        <p>① A 先取 <b>Scoped</b>：容器给 A 创建一份，只属于 A。</p>
+        <p>② 再取 <b>Singleton</b>：从根容器拿 —— A、B、根拿到的是<b>同一个对象</b>。</p>
+        <p>③ B 取 Scoped：<b>另建一份</b>，与 A 互不影响（这就是"同类型多实例"）。</p>
+      </div>
+      <div class="hint">对应王者：<code>DimensionWorld</code> 用"实例字段数组"让同一个服务类型在多 World 各有一份；本框架把它泛化成 <code>CreateScope()</code>。</div>
+    </div>
+
+    <h3>3.3 CreateScope：一层的边界，不再嵌套</h3>
+    <ul>
+      <li>作用域<b>只能从根容器开</b>（一层就够）；在作用域上再 <code>CreateScope()</code> 会报错并告诉你正确写法；</li>
+      <li>需要"多轮并发"，就开<b>多个平行作用域</b>，而不是作用域里套作用域。</li>
+    </ul>
+    <div class="plain"><span class="tag">为什么</span>嵌套会让"某个服务到底属于哪一层"变得难以回答。王者 <code>DimensionWorld</code> 用的就是"一层隔离"，这个尺度刚好够用。</div>
+
+    <h3>3.4 谁创建谁负责释放</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">怎么注册的</th><th style="width:18%">谁释放</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>.AddSingleton&lt;IX, X&gt;()</code> / 工厂注册</td><td><b>容器</b></td><td>逆创建序释放（后创建的先放，因为后创建的可能依赖先创建的）</td></tr>
+          <tr><td><code>.AddScoped&lt;IX, X&gt;()</code> / 工厂注册</td><td><b>容器</b></td><td>作用域 <code>Dispose()</code> 时；根 <code>Dispose()</code> 会先释放它下面所有作用域</td></tr>
+          <tr><td><code>.AddSingleton&lt;IX&gt;(已有实例)</code></td><td><b>你自己</b></td><td>容器只持有它、绝不 <code>Dispose</code> 它（你把宿主对象传进来，容器不该替你销毁）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 四 ============ -->
+  <section id="s4">
+    <h2><span class="num">四</span>完整演练：底层要播声音（王者的真实动机）</h2>
+    <p class="lead">三个文件，把"底层要调上层能力"讲清楚。</p>
+
+    <div class="flow">
+      <span class="n on">底层：只认 ISoundService</span><span class="ar">→</span>
+      <span class="n">上层：WwiseSoundService 实现它</span><span class="ar">→</span>
+      <span class="n on">组合根：注册 + Build</span><span class="ar">→</span>
+      <span class="n">运行期：Get 到并用</span>
+    </div>
+
+    <div class="card">
+      <div class="h">① 底层（BaseScripts 层，只引用接口）</div>
+<pre><span class="c">// 底层模块里：我只知道"有人能播声音"</span>
+<span class="k">public interface</span> ISoundService { <span class="k">void</span> Play(<span class="k">string</span> eventName); }
+
+<span class="k">public static class</span> RevSound
+{
+    <span class="k">public static void</span> PlayUiSound(RevIServiceLocator services, <span class="k">string</span> name)
+    {
+        <span class="c">// 可选能力：没接声音系统就不播（不是错误）</span>
+        services.Get&lt;ISoundService&gt;()?.Play(name);
+    }
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">② 上层（实现层，引用底层）</div>
+<pre><span class="k">public sealed class</span> WwiseSoundService : ISoundService
+{
+    <span class="k">public void</span> Play(<span class="k">string</span> eventName) =&gt; Wwise.PostEvent(eventName);
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="h">③ 启动期把它们接上（组合根，整个游戏一处）</div>
+<pre><span class="k">public static readonly</span> RevServiceLocator Root = RevServiceLocator.Create()
+    .AddSingleton&lt;ISoundService, WwiseSoundService&gt;()
+    .Build();</pre>
+      <div class="note">结果是：底层再也不认识上层；单测里换 <code>FakeSoundService</code> 一行不改就能跑。</div>
+    </div>
+
+    <h3>单测里怎么替换实现</h3>
+<pre><span class="k">var</span> test = RevServiceLocator.Create()
+    .AddSingleton&lt;ISoundService&gt;(<span class="k">new</span> FakeSoundService())   <span class="c">// 用假的，不动生产那份</span>
+    .Build();</pre>
+
+    <div class="callout warn">
+      <span class="t">注意</span>
+      <p>不要在测试里给生产容器的字段赋值（那种写法在王者那套里要靠"改静态字段"来伪造，是它的主要痛点之一）。<b>测试就自己 Build 一个</b>。</p>
+    </div>
+  </section>
+
+  <!-- ============ 五 ============ -->
+  <section id="s5">
+    <h2><span class="num">五</span>六个最容易白干半天的坑</h2>
+    <p class="lead">每一条都有对应报错，看到就能改。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="c" style="width:6%">#</th><th style="width:30%">坑</th><th style="width:32%">现象</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td class="c">1</td><td><b>注册用接口、取用具体类</b></td><td><code>取不到服务 SoundService</code></td><td>取的时候也用接口：<code>GetRequired&lt;ISoundService&gt;()</code>（报错信息里会提醒你）</td></tr>
+          <tr><td class="c">2</td><td><b>在根容器上取 Scoped</b></td><td><code>ICombatContext 是 Scoped…不能在根容器上取</code></td><td>先 <code>CreateScope()</code>，在作用域里取</td></tr>
+          <tr><td class="c">3</td><td><b>同一个服务注册两处</b></td><td><code>服务 IXxx 已经注册过了（第二次来自 …）</code></td><td>装配只留一处（框架刻意不做静默覆盖）</td></tr>
+          <tr><td class="c">4</td><td><b>两个服务在构造/OnInit 里互相取</b></td><td><code>检测到循环依赖：A → B → A</code></td><td>构造函数只初始化自己；用 <code>OnInit</code> 取依赖，且别互相取</td></tr>
+          <tr><td class="c">5</td><td><b>忘了缓存 Build 结果</b></td><td>重复 Build 报错 / 白付装配成本</td><td>缓存到 <code>static readonly</code> 字段</td></tr>
+          <tr><td class="c">6</td><td><b>到处给"全局静态字段"赋值</b></td><td>运行到一半行为变了，排查要翻全工程</td><td>只有组合根能装配；<code>Build()</code> 之后容器只读</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">第 6 条为什么重要</span>
+      <p>王者那套的 202 个 <code>public static</code> 字段谁都能改（只靠"组合根之外禁止赋值"的口头纪律）。
+      本框架把这条纪律变成了<b>类型</b>：注册只能发生在构建器上，<code>Build()</code> 之后就改不了了。</p>
+    </div>
+  </section>
+
+  <!-- ============ 六 ============ -->
+  <section id="s6">
+    <h2><span class="num">六</span>报错信息怎么读（把真实文案抄给你）</h2>
+    <p class="lead">这些文案就是框架真的会打出来的，不是示意。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">你会看到</th><th>它的意思 / 怎么改</th></tr></thead>
+        <tbody>
+          <tr><td><code>取不到服务 IXxx（没有注册过）。已注册的服务：…</code></td><td>没注册，或名字对不上。看"已注册的服务"列表对一下；<b>注册用接口就要用接口取</b></td></tr>
+          <tr><td><code>IXxx 是 Scoped（每个作用域一份）服务，不能在根容器上取。请在它所属的边界里开作用域…</code></td><td>用法错误（不是"没有"）：<code>using (var scope = Root.CreateScope()) { scope.GetRequired&lt;IXxx&gt;(); }</code></td></tr>
+          <tr><td><code>检测到循环依赖：A → B → A</code></td><td>两个服务互相等对方先创建 → 把互相取用挪到 <code>OnInit</code> 之后，或只取真正需要的那一个</td></tr>
+          <tr><td><code>服务 IXxx 已经注册过了（第二次来自 AddSingleton&lt;IXxx, Xxx&gt;()）</code></td><td>重复注册 → 合并到一处</td></tr>
+          <tr><td><code>这个 RevServiceLocator 已经 Dispose 了 —— 容器释放后不能再取服务</code></td><td>用了已释放的容器 → 场景卸载前把需要的东西取好</td></tr>
+          <tr><td><code>作用域不再嵌套：请从根容器 CreateScope()</code></td><td>在作用域上又开了作用域 → 开多个平行作用域</td></tr>
+          <tr><td><code>这个 RevServiceBuilder 已经 Build 过了</code></td><td>重复 Build → 只 Build 一次并缓存</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">框架不打日志</span>
+      <p>它不出任何 Log —— 问题一律用"抛异常 + 一句人话"暴露。所以你不会遇到"运行了但什么都没说"的情况。</p>
+    </div>
+  </section>
+
+  <!-- ============ 七 ============ -->
+  <section id="s7">
+    <h2><span class="num">七</span>怎么验证它在工作</h2>
+    <p class="lead">本模块是纯 C#（不引用 UnityEngine），所以能放进普通 .NET 工程跑，也可以直接写成 NUnit 用例。</p>
+
+<pre><span class="k">var</span> root = RevServiceLocator.Create()
+    .AddSingleton&lt;IClock, Clock&gt;()
+    .AddScoped&lt;ISession, Session&gt;()
+    .Build();
+
+<span class="c">// ① 作用域隔离：两个作用域的 Scoped 不是同一个对象</span>
+<span class="k">var</span> a = root.CreateScope();
+<span class="k">var</span> b = root.CreateScope();
+Assert.AreNotSame(a.GetRequired&lt;ISession&gt;(), b.GetRequired&lt;ISession&gt;());
+
+<span class="c">// ② Singleton 共享：根与作用域拿到同一个</span>
+Assert.AreSame(root.GetRequired&lt;IClock&gt;(), a.GetRequired&lt;IClock&gt;());
+
+<span class="c">// ③ Scoped 在根上取会抛异常（用法守卫）</span>
+Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; root.GetRequired&lt;ISession&gt;());
+
+<span class="c">// ④ 释放后再取会抛异常，而不是默默给你一个坏对象</span>
+a.Dispose();
+Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; a.GetRequired&lt;ISession&gt;());</pre>
+
+    <div class="callout good">
+      <span class="t">交付时的实测</span>
+      <p>本框架就是用这类断言验证的：<b>19 条全过</b>（含作用域隔离、Singleton 共享、逆创建序释放、循环依赖报错、OnInit 失败回滚、Tick 只驱动本容器、根 Dispose 连带释放作用域）。</p>
+    </div>
+  </section>
+
+  <!-- ============ 八 ============ -->
+  <section id="s8">
+    <h2><span class="num">八</span>一页速查卡（可打印）</h2>
+    <p class="lead">贴在显示器旁边，写代码时不用回来翻文档。</p>
+
+    <div class="cheat">
+      <div><b>开装配</b><code>RevServiceLocator.Create()</code> → ... → <code>.Build()</code></div>
+      <div><b>全局一份</b><code>.AddSingleton&lt;IX, X&gt;()</code></div>
+      <div><b>已有实例</b><code>.AddSingleton&lt;IX&gt;(实例)</code>（容器不释放它）</div>
+      <div><b>要构造参数</b><code>.AddSingleton&lt;IX&gt;(s =&gt; new X(...))</code></div>
+      <div><b>每局一份</b><code>.AddScoped&lt;IX, X&gt;()</code></div>
+      <div><b>取必需</b><code>GetRequired&lt;IX&gt;()</code></div>
+      <div><b>取可选</b><code>Get&lt;IX&gt;()</code> / <code>TryGet&lt;IX&gt;(out var x)</code></div>
+      <div><b>开一局</b><code>using (var s = Root.CreateScope())</code></div>
+      <div><b>每帧驱动</b><code>scope.Tick(dt)</code>（服务实现 <code>RevITickable</code>）</div>
+      <div><b>释放</b><code>Dispose()</code>（幂等；根会连带释放作用域）</div>
+      <div><b>创建后取依赖</b><code>RevIServiceInit.OnInit(services)</code></div>
+      <div><b>底层只依赖契约</b><code>RevIServiceLocator</code>（3 个方法）</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">三条铁律</span>
+      <p>① <b>装配只在一处</b>（组合根），<code>Build()</code> 之后改不了；<br>
+      ② <b><code>GetRequired</code> 用于必需依赖</b>（漏注册启动期就炸），<code>Get</code> 只用于可选能力；<br>
+      ③ <b>谁创建谁负责释放</b>：容器释放"工厂创建的服务"，你自己传进来的实例由你释放。</p>
+    </div>
+  </section>
+
+  <!-- ============ 九 ============ -->
+  <section id="s9">
+    <h2><span class="num">九</span>与王者原版的对照（一句话版）</h2>
+    <p class="lead">完整 22 条（每条带王者出处行号）在代码目录的 README 第三节。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:50%">✓ 保留的精华</th><th>✗ 改掉的糟粕</th></tr></thead>
+        <tbody>
+          <tr><td>显式注册 + 组合根唯一前置（运行期只读）</td><td>202 个 <code>public static</code> 可变字段（谁都能改，只靠口头纪律）</td></tr>
+          <tr><td>接口优先、依赖倒置</td><td>Init 抛异常但实例仍留在容器里（半初始化）</td></tr>
+          <tr><td>幂等注册</td><td>重复注册静默覆盖（旧实例还不销毁）</td></tr>
+          <tr><td><b>零反射</b>泛型 <code>new()</code> 工厂</td><td>手写 22 分支 switch 工厂 + 枚举扩展仪式</td></tr>
+          <tr><td>"先入表、再 Init" 不变量（并补上失败回滚）</td><td>全量卸载不摘钩子（与单个卸载不对称）</td></tr>
+          <tr><td>能力探测式挂载（<code>RevITickable</code> 自动进 Tick 列表）</td><td>内部集合外泄（<code>GetSystems()</code> 返回可变 List）</td></tr>
+          <tr><td>逆序卸载</td><td>未注入返回 null 兜底 → 掩盖错误</td></tr>
+          <tr><td>作用域隔离（同类型多实例）</td><td>World 级服务被挂成全局单例就破坏多实例</td></tr>
+          <tr><td><code>Get</code> / <code>GetRequired</code> / <code>TryGet</code> 三态语义</td><td>250 字段单文件 + 5 个近义入口</td></tr>
+          <tr><td>—</td><td>容器绑死 MonoBehaviour 单例，无法脱离引擎单测</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 十 ============ -->
+  <section id="s10">
+    <h2><span class="num">十</span>文件都在哪（你只需要读两个）</h2>
+    <p class="lead">代码位置：<code>Assets\Revolution\Runtime\RevServiceLocator\</code></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:46%">文件</th><th class="c" style="width:12%">行数</th><th>要不要读</th></tr></thead>
+        <tbody>
+          <tr><td><code>Core\RevServiceLocator.cs</code></td><td class="c">317</td><td>★ 必读：唯一入口（取服务 / 作用域 / 释放）</td></tr>
+          <tr><td><code>Core\RevServiceBuilder.cs</code></td><td class="c">137</td><td>★ 必读：注册（AddSingleton / AddScoped / Build）</td></tr>
+          <tr><td><code>Core\RevIServiceLocator.cs</code></td><td class="c">37</td><td>建议扫一眼：取服务的只读契约（底层模块只依赖它）</td></tr>
+          <tr><td><code>Core\RevServiceLifetime.cs</code></td><td class="c">22</td><td>扫一眼：<code>Singleton</code> / <code>Scoped</code></td></tr>
+          <tr><td><code>Engine\RevServiceRegistry.cs</code> · <code>RevServiceDescriptor.cs</code></td><td class="c">98 / 44</td><td>不用读（实例表、逆序释放、Tick 列表）</td></tr>
+          <tr><td><code>Extras\RevIServiceInit.cs</code> · <code>RevITickable.cs</code></td><td class="c">26 / 21</td><td>用到再读（两个可选钩子）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">下一步读什么</span>
+      <p>想搞清楚"为什么这么设计"（以及王者那套每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevServiceLocator\README.md</code>。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets\Revolution\Runtime\RevServiceLocator\</code>（8 个 <code>.cs</code> / 702 行 + README）。<br>
+  验证情况：纯 C# 独立编译 0 错 · 全框架 Debug/Release 0 错 · 行为验证 19 / 19 通过。<br>
+  本文档面向零基础；HTML 版含 1 段纯 CSS 动画（作用域隔离），无外部依赖。
+</footer>
+
+</body>
+</html>

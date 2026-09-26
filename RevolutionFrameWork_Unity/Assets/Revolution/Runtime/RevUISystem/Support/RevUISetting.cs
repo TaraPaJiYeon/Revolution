@@ -1,0 +1,132 @@
+// ============================================================
+// RevUISetting.cs —— UI 系统的全局配置与日志出口
+//
+// 位置：Runtime\RevUISystem\Support\
+//
+// 【为什么配置和日志放一个文件】
+//   两者都是"整个系统唯一的那个口子"，且都很小；拆两个文件只会多一次跳转。
+//   （框架里同样的处理：RevPool 的配置与日志口就放在一起。）
+//
+// 【只改这里，不要改框架代码】
+//   参考分辨率、排序基准、默认缓存策略、同一面板最多缓存几个实例……
+//   都做成静态可写字段，业务在启动时设一次即可（和 RevPool.MaxIdlePerPool 一个套路）。
+// ============================================================
+using System;
+using UnityEngine;
+
+namespace Revolution
+{
+    /// <summary>UI 系统的全局配置（启动时设一次；不设就用这里的默认值）</summary>
+    public static class RevUISetting
+    {
+        /// <summary>设计分辨率（默认 1920×1080）—— 只在"框架自己创建 Canvas"时生效</summary>
+        public static Vector2 ReferenceResolution = new Vector2(1920f, 1080f);
+
+        /// <summary>CanvasScaler 的宽高匹配权重（0 = 按宽、1 = 按高，0.5 = 折中，默认）</summary>
+        public static float MatchWidthOrHeight = 0.5f;
+
+        /// <summary>UI Canvas 的排序基准（默认 100，避免和别的 Canvas 抢 0）</summary>
+        public static int SortOrderBase = 100;
+
+        /// <summary>每个层级之间的排序间隔（默认 50）—— 相邻层之间还能塞下临时 Canvas</summary>
+        public static int LayerStep = 50;
+
+        /// <summary>面板没声明 CacheMode 时用的默认策略（默认 KeepAlive：关闭进池复用）</summary>
+        public static RevUICacheMode DefaultCacheMode = RevUICacheMode.KeepAlive;
+
+        /// <summary>
+        /// 同一个面板最多缓存几个实例（默认 1）。
+        /// ★ 一个面板同时只会开一份，缓存 1 个就够了；调大只在"确实要预创建多份"的特殊场景有意义。
+        /// </summary>
+        public static int MaxCachedPanels = 1;
+
+        /// <summary>点击弹窗遮罩时，是否自动关掉最上面的弹窗（默认 true）</summary>
+        public static bool ClickMaskClosesTop = true;
+
+        /// <summary>
+        /// 绑定失败（找不到节点 / 组件类型对不上）时是否按错误处理（默认 true）。
+        /// 关掉后只告警 —— 不建议关：这类问题在真机上表现为"按钮没反应"，极难定位。
+        /// </summary>
+        public static bool BindFailureIsError = true;
+
+        /// <summary>是否输出诊断信息（打开/关闭/缓存命中等，默认关；排查时打开）</summary>
+        public static bool VerboseLog;
+
+        // ============================================================
+        // Canvas / 相机（渲染模式）—— 文档 4.9、4.11
+        // ============================================================
+
+        /// <summary>
+        /// UI 根 Canvas 的渲染模式（默认 <see cref="RevUICanvasMode.Auto"/>）。
+        /// ★ 要在 UI 上摆 3D 模型 / 粒子、或要把 UI 渲进 RenderTexture，就设成 ScreenSpaceCamera
+        ///   （配合下面的 CanvasPrefabPath / UICameraPrefabPath / UICamera）。
+        /// </summary>
+        public static RevUICanvasMode CanvasMode = RevUICanvasMode.Auto;
+
+        /// <summary>
+        /// Canvas 预制体在 <c>Resources</c> 下的路径（空 = 框架代码建）。
+        /// 示例："RevUIPrefab/RevUICanvas"。
+        /// ★ 预制体里**不要**放六个层级节点（框架会自己建），放你自己的背景层之类的没问题。
+        /// </summary>
+        public static string CanvasPrefabPath = string.Empty;
+
+        /// <summary>
+        /// UI 相机预制体在 <c>Resources</c> 下的路径（空 = 不加载）。示例："RevUIPrefab/RevUICamera"。
+        /// ★ ScreenSpaceCamera 模式下如果这里和 <see cref="UICamera"/> 都为空，框架会按标准参数兜底建一台。
+        /// </summary>
+        public static string UICameraPrefabPath = string.Empty;
+
+        /// <summary>显式指定的 UI 相机（优先级最高；ScreenSpaceCamera 模式下用）</summary>
+        public static Camera UICamera;
+
+        /// <summary>Camera 模式下 Canvas 平面到相机的距离（默认 100，必须落在相机近/远裁剪面之间）</summary>
+        public static float CanvasPlaneDistance = 100f;
+
+        /// <summary>
+        /// UI 对象统一使用的图层名（默认 "UI" = Unity 内置第 5 号图层）。
+        /// ★ Camera 模式下相机的 Culling Mask **必须**包含它，否则 UI 一个都渲染不出来 ——
+        ///   框架会把根节点 / 六层挂点 / 每个面板实例 / 每个 Part / 遮罩都设成这个图层，你只要保证相机认它；
+        /// ★ 设成空字符串 = 框架不改图层（用你在预制体里设的）。
+        /// </summary>
+        public static string UILayerName = "UI";
+
+        /// <summary>
+        /// 场景里一个 EventSystem 都没有时，框架是否兜底建一个（默认 true）。
+        /// ★ 关掉它的场合：项目自己全权管 EventSystem（自带 InputActionAsset 的预制体、或必须在特定时机才创建）。
+        ///   关掉后框架一行都不碰 —— 但请保证你自己的 EventSystem **早于第一次打开面板**存在（见文档 4.10）。
+        /// </summary>
+        public static bool AutoCreateEventSystem = true;
+    }
+
+    /// <summary>
+    /// 统一日志出口：框架里所有报错都从这里出，业务可以接管（例如转成自己的日志系统）。
+    /// 另有 <see cref="Guard"/>：执行业务钩子并隔离异常 ——
+    /// 一个面板的 OnRefreshView 抛异常，不该把管理器的打开流程带崩（和事件系统的异常隔离同一原则）。
+    /// </summary>
+    internal static class RevUILog
+    {
+        /// <summary>错误出口（默认打 Debug.LogError）</summary>
+        public static Action<string> Error = msg => Debug.LogError($"[RevUI] {msg}");
+
+        /// <summary>告警出口</summary>
+        public static Action<string> Warning = msg => Debug.LogWarning($"[RevUI] {msg}");
+
+        public static void Info(string msg)
+        {
+            if (RevUISetting.VerboseLog) Debug.Log($"[RevUI] {msg}");
+        }
+
+        /// <summary>执行一个业务钩子：抛异常只报错，不影响调用方流程</summary>
+        public static void Guard(string what, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                Error($"{what} 抛异常（已隔离，不影响其它流程）：{e}");
+            }
+        }
+    }
+}

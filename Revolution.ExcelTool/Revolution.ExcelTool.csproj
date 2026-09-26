@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Revolution.ExcelTool</RootNamespace>
+    <AssemblyName>Revolution.ExcelTool</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon></ApplicationIcon>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <!-- 零第三方依赖：只用 BCL（xlsx 用 System.IO.Compression + XML 自行解析） -->
+  </PropertyGroup>
+
+  <!--
+    数据文本格式与运行时共用同一份源码。
+    这里用 Link 链接 Unity 工程里的那个文件 —— 格式规则只有一份实现，
+    导表工具（写）与运行时（读）不可能写读不一致。
+  -->
+  <ItemGroup>
+    <Compile Include="..\RevolutionFrameWork_Unity\Assets\Revolution\Runtime\DataLoad\Core\DataTextFormat.cs"
+             Link="Shared\DataTextFormat.cs" />
+  </ItemGroup>
+
+</Project>

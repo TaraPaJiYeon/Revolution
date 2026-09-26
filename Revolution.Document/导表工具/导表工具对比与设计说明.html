@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolution 导表工具 · 对比与设计说明</title>
+<style>
+  :root{
+    --accent:#2F6FED;
+    --accent-soft:#EAF1FE;
+    --page:#F4F6F9;
+    --panel:#FFFFFF;
+    --border:#E3E7ED;
+    --text:#1F2329;
+    --text-sub:#6B7280;
+    --good:#12A150;
+    --good-soft:#E8F8EF;
+    --warn:#B7791F;
+    --warn-soft:#FDF6E3;
+    --bad:#D93F31;
+    --bad-soft:#FDECEA;
+    --code-bg:#1E2430;
+    --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--page);
+    color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ==================== 顶部 ==================== */
+  .hero{
+    background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);
+    color:#fff;
+    padding:44px 24px 38px;
+  }
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{
+    display:inline-block;
+    font-size:12px;
+    letter-spacing:.12em;
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;
+    padding:3px 12px;
+    margin-bottom:14px;
+  }
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  /* ==================== 布局 ==================== */
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:24px 26px;
+    margin-bottom:18px;
+  }
+  h2{
+    font-size:20px;
+    margin:0 0 18px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:10px;
+  }
+  h2 .num{
+    flex:0 0 auto;
+    width:28px;height:28px;line-height:28px;
+    text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;
+    font-size:14px;font-weight:700;
+  }
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:14px;margin:18px 0 8px;color:var(--text);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  strong{font-weight:700;}
+  code{
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;
+    font-size:13px;
+    background:#EEF2F8;
+    border:1px solid #E1E7F0;
+    border-radius:4px;
+    padding:1px 5px;
+    color:#22304A;
+  }
+
+  /* ==================== 目录 ==================== */
+  .toc{background:#FBFCFE;}
+  .toc ol{
+    list-style:none;padding:0;margin:0;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;
+  }
+  .toc a{
+    display:block;padding:6px 10px;border-radius:6px;
+    color:var(--text);font-size:14px;
+  }
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  /* ==================== 结论卡 ==================== */
+  .verdict{
+    display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px;
+  }
+  .verdict .col{
+    border:1px solid var(--border);border-radius:8px;padding:16px 18px;background:#FBFCFE;
+  }
+  .verdict .col.new{background:var(--accent-soft);border-color:#C9DAFB;}
+  .verdict h4{margin:0 0 8px;font-size:13px;color:var(--text-sub);letter-spacing:.04em;}
+  .verdict .col.new h4{color:var(--accent);}
+  .verdict p{margin:0;font-size:14px;}
+
+  /* ==================== 表格 ==================== */
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{
+    border:1px solid var(--border);
+    padding:9px 12px;
+    text-align:left;
+    vertical-align:top;
+  }
+  thead th{
+    background:#F3F6FB;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  /* ==================== 标记 ==================== */
+  .pill{
+    display:inline-block;font-size:12px;line-height:1.6;
+    padding:0 8px;border-radius:999px;white-space:nowrap;font-weight:700;
+  }
+  .pill.yes{background:var(--good-soft);color:var(--good);}
+  .pill.mid{background:var(--warn-soft);color:var(--warn);}
+  .pill.no{background:var(--bad-soft);color:var(--bad);}
+
+  /* ==================== 提示块 ==================== */
+  .callout{
+    border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);
+  }
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  /* ==================== 代码块 ==================== */
+  pre{
+    background:var(--code-bg);color:var(--code-fg);
+    border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;
+    font-size:12.5px;line-height:1.65;margin:14px 0;
+  }
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre .g{color:#6E7A90;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  /* ==================== 优点卡 ==================== */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:8px;}
+  .card{
+    border:1px solid var(--border);border-radius:8px;padding:16px 18px;background:#FBFCFE;
+  }
+  .card h3{
+    margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px;
+    border:0;padding:0;
+  }
+  .card h3 .idx{
+    width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;flex:0 0 auto;
+  }
+  .card p{margin:8px 0;font-size:13.5px;}
+  .card pre{margin:10px 0;font-size:12px;}
+
+  /* ==================== 分层图 ==================== */
+  .flow{
+    background:var(--code-bg);color:var(--code-fg);
+    border-radius:8px;padding:16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px;line-height:1.6;
+    white-space:pre;
+  }
+
+  footer{
+    max-width:1080px;margin:0 auto;padding:0 24px 60px;
+    color:var(--text-sub);font-size:13px;
+  }
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    .verdict{grid-template-columns:1fr;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">设计说明 · 对比报告</span>
+    <h1>Revolution 导表工具 对比与设计说明</h1>
+    <p>旧：唐老师框架升级版 <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Editor\Excel导表\ExcelTool.cs</code><br>
+       新：RevolutionFramework <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Revolution.ExcelTool</code>（WPF）+ <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Runtime\DataLoad</code></p>
+    <p class="meta">阅读对象：接手本框架的人、需要讲清"为什么重写"的人</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ==================== 目录 ==================== -->
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、先给结论</a></li>
+      <li><a href="#s1">一、两条链路对照</a></li>
+      <li><a href="#s2">二、逐项对比（26 项）</a></li>
+      <li><a href="#s3">三、新版的六个"好在哪"</a></li>
+      <li><a href="#s4">四、运用了王者哪些设计哲学</a></li>
+      <li><a href="#s5">五、诚实说清代价与边界</a></li>
+      <li><a href="#s6">六、附：关键文件索引</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>先给结论</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th style="width:22%">问题</th><th style="width:39%">旧版答案</th><th style="width:39%">新版答案</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>工具在哪运行</td><td>Unity Editor 菜单（<code>唐老师工具/读取Excel表数据/...</code>）</td><td>独立 WPF 桌面程序，<b>与 Unity 完全解耦</b></td></tr>
+          <tr><td>读 xlsx 靠什么</td><td>第三方 <code>Excel.dll</code>（ExcelDataReader，且仅 Editor 平台）</td><td>自研 zip + XML 解析，<b>零第三方依赖</b></td></tr>
+          <tr><td>数据文件格式</td><td>自定义二进制 <code>.tang</code> + JSON（<b>依赖 Newtonsoft</b>）</td><td>纯文本 TXT（自制转义，<b>零依赖</b>）</td></tr>
+          <tr><td>数据结构</td><td><code>public class</code>（堆分配，有 GC）</td><td><code>public struct</code>（值类型，<b>零 GC</b>）</td></tr>
+          <tr><td>数据怎么进内存</td><td>反射（<code>Activator</code> + <code>GetField</code> 逐个塞）</td><td>生成强类型 <code>ParseRow</code>，<b>零反射、零装箱</b></td></tr>
+          <tr><td>运行期怎么取数据</td><td><code>GetTable&lt;T&gt;().dataDic[key]</code> 自己动手</td><td><code>XxxTable.Instance.FindByKey(id, out cfg)</code></td></tr>
+          <tr><td>数据从哪读</td><td><code>streamingAssetsPath/Binary</code> 或 <code>/Json</code>，各平台手写分支</td><td>统一走<b>资源加载系统</b>，业务只写逻辑路径</td></tr>
+          <tr><td>能不能卸掉</td><td>没有单表卸载接口</td><td><code>Unload&lt;T&gt;()</code> / <code>UnloadAll()</code>，引用归还资源系统</td></tr>
+          <tr><td>出错怎么办</td><td>边读边写，出问题靠日志</td><td><b>导出前全量校验</b>，报"第几行哪一列错什么"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">一句话</span>
+      旧版是"能跑通的最小可用版本"；新版是"把数据表当成一等资源来管"的版本。
+    </div>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>两条链路对照</h2>
+
+    <h3>1.1 旧版（唐老师框架）</h3>
+    <div class="flow">Excel(.xlsx)
+  │
+  ├─ Unity Editor 菜单点击
+  ├─ ExcelDataReader（第三方 DLL） ──► DataSet
+  ├─ 按约定取行：第1行名 / 第2行类型 / 第3行标 key / 第4行描述 / 第5行起数据
+  │
+  ├─ 生成 public class（无命名空间）
+  │      [Serializable] public class Hero { public int id; ... }
+  ├─ 生成容器 public class
+  │      public class HeroContainer { public Dictionary&lt;int, Hero&gt; dataDic; }
+  │
+  └─ 写数据文件
+         ├─ .tang  自定义二进制（只有它自己认识这个格式）
+         └─ .json  Newtonsoft.JsonConvert.SerializeObject（依赖第三方库）
+              │
+              ▼
+     运行时 BinaryDataMgr / JsonDataMgr
+         └─ 反射建容器 → 反射取 dataDic 字段 → 反射塞数据
+         └─ 读 streamingAssetsPath/Binary 或 /Json</div>
+
+    <h3>1.2 新版（Revolution）</h3>
+    <div class="flow">Excel(.xlsx)
+  │
+  ├─ 独立 WPF 工具（不需要开 Unity）
+  ├─ 自研 XlsxReader（ZipArchive + XDocument，支持共享字符串池 / 内联串 / 稀疏单元格）
+  ├─ 按约定取行：第1行名 / 第2行类型 / 第3行描述 / 第4行起数据，第一个字段是主键
+  ├─ 全量校验（类型 / 字段名合法性 / 主键为空 / 主键重复 / 数值列可解析）
+  │
+  ├─ 生成两个文件
+  │      RevDataStructures.cs   namespace Revolution { [Serializable] public struct Hero {...} }
+  │      RevDataTables.cs       public sealed class HeroTable : DataTable&lt;int, Hero&gt;
+  │                                  { GetKey() + ParseRow() }      ← 只有两个方法
+  │
+  └─ 写 TXT
+         #Hero
+         #ID  Name  Quality   ...    ← 注释行（表名/字段名/描述，运行时跳过）
+         1001  亚瑟  3         ...
+              │
+              ▼
+     运行时 DataTableManager
+         └─ ResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset))    ← 走资源系统
+           两段默认就是 ("Data/", "Hero")，也就是 RevResPath.Data 与表名这两段
+         └─ 容器 LoadText() → 生成代码直接赋值 → Dictionary 索引</div>
+
+    <h3>1.3 最本质的区别</h3>
+    <div class="callout good">
+      <pre><span class="g">旧：</span>  数据文件 → <b>反射</b>     → 对象   （每一行、每一个字段都反射一次）
+<span class="g">新：</span>  数据文件 → <b>生成代码直接赋值</b> → 对象   （编译器帮你把反射写死了）</pre>
+      <p style="margin-top:0">这是两版最本质的区别，也是"能不能扛住几万行配置"的分水岭。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>逐项对比</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="c">#</th><th style="width:14%">维度</th>
+            <th style="width:31%">旧版（唐老师框架）</th>
+            <th style="width:34%">新版（Revolution）</th>
+            <th style="width:15%">影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="c">1</td><td>工具形态</td><td>Unity Editor 菜单</td><td>独立 WPF 桌面程序</td><td>策划/TA 不用开 Unity 就能导表</td></tr>
+          <tr><td class="c">2</td><td>xlsx 解析</td><td>第三方 <code>ExcelDataReader</code>（Editor-only）</td><td>自研 <code>ZipArchive + XDocument</code></td><td><b>去掉一个第三方依赖</b>，且跨平台</td></tr>
+          <tr><td class="c">3</td><td>数据格式</td><td><code>.tang</code> 二进制；JSON 用 Newtonsoft</td><td>纯文本 TXT</td><td><b>去掉 Newtonsoft</b>，数据可读可 diff</td></tr>
+          <tr><td class="c">4</td><td>依赖总数</td><td>Excel 解析库 + Newtonsoft</td><td><b>0</b></td><td>升级不受第三方库绑架</td></tr>
+          <tr><td class="c">5</td><td>数据结构</td><td><code>public class</code>（引用类型）</td><td><code>public struct</code>（值类型）</td><td>上万行表：省掉全部托管堆分配</td></tr>
+          <tr><td class="c">6</td><td>命名空间</td><td>无</td><td><code>namespace Revolution</code></td><td>不会和其他库的 <code>Hero</code> 撞名</td></tr>
+          <tr><td class="c">7</td><td>容器形态</td><td><code>public class</code> + <code>Dictionary</code> 字段</td><td><code>sealed class : DataTable&lt;TKey,TData&gt;</code></td><td>查询能力继承自基类，不用重复生成</td></tr>
+          <tr><td class="c">8</td><td>填数据方式</td><td>运行时反射（<code>Activator</code>/<code>GetField</code>/<code>SetValue</code>）</td><td>生成期写死 <code>data.Id = DataFieldParser.ToInt(cells[0]);</code></td><td><b>零装箱、零反射</b></td></tr>
+          <tr><td class="c">9</td><td>主键约定</td><td>第 3 行标 <code>key</code>，找不到则默认第 0 列；JSON 路径硬性要求主键字段名是 <code>id</code> 且为 string</td><td>默认第一个字段，<b>类型不限（int / string 均可）</b></td><td>少一行元数据；字符串主键可直接用业务代号</td></tr>
+          <tr><td class="c">10</td><td>表头占几行</td><td>名 / 类型 / key / 描述 = 4 行</td><td>名 / 类型 / 描述 = 3 行</td><td>策划少填一行</td></tr>
+          <tr><td class="c">11</td><td>查询 API</td><td>无（自己 <code>dataDic[k]</code>）</td><td><code>FindByKey / Get / TryGet / GetByIndex / ContainsKey / All</code></td><td>业务代码统一、可预测</td></tr>
+          <tr><td class="c">12</td><td>数据来源</td><td><code>streamingAssetsPath/Binary</code>、<code>/Json</code>，Android/iOS 手写分支</td><td>逻辑路径 → 资源系统策略链</td><td><b>业务不关心从哪读</b></td></tr>
+          <tr><td class="c">13</td><td>平台分支</td><td><code>GetBinaryFilePath</code> 里 <code>#if</code> 判平台，iOS 还要拼 <code>file://</code></td><td>无（ABLoader 内部处理）</td><td>业务零平台代码</td></tr>
+          <tr><td class="c">14</td><td>缓存</td><td>无</td><td>资源系统缓存（同表只读一次盘）</td><td>不会重复读盘</td></tr>
+          <tr><td class="c">15</td><td>引用计数</td><td>无</td><td>资源系统引用计数</td><td>不会被提前卸掉</td></tr>
+          <tr><td class="c">16</td><td>卸载</td><td>无单表卸载</td><td><code>Unload&lt;T&gt;() / UnloadAll()</code>，归还资源引用</td><td>表能被真正释放</td></tr>
+          <tr><td class="c">17</td><td>分组卸载</td><td>无</td><td><code>ResGroup.Config</code> + <code>Shutdown()</code></td><td>切场景可整组回收</td></tr>
+          <tr><td class="c">18</td><td>校验时机</td><td>生成过程中</td><td>导出前全量校验</td><td>报错更完整</td></tr>
+          <tr><td class="c">19</td><td>报错粒度</td><td>异常 / 日志</td><td>第 5 行 [Cost]："abc" 不是合法的 int</td><td>直接指给策划</td></tr>
+          <tr><td class="c">20</td><td>坏表处理</td><td>抛异常 / 中断</td><td>坏表警告跳过，<b>好表照常导出</b></td><td>一张笔误不拖累全批</td></tr>
+          <tr><td class="c">21</td><td>输出目录</td><td>生成前<b>清空整个目录</b></td><td>只覆盖两个固定文件名</td><td>不会误删同目录的其他东西</td></tr>
+          <tr><td class="c">22</td><td>主键重复</td><td>运行时决定（<code>Overwrite/Skip/ThrowError</code>）</td><td><b>导出期就报错</b>，运行期保守跳过</td><td>问题前移到导表</td></tr>
+          <tr><td class="c">23</td><td>类型容错</td><td><code>ConvertValue</code>，bool 认 <code>true/1/是/yes</code></td><td>同样宽容 + <code>InvariantCulture</code></td><td>欧/中系统小数点是逗号也不会读错</td></tr>
+          <tr><td class="c">24</td><td>空单元格</td><td>依赖 <code>DataRow</code> 默认值</td><td>明确取默认值 <code>0 / 0f / false / ""</code></td><td>行为可预期</td></tr>
+          <tr><td class="c">25</td><td>格式契约</td><td>写端（Editor）与读端（Runtime）<b>各写一套</b></td><td><code>DataTextFormat.cs</code> <b>同一份源码</b>被两端引用</td><td>从根上不可能写读不一致</td></tr>
+          <tr><td class="c">26</td><td>文件编码</td><td>—</td><td>代码 UTF-8 <b>带</b> BOM；数据 UTF-8 <b>不带</b> BOM</td><td>中文注释不乱码 / 注释行首字符正确</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>新版的六个"好在哪"</h2>
+
+    <div class="cards">
+
+      <div class="card">
+        <h3><span class="idx">1</span>零依赖：不再被第三方库绑架</h3>
+        <p><b>旧版</b>：框架被迫链上 <code>Newtonsoft.Json</code>（<code>JsonDataMgr</code> 与导表工具都用 <code>JsonConvert</code>），Excel 解析还要一个 <code>Excel.dll</code>。</p>
+        <p><b>新版</b>：零第三方依赖。xlsx 本质是 zip + XML，用 <code>ZipArchive</code> + <code>XDocument</code> 就够；数据格式自己定，不需要 JSON 库。</p>
+        <p><b>收益</b>：升级 Unity / 换 .NET 版本时不用等第三方库跟进，也不必为了"读个表"把整个 JSON 库拖进包里。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">2</span>零 GC：struct + 生成的强类型解析</h3>
+        <p><b>旧版</b>每一行每个字段都走反射：</p>
+        <pre><span class="c">// 反射填数据</span>
+FieldInfo f = t.GetField(name);
+f.SetValue(instance, ConvertValue(cell, f.FieldType));  <span class="c">// 每格一次装箱</span></pre>
+        <p><code>SetValue(object)</code> 对 <code>int/float/bool</code> 都要<b>装箱</b>。5 万行 × 10 个数值列 = <b>50 万次装箱</b>，全变成 GC 垃圾。</p>
+        <p><b>新版</b>是生成出来的直接赋值：</p>
+        <pre>data.Id     = DataFieldParser.ToInt(cells[0]);
+data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
+        <p><b>收益</b>：加载期几乎不产生 GC；值类型连续存放，缓存友好。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">3</span>生命周期正确：表是一种"资源"</h3>
+        <p><b>旧版</b>只有 <code>LoadTable&lt;T,K&gt;()</code> 与 <code>GetTable&lt;T&gt;()</code>，<b>没有卸载</b>，<code>tableDic</code> 只增不减；且从 StreamingAssets 直接读（Android 要 UnityWebRequest、iOS 要拼 <code>file://</code>），<b>绕过资源系统 = 没有缓存、没有引用计数</b>。</p>
+        <p><b>新版</b>统一走资源系统，白拿四件事：</p>
+        <pre>await DataTableManager.LoadAsync&lt;HeroTable&gt;();
+<span class="c">// ① 缓存   ② 引用计数</span>
+<span class="c">// ③ 分组卸载  ④ 平台透明</span></pre>
+        <p>并且<b>禁止直接拼 StreamingAssets 路径</b> —— 那等于绕开上面四条。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">4</span>数据可读、可 diff</h3>
+        <p><b>旧版</b> <code>.tang</code> 二进制：策划改一个数值，<code>git diff</code> 只会说"文件已更改"，<b>看不出改了哪一行</b>。</p>
+        <p><b>新版</b> TXT 带表头注释：</p>
+        <pre>#Hero
+#ID  Name  Quality  Attack ...
+#英雄ID 英雄名 品质(1-5) 攻击力 ...
+1001  亚瑟  3  120.5  3600  3.8  false  秩序  持剑的圣骑士</pre>
+        <p><b>收益</b>：diff 直接显示"亚瑟攻击力从 120 改成 120.5"；评审、查数值改动成本从"开工具比对"降到"看一眼"。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">5</span>错误前置：导表是集中暴露问题的唯一机会</h3>
+        <p><b>旧版</b>边解析边生成，主键重复甚至要拖到<b>运行时</b>由 <code>DuplicateKeyBehavior</code> 决定。</p>
+        <p><b>新版</b>导出前全量校验，并分级处理：</p>
+        <pre><span class="c">[错误]</span> 第 5 行 [Cost]："abc" 不是合法的 int
+<span class="c">[错误]</span> 第 6 行：主键 [Id] = 101 重复
+<span class="c">[错误]</span> 字段名 [英雄 id] 不能作为 C# 标识符
+<span class="c">[提示]</span> 表 [Item] 校验未通过，已跳过导出（2 个错误）</pre>
+        <p>行号与 Excel 左上角一致；<b>坏表跳过、好表照导</b>。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">6</span>契约唯一：写端和读端是同一份源码</h3>
+        <p>最容易踩、最难查的一类 bug：<b>工具写出来的格式，运行时读不懂</b>。</p>
+        <p><b>旧版</b>写端在 <code>ExcelTool.cs</code>、读端在 <code>BinaryDataMgr.cs</code>，格式各写一遍，一方改了另一方没同步就要到真机才暴露。</p>
+        <p><b>新版</b>格式规则只存在于 <code>DataTextFormat.cs</code>，工具工程直接链接它：</p>
+        <pre>&lt;Compile Include="..\...\DataLoad\Core\DataTextFormat.cs"
+         Link="Shared\DataTextFormat.cs" /&gt;</pre>
+        <p><b>收益</b>：改一处两端同时生效，"写读不一致"在结构上不可能发生。</p>
+      </div>
+
+      <div class="card">
+        <h3><span class="idx">7</span>主键类型不限，表名可字符串驱动</h3>
+        <p><b>旧版</b>两条路径的主键约定互相打架：JSON 路径<b>硬性要求主键字段名必须是 <code>id</code> 且类型为 <code>string</code></b>（直接 <code>GetField("id")</code>），想用 int 主键就只能走二进制那条路。</p>
+        <p><b>新版</b>主键类型完全由 Excel 第 2 行决定，<code>int</code> / <code>string</code> 都支持：</p>
+        <pre>ID:int     →  DataTable&lt;int, Hero&gt;       FindByKey(1001)
+ID:string  →  DataTable&lt;string, Buff&gt;    FindByKey("BUFF_ATK_UP")</pre>
+        <p>运行时还能<b>按字符串表名取表</b>，"表名来自配置"的场景也能写：</p>
+        <pre>IDataTable t = DataTableManager.Get("Buff");
+DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
+<span class="c">// 内部两张索引指向同一实例：</span>
+<span class="c">//   表名 → 容器（字符串查询） / 容器类型 → 容器（泛型，O(1)）</span></pre>
+        <p>工具侧还加了<b>主键类型体检</b>：用 <code>float</code> 或 <code>bool</code> 做主键会提示（浮点精度会导致"表里明明有却查不到"；bool 最多两行数据，基本是配错了）。</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>运用了王者荣耀导表系统的哪些设计哲学</h2>
+
+    <p style="color:var(--text-sub);font-size:13.5px">参考文档：《王者荣耀导表工具与数据表系统总览》系列（<code>00</code> ~ <code>08</code>）</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th style="width:24%">王者设计哲学</th><th style="width:30%">王者的体现</th><th style="width:31%">本框架的落地</th><th class="c" style="width:15%">是否照搬</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>工具生成代码</b></td><td>TDR 生成 struct + 容器类</td><td>生成 <code>struct</code> + <code>XxxTable : DataTable&lt;,&gt;</code></td><td class="c"><span class="pill yes">✅ 照搬思想</span></td></tr>
+          <tr><td><b>数据结构是值类型</b></td><td><code>partial struct</code> + <code>[FieldOffset]</code></td><td><code>public struct</code></td><td class="c"><span class="pill yes">✅ 只取值类型</span></td></tr>
+          <tr><td><b>容器类统一接口</b></td><td><code>FindByKey / Count / GetByIndex</code></td><td>同名三件套 + <code>Get/TryGet/ContainsKey/All</code>，且<b>做成基类共享实现</b></td><td class="c"><span class="pill yes">✅ 更彻底</span></td></tr>
+          <tr><td><b>数据与代码分离</b></td><td><code>.bytes</code> 数据 + 生成代码</td><td><code>.txt</code> 数据 + 生成代码</td><td class="c"><span class="pill yes">✅ 照搬</span></td></tr>
+          <tr><td><b>零序列化</b></td><td>按内存布局直接读 C++ 内存</td><td>生成代码直接赋值，<b>不经反射/装箱</b></td><td class="c"><span class="pill yes">✅ 目标同手段异</span></td></tr>
+          <tr><td><b>本地读取 + 资源热更新</b></td><td>数据文件走资源热更下发</td><td>走资源加载系统（AB 可热更）</td><td class="c"><span class="pill yes">✅ 照搬</span></td></tr>
+          <tr><td><b>一份定义多用</b></td><td>同一份 XML 生成 C# / C++ / TS</td><td>同一份格式源码被工具与运行时共用</td><td class="c"><span class="pill yes">✅ 降维版</span></td></tr>
+          <tr><td>声明式定义</td><td><code>cs_res_data.xml</code> 定义表结构</td><td><b>Excel 本身就是声明</b>（行列约定），不额外维护 schema</td><td class="c"><span class="pill mid">⚠️ 简化</span></td></tr>
+          <tr><td>容器类 <code>partial</code> 可扩展</td><td>生成部分与手写部分分离</td><td>生成文件整体覆盖，手写扩展放业务侧</td><td class="c"><span class="pill mid">⚠️ 简化</span></td></tr>
+          <tr><td>字符串存 ID</td><td><code>StaticStringId</code>，真实字符串在 C++ 侧</td><td>直接存 <code>string</code></td><td class="c"><span class="pill no">❌ 不做</span></td></tr>
+          <tr><td>显式内存布局 + 指针</td><td><code>unsafe</code> + <code>[FieldOffset]</code> + 解引用</td><td>不用 <code>unsafe</code></td><td class="c"><span class="pill no">❌ 不做</span></td></tr>
+          <tr><td><code>dtIndex</code> + DllImport</td><td>C# 通过原生函数查 C++ 内存</td><td>托管 <code>Dictionary</code> 查表</td><td class="c"><span class="pill no">❌ 不做</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.1 为什么"容器类统一接口"这一条我们做得更彻底</h3>
+    <p>王者为<b>每张表</b>都生成一遍 <code>FindByKey / Count / GetByIndex</code>（几千张表 = 几千份重复代码，<code>TdrGeneratedCode.cs</code> 有 5.41 MB）。</p>
+    <p>我们把这些查询能力全部放进基类 <code>DataTable&lt;TKey, TData&gt;</code>，<b>生成器只输出两个方法</b>：</p>
+    <pre><span class="k">protected override</span> <span class="k">int</span> GetKey(<span class="k">in</span> Hero data) =&gt; data.Id;                 <span class="c">// 主键怎么取</span>
+<span class="k">protected override</span> <span class="k">bool</span> ParseRow(<span class="k">string</span>[] cells, <span class="k">out</span> Hero data) {...}  <span class="c">// 一行怎么解析</span></pre>
+    <p>于是每张表的生成代码只有二十来行，<code>FindByKey</code> 的行为由基类保证<b>全表一致</b> —— 业务看一张表会查，就会查所有表。这是"在能简化的地方简化"。</p>
+
+    <h3>4.2 为什么故意不抄 <code>FieldOffset</code> / <code>StaticStringId</code> / <code>dtIndex</code></h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th style="width:30%">王者的手段</th><th style="width:34%">它解决的问题</th><th style="width:36%">本框架为什么不需要</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>[FieldOffset]</code> 显式内存布局</td><td>C# 要按字节对齐去读 <b>C++ 侧</b>那一致的内存</td><td>数据完全在托管侧，用不着按字节定位</td></tr>
+          <tr><td><code>unsafe</code> + 指针 + 值拷贝</td><td>把 C++ 内存整块拷成 struct</td><td>没有原生层，无从拷起</td></tr>
+          <tr><td><code>StaticStringId</code> 字符串池</td><td>几千条重复字符串只存一份 ID</td><td>表规模小；引入字符串池要维护 ID 表，复杂度换不来收益</td></tr>
+          <tr><td><code>dtIndex</code> + <code>DllImport</code></td><td>所有表共用一套 C++ 查询函数，靠索引区分</td><td>托管 <code>Dictionary</code> 查主键是 O(1)，够用</td></tr>
+          <tr><td><code>.bytes</code> 二进制</td><td>体积小、解析快、难篡改</td><td>我们选可读可 diff 的 TXT，<b>用解析速度换可维护性</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">一句话</span>
+      王者的方案是为"<b>几千张表 + C++ 内核 + 跨语言共享定义</b>"量身定做的；本框架是纯 C# UnityEngine 项目，规模差好几个数量级。<b>学它的设计哲学，不学它的实现手段</b> —— 否则会为了一个 3 万行的项目引入 5 MB 的生成代码和一堆原生互操作。
+    </div>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>诚实说清代价与边界</h2>
+    <p>新版不是没有代价，用之前要知道：</p>
+    <ol>
+      <li><b>TXT 比二进制大</b>。字段名注释行 + 文本数字，体积通常是二进制的 1.5 ~ 3 倍。对配置表通常无所谓（还能被 AB 压缩）；若某天表大到几 MB，需要考虑"导出时不写注释行"的开关。</li>
+      <li><b>纯文本可被随手改</b>。二进制更难篡改，TXT 没有任何防改机制。配置表一般不在意，涉及数值公平性时请配合资源包校验。</li>
+      <li><b>自研 xlsx 解析有边界</b>。只支持 <code>.xlsx</code>（Excel 2007+），不支持老的 <code>.xls</code>（OLE 复合文档）；不处理图表、批注、条件格式；公式取其缓存值。</li>
+      <li><b>全量重写两个代码文件</b>。表很多时生成文件会变大，每次导表都会触发 Unity 重编译。当前 3 张表的演示规模远未到瓶颈；到几百张表时需要评估分文件策略。</li>
+      <li><b>还没有 schema 版本号</b>。王者 <code>struct</code> 带 <code>version</code> 属性，我们没做"数据文件版本与代码版本不匹配"的检查。当前靠"导表同时覆盖代码和数据"来保证一致。</li>
+      <li><b>运行时解析错误只跳过不报错</b>。容器用 <code>errorCount</code> 记下坏行数但不中断（避免一张表笔误让游戏起不来）；目前没有把它输出到日志的地方 —— 接入项目时建议在 <code>DataTableManager</code> 里加一句日志。</li>
+    </ol>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>附：关键文件索引</h2>
+
+    <h3>导表工具（WPF，零依赖）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:42%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Core\XlsxReader.cs</code></td><td>xlsx 解析（zip + XML，共享字符串 / 内联串 / 稀疏单元格）</td></tr>
+          <tr><td><code>Core\ExcelTable.cs</code></td><td>表模型 + 配置规则校验（类型 / 主键 / 字段名 / 数值可解析）</td></tr>
+          <tr><td><code>Core\CodeGenerator.cs</code></td><td>生成数据结构类 + 容器类</td></tr>
+          <tr><td><code>Core\DataTextWriter.cs</code></td><td>生成 TXT 数据文件</td></tr>
+          <tr><td><code>Core\ExportService.cs</code></td><td>导出编排（过滤 / 重名检查 / 编码 / 落盘）</td></tr>
+          <tr><td><code>MainWindow.xaml(.cs)</code></td><td>界面</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>运行时</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:42%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>DataLoad\Interfaces\IDataTable.cs</code></td><td>容器统一契约</td></tr>
+          <tr><td><code>DataLoad\Core\DataTable.cs</code></td><td>容器基类（Dictionary + List + 查询 API）</td></tr>
+          <tr><td><code>DataLoad\Core\DataTextFormat.cs</code></td><td><b>★ 格式唯一实现</b>（与工具共用同一份源码）</td></tr>
+          <tr><td><code>DataLoad\Core\DataFieldParser.cs</code></td><td>字段取值（InvariantCulture、失败取默认值）</td></tr>
+          <tr><td><code>DataLoad\Manager\DataTableManager.cs</code></td><td>对外唯一入口（加载 / 查询 / 卸载，走资源系统）</td></tr>
+          <tr><td><code>DataLoad\Manager\DataTableLoadException.cs</code></td><td>加载失败异常</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>演示产物</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:42%">路径</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>Revolution.Demo\ExcelTool\Excel\DemoConfig.xlsx</code></td><td>示例表（Hero 英雄 / Item 物品 / Skill 技能）</td></tr>
+          <tr><td><code>Revolution.Demo\ExcelTool\Code\</code></td><td>生成的结构体与容器类</td></tr>
+          <tr><td><code>Revolution.Demo\ExcelTool\Data\</code></td><td>生成的 TXT 数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>业务侧用法</h3>
+    <pre><span class="c">// 加载（走资源系统：编辑器直读工程 / 真机走 AB）</span>
+<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+
+<span class="c">// 查询（int 主键）</span>
+<span class="k">if</span> (HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out</span> Hero hero))
+    Debug.Log($<span class="s">"{hero.Name} 攻击力 {hero.Attack} 是否远程 {hero.IsRanged}"</span>);
+
+<span class="c">// 查询（string 主键的表：ID 那一列写成 string 类型即可）</span>
+<span class="k">if</span> (BuffTable.Instance.FindByKey(<span class="s">"BUFF_ATK_UP"</span>, <span class="k">out</span> Buff buff))
+    Debug.Log($<span class="s">"{buff.Name} 持续 {buff.Duration}s"</span>);
+
+<span class="c">// 字符串驱动：表名来自配置时也能取到表</span>
+<span class="k">if</span> (DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl))
+    Debug.Log($<span class="s">"表 {tbl.TableName} 共 {tbl.Count} 行"</span>);
+
+<span class="c">// 遍历</span>
+<span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; HeroTable.Instance.Count; i++)
+    Handle(HeroTable.Instance.GetByIndex(i));
+
+<span class="c">// 卸载</span>
+DataTableManager.Unload&lt;HeroTable&gt;();   <span class="c">// 按类型</span>
+DataTableManager.Unload(<span class="s">"Buff"</span>);       <span class="c">// 按表名</span></pre>
+  </section>
+
+</main>
+
+<footer>
+  文档对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\DataLoad</code>（5 个文件）。
+  文中实测数据来自 <code>Revolution.Demo\ExcelTool</code> 的真实导出结果。
+</footer>
+
+</body>
+</html>
