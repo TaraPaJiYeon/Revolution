@@ -41,6 +41,9 @@ namespace Revolution.Editor
         /// <summary>按指定配置生成（cfg 为 null 时用默认值）</summary>
         public static void Generate(ABBuildConfig cfg)
         {
+            // ★ 框架被当作只读包安装（UPM）时跳过：包目录不可写，硬写只会留下"假生成"
+            if (!ABBuildSetting.EnsureWritableForGeneratedCode("RevSoundPath", ABBuildSetting.SoundPathCodePath)) return;
+
             string sfx = cfg != null ? cfg.GetSfxRoot() : "";
             string bgm = cfg != null ? cfg.GetBgmRoot() : "";
 

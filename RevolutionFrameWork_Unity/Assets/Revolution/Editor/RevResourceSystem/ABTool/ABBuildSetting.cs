@@ -15,6 +15,7 @@
 //   避免这些字符串散落在十几个文件里，改一次要全局搜索替换、极易漏改。
 // ============================================================
 using System.IO;
+using UnityEngine;
 
 namespace Revolution.Editor
 {
@@ -83,6 +84,48 @@ namespace Revolution.Editor
                 default:
                     return target.ToString();           // iOS / Android / WebGL ...
             }
+        }
+
+        // ============================================================
+        // 生成物写入守卫（框架被当作"只读包"安装时用）
+        // ============================================================
+
+        /// <summary>
+        /// 框架本体是否以**只读包**方式安装（UPM 从 git / Registry 装的包，落在 Library/PackageCache）。
+        ///
+        /// 【为什么要判断】两个生成物（<c>RevResPath.cs</c>、<c>RevSoundPath.cs</c>）必须落在**框架自己的程序集**里
+        ///   （Runtime 不能反向引用 Generation，所以音效路径常量只能生成在 Runtime 内部）——
+        ///   也就是说它们只能写在框架目录里：框架在 <c>Assets</c> 下时随时可写，
+        ///   在包缓存里则是只读的（硬写会报错，或被下一次包更新覆盖掉）。
+        ///   所以这里识别出来，让生成器**明确跳过并提示**，而不是留下一个"看起来生成了"的假象。
+        /// </summary>
+        internal static bool IsInstalledAsReadOnlyPackage()
+        {
+            UnityEditor.PackageManager.PackageInfo info =
+                UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(ABBuildSetting).Assembly);
+
+            if (info == null) return false;             // 框架在工程 Assets 下 → 可写
+
+            // Embedded（工程内 Packages/ 下的包）与 Local（本地路径）都可写；其余（Git / Registry / 压缩包）都在只读缓存里
+            return info.source != UnityEditor.PackageManager.PackageSource.Embedded
+                && info.source != UnityEditor.PackageManager.PackageSource.Local;
+        }
+
+        /// <summary>
+        /// 写生成物之前的守卫：只读包安装 → 跳过并说明怎么办。返回 true = 可以写。
+        /// </summary>
+        /// <param name="what">生成物名（用于日志，如 "RevResPath"）</param>
+        /// <param name="targetPath">本来要写的路径</param>
+        internal static bool EnsureWritableForGeneratedCode(string what, string targetPath)
+        {
+            if (!IsInstalledAsReadOnlyPackage()) return true;
+
+            Debug.LogWarning(
+                $"[{what}] 检测到框架是以 UPM 包（只读缓存）方式安装的，已跳过生成：{targetPath}\n" +
+                "  · 包里的常量文件是随包发布的版本，直接用即可；\n" +
+                "  · 要按自己的目录结构重新生成，请改用「把框架放进工程 Assets」的安装方式：\n" +
+                "    git clone -b package --depth 1 https://github.com/Yokino337088/Revolution.git Assets/Revolution");
+            return false;
         }
     }
 }

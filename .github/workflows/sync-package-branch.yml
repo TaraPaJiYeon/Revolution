@@ -1,0 +1,46 @@
+name: 同步 package 分支（框架本体）
+
+# 作用：把 RevolutionFrameWork_Unity/Assets/Revolution 的内容发布到 `package` 分支的【仓库根】。
+# 这样别人一条命令就能把框架放进自己工程的 Assets 下：
+#
+#     git clone -b package --depth 1 https://github.com/Yokino337088/Revolution.git Assets/Revolution
+#
+# 也可以当 git 子模块（git submodule add -b package <url> Assets/Revolution）
+# 或 UPM git URL（https://github.com/Yokino337088/Revolution.git#package）使用。
+#
+# 说明：package 是【生成分支】，每次整份重建（不保留历史），因此用 --force 推送是预期行为。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RevolutionFrameWork_Unity/Assets/Revolution/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 组装包内容（框架本体 → 仓库根）
+        run: |
+          mkdir -p /tmp/pkg
+          cp -r RevolutionFrameWork_Unity/Assets/Revolution/. /tmp/pkg/
+          echo "文件数：$(find /tmp/pkg -type f | wc -l)"
+
+      - name: 推送到 package 分支
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/pkg
+          git init -b package
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "publish: 框架本体（源 ${GITHUB_SHA:0:7}）"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" package

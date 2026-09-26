@@ -11,20 +11,36 @@
 
 ---
 
-## 一、快速开始
+## 一、把框架装进你自己的工程（三种方式）
+
+框架本体 = `Assets/Revolution/`（`package` 分支的**仓库根**就是它）。在你的**工程根目录**执行：
+
+| 方式 | 命令 | 框架落在哪 | 适合 |
+|---|---|---|---|
+| ① **放进 `Assets/`**（推荐） | `git clone -b package --depth 1 https://github.com/Yokino337088/Revolution.git Assets/Revolution` | `Assets/Revolution` | 想直接改框架代码；需要 `Resources`（ResMap、UI 预制体）与两个生成物可写 |
+| ② 子模块（可 `git submodule update --remote` 更新） | `git submodule add -b package https://github.com/Yokino337088/Revolution.git Assets/Revolution` | `Assets/Revolution` | 同样放 `Assets/`，但用 git 子模块管理版本 |
+| ③ Package Manager（UPM） | Add package from git URL → `https://github.com/Yokino337088/Revolution.git?path=/RevolutionFrameWork_Unity/Assets/Revolution`（或 `#package`） | `Packages/` | 只当依赖用、不打算改代码 |
+
+> **为什么推荐 ①/②**：Unity 的 `Resources.Load` 只保证加载**工程 `Assets` 下**的 `Resources` 文件夹 —— 框架自带 `Resources/ResourceSystem/ResMap.txt` 与两个 UI 预制体；另外 `Generation/RevResPath.cs`、`RevSoundSystem/Generated/RevSoundPath.cs` 这两个**生成物**必须写在框架目录里（Runtime 不能反向引用 Generation），包缓存只读写不了。
+> 装在 `Packages/` 里框架仍有降级能力（Canvas 用代码建、缺 ResMap 时编辑器直读照常工作），打包工具会**跳过生成并提示**。
+
+### 装完后的三步
+
+1. 工程里准备**资源根目录**：新建 `Assets/GameRes`（或你已有的目录）；
+2. 菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → **① 打包配置** → 把「资源根目录」设为 `Assets/GameRes`
+   （「音效目录」「BGM 目录」默认 `Audio/Sfx`、`Audio/Bgm`，按自己的目录结构改；这两项会被工具写进生成常量）；
+3. 开始写业务：`RevSound.Play("ui_click")` / `RevSequence.Create("开宝箱")` …
+
+> 打包配置（`Assets/Editor/ABBuildConfig.asset`）属于**本机设置**，不在仓库里 —— 文件不存在时工具会自动生成一份默认的。
+
+## 二、想直接跑示例（克隆整个仓库）
 
 ```bash
 git clone https://github.com/Yokino337088/Revolution.git
 ```
 
-1. 用 **Unity 2022.3.15f1c1** 打开 `RevolutionFrameWork_Unity/`（首次导入需要几分钟）
-2. 首次打开后配置资源根目录：
-   菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → **① 打包配置** → 把「资源根目录」设为 `Assets/GameRes`
-   （「音效目录」「BGM 目录」默认 `Audio/Sfx`、`Audio/Bgm`，按自己的目录结构改；这两项会被工具写进生成常量）
-3. 直接 Play `Assets/Scenes/SampleScene.unity`；
-   示例代码（动作序列 / GM 指令）在 `Assets/Revolution.Demo/`
-
-> 打包配置（`Assets/Editor/ABBuildConfig.asset`）属于**本机设置**，不在仓库里 —— 文件不存在时工具会自动生成一份默认的。
+用 **Unity 2022.3.15f1c1** 打开 `RevolutionFrameWork_Unity/`（首次导入需要几分钟），
+然后 Play `Assets/Scenes/SampleScene.unity`；示例代码（动作序列 / GM 指令）在 `Assets/Revolution.Demo/`。
 
 ---
 

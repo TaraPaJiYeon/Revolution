@@ -59,6 +59,9 @@ namespace Revolution.Editor
         {
             if (string.IsNullOrEmpty(resRoot)) return;      // 空根目录没什么可扫的（提示由调用方负责）
 
+            // ★ 框架被当作只读包安装（UPM）时跳过：包目录不可写，硬写只会留下"假生成"
+            if (!ABBuildSetting.EnsureWritableForGeneratedCode("RevResPath", ABBuildSetting.ResPathCodePath)) return;
+
             List<string> dirs = ResPathNaming.CollectFolders(resRoot);
             string code = ResPathNaming.BuildCode(resRoot, dirs, out List<string> conflicts);
 
