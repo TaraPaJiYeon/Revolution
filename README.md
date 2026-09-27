@@ -298,23 +298,21 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 **运行期**（`Assets/Revolution/Runtime/`，15 个模块 / 147 个 `.cs` / 21,169 行）
 
-| 模块 | 一句话 | 规模 |
+| 模块 | 《使用说明》 | 《架构解析》 |
 |---|---|---|
-| `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
-| `RevUISystem` | UI：面板声明式配置、层级、与资源池联动 | 17 / 3,457 |
-| `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
-| `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
-| `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |
-| `RevTimer` | 计时器：四时间域、句柄代际、作用域、秒表 | 10 / 1,414 |
-| `RevLog` | 日志：分级（Debug 编译期零成本）、tag 静默、重复抑制、环形缓冲、异步落盘、上报 | 8 / 1,053 |
-| `RevPublicMono` | 公共 Mono：给纯 C# 类每帧回调与协程宿主 | 6 / 662 |
-| `RevEventSystem` | 事件：强类型事件 + 订阅句柄 | 5 / 1,093 |
-| `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 11 / 1,023 |
-| `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,037 |
-| `DataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 714 |
-| `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 702 |
-| `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 639 |
-| `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |
+| 📝 日志系统 | [网页](https://yokino337088.github.io/Revolution/日志系统/日志系统使用说明.html) · [md](Revolution.Document/日志系统/日志系统使用说明.md) | — |
+| ⏱ 计时器系统 | [网页](https://yokino337088.github.io/Revolution/计时器系统/计时器系统使用说明.html) · [md](Revolution.Document/计时器系统/计时器系统使用说明.md) | — |
+| 🧵 公共Mono模块 | [网页](https://yokino337088.github.io/Revolution/公共Mono模块/公共Mono模块使用说明.html) · [md](Revolution.Document/公共Mono模块/公共Mono模块使用说明.md) | — |
+| 📦 资源加载系统 | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统使用说明.html) · [md](Revolution.Document/资源加载系统/资源加载系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统架构解析.html) · [md](Revolution.Document/资源加载系统/资源加载系统架构解析.md) |
+| 🎨 UI系统 | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统使用说明.html) · [md](Revolution.Document/UI系统/UI系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统架构解析.html) · [md](Revolution.Document/UI系统/UI系统架构解析.md) |
+| 🎬 动作序列 | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列使用说明.html) · [md](Revolution.Document/动作序列/动作序列使用说明.md) | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列架构解析.html) · [md](Revolution.Document/动作序列/动作序列架构解析.md) |
+| 🎮 状态机 | [网页](https://yokino337088.github.io/Revolution/状态机/状态机使用说明.html) · [md](Revolution.Document/状态机/状态机使用说明.md) | [网页](https://yokino337088.github.io/Revolution/状态机/状态机架构解析.html) · [md](Revolution.Document/状态机/状态机架构解析.md) · [网页](https://yokino337088.github.io/Revolution/状态机/状态机Demo示例讲解.html) · [md](Revolution.Document/状态机/状态机Demo示例讲解.md) |
+| 🔊 音效系统 | [网页](https://yokino337088.github.io/Revolution/音效系统/音效系统使用说明.html) · [md](Revolution.Document/音效系统/音效系统使用说明.md) | — |
+| 📣 事件系统 | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统使用说明.html) · [md](Revolution.Document/事件系统/事件系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统架构解析.html) · [md](Revolution.Document/事件系统/事件系统架构解析.md) |
+| 📦 对象池 | [网页](https://yokino337088.github.io/Revolution/对象池/对象池使用说明.html) · [md](Revolution.Document/对象池/对象池使用说明.md) | [网页](https://yokino337088.github.io/Revolution/对象池/对象池架构解析.html) · [md](Revolution.Document/对象池/对象池架构解析.md) |
+| 🧭 服务定位器 | [网页](https://yokino337088.github.io/Revolution/服务定位器/服务定位器使用说明.html) · [md](Revolution.Document/服务定位器/服务定位器使用说明.md) | [网页](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
+| 🕹 GM指令 | [网页](https://yokino337088.github.io/Revolution/GM指令/GM指令使用说明.html) · [md](Revolution.Document/GM指令/GM指令使用说明.md) | — |
+| 📊 导表工具 | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具使用说明.html) · [md](Revolution.Document/导表工具/导表工具使用说明.md) | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具架构解析.html) · [md](Revolution.Document/导表工具/导表工具架构解析.md) · [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具对比与设计说明.html) · [md](Revolution.Document/导表工具/导表工具对比与设计说明.md) |
 
 **编辑器**（`Assets/Revolution/Editor/`，2 套工具 / 22 个 `.cs` / 5,589 行）
 
@@ -368,7 +366,11 @@ Revolution/
 > 文档站由 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 即重新发布。
 
 **每个模块都有《使用说明》（手把手，照着做就能跑通）**；带 ✅ 的还有《架构解析》（设计论证：为什么这么设计、与别的方案差在哪）。
-下表点链接直接跳转（`.md` 在 GitHub 与编辑器里读；带排版的网页版见在线文档站）：
+
+下表每行两个入口，点一下直接跳：
+
+- **网页** → 打开 [在线文档站](https://yokino337088.github.io/Revolution/) 里对应的那一页（带排版、目录、站内搜索；手机上也好看）
+- **md** → 仓库里的 Markdown 版本（GitHub 直接渲染，便于 diff 与离线阅读）
 
 | 模块 | 《使用说明》手把手 | 《架构解析》设计论证 |
 |---|---|---|

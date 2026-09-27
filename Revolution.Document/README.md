@@ -22,23 +22,23 @@
 
 ## 目录一览（点链接直接跳转）
 
-每个模块都有**《使用说明》（手把手）**；带 ✅ 的还有**《架构解析》（设计论证）**。`.md` 是权威版，`.html` 是排版版（内容一致）。
+每个模块都有**《使用说明》（手把手）**；带 ✅ 的还有**《架构解析》（设计论证）**。内容一致，两种读法：**网页** = 在线站排版版（也可本地双击 `index.html` 看），**md** = 仓库版（GitHub 直接渲染、便于 diff）。
 
 | 模块 | 《使用说明》 | 《架构解析》 |
 |---|---|---|
-| 📝 日志系统 | [日志系统使用说明.md](日志系统/日志系统使用说明.md) | — |
-| ⏱ 计时器系统 | [计时器系统使用说明.md](计时器系统/计时器系统使用说明.md) | — |
-| 🧵 公共 Mono 模块 | [公共Mono模块使用说明.md](公共Mono模块/公共Mono模块使用说明.md) | — |
-| 📦 资源加载系统 | [资源加载系统使用说明.md](资源加载系统/资源加载系统使用说明.md) | ✅ [资源加载系统架构解析.md](资源加载系统/资源加载系统架构解析.md) |
-| 🎨 UI 系统 | [UI系统使用说明.md](UI系统/UI系统使用说明.md) | ✅ [UI系统架构解析.md](UI系统/UI系统架构解析.md) |
-| 🎬 动作序列 | [动作序列使用说明.md](动作序列/动作序列使用说明.md) | ✅ [动作序列架构解析.md](动作序列/动作序列架构解析.md) |
-| 🎮 状态机 | [状态机使用说明.md](状态机/状态机使用说明.md) | ✅ [状态机架构解析.md](状态机/状态机架构解析.md) · [Demo 示例讲解.md](状态机/状态机Demo示例讲解.md) |
-| 🔊 音效系统 | [音效系统使用说明.md](音效系统/音效系统使用说明.md) | — |
-| 📣 事件系统 | [事件系统使用说明.md](事件系统/事件系统使用说明.md) | ✅ [事件系统架构解析.md](事件系统/事件系统架构解析.md) |
-| 📦 对象池 | [对象池使用说明.md](对象池/对象池使用说明.md) | ✅ [对象池架构解析.md](对象池/对象池架构解析.md) |
-| 🧭 服务定位器 | [服务定位器使用说明.md](服务定位器/服务定位器使用说明.md) | ✅ [依赖注入 vs 服务定位器.html](服务定位器/依赖注入vs服务定位器.html) |
-| 🕹 GM 指令 | [GM指令使用说明.md](GM指令/GM指令使用说明.md) | — |
-| 📊 导表工具 | [导表工具使用说明.md](导表工具/导表工具使用说明.md) | ✅ [导表工具架构解析.md](导表工具/导表工具架构解析.md) · [对比与设计说明.md](导表工具/导表工具对比与设计说明.md) |
+| 📝 日志系统 | [网页](https://yokino337088.github.io/Revolution/日志系统/日志系统使用说明.html) · [md](日志系统/日志系统使用说明.md) | — |
+| ⏱ 计时器系统 | [网页](https://yokino337088.github.io/Revolution/计时器系统/计时器系统使用说明.html) · [md](计时器系统/计时器系统使用说明.md) | — |
+| 🧵 公共Mono模块 | [网页](https://yokino337088.github.io/Revolution/公共Mono模块/公共Mono模块使用说明.html) · [md](公共Mono模块/公共Mono模块使用说明.md) | — |
+| 📦 资源加载系统 | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统使用说明.html) · [md](资源加载系统/资源加载系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统架构解析.html) · [md](资源加载系统/资源加载系统架构解析.md) |
+| 🎨 UI系统 | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统使用说明.html) · [md](UI系统/UI系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统架构解析.html) · [md](UI系统/UI系统架构解析.md) |
+| 🎬 动作序列 | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列使用说明.html) · [md](动作序列/动作序列使用说明.md) | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列架构解析.html) · [md](动作序列/动作序列架构解析.md) |
+| 🎮 状态机 | [网页](https://yokino337088.github.io/Revolution/状态机/状态机使用说明.html) · [md](状态机/状态机使用说明.md) | [网页](https://yokino337088.github.io/Revolution/状态机/状态机架构解析.html) · [md](状态机/状态机架构解析.md) · [网页](https://yokino337088.github.io/Revolution/状态机/状态机Demo示例讲解.html) · [md](状态机/状态机Demo示例讲解.md) |
+| 🔊 音效系统 | [网页](https://yokino337088.github.io/Revolution/音效系统/音效系统使用说明.html) · [md](音效系统/音效系统使用说明.md) | — |
+| 📣 事件系统 | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统使用说明.html) · [md](事件系统/事件系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统架构解析.html) · [md](事件系统/事件系统架构解析.md) |
+| 📦 对象池 | [网页](https://yokino337088.github.io/Revolution/对象池/对象池使用说明.html) · [md](对象池/对象池使用说明.md) | [网页](https://yokino337088.github.io/Revolution/对象池/对象池架构解析.html) · [md](对象池/对象池架构解析.md) |
+| 🧭 服务定位器 | [网页](https://yokino337088.github.io/Revolution/服务定位器/服务定位器使用说明.html) · [md](服务定位器/服务定位器使用说明.md) | [网页](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
+| 🕹 GM指令 | [网页](https://yokino337088.github.io/Revolution/GM指令/GM指令使用说明.html) · [md](GM指令/GM指令使用说明.md) | — |
+| 📊 导表工具 | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具使用说明.html) · [md](导表工具/导表工具使用说明.md) | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具架构解析.html) · [md](导表工具/导表工具架构解析.md) · [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具对比与设计说明.html) · [md](导表工具/导表工具对比与设计说明.md) |
 
 - `index.html` —— 文档总入口（= 在线站首页，带搜索）
 - `预览文档.cmd` —— 本地预览脚本（等价于在线站）
