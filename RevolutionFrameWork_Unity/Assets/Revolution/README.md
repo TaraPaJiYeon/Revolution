@@ -88,7 +88,7 @@ Revolution/
 
 ## 📚 文档
 
-- **文档总入口（推荐从这里进）**：[`Revolution.Document/index.html`](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/index.html)
+- **在线文档站（推荐从这里进）**：<https://yokino337088.github.io/Revolution/>
 - 各模块《使用说明》（手把手）与《使用指南》（设计论证）：仓库 `Revolution.Document/`
 - 3 分钟上手（模块级 README）：`Runtime/RevSoundSystem/README.md`、`Runtime/RevTimer/README.md`、`Runtime/RevLog/README.md` 等
 
