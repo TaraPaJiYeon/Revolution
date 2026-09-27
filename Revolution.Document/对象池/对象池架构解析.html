@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>对象池 · 使用指南</title>
+<title>对象池 · 架构解析</title>
 <style>
   :root{
     --accent:#2F6FED; --accent-soft:#EAF1FE;
@@ -103,10 +103,10 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="kicker">使用指南</span>
-    <h1>对象池 · 使用指南</h1>
+    <span class="kicker">架构解析</span>
+    <h1>对象池 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\ObjectPool\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能独立完成"一行取出对象 → 归还 → 正确释放"，并且知道它和旧版（唐老师框架 <code>Runtime\对象池\</code>）的每一处差别、每处差别为什么这么改</p>
+    <p class="meta">目标：看完能独立完成"一行取出对象 → 归还 → 正确释放"，并且知道它和早期版本的每一处差别、每处差别为什么这么改</p>
   </div>
 </header>
 
@@ -116,8 +116,8 @@
     <ol>
       <li><a href="#s0">〇、最短路径（三句话）</a></li>
       <li><a href="#s1">一、对象池解决什么问题</a></li>
-      <li><a href="#s2">二、新版 vs 旧版</a></li>
-      <li><a href="#s3">三、运用了王者的哪些设计哲学</a></li>
+      <li><a href="#s2">二、当前实现 vs 早期版本</a></li>
+      <li><a href="#s3">三、运用了参考实现的哪些设计哲学</a></li>
       <li><a href="#s4">四、怎么用</a></li>
       <li><a href="#s5">五、必须知道的六个坑</a></li>
       <li><a href="#s6">六、API 速查</a></li>
@@ -167,12 +167,12 @@
 
   <!-- ==================== 二 ==================== -->
   <section id="s2">
-    <h2><span class="num">2</span>新版 vs 旧版（唐老师框架 <code>Runtime\对象池\</code>）</h2>
+    <h2><span class="num">2</span>当前实现 vs 早期版本</h2>
 
     <h3>2.1 总览</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:16%">维度</th><th style="width:42%">旧版（<code>GameObject对象池\</code> + <code>引用对象池\</code>）</th><th>新版（<code>Runtime\ObjectPool\</code>）</th></tr></thead>
+        <thead><tr><th style="width:16%">维度</th><th style="width:42%">早期版本（<code>GameObject对象池\</code> + <code>引用对象池\</code>）</th><th>新版（<code>Runtime\ObjectPool\</code>）</th></tr></thead>
         <tbody>
           <tr><td>代码规模</td><td><b>1018 非空行 / 4 文件</b>（含 215 行示例代码；注释 372 行）</td><td><b>1664 非空行 / 10 文件</b>，分 Core / Facade / Support 三层（注释 546 行 ≈ 三成）</td></tr>
           <tr><td>公开方法</td><td><b>30 个</b>（<code>GOPoolMgr.cs</code> 12 + <code>ReferencePoolMgr.cs</code> 18）</td><td><b>40 个</b>（<code>RevPool</code> 25 + <code>RevRefPool</code> 15），业务日常只认 4 个（两个门面的 <code>Get</code> / <code>Return</code>）</td></tr>
@@ -191,14 +191,14 @@
       </table>
     </div>
     <div class="callout">
-      <b>说明</b>：代码量比旧版多（实际代码 1118 行 vs 旧版 646 行），因为补上了旧版<b>完全没有</b>的能力：
+      <b>说明</b>：代码量比早期版本多（实际代码 1118 行 vs 早期版本 646 行），因为补上了早期版本<b>完全没有</b>的能力：
       LIFO 复用、容量上限、延迟回收、统计、池自愈、资源系统集成、编辑器可视化。
       功能变多、分工变清楚，是这次重构的目的。
     </div>
 
     <h3>2.2 用"对象名字符串"当池 Key</h3>
-    <p>旧版取对象是 <code>poolDic[obj.name]</code>（回收时也一样）：</p>
-    <pre><span class="c">// 旧版 GOPoolMgr.PushObj</span>
+    <p>早期版本取对象是 <code>poolDic[obj.name]</code>（回收时也一样）：</p>
+    <pre><span class="c">// 早期版本 GOPoolMgr.PushObj</span>
 <span class="k">public void</span> PushObj(GameObject obj, Action&lt;GameObject&gt; callback = <span class="k">null</span>)
 {
     <span class="k">if</span> (obj == <span class="k">null</span>) <span class="k">return</span>;
@@ -222,8 +222,8 @@
       业务传"根目录 + 资源名"、业务传 prefab 引用、归还时从实例身上读 <code>PoolId</code>。
       其中 <code>_byKey</code> 的键<b>就是资源系统的缓存键</b>（<code>ResPathUtil.ComputeKey(rootPath, resName)</code>）—— 命中已有池时连字符串都不拼。</p>
 
-    <h3>2.3 重复归还：旧版会静默压两份</h3>
-    <p>旧版归还就是一句 <code>dataStack.Push(obj)</code>，没有任何校验。取一次还两次的后果是：</p>
+    <h3>2.3 重复归还：早期版本会静默压两份</h3>
+    <p>早期版本归还就是一句 <code>dataStack.Push(obj)</code>，没有任何校验。取一次还两次的后果是：</p>
     <pre>池里出现同一个实例的两份
     → 两个使用者各自"取到"它
     → 一人改位置、一人改状态 —— 互相踩（而且完全看不出是谁干的）</pre>
@@ -247,8 +247,8 @@
     <p>工程外断言里有一条专门验它：还两次 → 第二次被拒 + 报错 + 之后两次取出<b>不是</b>同一实例。</p>
 
     <h3>2.4 池空时"抢正在使用的对象"</h3>
-    <p>旧版 <code>PoolData.Pop()</code> 有一个非常危险的分支：</p>
-    <pre><span class="c">// 旧版 PoolData.Pop（节选）</span>
+    <p>早期版本 <code>PoolData.Pop()</code> 有一个非常危险的分支：</p>
+    <pre><span class="c">// 早期版本 PoolData.Pop（节选）</span>
 <span class="k">if</span> (Count &gt; <span class="n">0</span>) { obj = dataStack.Pop(); usedList.Add(obj); }
 <span class="k">else</span>
 {
@@ -264,7 +264,7 @@
       "同时存在上限"这个概念也不再需要 —— 它本来就是这套混乱逻辑的产物。</p>
 
     <h3>2.5 绕开资源系统自己加载</h3>
-    <p>旧版同时存在两条加载路径（<code>Resources.Load</code> 3 处、<code>ABResMgr</code> 3 处），而且三个 <code>GetObj</code> 重载
+    <p>早期版本同时存在两条加载路径（<code>Resources.Load</code> 3 处、<code>ABResMgr</code> 3 处），而且三个 <code>GetObj</code> 重载
       <b>语义各不相同</b>（一个走 Resources、一个走 AB 回调、一个走 prefab 引用），Key 也各不相同
       （<code>name</code> / <code>abName + resName</code> / <code>gameObject.name</code>）—— 同一个 prefab 用不同重载取，
       会得到<b>不同的池</b>，回收时还可能进错池。</p>
@@ -278,7 +278,7 @@ GameObject prefab = handle.Content <span class="k">as</span> GameObject;</pre>
       池的键就是这两段算出的缓存键，所以命中已有池时<b>不拼字符串、零分配</b>。</p>
 
     <h3>2.6 引用池的 LRU 双向链表：为了省 GC 反而制造 GC</h3>
-    <p>旧版引用池用 LRU（双向链表 + 哈希表）管理空闲对象，<b>每次归还都 <code>new LRUNode&lt;T&gt;(obj)</code></b>，
+    <p>早期版本引用池用 LRU（双向链表 + 哈希表）管理空闲对象，<b>每次归还都 <code>new LRUNode&lt;T&gt;(obj)</code></b>，
       取出时再把它扔掉 —— 对象池本来是为了减少 GC，结果每次归还都在制造 GC。</p>
     <p>而且 LRU 在这里没有意义：池里放的都是<b>空闲</b>对象，"谁先用谁后用"对复用没有差别
       （要的是"最后一个放进去的先取"，即 LIFO）。</p>
@@ -286,7 +286,7 @@ GameObject prefab = handle.Content <span class="k">as</span> GameObject;</pre>
       工程外实测 <code>Get</code>/<code>Return</code> 连续 20000 轮 <b>GC 分配 0 字节</b>。</p>
 
     <h3>2.7 <code>ClearPool</code> 只清字典，池里的对象变孤儿</h3>
-    <pre><span class="c">// 旧版 GOPoolMgr.ClearPool</span>
+    <pre><span class="c">// 早期版本 GOPoolMgr.ClearPool</span>
 <span class="k">public void</span> ClearPool()
 {
     poolDic.Clear();     <span class="c">// ★ 池里的 GameObject 一个都没销毁、也没被回收</span>
@@ -309,22 +309,22 @@ GameObject prefab = handle.Content <span class="k">as</span> GameObject;</pre>
 
   <!-- ==================== 三 ==================== -->
   <section id="s3">
-    <h2><span class="num">3</span>运用了王者的哪些设计哲学</h2>
-    <p>对照《03-对象池.md》（王者 <code>CGameObjectPool</code> 分析）里的设计要点，逐条说落地情况：</p>
+    <h2><span class="num">3</span>运用了参考实现的哪些设计哲学</h2>
+    <p>对照《03-对象池.md》（参考实现 <code>CGameObjectPool</code> 分析）里的设计要点，逐条说落地情况：</p>
 
     <h3>3.1 八条对照</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:30%">王者的做法</th><th>这里的落地</th></tr></thead>
+        <thead><tr><th style="width:30%">参考实现的做法</th><th>这里的落地</th></tr></thead>
         <tbody>
           <tr><td>① 用原型（Prefab）作 Key</td><td>prefab 实例 ID（+ 引用身份校验），三种入口（路径 / prefab 引用 / 实例上的 <code>PoolId</code>）汇到同一批池</td></tr>
           <tr><td>② 后进先出（LIFO）提高命中</td><td><code>List</code> 当栈，从尾部取；"最后归还的最新鲜（缓存还热）"</td></tr>
           <tr><td>③ 双层追踪（池里 + 在用）</td><td><b>改成推导</b>：<code>ActiveCount = Created - Destroyed - Lost - IdleCount</code>（见 3.3）</td></tr>
           <tr><td>④ 延迟回收避免抖动</td><td><code>Return(item, delayFrames)</code>；延迟期间对象<b>不会</b>被取到，由 <code>RevPoolDriver</code> 每帧推进</td></tr>
           <tr><td>⑤ 容量限制防止内存黑洞</td><td><code>RevPool.MaxIdlePerPool</code>（默认 64，0 = 不限）；超出上限的归还对象直接销毁</td></tr>
-          <tr><td>⑥ 统计上报</td><td><code>RevPoolStats</code> + <b>命中率</b>；<code>RevPool.DumpStats()</code> 一次打全（王者上报灯塔，这里给一个可打印快照）</td></tr>
+          <tr><td>⑥ 统计上报</td><td><code>RevPoolStats</code> + <b>命中率</b>；<code>RevPool.DumpStats()</code> 一次打全（参考实现上报灯塔，这里给一个可打印快照）</td></tr>
           <tr><td>⑦ 编辑器可视化</td><td><code>[RevObjectPool]</code> 根节点 → <code>Pool-&lt;prefab&gt;</code> 子节点 → 空闲实例；点开层级就能看出哪条池囤了多少</td></tr>
-          <tr><td>⑧ 调试代码零开销</td><td><code>RevPoolLog.Debug</code> 用 <code>[Conditional("UNITY_EDITOR")]</code>：正式包里<b>连参数求值都不发生</b>（王者用 <code>#if ENABLE_EDITOR_STATISTIC</code>）</td></tr>
+          <tr><td>⑧ 调试代码零开销</td><td><code>RevPoolLog.Debug</code> 用 <code>[Conditional("UNITY_EDITOR")]</code>：正式包里<b>连参数求值都不发生</b>（参考实现用 <code>#if ENABLE_EDITOR_STATISTIC</code>）</td></tr>
         </tbody>
       </table>
     </div>
@@ -336,8 +336,8 @@ GameObject prefab = handle.Content <span class="k">as</span> GameObject;</pre>
     <p>实现上 <code>_idle</code> 用 <code>List</code> 当栈（归还 <code>Add</code>、取出 <code>RemoveAt(Count-1)</code>），
       两边都是 O(1)，都不分配。</p>
 
-    <h3>3.3 "双层追踪"改成推导（比王者更省）</h3>
-    <p>王者维护了三张表互相校验：池里、在用、全部。好处是随时能查到"谁被谁拿着"，代价是
+    <h3>3.3 "双层追踪"改成推导（比参考实现更省）</h3>
+    <p>参考实现维护了三张表互相校验：池里、在用、全部。好处是随时能查到"谁被谁拿着"，代价是
       <b>每次取出/归还都要在"在用表"里做一次 O(n) 增删</b>（<code>List.Remove</code>），实例一多就是热点。</p>
     <p>新版用推导：</p>
     <pre>ActiveCount = Created - Destroyed - Lost - IdleCount</pre>
@@ -388,15 +388,15 @@ RevPool.TrimAll(<span class="n">64</span>);                         <span class=
     <p>池里囤了多少、有没有异常增长，看一眼层级就知道。同时 <code>RevPoolLog.Debug(...)</code> 的调用在正式包里被
       <code>[Conditional]</code> <b>整段移除</b>，不会为了调试付运行时成本。</p>
 
-    <h3>3.8 我和王者不一样的地方</h3>
+    <h3>3.8 我和参考实现不一样的地方</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:14%">差异</th><th style="width:26%">王者做法</th><th style="width:26%">新版做法</th><th>为什么</th></tr></thead>
+        <thead><tr><th style="width:14%">差异</th><th style="width:26%">参考实现做法</th><th style="width:26%">新版做法</th><th>为什么</th></tr></thead>
         <tbody>
           <tr><td>归还后父节点</td><td>正式包<b>不挂</b>池节点（省一次 SetParent）</td><td><b>始终挂</b>到池节点下</td><td>一次 SetParent 相对 Instantiate 可忽略；换来的是"已归还对象不再挂在业务节点下"（否则 UI 布局/射线可能扫到它），并且切场景不会连带销毁</td></tr>
           <tr><td>丢失对象的检测</td><td>维护 <code>m_allPooledGameObjectScriptMap</code> 全量表</td><td><b>lazy sweep</b>：取用时发现空壳就丢掉并计 <code>Lost</code></td><td>不额外维护全量表（省内存、省每帧成本）；代价是 <code>Lost</code> 计数略滞后（下次取到它时才更新）</td></tr>
           <tr><td>池键类型</td><td>Prefab 路径哈希（ulong）</td><td>prefab 实例 ID（int）+ 引用校验</td><td>int 比较零成本；引用校验挡住"实例 ID 被回收再利用"的误命中</td></tr>
-          <tr><td>资源管理层</td><td>王者自带整套资源管理</td><td>直接基于本框架 <code>ResourceSystem</code>：<code>ResHandle</code> 引用 + <code>ResGroup</code> 分组 + 异步接口</td><td>不重复造资源管理层</td></tr>
+          <tr><td>资源管理层</td><td>参考实现自带整套资源管理</td><td>直接基于本框架 <code>ResourceSystem</code>：<code>ResHandle</code> 引用 + <code>ResGroup</code> 分组 + 异步接口</td><td>不重复造资源管理层</td></tr>
         </tbody>
       </table>
     </div>
@@ -513,7 +513,7 @@ RevRefPool.Return(msg);</pre>
       </table>
     </div>
     <div class="callout">
-      <code>variant</code> 是"同一个类要两条互不干扰的池"的后门（旧框架的 <code>nameSpace</code> 参数）。
+      <code>variant</code> 是"同一个类要两条互不干扰的池"的后门（早期实现的 <code>nameSpace</code> 参数）。
       <b>更推荐派生一个子类</b>（类型即语义），免得半年后没人记得 <code>variant = "battle"</code> 是干什么的。
     </div>
 
@@ -621,7 +621,7 @@ RevRefPool.GetPoolNames();                 <span class="c">// 引用池名清单
         <thead><tr><th style="width:58%">验证项</th><th>结果</th></tr></thead>
         <tbody>
           <tr><td>行为断言（LIFO、重复归还、容量上限、Trim/Clear、延迟回收、变体隔离、丢失检测、统计…）</td><td><b>52 项全部通过</b></td></tr>
-          <tr><td><code>RevRefPool</code> 的 <code>Get</code>/<code>Return</code> 连续 <b>20000 轮</b></td><td><b>GC 分配 0 字节</b>（旧版每次归还都要 <code>new LRUNode&lt;T&gt;</code>）</td></tr>
+          <tr><td><code>RevRefPool</code> 的 <code>Get</code>/<code>Return</code> 连续 <b>20000 轮</b></td><td><b>GC 分配 0 字节</b>（早期版本每次归还都要 <code>new LRUNode&lt;T&gt;</code>）</td></tr>
           <tr><td><code>LangVersion 9.0</code>（对齐 Unity 2022.3）</td><td>编译通过</td></tr>
           <tr><td>整个 <code>Revolution.Runtime</code> 程序集（Unity 真实引用 + <code>UNITY_EDITOR</code>）</td><td><b>0 错误 0 警告</b></td></tr>
         </tbody>
@@ -634,7 +634,7 @@ RevRefPool.GetPoolNames();                 <span class="c">// 引用池名清单
       <li><b>容量</b>：还 10 个、上限 3 → 池里只留 3 个，另外 7 个被销毁；</li>
       <li><b>延迟回收</b>：延迟 3 帧时，前 2 次 <code>Tick</code> 后仍未进池，第 3 次才进池；延迟期间取对象会新建；</li>
       <li><b>丢失检测</b>：空闲对象被外部"销毁"后，取用时跳过空壳（<code>Lost</code> +1）并拿到还活着的那个；</li>
-      <li><b>错误用法</b>：归还到不存在的池 / variant 不一致 → <b>拒绝 + 错误日志</b>（旧框架是 Warning 后静默 return）。</li>
+      <li><b>错误用法</b>：归还到不存在的池 / variant 不一致 → <b>拒绝 + 错误日志</b>（早期实现是 Warning 后静默 return）。</li>
     </ul>
     <div class="callout warn">
       <b>编译阶段抓到 1 个真错误</b>：<code>RevGameObjectPools.cs</code> 里 <code>Object.Destroy(...)</code> 在同时
@@ -668,8 +668,6 @@ RevRefPool.GetPoolNames();                 <span class="c">// 引用池名清单
       <table>
         <thead><tr><th style="width:46%">参考资料</th><th>位置</th></tr></thead>
         <tbody>
-          <tr><td>王者对象池设计分析</td><td><code>工作日志\第二月\第5周\2026年9月15日\框架\03-对象池.md</code></td></tr>
-          <tr><td>旧版对象池（对照用，未改动）</td><td><code>唐老师框架升级版\Runtime\对象池\</code></td></tr>
           <tr><td>资源加载系统（本框架池化 prefab 的来源）</td><td><code>Runtime\ResourceSystem\</code> + <code>Revolution.Document\资源加载系统\</code></td></tr>
         </tbody>
       </table>

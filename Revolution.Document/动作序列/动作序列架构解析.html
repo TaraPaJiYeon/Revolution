@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>动作序列 · 使用指南</title>
+<title>动作序列 · 架构解析</title>
 <style>
   :root{
     --accent:#2F6FED; --accent-soft:#EAF1FE;
@@ -235,10 +235,10 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="kicker">使用指南 · 含动画演示 · 含王者真实场景 Demo</span>
-    <h1>动作序列 · 使用指南</h1>
+    <span class="kicker">架构解析 · 含动画演示 · 含参考实现真实场景 Demo</span>
+    <h1>动作序列 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（<code>Facade</code> 接入入口 3 个 / <code>Core</code> 数据与基类 3 个 / <code>Implementation</code> 引擎内部 7 个 / <code>Implementation\Steps</code> 步骤库 6 个 / <code>Interfaces</code> 契约 2 个 / <code>Support</code> 宿主适配 1 个），另有 <code>README.md</code> = 3 分钟上手</p>
-    <p class="meta">目标：判断它适合什么业务、把它接进 Unity 跑起来、写出扛得住并发与取消的序列；并说清它从王者「动作序列执行系统」继承了什么、改掉了什么、为什么这么改</p>
+    <p class="meta">目标：判断它适合什么业务、把它接进 Unity 跑起来、写出扛得住并发与取消的序列；并说清它从参考实现「动作序列执行系统」继承了什么、改掉了什么、为什么这么改</p>
   </div>
   <div class="deco"></div>
 </header>
@@ -249,11 +249,11 @@
     <ol>
       <li><a href="#s0">〇、先看最短路径（选型 + 五行代码）</a></li>
       <li><a href="#s1">一、它解决什么问题（为什么不是协程）</a></li>
-      <li><a href="#s2">二、新版 vs 王者原体系</a></li>
+      <li><a href="#s2">二、新版 vs 参考实现</a></li>
       <li><a href="#s3">三、七个关键设计决策（动画 2、微动画）</a></li>
       <li><a href="#s4">四、通用性论证：能不能经得起业务考验</a></li>
       <li><a href="#s5">五、怎么用（动画 1、动画 3b）</a></li>
-      <li><a href="#s6">六、王者真实场景 Demo（10 文件）</a></li>
+      <li><a href="#s6">六、参考实现真实场景 Demo（10 文件）</a></li>
       <li><a href="#s7">七、API 速查</a></li>
       <li><a href="#s8">八、验证结果</a></li>
       <li><a href="#s9">九、关键文件索引</a></li>
@@ -410,8 +410,7 @@ _clicked = <span class="k">false</span>; _waiting = <span class="k">true</span>;
   </section>
   <!-- ==================== 二 ==================== -->
   <section id="s2">
-    <h2><span class="num">2</span>新版 vs 王者原体系（动作序列执行系统）</h2>
-    <p>对照素材：<code>工作日志\第二月\第6周\2026年9月24日\动作序列执行系统\</code>（文档 9 篇 / 1552 行，代码 19 个 <code>.cs</code>）。</p>
+    <h2><span class="num">2</span>新版 vs 参考实现（动作序列执行系统）</h2>
 
     <h3>2.1 总览</h3>
     <div class="table-wrap">
@@ -919,7 +918,7 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
   </section>
   <!-- ==================== 六 ==================== -->
   <section id="s6">
-    <h2><span class="num">6</span>王者真实业务场景 Demo（<code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>）</h2>
+    <h2><span class="num">6</span>参考实现真实业务场景 Demo（<code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>）</h2>
 
     <h3>6.1 目录与怎么跑</h3>
     <pre>RevActionSequence.Demo\              10 文件 / 1181 行
@@ -954,7 +953,7 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
 
     <h3>6.2 五个场景，逐个对照原体系</h3>
 
-    <h4>场景① 宝箱 → 等待点击 → 开门（原体系《05 配置与使用指南》39~55 行）</h4>
+    <h4>场景① 宝箱 → 等待点击 → 开门（原体系《05 配置与架构解析》39~55 行）</h4>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:46%">原体系</th><th>本框架</th></tr></thead>
@@ -1155,10 +1154,9 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
       <table>
         <thead><tr><th style="width:44%">材料</th><th>位置</th></tr></thead>
         <tbody>
-          <tr><td>王者原体系源码分析（设计哲学 / 架构总览 / 核心执行器 / 动作节点 / 触发调度 / 配置指南 / 抽离方案 / <b>改造方案</b>）</td><td><code>工作日志\第二月\第6周\2026年9月24日\动作序列执行系统\</code></td></tr>
-          <tr><td>王者真实业务场景 Demo（本文第六章）</td><td><code>Assets\Revolution.Demo\RevActionSequence.Demo\</code></td></tr>
+          <tr><td>参考实现真实业务场景 Demo（本文第六章）</td><td><code>Assets\Revolution.Demo\RevActionSequence.Demo\</code></td></tr>
           <tr><td>异步与取消（<code>WaitTask</code> / <code>PlayAsync</code> 的底座）</td><td><code>Runtime\RevTask\</code></td></tr>
-          <tr><td>状态机官方指南（同为"新版 vs 旧版"对照文档）</td><td><code>Revolution.Document\状态机\状态机使用指南.md</code> / <code>.html</code></td></tr>
+          <tr><td>状态机官方指南（同为"当前实现 vs 早期版本"对照文档）</td><td><code>Revolution.Document\状态机\状态机架构解析.md</code> / <code>.html</code></td></tr>
         </tbody>
       </table>
     </div>

@@ -169,7 +169,7 @@
       <li><a href="#s8">八、完整实战：接上服务定位器</a></li>
       <li><a href="#s9">九、正式包策略（怎么保证不上线）</a></li>
       <li><a href="#s10">十、一页速查卡（可打印）</a></li>
-      <li><a href="#s11">十一、与王者原版的对照 + 已知边界</a></li>
+      <li><a href="#s11">十一、与参考实现的对照 + 已知边界</a></li>
       <li><a href="#s12">十二、文件都在哪</a></li>
     </ol>
   </nav>
@@ -411,13 +411,13 @@ args.Enum&lt;ChatChannel&gt;(0, ChatChannel.Lobby)   <span class="c">// 枚举</
           <tr><td><code>经济/加金币 abc</code></td><td><code>经济/加金币 → 参数「数量」应该是整数，实际收到 "abc"</code></td></tr>
           <tr><td><code>经济/加金币</code>（必填时）</td><td><code>经济/加金币 → 缺少必填参数「数量」（数量|整数(必填)）</code></td></tr>
           <tr><td><code>聊天/发消息 notachannel</code></td><td><code>聊天/发消息 → 参数「频道」应该是 lobby / guild / customteam 之一，实际收到 "notachannel"</code></td></tr>
-          <tr><td>参数个数超过声明</td><td><code>参数多了 2 个（本命令最多接受 1 个参数；多个词请用引号括起来，例如 "王者 荣耀"）</code></td></tr>
+          <tr><td>参数个数超过声明</td><td><code>参数多了 2 个（本命令最多接受 1 个参数；多个词请用引号括起来，例如 "你好 世界"）</code></td></tr>
         </tbody>
       </table>
     </div>
 
     <h3>4.4 带空格的参数要用引号</h3>
-<pre>工具/回显 <span class="s">"王者 荣耀"</span> 第二段    <span class="c">// 第 1 个参数是「王者 荣耀」，第 2 个是「第二段」</span></pre>
+<pre>工具/回显 <span class="s">"你好 世界"</span> 第二段    <span class="c">// 第 1 个参数是「你好 世界」，第 2 个是「第二段」</span></pre>
     <div class="callout warn">
       <span class="t">记住这条</span>
       <p>命令名与参数用<b>空格</b>分开（中文全角空格、Tab 也算分隔符）；引号内的空格不拆。
@@ -445,8 +445,8 @@ args.Enum&lt;ChatChannel&gt;(0, ChatChannel.Lobby)   <span class="c">// 枚举</
     <span class="k">return</span> <span class="s">"领取成功"</span>;
 });</pre>
     <div class="callout">
-      <span class="t">这是王者那套最缺的一环</span>
-      <p>老框架里"界面上连报错都没有"，测试同学只能猜。本框架把<b>用法错误</b>和<b>真 bug</b>分开处理。</p>
+      <span class="t">这是那套参考实现最缺的一环</span>
+      <p>早期实现里"界面上连报错都没有"，测试同学只能猜。本框架把<b>用法错误</b>和<b>真 bug</b>分开处理。</p>
     </div>
 
     <h3>5.3 真 bug（自己写错了）→ 什么都别做，让框架兜</h3>
@@ -597,14 +597,14 @@ args.Enum&lt;ChatChannel&gt;(0, ChatChannel.Lobby)   <span class="c">// 枚举</
           <tr><td><b>不注册 = 不存在</b>（推荐）</td><td>正式包里没人调 <code>RevGM.Register(...)</code> → 注册表是空的；程序集里只有几十行"空转"代码，<b>没有静态构造、没有反射扫描、没有每帧开销</b></td></tr>
           <tr><td><b>一键关闭</b></td><td><code>RevGM.Enabled = false</code>（注册保留，所有执行一律被拒绝）</td></tr>
           <tr><td><b>整块删除</b></td><td>删掉注册入口 + 命令实现文件即可（框架代码可留可删，没有耦合）</td></tr>
-          <tr><td><b>真正的权限</b></td><td>客户端不做权限伪造：<code>HighRisk</code> 只是"提醒 + 二次确认"，<b>真权限必须由服务端裁决</b>（与王者的结论一致）</td></tr>
+          <tr><td><b>真正的权限</b></td><td>客户端不做权限伪造：<code>HighRisk</code> 只是"提醒 + 二次确认"，<b>真权限必须由服务端裁决</b>（与参考实现的结论一致）</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="cmp">
       <div class="no">
-        <div class="h">✗ 王者那套：靠多层编译宏</div>
+        <div class="h">✗ 那套参考实现：靠多层编译宏</div>
         <pre><span class="c">// 真码里是这种矩阵，还要靠人工纪律</span>
 //#define ENABLE_CHEAT_COMMANDS
 #if ENABLE_CHEAT_COMMANDS &amp;&amp; ENABLE_AITEST ...
@@ -651,8 +651,8 @@ MyGameCommands.Register();
 
   <!-- ============ 十一 ============ -->
   <section id="s11">
-    <h2><span class="num">十一</span>与王者原版的对照 + 已知边界</h2>
-    <p class="lead">完整 12 条精华 + 16 条糟粕（每条带王者出处）在代码目录的 README 第四节。</p>
+    <h2><span class="num">十一</span>与参考实现的对照 + 已知边界</h2>
+    <p class="lead">完整 12 条精华 + 16 条糟粕（每条带出处）在代码目录的 README 第四节。</p>
 
     <div class="table-wrap">
       <table>
@@ -705,7 +705,7 @@ MyGameCommands.Register();
 
     <div class="callout good">
       <span class="t">下一步读什么</span>
-      <p>想搞清楚"为什么这么设计"（以及王者那套每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevGMCommand\README.md</code>。</p>
+      <p>想搞清楚"为什么这么设计"（以及那套参考实现每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevGMCommand\README.md</code>。</p>
     </div>
   </section>
 

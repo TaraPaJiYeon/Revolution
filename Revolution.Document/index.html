@@ -104,7 +104,7 @@
     <span class="kicker">REVOLUTION · 文档总入口</span>
     <h1>Revolution 文档导航</h1>
     <p>15 个运行期模块 + 2 套编辑器工具的文档都在这一页。<b>第一次来</b>：先看 ①，再按需要往下跳。</p>
-    <div class="meta">13 个模块 · 34 份文档（每个模块都有《使用说明》= 手把手 · 多数另有《使用指南》= 设计论证）</div>
+    <div class="meta">13 个模块 · 34 份文档（每个模块都有《使用说明》= 手把手 · 多数另有《架构解析》= 设计论证）</div>
     <div class="meta">在线地址：<a href="https://yokino337088.github.io/Revolution/" style="color:#fff;text-decoration:underline;">yokino337088.github.io/Revolution</a>　·　本地预览：双击 <code>预览文档.cmd</code></div>
   </div>
   <div class="deco"></div>
@@ -147,15 +147,15 @@
   <!-- ② -->
   <section>
     <h2><span class="num">2</span>业务三件套：资源 · UI · 动作</h2>
-    <p class="lead">日常开发用得最多的三个模块。它们的《使用指南》里都带了完整数据流与失败处理说明。</p>
+    <p class="lead">日常开发用得最多的三个模块。它们的《架构解析》里都带了完整数据流与失败处理说明。</p>
     <div class="grid">
       <div class="card">
         <h3><span class="ico">📦</span>资源加载系统</h3>
         <p class="desc">编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查；含 LiteAB 打包工具的分包 / 依赖 / 体积 / 漏标 / 快照。</p>
         <div class="links">
           <a href="资源加载系统/资源加载系统使用说明.html">使用说明</a>
-          <a href="资源加载系统/资源加载系统使用指南.html">使用指南</a>
-          <a class="md" href="资源加载系统/资源加载系统使用指南.md">.md</a>
+          <a href="资源加载系统/资源加载系统架构解析.html">架构解析</a>
+          <a class="md" href="资源加载系统/资源加载系统架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">
@@ -163,8 +163,8 @@
         <p class="desc">面板声明式配置（<code>[RevUIPanel(root, layer)]</code>）、层级管理、与对象池联动、关闭即回收。</p>
         <div class="links">
           <a href="UI系统/UI系统使用说明.html">使用说明</a>
-          <a href="UI系统/UI系统使用指南.html">使用指南</a>
-          <a class="md" href="UI系统/UI系统使用指南.md">.md</a>
+          <a href="UI系统/UI系统架构解析.html">架构解析</a>
+          <a class="md" href="UI系统/UI系统架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">
@@ -172,8 +172,8 @@
         <p class="desc">链式 DSL 表达"播放 → 等待 → 并行 → 嵌套"，构建与播放分离，取消也有收尾契约。</p>
         <div class="links">
           <a href="动作序列/动作序列使用说明.html">使用说明</a>
-          <a href="动作序列/动作序列使用指南.html">使用指南</a>
-          <a class="md" href="动作序列/动作序列使用指南.md">.md</a>
+          <a href="动作序列/动作序列架构解析.html">架构解析</a>
+          <a class="md" href="动作序列/动作序列架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">
@@ -186,8 +186,8 @@
         <p class="desc">轻量流程（GameFlow）与重量级 AI 两种形态，切换有明确生命周期回调。</p>
         <div class="links">
           <a href="状态机/状态机使用说明.html">使用说明</a>
-          <a href="状态机/状态机使用指南.html">使用指南</a>
-          <a class="md" href="状态机/状态机使用指南.md">.md</a>
+          <a href="状态机/状态机架构解析.html">架构解析</a>
+          <a class="md" href="状态机/状态机架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">
@@ -195,8 +195,8 @@
         <p class="desc">强类型事件 + 订阅句柄（取消订阅不用记委托）；派发期间增删订阅的安全语义写在文档里。</p>
         <div class="links">
           <a href="事件系统/事件系统使用说明.html">使用说明</a>
-          <a href="事件系统/事件系统使用指南.html">使用指南</a>
-          <a class="md" href="事件系统/事件系统使用指南.md">.md</a>
+          <a href="事件系统/事件系统架构解析.html">架构解析</a>
+          <a class="md" href="事件系统/事件系统架构解析.md">.md</a>
         </div>
       </div>
     </div>
@@ -212,8 +212,8 @@
         <p class="desc">GameObject 池 + 纯 C# 对象池，与资源加载打通（池端着资源引用，不会被卸载掉）。</p>
         <div class="links">
           <a href="对象池/对象池使用说明.html">使用说明</a>
-          <a href="对象池/对象池使用指南.html">使用指南</a>
-          <a class="md" href="对象池/对象池使用指南.md">.md</a>
+          <a href="对象池/对象池架构解析.html">架构解析</a>
+          <a class="md" href="对象池/对象池架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">
@@ -238,9 +238,9 @@
         <p class="desc">Excel → C# 数据类 + txt 数据文件（WPF 独立工具，源码在 <code>Revolution.ExcelTool/</code>）。</p>
         <div class="links">
           <a href="导表工具/导表工具使用说明.html">使用说明</a>
-          <a href="导表工具/导表工具使用指南.html">使用指南</a>
+          <a href="导表工具/导表工具架构解析.html">架构解析</a>
           <a href="导表工具/导表工具对比与设计说明.html">对比与设计说明</a>
-          <a class="md" href="导表工具/导表工具使用指南.md">.md</a>
+          <a class="md" href="导表工具/导表工具架构解析.md">.md</a>
         </div>
       </div>
     </div>
@@ -252,11 +252,11 @@
     <p class="lead">想知道"框架为什么这样写、跟别的方案比差在哪"时读这几篇（不影响使用，纯设计论证）。</p>
     <div class="grid">
       <div class="card">
-        <h3><span class="ico">🔍</span>动作序列使用指南<span class="tag deep">设计向</span></h3>
+        <h3><span class="ico">🔍</span>动作序列架构解析<span class="tag deep">设计向</span></h3>
         <p class="desc">从"为什么不用协程"讲到步骤库分层、取消收尾契约与异常隔离。</p>
         <div class="links">
-          <a href="动作序列/动作序列使用指南.html">打开</a>
-          <a class="md" href="动作序列/动作序列使用指南.md">.md</a>
+          <a href="动作序列/动作序列架构解析.html">打开</a>
+          <a class="md" href="动作序列/动作序列架构解析.md">.md</a>
         </div>
       </div>
       <div class="card">

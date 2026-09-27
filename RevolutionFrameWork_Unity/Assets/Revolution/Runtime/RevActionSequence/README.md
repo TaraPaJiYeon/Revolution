@@ -56,7 +56,7 @@ RevSequencePlayer.Default.Play(ChestOpen, source: gameObject);
 ## 五、完整教程
 
 `Revolution.Document\动作序列\`
-- **使用说明** = 从"能跑"到"写对"（含五个王者真实场景 Demo 讲解）
-- **使用指南** = 设计动机、通用性论证、与原体系（`2026年9月24日\动作序列执行系统`）的逐条对照
+- **使用说明** = 从"能跑"到"写对"（含五个参考实现真实场景 Demo 讲解）
+- **架构解析** = 设计动机、通用性论证、与原体系（`2026年9月24日\动作序列执行系统`）的逐条对照
 
 代码 Demo：`Assets\Revolution.Demo\RevActionSequence.Demo\`（宝箱 / 灵果 / 农场礼盒 / NPC 特写 / 火箭演出）

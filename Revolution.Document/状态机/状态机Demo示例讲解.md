@@ -1,18 +1,18 @@
-# 状态机 Demo 实战讲解（对标王者真实业务）
+# 状态机 Demo 实战讲解（对标参考实现真实业务）
 
 > 代码位置：`RevolutionFramework\Revolution.Demo\Unity\RevStateMachine\`
-> 配套文档：`状态机使用指南.md`（框架 API 全貌）/ `状态机使用指南.html`（含动画）
+> 配套文档：`状态机架构解析.md`（框架 API 全貌）/ `状态机架构解析.html`（含动画）
 > **HTML 版**：`状态机Demo示例讲解.html` —— 含三段流转动画（主流程 / UI 栈 / Boss 双状态机）
 
 ---
 
 ## 〇、三个 Demo 一览
 
-| # | Demo | 用哪套机器 | 对应的王者业务 | 覆盖的关键能力 |
+| # | Demo | 用哪套机器 | 对应的参考实现业务 | 覆盖的关键能力 |
 |---|---|---|---|---|
-| 1 | **游戏主流程**<br>`LightweightFlow\` | 轻量级**单状态机** | 王者① `StateMachine` 的 8+ 使用方之一：**游戏主流程**（登录 → 大厅 → 匹配 → 战斗） | 注册（实例 / 工厂）、`ChangeTo` vs `ChangeToAsync`、**`PendingState` 兜底释放（= 王者①的 tarState）**、异步回来先验状态 |
-| 2 | **UI 界面栈**<br>`LightweightUiStack\` | 轻量级**栈状态机** | 王者③ `StackStateMachine<T>` 的官方用例：**UI 界面栈**（主界面 → 背包 → 设置/帮助） | `Push`/`Pop`/`Change`/`Clear`、**`OnSuspend`/`OnResume` 配对**、工厂注册（可叠多层）、**只有栈顶被驱动**、面包屑自维护 |
-| 3 | **Boss AI**<br>`HeavyweightBossAI\` | **重量级**（枚举 + 行为接口） | 王者④ `FSM<T>` 的正主场景：**怪物 / Boss AI**（待机 → 巡逻 → 追击 → 战斗 → 二阶段 → 死亡） | 枚举当键、行为接口、三路驱动、**事务式切换（二阶段等资源与演出）**、全局规则集中、**组合两台状态机**、切换历史 |
+| 1 | **游戏主流程**<br>`LightweightFlow\` | 轻量级**单状态机** | 参考实现① `StateMachine` 的 8+ 使用方之一：**游戏主流程**（登录 → 大厅 → 匹配 → 战斗） | 注册（实例 / 工厂）、`ChangeTo` vs `ChangeToAsync`、**`PendingState` 兜底释放（= 参考实现①的 tarState）**、异步回来先验状态 |
+| 2 | **UI 界面栈**<br>`LightweightUiStack\` | 轻量级**栈状态机** | 参考实现③ `StackStateMachine<T>` 的官方用例：**UI 界面栈**（主界面 → 背包 → 设置/帮助） | `Push`/`Pop`/`Change`/`Clear`、**`OnSuspend`/`OnResume` 配对**、工厂注册（可叠多层）、**只有栈顶被驱动**、面包屑自维护 |
+| 3 | **Boss AI**<br>`HeavyweightBossAI\` | **重量级**（枚举 + 行为接口） | 参考实现④ `FSM<T>` 的正主场景：**怪物 / Boss AI**（待机 → 巡逻 → 追击 → 战斗 → 二阶段 → 死亡） | 枚举当键、行为接口、三路驱动、**事务式切换（二阶段等资源与演出）**、全局规则集中、**组合两台状态机**、切换历史 |
 
 **一句话选择标准**：业务是"按类型切、状态固定"→ 轻量；业务是"要按枚举做条件判断 / 查表 / 存档"→ 重量。
 
@@ -55,9 +55,9 @@ RevStateMachine\
 
 ## 二、Demo 1：轻量级·单状态机 —— 游戏主流程
 
-### 2.1 王者业务背景
+### 2.1 参考实现业务背景
 
-王者①的 `StateMachine`（非泛型栈式）有 8+ 业务在用，"游戏主流程"就是其中一条：登录 → 大厅 → 匹配 → 战斗加载 → 战斗。
+参考实现①的 `StateMachine`（非泛型栈式）有 8+ 业务在用，"游戏主流程"就是其中一条：登录 → 大厅 → 匹配 → 战斗加载 → 战斗。
 
 这条链路之所以适合当 Demo，是因为它**同时包含两种切换**：
 
@@ -65,7 +65,7 @@ RevStateMachine\
 |---|---|---|
 | 点按钮进匹配、取消回大厅 | `ChangeTo(...)` 同步 | 必须马上切，玩家点了就要有反应 |
 | 读条进战斗 | `ChangeToAsync(...)` 事务式 | 资源没就绪就切过去 = 白屏/穿帮 |
-| 离开读条态时判断"本来要去哪" | `PendingState` | **王者 `LoadingState` 的真实用法**：目标不是战斗 → 兜底释放战斗资源 |
+| 离开读条态时判断"本来要去哪" | `PendingState` | **参考实现 `LoadingState` 的真实用法**：目标不是战斗 → 兜底释放战斗资源 |
 
 ### 2.2 状态流转
 
@@ -124,7 +124,7 @@ if (!_sm.Is<RevDemoBattleState>()) Debug.Log("本次切换被取代/取消");
 ```csharp
 public override void OnExit()
 {
-    // PendingState = "当前事务要去哪"（= 王者①的 tarState，持久保留语义）
+    // PendingState = "当前事务要去哪"（= 参考实现①的 tarState，持久保留语义）
     if (_sm.PendingState is RevDemoBattleState)
         Debug.Log("离开加载态且目标就是战斗 → 资源保留给战斗使用");
     else
@@ -186,16 +186,16 @@ private async RevTask MatchAsync()
 ### 2.5 这个 Demo 能答的面试题
 
 - **"活动/流程切换要不要等资源？"** → 分两类：必须马上切的用同步，等资源/等演出的事务式；两边混用才是常态。
-- **"加载到一半玩家退出了，会不会漏资源？"** → 不会：用 `PendingState`（tarState）判"本来要去哪"，目标不对就兜底释放 —— 这是王者 `LoadingState` 的真实做法。
+- **"加载到一半玩家退出了，会不会漏资源？"** → 不会：用 `PendingState`（tarState）判"本来要去哪"，目标不对就兜底释放 —— 这是参考实现 `LoadingState` 的真实做法。
 - **"异步回调回来时状态已经变了怎么办？"** → 先验活（`CurrentState == this`），不满足就丢弃结果。
 
 ---
 
 ## 三、Demo 2：轻量级·栈状态机 —— UI 界面栈
 
-### 3.1 王者业务背景
+### 3.1 参考实现业务背景
 
-王者③ `StackStateMachine<T>` 的官方示例场景就是 **UI 界面栈**。栈语义的灵魂在 `OnSuspend` / `OnResume`：
+参考实现③ `StackStateMachine<T>` 的官方示例场景就是 **UI 界面栈**。栈语义的灵魂在 `OnSuspend` / `OnResume`：
 
 ```text
 主界面 ─Push─▶ 背包 ─Push─▶ 设置 ─Push─▶ 帮助·第1层 ─Push─▶ 帮助·第2层
@@ -253,11 +253,11 @@ _sm.StatePopped += state => _breadcrumb.Remove(state);
 
 ### 3.3 真实用途对照
 
-| Demo 里的状态 | 王者里的对应 |
+| Demo 里的状态 | 参考实现里的对应 |
 |---|---|
 | 主界面被压住时 `OnSuspend` | "大厅输入"被"战斗输入"压住：**禁用点击但不销毁**，打完一局回来直接 `OnResume` |
 | 背包 `OnSuspend` 暂停刷新 | 被盖住的界面停止列表刷新（省性能，也避免看不见的界面还在响应） |
-| `Change` 替换栈顶 | 王者① `ChangeState`：**栈深不变**的替换（如"读条页"直接换成"错误页"） |
+| `Change` 替换栈顶 | 参考实现① `ChangeState`：**栈深不变**的替换（如"读条页"直接换成"错误页"） |
 
 ### 3.4 这个 Demo 能答的面试题
 
@@ -269,9 +269,9 @@ _sm.StatePopped += state => _breadcrumb.Remove(state);
 
 ## 四、Demo 3：重量级 —— Boss AI（枚举 + 行为接口）
 
-### 4.1 王者业务背景
+### 4.1 参考实现业务背景
 
-怪物 AI / Boss AI 是重量级状态机的正主（对应王者④ `FSM<T>`：**枚举当键 + 事务式切换**）。为什么这类业务要这两样东西：
+怪物 AI / Boss AI 是重量级状态机的正主（对应参考实现④ `FSM<T>`：**枚举当键 + 事务式切换**）。为什么这类业务要这两样东西：
 
 | 需求 | 为什么枚举 / 行为接口能满足 |
 |---|---|
@@ -344,7 +344,7 @@ public override async RevTask PrepareEnterAsync(RevCancellationToken token)
 
 老写法（在 `OnEnter` 里边演边加载）会出现"先变身、特效后到"的穿帮；事务式把"准备"与"进入"分开，交割那一刻资源一定就绪。
 
-**④ 切换原因 + 历史（王者 2024 才补的能力）**
+**④ 切换原因 + 历史（参考实现 2024 才补的能力）**
 
 ```csharp
 _fsm.ChangeState(RevDemoBossStateType.Chase, "发现玩家");        // 带原因
@@ -400,7 +400,7 @@ RevHeavyFsmLog.Sink = message => Debug.Log(message);   // 接到 Unity 控制台
 |---|---|
 | 编译（8 个 Demo 文件 + 框架一起编，Debug 配置） | **0 错误 0 警告** |
 | 运行依赖 | 无需场景布置；只需把目录拷进工程、挂一个组件 |
-| 未覆盖的 API | 栈机的 `TargetState` 只在 [7] 替换栈顶时顺带演示；重量级的 `PrepareExitAsync`、`CanChangeTo`、`MaxHistorySize` 未在 Demo 里展开（在《使用指南》里有说明） |
+| 未覆盖的 API | 栈机的 `TargetState` 只在 [7] 替换栈顶时顺带演示；重量级的 `PrepareExitAsync`、`CanChangeTo`、`MaxHistorySize` 未在 Demo 里展开（在《架构解析》里有说明） |
 
 **已知取舍（写出来，避免误读）**：
 
@@ -413,4 +413,4 @@ RevHeavyFsmLog.Sink = message => Debug.Log(message);   // 接到 Unity 控制台
 > **一句话总结**：
 > 轻量级的两套机器解决"**流程要切得快、界面要回得来**"；
 > 重量级解决"**AI 要能判断、能等待、能回溯**"。
-> 三个 Demo 合起来，正好把"王者四套状态机"的核心场景都覆盖了一遍 —— 而它们背后的框架，只有 10 个文件。
+> 三个 Demo 合起来，正好把"参考实现的四套状态机"的核心场景都覆盖了一遍 —— 而它们背后的框架，只有 10 个文件。

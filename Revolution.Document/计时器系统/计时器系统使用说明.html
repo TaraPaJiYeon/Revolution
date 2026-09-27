@@ -265,7 +265,7 @@ RevTimer.After(<span class="n">1.5f</span>, () =&gt; RevLog.Info(<span class="s"
         <tbody>
           <tr><td class="c"><code>Scaled</code><br><span style="font-size:12px;color:#6B7280">默认</span></td><td><code>deltaTime</code></td><td>表现、动画、战斗演出</td><td>不走</td><td><b>冻结</b></td></tr>
           <tr><td class="c"><code>Unscaled</code></td><td><code>unscaledDeltaTime</code></td><td><b>UI 倒计时</b>、请求超时、轮询、音频收尾</td><td>不走</td><td>照走</td></tr>
-          <tr><td class="c"><code>Fixed</code></td><td><code>fixedDeltaTime</code></td><td>帧率无关的战斗推进（对齐王者 FrameSync）</td><td>走</td><td>照走</td></tr>
+          <tr><td class="c"><code>Fixed</code></td><td><code>fixedDeltaTime</code></td><td>帧率无关的战斗推进（对齐参考实现 FrameSync）</td><td>走</td><td>照走</td></tr>
           <tr><td class="c"><code>Server</code></td><td>服务器 UTC 绝对时刻</td><td>活动结束、榜单刷新、<b>防改设备时间</b></td><td><b>无关 ★</b></td><td>照走</td></tr>
         </tbody>
       </table>
@@ -274,7 +274,7 @@ RevTimer.After(<span class="n">1.5f</span>, () =&gt; RevLog.Info(<span class="s"
     <div class="callout good">
       <span class="t">★ <code>Server</code> 域是"时刻式"，不是"从此刻起 X 秒"</span>
       它比的是<b>绝对 UTC 时刻</b>，所以天然免疫卡顿、掉帧、切后台、玩家改设备时间。
-      王者原版"恢复帧一次性补 60 万毫秒"的补偿尖峰问题，在这里用来选对域就消化掉了，<b>不需要任何补偿代码</b>。
+      参考实现"恢复帧一次性补 60 万毫秒"的补偿尖峰问题，在这里用来选对域就消化掉了，<b>不需要任何补偿代码</b>。
     </div>
 
     <div class="cmp">
@@ -318,7 +318,7 @@ h.Stop();       <span class="c">// 停止并回收（重复调用安全）</span
     <div class="callout good">
       <span class="t">代际号：过期句柄不会误停别人</span>
       句柄 = 槽位 + 代际号。一个早就结束的句柄，即使它占用的槽位已经被新计时器复用，
-      <code>h.Stop()</code> 也<b>打不中新计时器</b>（也不会抛异常）。旧框架的裸 <code>int</code> 句柄做不到这一点 —— "悬空 id 误停新计时器"是它的事故之一。
+      <code>h.Stop()</code> 也<b>打不中新计时器</b>（也不会抛异常）。早期实现的裸 <code>int</code> 句柄做不到这一点 —— "悬空 id 误停新计时器"是它的事故之一。
     </div>
 
     <div class="plain">
@@ -387,7 +387,7 @@ RevLog.Info($<span class="s">"耗时 {(sw.Elapsed * 1000):F1} ms"</span>);
     <div class="callout">
       <span class="t">为什么秒表不会泄漏</span>
       它不注册、不订阅、不进任何列表 —— 起止时只记"当时的读数"，读 <code>Elapsed</code> 时做一次减法。
-      旧框架那种"每创建一个计时器都要记得销毁"的纪律，秒表这里不需要。
+      早期实现那种"每创建一个计时器都要记得销毁"的纪律，秒表这里不需要。
     </div>
   </section>
 
@@ -460,7 +460,7 @@ RevTimer.Paused = <span class="k">false</span>;     <span class="c">// 恢复（
           <tr><td>创建时就返回空句柄</td><td>订阅 <code>RevTimer.Failed</code> 看原因码：<code>InvalidDuration</code>（时长/间隔非法）、<code>Overflow</code>（超过 1024 个）、<code>NoServerTime</code>（没校准）</td></tr>
           <tr><td>次数比预期多 / 少</td><td>看第八节第 8 条：每帧最多一次，节奏 = 你给的间隔 + 帧长量化</td></tr>
           <tr><td>数量一直在涨</td><td>有循环计时器漏停（<code>RevTimer.Count</code> 看数量；用 owner / 作用域清）</td></tr>
-          <tr><td>回调里的异常在刷屏</td><td>订阅 <code>RevTimer.OnException</code> 拿原始堆栈；<b>出错的计时器不会被自动停</b>（王者契约），要停就自己 <code>Stop()</code></td></tr>
+          <tr><td>回调里的异常在刷屏</td><td>订阅 <code>RevTimer.OnException</code> 拿原始堆栈；<b>出错的计时器不会被自动停</b>（参考实现契约），要停就自己 <code>Stop()</code></td></tr>
           <tr><td>一次"暂停/恢复"后时间不对</td><td>确认用的是 <code>h.Pause()</code>（冻结时间、保留剩余）而不是 <code>h.Restart()</code>（清零重来）</td></tr>
         </tbody>
       </table>
@@ -505,17 +505,17 @@ RevTimer.Paused = <span class="k">false</span>;     <span class="c">// 恢复（
       </table>
     </div>
 
-    <h3>10.3 设计来源（王者计时器 + 你的旧框架）</h3>
+    <h3>10.3 设计来源（参考实现计时器 + 你的早期实现）</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:30%">抄来的（王者精华）</th><th>本框架怎么落</th></tr></thead>
+        <thead><tr><th style="width:30%">抄来的（参考实现精华）</th><th>本框架怎么落</th></tr></thead>
         <tbody>
           <tr><td>四时间轴显式分离（Normal / FrameSync / Accurate / Server）</td><td>合成四种<b>时间域</b>（<code>Scaled</code> / <code>Unscaled</code> / <code>Fixed</code> / <code>Server</code>），语义表见第三节</td></tr>
           <tr><td>双到期模型（累积式 + 时刻式）</td><td><code>After / Every</code> 累积式；<code>At</code> 时刻式（比绝对 UTC）</td></tr>
           <tr><td>池化纪律：复用前彻底归零 + 解绑委托</td><td><code>RevTimerEntry.ResetAll()</code> 清时间<b>并解绑回调与 owner</b></td></tr>
-          <tr><td>异常隔离到单个回调</td><td>逐回调 try/catch → <code>Failed(CallbackThrew)</code> + <code>OnException</code>；不自动终止（与王者契约一致）</td></tr>
+          <tr><td>异常隔离到单个回调</td><td>逐回调 try/catch → <code>Failed(CallbackThrew)</code> + <code>OnException</code>；不自动终止（与参考实现契约一致）</td></tr>
           <tr><td>先收集后执行（LuaTimer 的重入安全）</td><td>到期先收集清单，收集完再派发 → 回调里 Stop/新建都安全</td></tr>
-          <tr><td>简单结构优先（不做时间轮）</td><td>固定 1024 槽位 + 线性扫描（王者自己的结论：量级不需要的地方用复杂算法是负资产）</td></tr>
+          <tr><td>简单结构优先（不做时间轮）</td><td>固定 1024 槽位 + 线性扫描（参考实现自己的结论：量级不需要的地方用复杂算法是负资产）</td></tr>
           <tr><td>服务器时间：锚点 + 本地 realtime 外推</td><td><code>RevServerClock</code>；允许反复校准抑制漂移</td></tr>
         </tbody>
       </table>
@@ -523,7 +523,7 @@ RevTimer.Paused = <span class="k">false</span>;     <span class="c">// 恢复（
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:30%">旧框架的硬伤（已根治）</th><th>怎么修的</th></tr></thead>
+        <thead><tr><th style="width:30%">早期实现的硬伤（已根治）</th><th>怎么修的</th></tr></thead>
         <tbody>
           <tr><td>回调抛异常 → 常驻 async 循环 faulted → <b>整个计时器系统静默死亡</b></td><td>逐回调隔离；没有任何常驻循环，不存在"整条泵死掉"的形态</td></tr>
           <tr><td>边遍历边改字典 → 回调里建/删必抛异常</td><td>先收集后执行 + 派发期间不动表</td></tr>
@@ -539,7 +539,6 @@ RevTimer.Paused = <span class="k">false</span>;     <span class="c">// 恢复（
     <div class="callout">
       <span class="t">配套文档</span>
       代码目录里还有一份 <code>Assets/Revolution/Runtime/RevTimer/README.md</code>（3 分钟上手 + 8 个坑 + 对照表），内容与本文一致、更适合对着代码看。<br>
-      王者的原始设计文档在：<code>工作日志\第二月\第6周\2026年9月24日\计时器\</code>（00 设计哲学 / 01 架构 / 02 CTimer 本体 / 03 四通道管理器 / 04 时间轮 / 05 服务器时间与秒表 / 07 抽离方案）。
     </div>
   </section>
 

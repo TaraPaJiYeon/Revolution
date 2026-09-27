@@ -254,7 +254,7 @@ RevLog.Debug(<span class="s">"仅编辑器可见，正式包零成本"</span>); 
 
     <div class="callout good">
       <span class="t">tag 是"第二个参数"，不是重载</span>
-      王者原版有两个参数位置不同、语义不同的"频道"重载（<code>Debug(eLog, msg)</code> 与 <code>Debug(msg, "Module")</code>），
+      参考实现有两个参数位置不同、语义不同的"频道"重载（<code>Debug(eLog, msg)</code> 与 <code>Debug(msg, "Module")</code>），
       极易写反。这里只有<b>一个</b> tag 轴，而且位置固定：<code>RevLog.Warn(消息, tag)</code> —— <b>不可能写反</b>。
     </div>
   </section>
@@ -587,14 +587,14 @@ RevLog.Warn(<span class="s">"换了一句话"</span>);           <span class="c"
       </table>
     </div>
 
-    <h3>12.3 设计来源（王者日志系统）</h3>
+    <h3>12.3 设计来源（参考实现日志系统）</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:30%">抄来的（精华）</th><th>本框架怎么落</th></tr></thead>
         <tbody>
           <tr><td><code>[Conditional]</code> 编译期删除调用点与参数表达式</td><td>保留（<code>Debug</code> 上的两个 Conditional；业务加 <code>REVLOG_DEBUG</code> 就能在正式包看到）</td></tr>
-          <tr><td>级别即成本契约（原版用注释三遍强调纪律）</td><td>升级成<b>结构性保障</b>：堆栈只在 Error 及以上采</td></tr>
-          <tr><td>门面不写文件、输出通道解耦</td><td><code>IRevLogSink</code> 列表（原版是单一事件，只能挂一个、还会漏挂）</td></tr>
+          <tr><td>级别即成本契约（早期版本用注释三遍强调纪律）</td><td>升级成<b>结构性保障</b>：堆栈只在 Error 及以上采</td></tr>
+          <tr><td>门面不写文件、输出通道解耦</td><td><code>IRevLogSink</code> 列表（早期版本是单一事件，只能挂一个、还会漏挂）</td></tr>
           <tr><td>异步文件写入（Lowest 线程 + 双缓冲）</td><td>同款；但<b>入队的是条目不是字符串</b> —— 主线程连一次分配都没有</td></tr>
           <tr><td>崩溃前尽量落盘</td><td><code>Flush()</code> 等排空（≤1 秒）后自己兜底写完；Unity 退出自动 Flush</td></tr>
           <tr><td>启动时探测写权限，失败不影响游戏</td><td>保留 + 升级：失败明确计入 <code>RevLog.SinkErrors</code></td></tr>
@@ -604,7 +604,7 @@ RevLog.Warn(<span class="s">"换了一句话"</span>);           <span class="c"
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:30%">原版承认的空白</th><th>这里怎么做</th></tr></thead>
+        <thead><tr><th style="width:30%">早期版本承认的空白</th><th>这里怎么做</th></tr></thead>
         <tbody>
           <tr><td>无重复日志抑制 / 采样 / 聚合（刷屏只能靠人工纪律）</td><td><b>连续重复抑制</b>（首条立刻可见 + "重复 N 次"汇总；10 万次 = 0 分配）</td></tr>
           <tr><td>无模块级开关表（文档承诺了、实现里没有）</td><td><code>RevLog.MuteTag(tag)</code>（运行期可改）</td></tr>
@@ -619,7 +619,6 @@ RevLog.Warn(<span class="s">"换了一句话"</span>);           <span class="c"
     <div class="callout">
       <span class="t">配套文档</span>
       代码目录里还有一份 <code>Assets/Revolution/Runtime/RevLog/README.md</code>（3 分钟上手 + 6 个坑 + 排障），内容与本文一致、更适合对着代码看。<br>
-      王者的原始设计文档在：<code>工作日志\第二月\第6周\2026年9月24日\日志系统\</code>（00 设计哲学 / 01 架构 / 02 API 与级别 / 03 异步文件写入 / 05 抽离方案）。
     </div>
   </section>
 

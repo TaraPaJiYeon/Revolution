@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>状态机 Demo 实战讲解（对标王者真实业务）</title>
+<title>状态机 Demo 实战讲解（对标参考实现真实业务）</title>
 <style>
   :root{
     --accent:#2F6FED; --accent-soft:#EAF1FE;
@@ -240,9 +240,9 @@
 <header class="hero">
   <div class="wrap">
     <span class="kicker">Demo 实战讲解 · 含动画</span>
-    <h1>状态机 Demo 实战讲解（对标王者真实业务）</h1>
+    <h1>状态机 Demo 实战讲解（对标参考实现真实业务）</h1>
     <p>代码：<code>Revolution.Demo\Unity\RevStateMachine\</code>（8 个文件，3 个场景，编译 0 错误 0 警告）</p>
-    <p class="meta">三个 Demo 分别对标王者的：① 游戏主流程（轻量·单机）· ③ UI 界面栈（轻量·栈）· ④ 怪物/Boss AI（重量·枚举+事务式）</p>
+    <p class="meta">三个 Demo 分别对标参考实现的：① 游戏主流程（轻量·单机）· ③ UI 界面栈（轻量·栈）· ④ 怪物/Boss AI（重量·枚举+事务式）</p>
   </div>
   <div class="deco"></div>
 </header>
@@ -267,24 +267,24 @@
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:14%">#</th><th style="width:16%">用哪套机器</th><th style="width:26%">对应的王者业务</th><th>覆盖的关键能力</th></tr></thead>
+        <thead><tr><th style="width:14%">#</th><th style="width:16%">用哪套机器</th><th style="width:26%">对应的参考实现业务</th><th>覆盖的关键能力</th></tr></thead>
         <tbody>
           <tr>
             <td><b>1 游戏主流程</b><br><span style="font-size:12px;color:#6B7280">LightweightFlow\</span></td>
             <td>轻量级<b>单状态机</b></td>
-            <td>王者① <code>StateMachine</code> 的 8+ 使用方之一：<b>游戏主流程</b>（登录 → 大厅 → 匹配 → 战斗）</td>
-            <td>注册（实例 / 工厂）、<code>ChangeTo</code> vs <code>ChangeToAsync</code>、<b><code>PendingState</code> 兜底释放（= 王者①的 tarState）</b>、异步回来先验状态</td>
+            <td>参考实现① <code>StateMachine</code> 的 8+ 使用方之一：<b>游戏主流程</b>（登录 → 大厅 → 匹配 → 战斗）</td>
+            <td>注册（实例 / 工厂）、<code>ChangeTo</code> vs <code>ChangeToAsync</code>、<b><code>PendingState</code> 兜底释放（= 参考实现①的 tarState）</b>、异步回来先验状态</td>
           </tr>
           <tr>
             <td><b>2 UI 界面栈</b><br><span style="font-size:12px;color:#6B7280">LightweightUiStack\</span></td>
             <td>轻量级<b>栈状态机</b></td>
-            <td>王者③ <code>StackStateMachine&lt;T&gt;</code> 的官方用例：<b>UI 界面栈</b>（主界面 → 背包 → 设置/帮助）</td>
+            <td>参考实现③ <code>StackStateMachine&lt;T&gt;</code> 的官方用例：<b>UI 界面栈</b>（主界面 → 背包 → 设置/帮助）</td>
             <td><code>Push</code>/<code>Pop</code>/<code>Change</code>/<code>Clear</code>、<b><code>OnSuspend</code>/<code>OnResume</code> 配对</b>、工厂注册（可叠多层）、<b>只有栈顶被驱动</b>、面包屑自维护</td>
           </tr>
           <tr>
             <td><b>3 Boss AI</b><br><span style="font-size:12px;color:#6B7280">HeavyweightBossAI\</span></td>
             <td><b>重量级</b><br>（枚举 + 行为接口）</td>
-            <td>王者④ <code>FSM&lt;T&gt;</code> 的正主场景：<b>怪物 / Boss AI</b>（待机 → 巡逻 → 追击 → 战斗 → 二阶段 → 死亡）</td>
+            <td>参考实现④ <code>FSM&lt;T&gt;</code> 的正主场景：<b>怪物 / Boss AI</b>（待机 → 巡逻 → 追击 → 战斗 → 二阶段 → 死亡）</td>
             <td>枚举当键、行为接口、三路驱动、<b>事务式切换（二阶段等资源与演出）</b>、全局规则集中、<b>组合两台状态机</b>、切换历史</td>
           </tr>
         </tbody>
@@ -331,8 +331,8 @@
   <section id="s2">
     <h2><span class="num">2</span>Demo 1：轻量级·单状态机 —— 游戏主流程</h2>
 
-    <h3>2.1 王者业务背景</h3>
-    <p>王者①的 <code>StateMachine</code>（非泛型栈式）有 8+ 业务在用，"游戏主流程"就是其中一条：
+    <h3>2.1 参考实现业务背景</h3>
+    <p>参考实现①的 <code>StateMachine</code>（非泛型栈式）有 8+ 业务在用，"游戏主流程"就是其中一条：
       登录 → 大厅 → 匹配 → 战斗加载 → 战斗。这条链路之所以适合当 Demo，是因为它<b>同时包含两种切换</b>：</p>
     <div class="table-wrap">
       <table>
@@ -340,7 +340,7 @@
         <tbody>
           <tr><td>点按钮进匹配、取消回大厅</td><td><code>ChangeTo(...)</code> 同步</td><td>必须马上切，玩家点了就要有反应</td></tr>
           <tr><td>读条进战斗</td><td><code>ChangeToAsync(...)</code> 事务式</td><td>资源没就绪就切过去 = 白屏 / 穿帮</td></tr>
-          <tr><td>离开读条态时判断"本来要去哪"</td><td><code>PendingState</code></td><td><b>王者 <code>LoadingState</code> 的真实用法</b>：目标不是战斗 → 兜底释放战斗资源</td></tr>
+          <tr><td>离开读条态时判断"本来要去哪"</td><td><code>PendingState</code></td><td><b>参考实现 <code>LoadingState</code> 的真实用法</b>：目标不是战斗 → 兜底释放战斗资源</td></tr>
         </tbody>
       </table>
     </div>
@@ -417,7 +417,7 @@ _sm.ChangeTo&lt;RevDemoMatchingState&gt;();
     <h4>③ <code>PendingState</code> 兜底释放 —— 本 Demo 最值钱的一段</h4>
     <pre>public override void OnExit()
 {
-    <span class="c">// PendingState = "当前事务要去哪"（= 王者①的 tarState，持久保留语义）</span>
+    <span class="c">// PendingState = "当前事务要去哪"（= 参考实现①的 tarState，持久保留语义）</span>
     <span class="k">if</span> (_sm.PendingState <span class="k">is</span> RevDemoBattleState)
         Debug.Log(<span class="s">"离开加载态且目标就是战斗 → 资源保留给战斗使用"</span>);
     <span class="k">else</span>
@@ -489,7 +489,7 @@ _sm.ChangeTo&lt;RevDemoMatchingState&gt;();
     <h3>2.5 这个 Demo 能答的面试题</h3>
     <ul>
       <li><b>"流程切换要不要等资源？"</b> → 分两类：必须马上切的用同步；等资源 / 等演出的用事务式。两边混用才是常态。</li>
-      <li><b>"加载到一半玩家退出了，会不会漏资源？"</b> → 不会：用 <code>PendingState</code>（tarState）判"本来要去哪"，目标不对就兜底释放 —— 这是王者 <code>LoadingState</code> 的真实做法。</li>
+      <li><b>"加载到一半玩家退出了，会不会漏资源？"</b> → 不会：用 <code>PendingState</code>（tarState）判"本来要去哪"，目标不对就兜底释放 —— 这是参考实现 <code>LoadingState</code> 的真实做法。</li>
       <li><b>"异步回调回来时状态已经变了怎么办？"</b> → 先验活（<code>CurrentState == this</code>），不满足就丢弃结果。</li>
     </ul>
   </section>
@@ -497,8 +497,8 @@ _sm.ChangeTo&lt;RevDemoMatchingState&gt;();
   <section id="s3">
     <h2><span class="num">3</span>Demo 2：轻量级·栈状态机 —— UI 界面栈</h2>
 
-    <h3>3.1 王者业务背景</h3>
-    <p>王者③ <code>StackStateMachine&lt;T&gt;</code> 的官方示例场景就是 <b>UI 界面栈</b>。栈语义的灵魂在
+    <h3>3.1 参考实现业务背景</h3>
+    <p>参考实现③ <code>StackStateMachine&lt;T&gt;</code> 的官方示例场景就是 <b>UI 界面栈</b>。栈语义的灵魂在
       <code>OnSuspend</code> / <code>OnResume</code>：</p>
     <pre>主界面 ─Push─▶ 背包 ─Push─▶ 设置 ─Push─▶ 帮助·第1层 ─Push─▶ 帮助·第2层
    ▲ OnSuspend（禁用点击，但不销毁）
@@ -582,11 +582,11 @@ _sm.StatePopped += state =&gt; _breadcrumb.Remove(state);</pre>
     <h3>3.3 真实用途对照</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:34%">Demo 里的状态</th><th>王者里的对应</th></tr></thead>
+        <thead><tr><th style="width:34%">Demo 里的状态</th><th>参考实现里的对应</th></tr></thead>
         <tbody>
           <tr><td>主界面被压住时 <code>OnSuspend</code></td><td>"大厅输入"被"战斗输入"压住：<b>禁用点击但不销毁</b>，打完一局回来直接 <code>OnResume</code></td></tr>
           <tr><td>背包 <code>OnSuspend</code> 暂停刷新</td><td>被盖住的界面停止列表刷新（省性能，也避免看不见的界面还在响应）</td></tr>
-          <tr><td><code>Change</code> 替换栈顶</td><td>王者① <code>ChangeState</code>：<b>栈深不变</b>的替换（如"读条页"直接换成"错误页"）</td></tr>
+          <tr><td><code>Change</code> 替换栈顶</td><td>参考实现① <code>ChangeState</code>：<b>栈深不变</b>的替换（如"读条页"直接换成"错误页"）</td></tr>
         </tbody>
       </table>
     </div>
@@ -602,8 +602,8 @@ _sm.StatePopped += state =&gt; _breadcrumb.Remove(state);</pre>
   <section id="s4">
     <h2><span class="num">4</span>Demo 3：重量级 —— Boss AI（枚举 + 行为接口）</h2>
 
-    <h3>4.1 王者业务背景</h3>
-    <p>怪物 AI / Boss AI 是重量级状态机的正主（对应王者④ <code>FSM&lt;T&gt;</code>：<b>枚举当键 + 事务式切换</b>）。
+    <h3>4.1 参考实现业务背景</h3>
+    <p>怪物 AI / Boss AI 是重量级状态机的正主（对应参考实现④ <code>FSM&lt;T&gt;</code>：<b>枚举当键 + 事务式切换</b>）。
       为什么这类业务要这两样东西：</p>
     <div class="table-wrap">
       <table>
@@ -710,7 +710,7 @@ ChangeToAsync(RevDemoBossStateType.Phase2, <span class="s">"血量低于 50%"</s
       </div>
     </div>
 
-    <h4>④ 切换原因 + 历史（王者 2024 才补的能力）</h4>
+    <h4>④ 切换原因 + 历史（参考实现 2024 才补的能力）</h4>
     <pre>_fsm.ChangeState(RevDemoBossStateType.Chase, <span class="s">"发现玩家"</span>);        <span class="c">// 带原因</span>
 
 <span class="c">// 按 [L] 打印：</span>
@@ -767,7 +767,7 @@ ChangeToAsync(RevDemoBossStateType.Phase2, <span class="s">"血量低于 50%"</s
         <tbody>
           <tr><td>编译（8 个 Demo 文件 + 框架一起编，Debug 配置）</td><td><b>0 错误 0 警告</b></td></tr>
           <tr><td>运行依赖</td><td>无需场景布置；只需把目录拷进工程、挂一个组件</td></tr>
-          <tr><td>未覆盖的 API</td><td>栈机的 <code>TargetState</code> 只在 [7] 替换栈顶时顺带演示；重量级的 <code>PrepareExitAsync</code>、<code>CanChangeTo</code>、<code>MaxHistorySize</code> 未在 Demo 里展开（《使用指南》里有说明）</td></tr>
+          <tr><td>未覆盖的 API</td><td>栈机的 <code>TargetState</code> 只在 [7] 替换栈顶时顺带演示；重量级的 <code>PrepareExitAsync</code>、<code>CanChangeTo</code>、<code>MaxHistorySize</code> 未在 Demo 里展开（《架构解析》里有说明）</td></tr>
         </tbody>
       </table>
     </div>
@@ -782,14 +782,14 @@ ChangeToAsync(RevDemoBossStateType.Phase2, <span class="s">"血量低于 50%"</s
     <div class="callout good">
       <b>一句话总结</b>：轻量级的两套机器解决"<b>流程要切得快、界面要回得来</b>"；
       重量级解决"<b>AI 要能判断、能等待、能回溯</b>"。
-      三个 Demo 合起来，正好把"王者四套状态机"的核心场景都覆盖了一遍 —— 而它们背后的框架，只有 10 个文件。
+      三个 Demo 合起来，正好把"参考实现的四套状态机"的核心场景都覆盖了一遍 —— 而它们背后的框架，只有 10 个文件。
     </div>
   </section>
 </main>
 
 <footer>
   Demo 代码：<code>RevolutionFramework\Revolution.Demo\Unity\RevStateMachine\</code> ·
-  配套文档：<code>状态机使用指南.md/.html</code>（框架 API）· 本文档另有 Markdown 版。
+  配套文档：<code>状态机架构解析.md/.html</code>（框架 API）· 本文档另有 Markdown 版。
 </footer>
 
 </body>

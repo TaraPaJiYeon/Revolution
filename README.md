@@ -246,7 +246,7 @@ Revolution/
 │   ├── Assets/Scenes/                      示例场景（SampleScene）
 │   ├── Assets/GameRes/                     资源根目录（放你的资源，LiteAB 从这里扫）
 │   └── Packages/ · ProjectSettings/        Unity 工程配置
-├── Revolution.Document/                  设计文档（每个模块：使用说明 + 使用指南）
+├── Revolution.Document/                  设计文档（每个模块：使用说明 + 架构解析）
 ├── Revolution.Demo/                      示例数据与源码
 ├── Revolution.ExcelTool/                 导表工具（WPF：Excel → C# 类 + 数据文件）
 └── .github/workflows/                    CI（自动同步 package 分支）

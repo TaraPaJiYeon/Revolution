@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>状态机 · 使用指南</title>
+<title>状态机 · 架构解析</title>
 <style>
   :root{
     --accent:#2F6FED; --accent-soft:#EAF1FE;
@@ -266,10 +266,10 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="kicker">使用指南 · 含动画演示</span>
-    <h1>状态机 · 使用指南</h1>
+    <span class="kicker">架构解析 · 含动画演示</span>
+    <h1>状态机 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\RevStateMachine\</code>（<code>Lightweight\</code> + <code>Heavyweight\</code>）</p>
-    <p class="meta">目标：选对轻/重两套、写对状态、用对异步；知道它和旧版（唐老师框架 <code>Runtime\有限状态机\</code>）的每一处差别与原因；知道从王者四套状态机里各吸收了什么</p>
+    <p class="meta">目标：选对轻/重两套、写对状态、用对异步；知道它和早期版本的每一处差别与原因；知道从参考实现的四套状态机里各吸收了什么</p>
   </div>
   <div class="deco"></div>
 </header>
@@ -280,8 +280,8 @@
     <ol>
       <li><a href="#s0">〇、最短路径（选型 + 三行代码）</a></li>
       <li><a href="#s1">一、解决什么问题（为什么是两套）</a></li>
-      <li><a href="#s2">二、新版 vs 旧版</a></li>
-      <li><a href="#s3">三、吸收了王者的哪些设计哲学</a></li>
+      <li><a href="#s2">二、当前实现 vs 早期版本</a></li>
+      <li><a href="#s3">三、吸收了参考实现的哪些设计哲学</a></li>
       <li><a href="#s4">四、轻量级怎么用（动画 1、2）</a></li>
       <li><a href="#s5">五、重量级怎么用（动画 3）</a></li>
       <li><a href="#s6">六、必须知道的八个坑</a></li>
@@ -380,12 +380,12 @@ fsm.ChangeState(BossStateType.Idle, reason: <span class="s">"初始化"</span>);
   </section>
   <!-- ==================== 二 ==================== -->
   <section id="s2">
-    <h2><span class="num">2</span>新版 vs 旧版（唐老师框架 <code>Runtime\有限状态机\</code>）</h2>
+    <h2><span class="num">2</span>当前实现 vs 早期版本</h2>
 
     <h3>2.1 总览</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:14%">维度</th><th style="width:43%">旧版（<code>Interface\</code> + <code>状态基类\</code> + <code>状态机管理器\</code> + <code>示例用法\</code>）</th><th>新版（<code>Runtime\RevStateMachine\</code>）</th></tr></thead>
+        <thead><tr><th style="width:14%">维度</th><th style="width:43%">早期版本（<code>Interface\</code> + <code>状态基类\</code> + <code>状态机管理器\</code> + <code>示例用法\</code>）</th><th>新版（<code>Runtime\RevStateMachine\</code>）</th></tr></thead>
         <tbody>
           <tr><td>代码规模（核心）</td><td><b>3 文件 / 729 行</b>（非空 646、注释 234）</td><td><b>10 文件 / 1380 行</b>（非空 1233、注释 621 ≈ 五成）</td></tr>
           <tr><td>示例代码</td><td><b>3 文件 / 1605 行</b>（非空 1336）—— 示例比框架本身大一倍多</td><td>0（改为本文档 + 每个文件的头部设计说明）</td></tr>
@@ -406,12 +406,12 @@ fsm.ChangeState(BossStateType.Idle, reason: <span class="s">"初始化"</span>);
       </table>
     </div>
     <div class="callout">
-      <b>说明</b>：核心行数看起来"变多"了（646 → 1233 非空行），但结构完全不同 —— 旧版 1336 行示例被"文档 + 文件头设计说明（621 行注释）"替代，
-      且新版是<b>两套</b>状态机：异步切换、事件、原因、取消令牌、栈语义、异常双轨，这些旧版<b>一个都没有</b>。
+      <b>说明</b>：核心行数看起来"变多"了（646 → 1233 非空行），但结构完全不同 —— 早期版本 1336 行示例被"文档 + 文件头设计说明（621 行注释）"替代，
+      且新版是<b>两套</b>状态机：异步切换、事件、原因、取消令牌、栈语义、异常双轨，这些早期版本<b>一个都没有</b>。
     </div>
 
     <h3>2.2 用反射创建状态实例</h3>
-    <pre><span class="c">// 旧版 StateMachine.AddState&lt;TState&gt;</span>
+    <pre><span class="c">// 早期版本 StateMachine.AddState&lt;TState&gt;</span>
 TState stateInstance = Activator.CreateInstance(<span class="k">typeof</span>(TState), <span class="k">new object</span>[] { <span class="k">this</span> }) <span class="k">as</span> TState;</pre>
     <ul>
       <li><b>IL2CPP / AOT 不友好</b>：反射构造在裁剪、泛型实例化上有额外开销与坑（移动端尤其要小心）；</li>
@@ -422,7 +422,7 @@ TState stateInstance = Activator.CreateInstance(<span class="k">typeof</span>(TS
 fsm.AddState(BossStateType.Idle, <span class="k">new</span> BossIdleState(fsm));</pre>
 
     <h3>2.3 每个方法都 <code>try/catch</code> + 每次切换都打两条日志</h3>
-    <pre><span class="c">// 旧版 StateMachine.ChangeState（节选）</span>
+    <pre><span class="c">// 早期版本 StateMachine.ChangeState（节选）</span>
 <span class="k">public virtual void</span> ChangeState(TStateType stateType)
 {
     <span class="k">try</span>
@@ -467,7 +467,7 @@ fsm.AddState(BossStateType.Idle, <span class="k">new</span> BossIdleState(fsm));
     </div>
   </section>
   <section id="s2b">
-    <h2 style="border-bottom-style:dashed;"><span class="num">2</span>新版 vs 旧版（续）</h2>
+    <h2 style="border-bottom-style:dashed;"><span class="num">2</span>当前实现 vs 早期版本（续）</h2>
     <h3>2.4 分层状态机：删掉，改成"组合多台"</h3>
     <pre>StateMachine&lt;TStateType, TFSMObj&gt;
 └── HierarchicalStateMachine&lt;TStateType, TFSMObj&gt;   <span class="c">// ParentState</span>
@@ -475,7 +475,7 @@ BaseState&lt;TStateType, TFSMObj&gt;
 ├── ParentState / ChildStateMachine / HasChildStateMachine / SetChildStateMachine
 └── HierarchicalState&lt;TStateType, TFSMObj&gt;          <span class="c">// 分层的"父状态"</span></pre>
     <p>而且<b>两份 <code>GetRootStateMachine()</code></b>（状态机里一份、状态基类里一份，逻辑几乎一样），以及这个：</p>
-    <pre><span class="c">// 旧版 BaseState.HierarchicalState</span>
+    <pre><span class="c">// 早期版本 BaseState.HierarchicalState</span>
 <span class="k">public override</span> TStateType StateType =&gt; <span class="k">throw new</span> NotImplementedException();   <span class="c">// ★ 一用就崩</span></pre>
     <div class="table-wrap">
       <table>
@@ -496,7 +496,7 @@ BaseState&lt;TStateType, TFSMObj&gt;
     </div>
 
     <h3>2.5 <code>Reset()</code> 是个坏掉的 API</h3>
-    <pre><span class="c">// 旧版 StateMachine.Reset</span>
+    <pre><span class="c">// 早期版本 StateMachine.Reset</span>
 <span class="k">public void</span> Reset(TStateType initialStateType)
 {
     <span class="k">try</span>
@@ -508,7 +508,7 @@ BaseState&lt;TStateType, TFSMObj&gt;
     <span class="k">catch</span> (Exception e) { LogSystem.Error($<span class="s">"重置失败 - {e.Message}\n{e.StackTrace}"</span>); }
 }</pre>
     <div class="callout bad">
-      <b>所以旧版的 <code>Reset</code> 永远只会"清空 + 打一条错误日志"</b>：状态机停在没有当前状态的位置，
+      <b>所以早期版本的 <code>Reset</code> 永远只会"清空 + 打一条错误日志"</b>：状态机停在没有当前状态的位置，
       还会顺手打出一条"重置状态机到初始状态 X"的 Info 让人以为成功了。这是"读代码时看不错、跑起来才知道"的典型。
     </div>
     <pre><span class="c">// 新版：语义定清楚 —— 取消在途事务、退出当前状态、清空历史（保留已注册的状态），再切到初始状态</span>
@@ -522,7 +522,7 @@ BaseState&lt;TStateType, TFSMObj&gt;
 }</pre>
 
     <h3>2.6 <code>UpdateState()</code> 不带 <code>deltaTime</code></h3>
-    <pre><span class="c">// 旧版</span>
+    <pre><span class="c">// 早期版本</span>
 <span class="k">public void</span> UpdateState()      { ... nowState.UpdateState(); }
 <span class="k">public void</span> FixedUpdateState() { ... nowState.FixedUpdateState(); }
 <span class="k">public void</span> LateUpdateState()  { ... nowState.LateUpdateState(); }</pre>
@@ -532,24 +532,24 @@ BaseState&lt;TStateType, TFSMObj&gt;
       <li>单位不明确：不知道那个数是"帧"还是"秒"。</li>
     </ul>
     <p>新版三路都带参数（<code>OnUpdate(float deltaTime)</code> / <code>OnFixedUpdate(float fixedDeltaTime)</code> / <code>OnLateUpdate(float deltaTime)</code>），
-      这也是王者 ②③ 两套泛型状态机的做法。</p>
+      这也是参考实现 ②③ 两套泛型状态机的做法。</p>
 
     <h3>2.7 状态历史只有枚举</h3>
-    <p>旧版 <code>Queue&lt;TStateType&gt;</code> + <code>maxHistorySize = 10</code>，只能回答"切过哪些状态"。新版记录<b>原因</b>和<b>时刻</b>：</p>
+    <p>早期版本 <code>Queue&lt;TStateType&gt;</code> + <code>maxHistorySize = 10</code>，只能回答"切过哪些状态"。新版记录<b>原因</b>和<b>时刻</b>：</p>
     <pre>RevHeavyFsmTransition&lt;TStateEnum&gt; { From, To, Reason, Time }
 <span class="c">// ToString() → "Idle → Combat（看见玩家）"</span>
 
 fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能冷却完毕"</span>);
 <span class="k">foreach</span> (<span class="k">var</span> t <span class="k">in</span> fsm.GetHistory()) Debug.Log(t);</pre>
     <p>为什么值得为它加结构体？因为<b>AI 排错时最常问的两个问题是"它为什么切走了"和"什么时候切的"</b>，
-      而这两条在旧版里都答不出来。王者 2024 年才在自己的状态机上补上"切换原因"（见《05-业务场景实战》），这里直接内建。</p>
+      而这两条在早期版本里都答不出来。参考实现 2024 年才在自己的状态机上补上"切换原因"（见《05-业务场景实战》），这里直接内建。</p>
 
     <h3>2.8 命名与"反射式工具方法"</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:34%">旧版</th><th style="width:30%">新版</th><th>为什么</th></tr></thead>
+        <thead><tr><th style="width:34%">早期版本</th><th style="width:30%">新版</th><th>为什么</th></tr></thead>
         <tbody>
-          <tr><td><code>EnterState</code> / <code>QuitState</code> / <code>UpdateState</code></td><td><code>OnEnter</code> / <code>OnExit</code> / <code>OnUpdate</code></td><td>与王者命名、与 C# 事件惯例一致（<code>OnXxx</code> = "我被调用"）</td></tr>
+          <tr><td><code>EnterState</code> / <code>QuitState</code> / <code>UpdateState</code></td><td><code>OnEnter</code> / <code>OnExit</code> / <code>OnUpdate</code></td><td>与参考实现命名、与 C# 事件惯例一致（<code>OnXxx</code> = "我被调用"）</td></tr>
           <tr><td><code>abstract</code> 三个回调（必须实现）</td><td><code>virtual</code> 空实现</td><td>只 override 关心的；增删回调不再破坏所有子类</td></tr>
           <tr><td><code>GetAIObj()</code> / <code>GetAIObj&lt;T&gt;()</code> / <code>IsAIObjOfType&lt;T&gt;()</code></td><td><code>Owner</code>（强类型属性）</td><td>泛型参数已经保证了类型，运行时转型工具是多余的</td></tr>
           <tr><td><code>GetStateMachine&lt;TMachine&gt;()</code></td><td><code>Machine</code>（强类型属性）</td><td>同上</td></tr>
@@ -561,13 +561,12 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
   </section>
   <!-- ==================== 三 ==================== -->
   <section id="s3">
-    <h2><span class="num">3</span>运用了王者的哪些设计哲学</h2>
+    <h2><span class="num">3</span>运用了参考实现的哪些设计哲学</h2>
 
     <h3>3.1 四套 → 两套的映射</h3>
-    <p>王者<b>不是一套状态机，而是四套</b>（详见 <code>工作日志\第二月\第6周\2026年9月22日\状态机\README.md</code>）。本框架把它们的设计要点吸进两套里：</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:14%">王者</th><th style="width:40%">类型与位置</th><th>本框架的落地</th></tr></thead>
+        <thead><tr><th style="width:14%">参考实现</th><th style="width:40%">类型与位置</th><th>本框架的落地</th></tr></thead>
         <tbody>
           <tr><td>① <code>StateMachine</code></td><td><code>Plugins/Shared/Common/StateMachine.cs</code>，非泛型栈式，<b>8+ 业务在用</b></td><td><b>轻量栈机</b> <code>RevLightStackStateMachine&lt;T&gt;</code>：栈语义 + 泛型类型安全 + <code>Push</code>/<code>Pop</code>/<code>Change</code>/<code>Clear</code></td></tr>
           <tr><td>② <code>StateMachine&lt;T&gt;</code></td><td>tweenplayer <code>UnityExtensions</code>，泛型单状态</td><td><b>轻量单机</b> <code>RevLightStateMachine&lt;T&gt;</code>：单状态 + <code>StateTime</code> + 防重入</td></tr>
@@ -579,13 +578,13 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
     </div>
 
     <h3>3.2 栈语义是灵魂</h3>
-    <p>王者"核心结论"第一条就是这条：<b>状态不是简单"切换"，而是"压栈 / 弹栈"</b>。被压住的状态<b>不销毁、只暂停</b>：</p>
+    <p>参考实现"核心结论"第一条就是这条：<b>状态不是简单"切换"，而是"压栈 / 弹栈"</b>。被压住的状态<b>不销毁、只暂停</b>：</p>
     <pre>大厅输入 →（进战斗 Push 摇杆）→ 大厅输入收到 OnSuspend：禁用大厅点击，但不销毁
 战斗结束 →（Pop）        → 大厅输入收到 OnResume：恢复点击</pre>
     <p>如果没有栈语义，业务只能"销毁大厅输入 → 打完再重建"，重建意味着重新初始化、重新拉配置、状态丢失。</p>
 
     <h3>3.3 事务式切换：从"轮询就绪"到"await RevTask"</h3>
-    <p>王者④的原做法是让状态注册<b>就绪检查</b>：</p>
+    <p>参考实现④的原做法是让状态注册<b>就绪检查</b>：</p>
     <pre>旧状态 IsReadyToExit（资源卸完了吗）+ 新状态 IsReadyToEnter（资源加载好了吗）
     ↓ 两者都返回 true 才真正切换（可以横跨多帧）</pre>
     <p>本框架保留"双方就绪才交割"的语义，但把"就绪"换成<b>本框架的 <code>RevTask</code></b> —— 状态直接把准备过程写成 <code>async</code>：</p>
@@ -608,7 +607,7 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:12%">对比项</th><th style="width:30%">王者④</th><th>本框架</th></tr></thead>
+        <thead><tr><th style="width:12%">对比项</th><th style="width:30%">参考实现④</th><th>本框架</th></tr></thead>
         <tbody>
           <tr><td>表达方式</td><td>每个状态注册 6 个委托（Entering / IsReadyToEnter / Entered × 退出侧）</td><td>一个 <code>async RevTask</code> 方法</td></tr>
           <tr><td>可读性</td><td>就绪逻辑被拆成回调 + 轮询两个地方</td><td>加载 → 等待 → 就绪，<b>从上往下读</b></td></tr>
@@ -619,7 +618,7 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
     </div>
 
     <h3>3.4 防重入：回调里再切状态 = 程序错误</h3>
-    <p>王者②③都在 DEBUG 下对"回调里切状态"做了拦截。本框架把它做成<b>两档</b>：</p>
+    <p>参考实现②③都在 DEBUG 下对"回调里切状态"做了拦截。本框架把它做成<b>两档</b>：</p>
     <div class="shakebox" id="demo-reentry">
       <span class="x">✗ 在 OnExit / OnEnter 里切状态</span>
       <span>轻量级：直接抛 <code>InvalidOperationException</code>；重量级：DEBUG 抛 / Release 记 Error 并拒绝</span>
@@ -642,17 +641,17 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
     </div>
   </section>
   <section id="s3b">
-    <h2 style="border-bottom-style:dashed;"><span class="num">3</span>运用了王者的哪些设计哲学（续）</h2>
+    <h2 style="border-bottom-style:dashed;"><span class="num">3</span>运用了参考实现的哪些设计哲学（续）</h2>
 
     <h3>3.5 <code>StateTime</code>：状态计时</h3>
-    <p>王者②③都有"进入本状态多久了"，切换时自动清零 —— 这是做 AI 最常用的一个信号：</p>
+    <p>参考实现②③都有"进入本状态多久了"，切换时自动清零 —— 这是做 AI 最常用的一个信号：</p>
     <pre><span class="k">protected override void</span> OnUpdate(<span class="k">float</span> dt)
 {
     <span class="k">if</span> (StateTime &gt; <span class="n">3f</span>) ChangeTo(BossStateType.Idle, <span class="s">"待机超时"</span>);   <span class="c">// 不用自己记时间</span>
 }</pre>
 
     <h3>3.6 <code>tarState</code>：知道"本来要去哪"</h3>
-    <p>王者①的 <code>StateMachine</code> 里有个 <code>tarState</code>（目标状态）<b>持久保留</b>，实战用法很巧 ——
+    <p>参考实现①的 <code>StateMachine</code> 里有个 <code>tarState</code>（目标状态）<b>持久保留</b>，实战用法很巧 ——
       <code>LoadingState</code> 在退出时读它，判断"如果目标不是战斗，就兜底释放战斗资源"。</p>
     <div class="table-wrap">
       <table>
@@ -660,13 +659,13 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
         <tbody>
           <tr><td>轻量单机</td><td><code>PendingState</code></td><td>异步切换的目标（等待交割期间）</td></tr>
           <tr><td>重量级</td><td><code>PendingStateType</code></td><td>同上（枚举）</td></tr>
-          <tr><td>轻量栈机</td><td><code>TargetState</code></td><td>最近一次 <code>Change</code> 的目标（<b>持久保留</b>，和王者①一致）</td></tr>
+          <tr><td>轻量栈机</td><td><code>TargetState</code></td><td>最近一次 <code>Change</code> 的目标（<b>持久保留</b>，和参考实现①一致）</td></tr>
         </tbody>
       </table>
     </div>
 
     <h3>3.7 事件解耦</h3>
-    <p>王者⑤的实战模式：状态机切换后<b>广播</b>，其它系统订阅响应，而不是状态机主动去找它们。</p>
+    <p>参考实现⑤的实战模式：状态机切换后<b>广播</b>，其它系统订阅响应，而不是状态机主动去找它们。</p>
     <pre>fsm.StateChanged += (from, to, reason) =&gt; Debug.Log($<span class="s">"{from} → {to}（{reason}）"</span>);
 sm.StateChanged  += (prev, next)      =&gt; _hud.Refresh(next);
 sm.StatePushed   += state =&gt; Debug.Log($<span class="s">"压栈：{state.GetType().Name}"</span>);
@@ -683,14 +682,14 @@ sm.StatePopped   += state =&gt; Debug.Log($<span class="s">"弹栈：{state.GetT
       </table>
     </div>
 
-    <h3>3.9 我和王者不一样的地方</h3>
+    <h3>3.9 我和参考实现不一样的地方</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:12%">差异</th><th style="width:22%">王者做法</th><th style="width:28%">新版做法</th><th>为什么</th></tr></thead>
+        <thead><tr><th style="width:12%">差异</th><th style="width:22%">参考实现做法</th><th style="width:28%">新版做法</th><th>为什么</th></tr></thead>
         <tbody>
           <tr><td>异步表达</td><td>④ 用"就绪检查 + 委托注册"</td><td>用框架自带 <code>RevTask</code>（<code>async/await</code>）</td><td>一个方法读完，且天然带取消令牌；不再自造轮询</td></tr>
           <tr><td>状态标识</td><td>①非泛型（枚举/字符串）、②③泛型类、④枚举</td><td>轻量用泛型类、重量用枚举</td><td>各取所需：轻的免注册、重的要条件判断</td></tr>
-          <tr><td>层级</td><td>王者单套里不做层级（四套各管一段）</td><td><b>重量级也不做分层</b>，要嵌套就组合多台</td><td>与王者一致；旧框架的分层被证明性价比太低（见 2.4）</td></tr>
+          <tr><td>层级</td><td>参考实现单套里不做层级（四套各管一段）</td><td><b>重量级也不做分层</b>，要嵌套就组合多台</td><td>与参考实现一致；早期实现的分层被证明性价比太低（见 2.4）</td></tr>
           <tr><td>取消机制</td><td>无</td><td><code>RevCancellationTokenSource</code>（每次异步切换一个）</td><td>"更新的请求胜出"要能中断在途加载，否则白干活</td></tr>
           <tr><td>事件</td><td>部分版本靠业务自己订阅</td><td>内建 <code>StateChanged</code> / <code>StatePushed</code> / <code>StatePopped</code></td><td>解耦是常态需求，成本极低</td></tr>
           <tr><td>日志与调试</td><td>用 <code>#if ENABLE_EDITOR_STATISTIC</code> 之类开关</td><td><code>[Conditional("UNITY_EDITOR")]</code> + 可替换日志出口</td><td>正式包零开销，且能接框架统一的日志系统</td></tr>
@@ -832,7 +831,7 @@ sm.StatePopped   += state =&gt; Debug.Log($<span class="s">"弹栈：{state.GetT
     </div>
 
     <div class="callout warn">
-      栈机是<b>同步</b>的：<code>Push</code>/<code>Pop</code> 是结构性变化，异步交割在栈上语义不清晰（王者也没有"栈 + 异步"的组合）。
+      栈机是<b>同步</b>的：<code>Push</code>/<code>Pop</code> 是结构性变化，异步交割在栈上语义不清晰（参考实现也没有"栈 + 异步"的组合）。
       要异步请用单机的 <code>ChangeToAsync</code> 或重量级状态机。
     </div>
   </section>
@@ -917,7 +916,7 @@ ChangeToAsync(Lobby)              <span class="c">← 玩家反悔，点了返�
     <span class="k">void</span>  MoveTowardsPlayer();
     <span class="k">void</span>  PlayAnimation(<span class="k">string</span> name);
 }</pre>
-    <p><code>RevIHeavyFsmOwner</code> 是<b>空标记接口</b>（继承自旧框架 <code>IFSMObj</code> 的设计）：框架不规定宿主该有什么，行为契约由业务定义 ——
+    <p><code>RevIHeavyFsmOwner</code> 是<b>空标记接口</b>（继承自早期实现 <code>IFSMObj</code> 的设计）：框架不规定宿主该有什么，行为契约由业务定义 ——
       好处是状态逻辑<b>可以被普通单元测试构造</b>（传一个假的 <code>IBossObj</code> 实现即可）。</p>
 
     <h3>5.2 写一个状态</h3>
@@ -1105,7 +1104,7 @@ sm.ChangeToAsync(<span class="k">new</span> LobbyState());            <span clas
 
     <h3>6.7 <code>RemoveState</code> 不能移除当前状态</h3>
     <p>重量级会<b>拒绝</b>并告警（<code>RevHeavyFsmLog.Warning</code>）—— 先 <code>ChangeState</code> 到别的状态再移除。
-      旧框架在这里是"直接 <code>QuitState()</code> + <code>null</code>"，状态机进入"没有当前状态"的中间态，之后 <code>Update</code> 全在空跑（而且日志上看不出问题）。</p>
+      早期实现在这里是"直接 <code>QuitState()</code> + <code>null</code>"，状态机进入"没有当前状态"的中间态，之后 <code>Update</code> 全在空跑（而且日志上看不出问题）。</p>
 
     <h3>6.8 状态是<b>显式 new</b> 出来的，构造要自己传状态机</h3>
     <pre>_fsm.AddState(BossStateType.Idle, <span class="k">new</span> BossIdleState(_fsm));   <span class="c">// ✓</span></pre>
@@ -1255,10 +1254,8 @@ sm.ChangeToAsync(<span class="k">new</span> LobbyState());            <span clas
       <table>
         <thead><tr><th style="width:56%">参考资料</th><th>位置</th></tr></thead>
         <tbody>
-          <tr><td>王者四套状态机源码分析（01 全景 / 02 栈式 / 03 泛型 / 04 事务式 / 05 实战 / 06 抽离复用）</td><td><code>工作日志\第二月\第6周\2026年9月22日\状态机\</code>（含 <code>code\</code> 逐段注释源码）</td></tr>
-          <tr><td>旧版状态机（对照用，<b>未改动</b>）</td><td><code>唐老师框架升级版\Runtime\有限状态机\</code></td></tr>
           <tr><td>异步与取消（事务式切换的底座）</td><td><code>Runtime\RevTask\</code>（<code>RevTask</code> / <code>RevTaskScheduler</code> / <code>RevCancellationToken</code>）</td></tr>
-          <tr><td>对象池（同为"新版 vs 旧版"对照文档，可参照写法）</td><td><code>Revolution.Document\对象池\对象池使用指南.md</code></td></tr>
+          <tr><td>对象池（同为"当前实现 vs 早期版本"对照文档，可参照写法）</td><td><code>Revolution.Document\对象池\对象池架构解析.md</code></td></tr>
         </tbody>
       </table>
     </div>

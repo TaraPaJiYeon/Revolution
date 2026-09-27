@@ -161,7 +161,7 @@
       <li><a href="#s6">六、报错信息怎么读</a></li>
       <li><a href="#s7">七、怎么验证它在工作</a></li>
       <li><a href="#s8">八、一页速查卡（可打印）</a></li>
-      <li><a href="#s9">九、与王者原版的对照</a></li>
+      <li><a href="#s9">九、与参考实现的对照</a></li>
       <li><a href="#s10">十、文件都在哪（只需读两个）</a></li>
     </ol>
   </nav>
@@ -188,7 +188,7 @@ services.GetRequired&lt;ISoundService&gt;()
 
     <div class="plain">
       <span class="tag">一句话对照</span>
-      <p>王者荣耀原版用<b>三套机制</b>解决这件事：静态委托 <code>SysMgr</code>（约 250 个字段）+ 系统注册表 <code>CSystemManager</code> + 世界级容器 <code>DimensionWorld</code>。
+      <p>参考实现早期版本用<b>三套机制</b>解决这件事：静态委托 <code>SysMgr</code>（约 250 个字段）+ 系统注册表 <code>CSystemManager</code> + 世界级容器 <code>DimensionWorld</code>。
       本框架把它收成<b>一套</b>：<b>注册 → 取用 → 作用域 → 释放</b>。</p>
     </div>
 
@@ -353,7 +353,7 @@ GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="
         <p>② 再取 <b>Singleton</b>：从根容器拿 —— A、B、根拿到的是<b>同一个对象</b>。</p>
         <p>③ B 取 Scoped：<b>另建一份</b>，与 A 互不影响（这就是"同类型多实例"）。</p>
       </div>
-      <div class="hint">对应王者：<code>DimensionWorld</code> 用"实例字段数组"让同一个服务类型在多 World 各有一份；本框架把它泛化成 <code>CreateScope()</code>。</div>
+      <div class="hint">对应参考实现：<code>DimensionWorld</code> 用"实例字段数组"让同一个服务类型在多 World 各有一份；本框架把它泛化成 <code>CreateScope()</code>。</div>
     </div>
 
     <h3>3.3 CreateScope：一层的边界，不再嵌套</h3>
@@ -361,7 +361,7 @@ GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="
       <li>作用域<b>只能从根容器开</b>（一层就够）；在作用域上再 <code>CreateScope()</code> 会报错并告诉你正确写法；</li>
       <li>需要"多轮并发"，就开<b>多个平行作用域</b>，而不是作用域里套作用域。</li>
     </ul>
-    <div class="plain"><span class="tag">为什么</span>嵌套会让"某个服务到底属于哪一层"变得难以回答。王者 <code>DimensionWorld</code> 用的就是"一层隔离"，这个尺度刚好够用。</div>
+    <div class="plain"><span class="tag">为什么</span>嵌套会让"某个服务到底属于哪一层"变得难以回答。参考实现 <code>DimensionWorld</code> 用的就是"一层隔离"，这个尺度刚好够用。</div>
 
     <h3>3.4 谁创建谁负责释放</h3>
     <div class="table-wrap">
@@ -378,7 +378,7 @@ GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="
 
   <!-- ============ 四 ============ -->
   <section id="s4">
-    <h2><span class="num">四</span>完整演练：底层要播声音（王者的真实动机）</h2>
+    <h2><span class="num">四</span>完整演练：底层要播声音（参考实现的真实动机）</h2>
     <p class="lead">三个文件，把"底层要调上层能力"讲清楚。</p>
 
     <div class="flow">
@@ -426,7 +426,7 @@ GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="
 
     <div class="callout warn">
       <span class="t">注意</span>
-      <p>不要在测试里给生产容器的字段赋值（那种写法在王者那套里要靠"改静态字段"来伪造，是它的主要痛点之一）。<b>测试就自己 Build 一个</b>。</p>
+      <p>不要在测试里给生产容器的字段赋值（那种写法在那套参考实现里要靠"改静态字段"来伪造，是它的主要痛点之一）。<b>测试就自己 Build 一个</b>。</p>
     </div>
   </section>
 
@@ -451,7 +451,7 @@ GameServices.Root.Get&lt;IDebugService&gt;()?.Draw();              <span class="
 
     <div class="callout good">
       <span class="t">第 6 条为什么重要</span>
-      <p>王者那套的 202 个 <code>public static</code> 字段谁都能改（只靠"组合根之外禁止赋值"的口头纪律）。
+      <p>那套参考实现的 202 个 <code>public static</code> 字段谁都能改（只靠"组合根之外禁止赋值"的口头纪律）。
       本框架把这条纪律变成了<b>类型</b>：注册只能发生在构建器上，<code>Build()</code> 之后就改不了了。</p>
     </div>
   </section>
@@ -543,8 +543,8 @@ Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; a.GetRequired&lt;ISessio
 
   <!-- ============ 九 ============ -->
   <section id="s9">
-    <h2><span class="num">九</span>与王者原版的对照（一句话版）</h2>
-    <p class="lead">完整 22 条（每条带王者出处行号）在代码目录的 README 第三节。</p>
+    <h2><span class="num">九</span>与参考实现的对照（一句话版）</h2>
+    <p class="lead">完整 22 条（每条带出处行号）在代码目录的 README 第三节。</p>
 
     <div class="table-wrap">
       <table>
@@ -586,7 +586,7 @@ Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; a.GetRequired&lt;ISessio
 
     <div class="callout good">
       <span class="t">下一步读什么</span>
-      <p>想搞清楚"为什么这么设计"（以及王者那套每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevServiceLocator\README.md</code>。</p>
+      <p>想搞清楚"为什么这么设计"（以及那套参考实现每一处取舍的出处）：读 <code>Assets\Revolution\Runtime\RevServiceLocator\README.md</code>。</p>
     </div>
   </section>
 

@@ -175,7 +175,7 @@ RevPool.GetAsync(<span class="s">"Battle/Bullet"</span>, <span class="s">"Bullet
       <span class="t">怎么选</span>
       <b>要挂在场景里、要显示 → GameObject 池；只是 new 出来的 C# 对象 → 纯 C# 池。</b>
       拿不准就用 GameObject 池（更常用），它的 API 就是本文第二张表。
-      纯 C# 池的完整 API（容量、清理、统计）见同目录的《对象池使用指南》。
+      纯 C# 池的完整 API（容量、清理、统计）见同目录的《对象池架构解析》。
     </div>
   </section>
 
@@ -205,7 +205,7 @@ RevPool.GetAsync(<span class="s">"Battle/Bullet"</span>, <span class="s">"Bullet
   <section id="s6">
     <h2><span class="num">六</span>相关文档</h2>
     <ul>
-      <li><a href="对象池使用指南.md">《对象池 · 使用指南》</a> —— 设计论证：池的分层、容量与淘汰策略、与资源引用计数的配合、纯 C# 池的断言</li>
+      <li><a href="对象池架构解析.md">《对象池 · 架构解析》</a> —— 设计论证：池的分层、容量与淘汰策略、与资源引用计数的配合、纯 C# 池的断言</li>
       <li><a href="../资源加载系统/资源加载系统使用说明.html">《资源加载系统 · 使用说明》</a> —— 池里的对象为什么不用你 Release</li>
       <li><a href="../UI系统/UI系统使用说明.html">《UI 系统 · 使用说明》</a> —— 列表项池化的常见用法</li>
       <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
@@ -215,7 +215,7 @@ RevPool.GetAsync(<span class="s">"Battle/Bullet"</span>, <span class="s">"Bullet
 </main>
 
 <footer>
-  Revolution · 对象池　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  Revolution · 对象池　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《架构解析》　|　
   <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 

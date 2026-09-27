@@ -225,7 +225,6 @@
   <div class="wrap">
     <span class="kicker">设计说明 · 对比报告</span>
     <h1>Revolution 导表工具 对比与设计说明</h1>
-    <p>旧：唐老师框架升级版 <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Editor\Excel导表\ExcelTool.cs</code><br>
        新：RevolutionFramework <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Revolution.ExcelTool</code>（WPF）+ <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Runtime\DataLoad</code></p>
     <p class="meta">阅读对象：接手本框架的人、需要讲清"为什么重写"的人</p>
   </div>
@@ -240,7 +239,7 @@
       <li><a href="#s1">一、两条链路对照</a></li>
       <li><a href="#s2">二、逐项对比（26 项）</a></li>
       <li><a href="#s3">三、新版的六个"好在哪"</a></li>
-      <li><a href="#s4">四、运用了王者哪些设计哲学</a></li>
+      <li><a href="#s4">四、运用了参考实现哪些设计哲学</a></li>
       <li><a href="#s5">五、诚实说清代价与边界</a></li>
       <li><a href="#s6">六、附：关键文件索引</a></li>
     </ol>
@@ -253,10 +252,10 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th style="width:22%">问题</th><th style="width:39%">旧版答案</th><th style="width:39%">新版答案</th></tr>
+          <tr><th style="width:22%">问题</th><th style="width:39%">早期版本答案</th><th style="width:39%">新版答案</th></tr>
         </thead>
         <tbody>
-          <tr><td>工具在哪运行</td><td>Unity Editor 菜单（<code>唐老师工具/读取Excel表数据/...</code>）</td><td>独立 WPF 桌面程序，<b>与 Unity 完全解耦</b></td></tr>
+          <tr><td>工具在哪运行</td><td>Unity Editor 菜单（<code>工具/读取Excel表数据/...</code>）</td><td>独立 WPF 桌面程序，<b>与 Unity 完全解耦</b></td></tr>
           <tr><td>读 xlsx 靠什么</td><td>第三方 <code>Excel.dll</code>（ExcelDataReader，且仅 Editor 平台）</td><td>自研 zip + XML 解析，<b>零第三方依赖</b></td></tr>
           <tr><td>数据文件格式</td><td>自定义二进制 <code>.tang</code> + JSON（<b>依赖 Newtonsoft</b>）</td><td>纯文本 TXT（自制转义，<b>零依赖</b>）</td></tr>
           <tr><td>数据结构</td><td><code>public class</code>（堆分配，有 GC）</td><td><code>public struct</code>（值类型，<b>零 GC</b>）</td></tr>
@@ -271,7 +270,7 @@
 
     <div class="callout">
       <span class="t">一句话</span>
-      旧版是"能跑通的最小可用版本"；新版是"把数据表当成一等资源来管"的版本。
+      早期版本是"能跑通的最小可用版本"；新版是"把数据表当成一等资源来管"的版本。
     </div>
   </section>
 
@@ -279,7 +278,7 @@
   <section id="s1">
     <h2><span class="num">1</span>两条链路对照</h2>
 
-    <h3>1.1 旧版（唐老师框架）</h3>
+    <h3>1.1 早期版本</h3>
     <div class="flow">Excel(.xlsx)
   │
   ├─ Unity Editor 菜单点击
@@ -341,7 +340,7 @@
         <thead>
           <tr>
             <th class="c">#</th><th style="width:14%">维度</th>
-            <th style="width:31%">旧版（唐老师框架）</th>
+            <th style="width:31%">早期版本</th>
             <th style="width:34%">新版（Revolution）</th>
             <th style="width:15%">影响</th>
           </tr>
@@ -386,14 +385,14 @@
 
       <div class="card">
         <h3><span class="idx">1</span>零依赖：不再被第三方库绑架</h3>
-        <p><b>旧版</b>：框架被迫链上 <code>Newtonsoft.Json</code>（<code>JsonDataMgr</code> 与导表工具都用 <code>JsonConvert</code>），Excel 解析还要一个 <code>Excel.dll</code>。</p>
+        <p><b>早期版本</b>：框架被迫链上 <code>Newtonsoft.Json</code>（<code>JsonDataMgr</code> 与导表工具都用 <code>JsonConvert</code>），Excel 解析还要一个 <code>Excel.dll</code>。</p>
         <p><b>新版</b>：零第三方依赖。xlsx 本质是 zip + XML，用 <code>ZipArchive</code> + <code>XDocument</code> 就够；数据格式自己定，不需要 JSON 库。</p>
         <p><b>收益</b>：升级 Unity / 换 .NET 版本时不用等第三方库跟进，也不必为了"读个表"把整个 JSON 库拖进包里。</p>
       </div>
 
       <div class="card">
         <h3><span class="idx">2</span>零 GC：struct + 生成的强类型解析</h3>
-        <p><b>旧版</b>每一行每个字段都走反射：</p>
+        <p><b>早期版本</b>每一行每个字段都走反射：</p>
         <pre><span class="c">// 反射填数据</span>
 FieldInfo f = t.GetField(name);
 f.SetValue(instance, ConvertValue(cell, f.FieldType));  <span class="c">// 每格一次装箱</span></pre>
@@ -406,7 +405,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
 
       <div class="card">
         <h3><span class="idx">3</span>生命周期正确：表是一种"资源"</h3>
-        <p><b>旧版</b>只有 <code>LoadTable&lt;T,K&gt;()</code> 与 <code>GetTable&lt;T&gt;()</code>，<b>没有卸载</b>，<code>tableDic</code> 只增不减；且从 StreamingAssets 直接读（Android 要 UnityWebRequest、iOS 要拼 <code>file://</code>），<b>绕过资源系统 = 没有缓存、没有引用计数</b>。</p>
+        <p><b>早期版本</b>只有 <code>LoadTable&lt;T,K&gt;()</code> 与 <code>GetTable&lt;T&gt;()</code>，<b>没有卸载</b>，<code>tableDic</code> 只增不减；且从 StreamingAssets 直接读（Android 要 UnityWebRequest、iOS 要拼 <code>file://</code>），<b>绕过资源系统 = 没有缓存、没有引用计数</b>。</p>
         <p><b>新版</b>统一走资源系统，白拿四件事：</p>
         <pre>await DataTableManager.LoadAsync&lt;HeroTable&gt;();
 <span class="c">// ① 缓存   ② 引用计数</span>
@@ -416,7 +415,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
 
       <div class="card">
         <h3><span class="idx">4</span>数据可读、可 diff</h3>
-        <p><b>旧版</b> <code>.tang</code> 二进制：策划改一个数值，<code>git diff</code> 只会说"文件已更改"，<b>看不出改了哪一行</b>。</p>
+        <p><b>早期版本</b> <code>.tang</code> 二进制：策划改一个数值，<code>git diff</code> 只会说"文件已更改"，<b>看不出改了哪一行</b>。</p>
         <p><b>新版</b> TXT 带表头注释：</p>
         <pre>#Hero
 #ID  Name  Quality  Attack ...
@@ -427,7 +426,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
 
       <div class="card">
         <h3><span class="idx">5</span>错误前置：导表是集中暴露问题的唯一机会</h3>
-        <p><b>旧版</b>边解析边生成，主键重复甚至要拖到<b>运行时</b>由 <code>DuplicateKeyBehavior</code> 决定。</p>
+        <p><b>早期版本</b>边解析边生成，主键重复甚至要拖到<b>运行时</b>由 <code>DuplicateKeyBehavior</code> 决定。</p>
         <p><b>新版</b>导出前全量校验，并分级处理：</p>
         <pre><span class="c">[错误]</span> 第 5 行 [Cost]："abc" 不是合法的 int
 <span class="c">[错误]</span> 第 6 行：主键 [Id] = 101 重复
@@ -439,7 +438,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
       <div class="card">
         <h3><span class="idx">6</span>契约唯一：写端和读端是同一份源码</h3>
         <p>最容易踩、最难查的一类 bug：<b>工具写出来的格式，运行时读不懂</b>。</p>
-        <p><b>旧版</b>写端在 <code>ExcelTool.cs</code>、读端在 <code>BinaryDataMgr.cs</code>，格式各写一遍，一方改了另一方没同步就要到真机才暴露。</p>
+        <p><b>早期版本</b>写端在 <code>ExcelTool.cs</code>、读端在 <code>BinaryDataMgr.cs</code>，格式各写一遍，一方改了另一方没同步就要到真机才暴露。</p>
         <p><b>新版</b>格式规则只存在于 <code>DataTextFormat.cs</code>，工具工程直接链接它：</p>
         <pre>&lt;Compile Include="..\...\DataLoad\Core\DataTextFormat.cs"
          Link="Shared\DataTextFormat.cs" /&gt;</pre>
@@ -448,7 +447,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
 
       <div class="card">
         <h3><span class="idx">7</span>主键类型不限，表名可字符串驱动</h3>
-        <p><b>旧版</b>两条路径的主键约定互相打架：JSON 路径<b>硬性要求主键字段名必须是 <code>id</code> 且类型为 <code>string</code></b>（直接 <code>GetField("id")</code>），想用 int 主键就只能走二进制那条路。</p>
+        <p><b>早期版本</b>两条路径的主键约定互相打架：JSON 路径<b>硬性要求主键字段名必须是 <code>id</code> 且类型为 <code>string</code></b>（直接 <code>GetField("id")</code>），想用 int 主键就只能走二进制那条路。</p>
         <p><b>新版</b>主键类型完全由 Excel 第 2 行决定，<code>int</code> / <code>string</code> 都支持：</p>
         <pre>ID:int     →  DataTable&lt;int, Hero&gt;       FindByKey(1001)
 ID:string  →  DataTable&lt;string, Buff&gt;    FindByKey("BUFF_ATK_UP")</pre>
@@ -465,14 +464,14 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
 
   <!-- ==================== 四 ==================== -->
   <section id="s4">
-    <h2><span class="num">4</span>运用了王者荣耀导表系统的哪些设计哲学</h2>
+    <h2><span class="num">4</span>运用了参考实现导表系统的哪些设计哲学</h2>
 
-    <p style="color:var(--text-sub);font-size:13.5px">参考文档：《王者荣耀导表工具与数据表系统总览》系列（<code>00</code> ~ <code>08</code>）</p>
+    <p style="color:var(--text-sub);font-size:13.5px">参考文档：《参考实现导表工具与数据表系统总览》系列（<code>00</code> ~ <code>08</code>）</p>
 
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th style="width:24%">王者设计哲学</th><th style="width:30%">王者的体现</th><th style="width:31%">本框架的落地</th><th class="c" style="width:15%">是否照搬</th></tr>
+          <tr><th style="width:24%">参考实现设计哲学</th><th style="width:30%">参考实现的体现</th><th style="width:31%">本框架的落地</th><th class="c" style="width:15%">是否照搬</th></tr>
         </thead>
         <tbody>
           <tr><td><b>工具生成代码</b></td><td>TDR 生成 struct + 容器类</td><td>生成 <code>struct</code> + <code>XxxTable : DataTable&lt;,&gt;</code></td><td class="c"><span class="pill yes">✅ 照搬思想</span></td></tr>
@@ -492,7 +491,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
     </div>
 
     <h3>4.1 为什么"容器类统一接口"这一条我们做得更彻底</h3>
-    <p>王者为<b>每张表</b>都生成一遍 <code>FindByKey / Count / GetByIndex</code>（几千张表 = 几千份重复代码，<code>TdrGeneratedCode.cs</code> 有 5.41 MB）。</p>
+    <p>参考实现为<b>每张表</b>都生成一遍 <code>FindByKey / Count / GetByIndex</code>（几千张表 = 几千份重复代码，<code>TdrGeneratedCode.cs</code> 有 5.41 MB）。</p>
     <p>我们把这些查询能力全部放进基类 <code>DataTable&lt;TKey, TData&gt;</code>，<b>生成器只输出两个方法</b>：</p>
     <pre><span class="k">protected override</span> <span class="k">int</span> GetKey(<span class="k">in</span> Hero data) =&gt; data.Id;                 <span class="c">// 主键怎么取</span>
 <span class="k">protected override</span> <span class="k">bool</span> ParseRow(<span class="k">string</span>[] cells, <span class="k">out</span> Hero data) {...}  <span class="c">// 一行怎么解析</span></pre>
@@ -503,7 +502,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th style="width:30%">王者的手段</th><th style="width:34%">它解决的问题</th><th style="width:36%">本框架为什么不需要</th></tr>
+          <tr><th style="width:30%">参考实现的手段</th><th style="width:34%">它解决的问题</th><th style="width:36%">本框架为什么不需要</th></tr>
         </thead>
         <tbody>
           <tr><td><code>[FieldOffset]</code> 显式内存布局</td><td>C# 要按字节对齐去读 <b>C++ 侧</b>那一致的内存</td><td>数据完全在托管侧，用不着按字节定位</td></tr>
@@ -517,7 +516,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
 
     <div class="callout good">
       <span class="t">一句话</span>
-      王者的方案是为"<b>几千张表 + C++ 内核 + 跨语言共享定义</b>"量身定做的；本框架是纯 C# UnityEngine 项目，规模差好几个数量级。<b>学它的设计哲学，不学它的实现手段</b> —— 否则会为了一个 3 万行的项目引入 5 MB 的生成代码和一堆原生互操作。
+      参考实现的方案是为"<b>几千张表 + C++ 内核 + 跨语言共享定义</b>"量身定做的；本框架是纯 C# UnityEngine 项目，规模差好几个数量级。<b>学它的设计哲学，不学它的实现手段</b> —— 否则会为了一个 3 万行的项目引入 5 MB 的生成代码和一堆原生互操作。
     </div>
   </section>
 
@@ -530,7 +529,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
       <li><b>纯文本可被随手改</b>。二进制更难篡改，TXT 没有任何防改机制。配置表一般不在意，涉及数值公平性时请配合资源包校验。</li>
       <li><b>自研 xlsx 解析有边界</b>。只支持 <code>.xlsx</code>（Excel 2007+），不支持老的 <code>.xls</code>（OLE 复合文档）；不处理图表、批注、条件格式；公式取其缓存值。</li>
       <li><b>全量重写两个代码文件</b>。表很多时生成文件会变大，每次导表都会触发 Unity 重编译。当前 3 张表的演示规模远未到瓶颈；到几百张表时需要评估分文件策略。</li>
-      <li><b>还没有 schema 版本号</b>。王者 <code>struct</code> 带 <code>version</code> 属性，我们没做"数据文件版本与代码版本不匹配"的检查。当前靠"导表同时覆盖代码和数据"来保证一致。</li>
+      <li><b>还没有 schema 版本号</b>。参考实现 <code>struct</code> 带 <code>version</code> 属性，我们没做"数据文件版本与代码版本不匹配"的检查。当前靠"导表同时覆盖代码和数据"来保证一致。</li>
       <li><b>运行时解析错误只跳过不报错</b>。容器用 <code>errorCount</code> 记下坏行数但不中断（避免一张表笔误让游戏起不来）；目前没有把它输出到日志的地方 —— 接入项目时建议在 <code>DataTableManager</code> 里加一句日志。</li>
     </ol>
   </section>

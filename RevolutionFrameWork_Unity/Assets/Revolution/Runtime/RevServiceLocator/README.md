@@ -41,16 +41,16 @@ using (var battle = Services.CreateScope())
 | `Implementation\RevServiceRegistry.cs` · `RevServiceDescriptor.cs` | 引擎内部：实例表、逆序释放、Tick 列表、循环依赖检测 | 不用读 |
 | `Interfaces\RevIServiceInit.cs` · `RevITickable.cs` | 可选钩子：创建后取依赖、每帧做事 | 用到再读 |
 
-## 三、与王者服务定位器的对照（取精华 / 去糟粕）
+## 三、与参考实现服务定位器的对照（取精华 / 去糟粕）
 
 ### 3.1 保留的精华（都有出处）
 
-| # | 精华 | 王者出处 | 本框架怎么落实 |
+| # | 精华 | 出处 | 本框架怎么落实 |
 |---|---|---|---|
 | 1 | **显式注册 + 组合根唯一前置**（"运行期只读"） | `00_设计哲学.md:53-61` | 注册只能发生在 `RevServiceBuilder` 上，`Build()` 之后连改的机会都没有（纪律变成类型） |
 | 2 | **接口优先 / 依赖倒置** | `00:38-43` | 注册与获取都面向接口；错误信息还会提醒"注册写的接口、取也要用接口" |
 | 3 | **幂等注册** | `CSystemManager.cs:64-67` | 重复注册直接报错（不静默覆盖），从源头保证"一处装配" |
-| 4 | **零反射构造**（IL2CPP/AOT 安全） | `CSystemManager.cs:60/69`、`04:58-71` | 泛型 `where TImpl : new()` 闭包工厂 —— 无需王者那 22 个手写 switch 分支 |
+| 4 | **零反射构造**（IL2CPP/AOT 安全） | `CSystemManager.cs:60/69`、`04:58-71` | 泛型 `where TImpl : new()` 闭包工厂 —— 无需参考实现那 22 个手写 switch 分支 |
 | 5 | **"先入表、再 Init"不变量** | `CSystemManager.cs:70-76` | 保留该顺序（避免 Init 里又去创建而打转），并补上它缺的"失败回滚" |
 | 6 | **能力探测式挂载** | `CSystemManager.cs:86-132` | 创建时探测 `RevITickable` → 进 Tick 列表（挂钩子的范围收敛在"这个容器"里） |
 | 7 | **逆序卸载** | `CSystemManager.cs:229-236` | 释放按"逆创建序"（后创建的常依赖先创建的） |
@@ -59,7 +59,7 @@ using (var battle = Services.CreateScope())
 
 ### 3.2 改掉的糟粕
 
-| # | 王者的问题 | 出处 | 本框架的处理 |
+| # | 参考实现的问题 | 出处 | 本框架的处理 |
 |---|---|---|---|
 | 1 | **202 个 `public static` 可变字段**（谁都能改，只靠口头纪律） | `SystemManager.cs:17-281` | **零静态可变状态**：容器是实例，装配表 Build 后冻结 |
 | 2 | Init 抛异常但实例**仍留在容器里**（半初始化） | `CSystemManager.cs:73-83` | 创建或 `OnInit` 失败 → **回滚摘除** + 异常上抛 |

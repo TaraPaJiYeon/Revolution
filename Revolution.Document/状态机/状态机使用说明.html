@@ -189,7 +189,7 @@ _fsm.ChangeState(BossState.Idle, <span class="s">"初始化"</span>);
     <div class="callout warn">
       <span class="t">状态里怎么拿到"宿主"和"状态机"</span>
       基类已经给了：<code>Owner</code>（你的行为接口实例）与 <code>Fsm</code>（当前状态机）。
-      <b>不要再自己维护一份 static 引用</b> —— 那是老框架最容易出错的写法。
+      <b>不要再自己维护一份 static 引用</b> —— 那是早期实现最容易出错的写法。
     </div>
   </section>
 
@@ -268,7 +268,7 @@ uiStack.StatePopped += s =&gt; RevLog.Info($<span class="s">"退出 {s.GetType()
   <section id="s7">
     <h2><span class="num">七</span>相关文档</h2>
     <ul>
-      <li><a href="状态机使用指南.md">《状态机 · 使用指南》</a> —— 设计论证：两种形态的分工、泛型宿主接口为什么这么设计、异步切换的实现</li>
+      <li><a href="状态机架构解析.md">《状态机 · 架构解析》</a> —— 设计论证：两种形态的分工、泛型宿主接口为什么这么设计、异步切换的实现</li>
       <li><a href="状态机Demo示例讲解.md">《状态机 Demo 示例讲解》</a> —— Boss AI / 游戏流程 / UI 栈三个完整例子</li>
       <li><a href="../公共Mono模块/公共Mono模块使用说明.html">《公共 Mono 模块 · 使用说明》</a> —— 纯 C# 流程管理器怎么拿每帧回调</li>
       <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
@@ -278,7 +278,7 @@ uiStack.StatePopped += s =&gt; RevLog.Info($<span class="s">"退出 {s.GetType()
 </main>
 
 <footer>
-  Revolution · 状态机　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  Revolution · 状态机　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《架构解析》　|　
   <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 

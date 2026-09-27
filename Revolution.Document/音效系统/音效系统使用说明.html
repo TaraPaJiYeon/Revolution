@@ -188,7 +188,7 @@
       <li><a href="#s6">六、新手最容易白干的 10 个坑</a></li>
       <li><a href="#s7">七、没声音怎么查（5 分钟定位）</a></li>
       <li><a href="#s8">八、一页速查卡（可打印）</a></li>
-      <li><a href="#s9">九、附：设计来源与旧框架对照</a></li>
+      <li><a href="#s9">九、附：设计来源与早期实现对照</a></li>
     </ol>
   </nav>
 
@@ -326,7 +326,7 @@ h.Stop();                                   <span class="c">// 停掉这一条</
 RevSound.StopAll(fadeSeconds: <span class="n">0.3f</span>);     <span class="c">// 停掉所有（切场景/退战斗）</span></pre>
     <div class="callout warn">
       <span class="t">句柄会"自己过期"</span>
-      一条声音结束后它的句柄自动失效，<b>过期的句柄绝不会误停一条新的声音</b>（每个槽位带代际号）。所以你不用像旧框架那样维护"这个播放器还能不能用"。
+      一条声音结束后它的句柄自动失效，<b>过期的句柄绝不会误停一条新的声音</b>（每个槽位带代际号）。所以你不用像早期实现那样维护"这个播放器还能不能用"。
     </div>
   </section>
 
@@ -409,8 +409,8 @@ RevSound.PreloadAll();                      <span class="c">// 表里所有音�
       </table>
     </div>
     <div class="callout good">
-      <span class="t">这就是王者"元数据驱动"那条哲学的轻量版</span>
-      王者的表是二进制（<code>SoundBankInfoSet.bytes</code>，由工具生成）；这里是一张<b>代码注册的小表</b> ——
+      <span class="t">这就是参考实现"元数据驱动"那条哲学的轻量版</span>
+      参考实现的表是二进制（<code>SoundBankInfoSet.bytes</code>，由工具生成）；这里是一张<b>代码注册的小表</b> ——
       代价是"表与代码不同步"换成了"表就是代码"（可 diff、可 Code Review、零加载解析成本）。
     </div>
   </section>
@@ -593,7 +593,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
         <thead><tr><th style="width:44%">旧写法（靠人记）</th><th>作用域</th></tr></thead>
         <tbody>
           <tr><td>切页面前记得把自己播的声音都停掉（忘了就"切页面还在响"）</td><td><code>using</code> 一块，出块自动全停</td></tr>
-          <tr><td>切场景前 <code>ClearSound()</code>（旧框架注释写了三遍"重要的事情说三遍"）</td><td>类型层面的边界：忘了写 <code>using</code> 才是例外</td></tr>
+          <tr><td>切场景前 <code>ClearSound()</code>（早期实现注释写了三遍"重要的事情说三遍"）</td><td>类型层面的边界：忘了写 <code>using</code> 才是例外</td></tr>
         </tbody>
       </table>
     </div>
@@ -756,13 +756,13 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
 
   <!-- ==================== 九 ==================== -->
   <section id="s9">
-    <h2><span class="num">9</span>附：设计来源与旧框架对照</h2>
+    <h2><span class="num">9</span>附：设计来源与早期实现对照</h2>
     <p class="lead">给"想改它 / 想评审它"的人：这套东西是从哪来的、丢掉了什么。</p>
 
-    <h3>向王者音效系统学的（精华）</h3>
+    <h3>向参考实现音效系统学的（精华）</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:40%">王者哲学</th><th>本框架怎么落</th></tr></thead>
+        <thead><tr><th style="width:40%">参考实现哲学</th><th>本框架怎么落</th></tr></thead>
         <tbody>
           <tr><td>异步是常态：播放立即返回、业务看不见异步窗口</td><td>资源没到 → 立即返回句柄，加载完自动播（"等资源中"的槽位）</td></tr>
           <tr><td>3D 音效 = 给后端正确的 emitter</td><td><code>PlayOn</code> 把播放器<b>直接挂到目标物体下</b>；物毁音停、位置零每帧开销</td></tr>
@@ -781,7 +781,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
     <h3>丢掉的（糟粕）</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:44%">王者的问题</th><th>本框架的处理</th></tr></thead>
+        <thead><tr><th style="width:44%">参考实现的问题</th><th>本框架的处理</th></tr></thead>
         <tbody>
           <tr><td><code>CSoundManager</code> 3539 行上帝类</td><td>内核 587 行，门面与内核分家</td></tr>
           <tr><td>到处 Singleton（5 个都带 <code>GetInstance</code>）</td><td>静态门面只是便捷；内核 <code>RevSoundCore</code> 是普通实例（可 new 多个）</td></tr>
@@ -797,7 +797,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
       </table>
     </div>
 
-    <h3>旧框架 <code>MusicMgr</code>（714 行）迁移对照</h3>
+    <h3>早期实现 <code>MusicMgr</code>（714 行）迁移对照</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:36%">旧写法</th><th style="width:34%">新写法</th><th>旧实现的坑</th></tr></thead>

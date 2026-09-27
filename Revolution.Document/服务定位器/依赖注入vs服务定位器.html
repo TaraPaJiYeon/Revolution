@@ -273,7 +273,7 @@
       <span class="t">看出问题了吗</span>
       <p>光看 <code>BossChaseState</code> 的<b>类型签名</b>，你完全不知道它依赖 <code>IBossObj</code>；
       而上面那种写法，依赖是写在类型上的（<code>RevHeavyFsmState&lt;BossStateType, IBossObj&gt;</code>）。
-      <b>这就是"依赖可见性"的差别</b> —— 也是为什么王者的设计文档里明确写着"显式依赖优于魔法注入"（<code>00_设计哲学.md:89-105</code>）。</p>
+      <b>这就是"依赖可见性"的差别</b> —— 也是为什么参考实现的设计文档里明确写着"显式依赖优于魔法注入"（<code>00_设计哲学.md:89-105</code>）。</p>
     </div>
   </section>
 
@@ -373,7 +373,7 @@ Assert.AreEqual(<span class="s">"MoveTowardsPlayer"</span>, ((FakeBoss)fsm.Owner
           <tr>
             <td><b>跨程序集<br>（底层调上层）</b></td>
             <td>需要"上层能改下层签名"才行；底层不能反向引用上层，这条路走不通</td>
-            <td><b>唯一出路</b>：底层只依赖接口，实现由启动期注册进来（王者 <code>SysMgr</code> 就是为这个生的）</td>
+            <td><b>唯一出路</b>：底层只依赖接口，实现由启动期注册进来（参考实现 <code>SysMgr</code> 就是为这个生的）</td>
           </tr>
         </tbody>
       </table>
@@ -468,8 +468,8 @@ Owner.MoveTowardsPlayer();</pre>
     </ul>
 
     <div class="plain">
-      <span class="tag">王者的取舍可以当参考</span>
-      <p>王者那套里，<code>SysMgr</code>（202 个静态委托字段）只用来做<b>"底层调上层"</b>这一件事 —— 业务内部互相取用仍然是显式的（<code>world.GetService&lt;T&gt;()</code>、构造传入、<code>instance</code> 直取）。
+      <span class="tag">参考实现的取舍可以当参考</span>
+      <p>那套参考实现里，<code>SysMgr</code>（202 个静态委托字段）只用来做<b>"底层调上层"</b>这一件事 —— 业务内部互相取用仍然是显式的（<code>world.GetService&lt;T&gt;()</code>、构造传入、<code>instance</code> 直取）。
       它的设计文档把这条写成了原则："<b>显式依赖优于魔法注入</b>"（<code>00_设计哲学.md:89-105</code>）。</p>
     </div>
   </section>
@@ -657,7 +657,6 @@ Owner.MoveTowardsPlayer();</pre>
 
 <footer>
   本文引用的项目代码：<code>Assets\Revolution\Runtime\RevStateMachine\Heavyweight\</code>（<code>RevHeavyFsm.cs:202</code> · <code>RevHeavyFsmState.cs:51</code> · <code>RevIHeavyFsmOwner.cs:30</code>）·
-  王者设计文档：<code>工作日志\第二月\第6周\2026年9月24日\服务定位器\00_设计哲学.md:89-105</code>（显式依赖优于魔法注入）。<br>
   配套阅读：《服务定位器使用说明》（同目录，md + html）· 代码目录 README（<code>Assets\Revolution\Runtime\RevServiceLocator\README.md</code>）。<br>
   本文档面向零基础；HTML 版含 1 段纯 CSS 动画（两种"拿钥匙"的路径），无外部依赖。
 </footer>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>事件系统 · 使用指南</title>
+<title>事件系统 · 架构解析</title>
 <style>
   :root{
     --accent:#2F6FED; --accent-soft:#EAF1FE;
@@ -103,10 +103,10 @@
 
 <header class="hero">
   <div class="wrap">
-    <span class="kicker">使用指南</span>
-    <h1>事件系统 · 使用指南</h1>
+    <span class="kicker">架构解析</span>
+    <h1>事件系统 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\EventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能独立完成"定义事件名 → 定义参数结构体 → 注册监听 → 派发 → 正确反注册"，并且知道它和旧版（唐老师框架）的每一处差别、每处差别为什么这么改</p>
+    <p class="meta">目标：看完能独立完成"定义事件名 → 定义参数结构体 → 注册监听 → 派发 → 正确反注册"，并且知道它和早期版本的每一处差别、每处差别为什么这么改</p>
   </div>
 </header>
 
@@ -116,8 +116,8 @@
     <ol>
       <li><a href="#s0">〇、最短路径（三句话）</a></li>
       <li><a href="#s1">一、事件系统解决什么问题</a></li>
-      <li><a href="#s2">二、新版 vs 旧版</a></li>
-      <li><a href="#s3">三、运用了王者的哪些设计哲学</a></li>
+      <li><a href="#s2">二、当前实现 vs 早期版本</a></li>
+      <li><a href="#s3">三、运用了参考实现的哪些设计哲学</a></li>
       <li><a href="#s4">四、新版事件系统怎么用</a></li>
       <li><a href="#s5">五、必须知道的五个坑</a></li>
       <li><a href="#s6">六、API 速查</a></li>
@@ -157,12 +157,12 @@
 
   <!-- ==================== 二 ==================== -->
   <section id="s2">
-    <h2><span class="num">2</span>新版 vs 旧版（唐老师框架 <code>Runtime\事件中心\</code>）</h2>
+    <h2><span class="num">2</span>当前实现 vs 早期版本</h2>
 
     <h3>2.1 总览</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:20%">维度</th><th style="width:40%">旧版 <code>EventCenter.cs</code></th><th>新版 <code>Runtime\EventSystem\</code></th></tr></thead>
+        <thead><tr><th style="width:20%">维度</th><th style="width:40%">早期版本 <code>EventCenter.cs</code></th><th>新版 <code>Runtime\EventSystem\</code></th></tr></thead>
         <tbody>
           <tr><td>代码规模</td><td><b>1906 行 / 单文件</b>，89 KB</td><td><b>936 行 / 5 文件</b>（其中约三成是注释）</td></tr>
           <tr><td><code>public</code> 方法/重载</td><td><b>119 个</b></td><td><b>26 个</b>（业务真正要认的只有 3 族共 15 个）</td></tr>
@@ -183,7 +183,7 @@
     <p>下面把几条关键差别展开讲。</p>
 
     <h3>2.2 参数个数：从 16 收到 4 —— 少即是多</h3>
-    <p>旧版为"同一件事、不同参数个数"写了 <b>18 个 <code>EventInfo</code> 类</b>：</p>
+    <p>早期版本为"同一件事、不同参数个数"写了 <b>18 个 <code>EventInfo</code> 类</b>：</p>
     <pre><span class="k">public class</span> EventInfo&lt;T&gt; : EventInfoBase            { <span class="k">public</span> Action&lt;T&gt; actions; ... }
 <span class="k">public class</span> EventInfo&lt;T1, T2&gt; : EventInfoBase       { <span class="k">public</span> Action&lt;T1, T2&gt; actions; ... }
 <span class="k">public class</span> EventInfo&lt;T1, T2, T3&gt; : EventInfoBase   { ... }
@@ -200,8 +200,8 @@
       <b>这不是能力缩水，是把人往更好的写法上推。</b></p>
 
     <h3>2.3 最坑的一处：类型不匹配会静默丢弃</h3>
-    <p>旧版的派发核心是这两句：</p>
-    <pre><span class="c">// 旧版 EventCenter.cs</span>
+    <p>早期版本的派发核心是这两句：</p>
+    <pre><span class="c">// 早期版本 EventCenter.cs</span>
 <span class="k">if</span> (eventDic.ContainsKey(eventName))
 {
     (eventDic[eventName] <span class="k">as</span> EventInfo&lt;T&gt;).actions?.Invoke(info);
@@ -226,7 +226,7 @@
 同一个事件名的所有监听者必须使用同一种签名（★ 推荐统一用事件参数结构体）。</pre>
 
     <h3>2.4 一套键，不是两套</h3>
-    <p>旧版同时维护了两张表：</p>
+    <p>早期版本同时维护了两张表：</p>
     <pre><span class="k">private</span> Dictionary&lt;E_EventType, EventInfoBase&gt; eventDic    = <span class="k">new</span> ...;   <span class="c">// 枚举键</span>
 <span class="k">private</span> Dictionary&lt;string, EventInfoBase&gt; stringEventDic   = <span class="k">new</span> ...;   <span class="c">// 字符串键</span></pre>
     <p>结果是每个功能都要写两遍（<code>EventTrigger</code> 同步版就有 25 个重载、async 版 22 个，
@@ -234,7 +234,7 @@
     <p>新版只留 <code>string</code>：</p>
     <ul>
       <li>业务侧集中定义静态常量（<code>GameEventId.HeroSkinAdd = "Hero.Skin.Add"</code>），拿到"拼错编译不过 + IDE 补全"的全部好处；</li>
-      <li>框架<b>不需要知道业务有哪些事件</b>，不用像王者那样搞一份自动生成的 <code>EventID.cs</code>；</li>
+      <li>框架<b>不需要知道业务有哪些事件</b>，不用像参考实现那样搞一份自动生成的 <code>EventID.cs</code>；</li>
       <li>排查时日志里直接是可读的事件名，而不是 <code>3017</code>。</li>
     </ul>
     <p>字典用 <code>StringComparer.Ordinal</code>，不受系统区域设置影响（否则土耳其语环境下 <code>I</code>/<code>i</code> 会互相匹配，属于经典冷坑）。</p>
@@ -244,14 +244,14 @@
       和 <code>ulong</code> 版本的差距远小于"可读、可自定义"带来的收益。
     </div>
 
-    <h3>2.5 派发中增删监听者：旧版没有保护</h3>
+    <h3>2.5 派发中增删监听者：早期版本没有保护</h3>
     <p>这是事件系统最经典的事故现场：</p>
     <pre>正在按索引遍历监听者列表派发
     → 某个回调里反注册了自己（或别人）
     → 列表被缩短，下标整体错位
     → 漏调用、重复调用，甚至越界崩溃</pre>
-    <p>旧版没有任何保护：<code>RemoveAll</code> 直接改 <code>List</code>，<code>delegate +=/-=</code> 直接换委托链。</p>
-    <p>新版用王者那套"<b>标记删除 + 派发后统一清理</b>"：</p>
+    <p>早期版本没有任何保护：<code>RemoveAll</code> 直接改 <code>List</code>，<code>delegate +=/-=</code> 直接换委托链。</p>
+    <p>新版用那套参考实现"<b>标记删除 + 派发后统一清理</b>"：</p>
     <pre><span class="c">// 删除时：正在派发 → 只打标记，不摘列表</span>
 <span class="k">if</span> (_dispatchDepth &gt; <span class="n">0</span>)
 {
@@ -270,10 +270,10 @@
         </tbody>
       </table>
     </div>
-    <p>好处不止"不崩"：<b>整个派发过程零复制、零分配</b> —— 不用为了安全先拷一份列表（旧版那种做法）。</p>
+    <p>好处不止"不崩"：<b>整个派发过程零复制、零分配</b> —— 不用为了安全先拷一份列表（早期版本那种做法）。</p>
 
     <h3>2.6 不做 async 派发</h3>
-    <p>旧版有 22 个 <code>EventTriggerAsync</code> 重载，签名是 <code>public async void EventTriggerAsync&lt;T&gt;(...)</code>。<code>async void</code> 有两个硬伤：</p>
+    <p>早期版本有 22 个 <code>EventTriggerAsync</code> 重载，签名是 <code>public async void EventTriggerAsync&lt;T&gt;(...)</code>。<code>async void</code> 有两个硬伤：</p>
     <ol>
       <li><b>异常没法被捕获</b> —— 监听者里抛的异常不会回到调用方，直接进全局未处理异常；</li>
       <li><b>顺序无保证</b> —— 你不知道谁先谁后，而事件系统的大量用法（"先刷数据再刷界面"）恰恰依赖顺序。</li>
@@ -284,14 +284,14 @@
 RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroSkinAddArgs(heroId, skinId));</pre>
 
     <h3>2.7 内存与 GC</h3>
-    <p>旧版每次注册都会 <code>new EventInfo&lt;T&gt;(action)</code> 并 <code>actions += action</code>（产生新的委托链对象），
+    <p>早期版本每次注册都会 <code>new EventInfo&lt;T&gt;(action)</code> 并 <code>actions += action</code>（产生新的委托链对象），
       监听者列表用的是 <code>List</code> 默认容量 4，而且<b>优先级每次 <code>Add</code> 都全量 <code>Sort</code> 一遍</b>。</p>
     <p>新版三处针对性优化（第 3.2、3.3 节详细说）：节点对象池、列表容量预留 1、优先级脏标记。
       工程外实测：结构体载荷连续派发 10000 次、<code>AddEventListener</code>/<code>RemoveEventListener</code> 10000 轮，
       <b>GC 分配均为 0 字节</b>。</p>
 
     <h3>2.8 泄漏防护：销毁时一把摘干净</h3>
-    <p>旧版只能一个个 <code>RemoveXxx</code>。UI 界面注册了 5 个事件、销毁时漏掉一个，那一个就会让事件系统
+    <p>早期版本只能一个个 <code>RemoveXxx</code>。UI 界面注册了 5 个事件、销毁时漏掉一个，那一个就会让事件系统
       <b>一直攥着已销毁的界面对象</b> —— 对象回收不了，而且下次派发还会执行到它（访问已销毁的 <code>GameObject</code>，直接报错）。</p>
     <p>新版提供按归属对象批量移除：</p>
     <pre><span class="k">private void</span> OnDestroy() =&gt; RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
@@ -301,11 +301,11 @@ RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroS
 
   <!-- ==================== 三 ==================== -->
   <section id="s3">
-    <h2><span class="num">3</span>运用了王者的哪些设计哲学</h2>
-    <p>对照《01-事件系统.md》（王者 <code>CEventDispatcher</code> 分析）里的五个亮点，逐条说落地情况：</p>
+    <h2><span class="num">3</span>运用了参考实现的哪些设计哲学</h2>
+    <p>对照《01-事件系统.md》（参考实现 <code>CEventDispatcher</code> 分析）里的五个亮点，逐条说落地情况：</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:16%">王者的设计</th><th style="width:38%">王者里的实现</th><th>新版落地</th></tr></thead>
+        <thead><tr><th style="width:16%">参考实现的设计</th><th style="width:38%">参考实现里的实现</th><th>新版落地</th></tr></thead>
         <tbody>
           <tr><td>① 派发中修改保护</td><td><code>CEventHandler.m_isAbandon</code> + <code>m_isInDispatchingCounter</code> + <code>m_isHandlerListChangedInDispatching</code></td><td><code>RevEventListener.IsAbandoned</code> + <code>RevEventHandlerGroup</code> 的 <code>_dispatchDepth</code> / <code>_changedInDispatch</code>；<b>并额外覆盖嵌套派发</b></td></tr>
           <tr><td>② 内存优化：容量预留 1</td><td><code>new ListView&lt;CEventHandler&gt;(1)</code>，"默认 4 会浪费约 75%"</td><td><code>new List&lt;RevEventListener&gt;(1)</code>，注释里写明来由</td></tr>
@@ -317,7 +317,7 @@ RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroS
     </div>
 
     <h3>3.1 派发中修改保护（最重要的一条）</h3>
-    <p>王者的解法是"标记删除 + 派发后统一清理"。新版实现里有两个细节值得单独说：</p>
+    <p>参考实现的解法是"标记删除 + 派发后统一清理"。新版实现里有两个细节值得单独说：</p>
     <p><b>① 派发深度计数（支持嵌套派发）</b></p>
     <pre><span class="k">internal void</span> EndDispatch()
 {
@@ -338,8 +338,8 @@ RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroS
       <b>派发中新增的监听者不会在本轮被"越派越多"地执行</b>，行为完全可预期。</p>
 
     <h3>3.2 内存优化：容量预留 1</h3>
-    <p>王者的注释是这么说的：业务场景下绝大部分事件只有 1 个监听者，若让 <code>List</code> 按默认容量 4 分配，
-      每个事件浪费 3 个槽位；王者有几千个事件，合计约 75% 的浪费。</p>
+    <p>参考实现的注释是这么说的：业务场景下绝大部分事件只有 1 个监听者，若让 <code>List</code> 按默认容量 4 分配，
+      每个事件浪费 3 个槽位；参考实现有几千个事件，合计约 75% 的浪费。</p>
     <p>新版照抄这个判断：</p>
     <pre><span class="c">// ★ 容量预留 1：绝大多数事件只有 1 个监听者</span>
 <span class="k">private readonly</span> List&lt;RevEventListener&gt; _listeners = <span class="k">new</span> List&lt;RevEventListener&gt;(<span class="n">1</span>);</pre>
@@ -373,18 +373,18 @@ RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroS
     </div>
 
     <h3>3.5 按观察者批量移除</h3>
-    <p>见 2.8。这条是防泄漏的"兜底网"，也是王者被评为 ★★★★★ 的设计。</p>
+    <p>见 2.8。这条是防泄漏的"兜底网"，也是参考实现被评为 ★★★★★ 的设计。</p>
 
-    <h3>3.6 我故意和王者不一样的地方</h3>
+    <h3>3.6 我故意和参考实现不一样的地方</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:14%">差异</th><th style="width:26%">王者做法</th><th style="width:26%">新版做法</th><th>为什么</th></tr></thead>
+        <thead><tr><th style="width:14%">差异</th><th style="width:26%">参考实现做法</th><th style="width:26%">新版做法</th><th>为什么</th></tr></thead>
         <tbody>
-          <tr><td>事件键</td><td><code>ulong</code> 事件 ID（自动生成的 <code>EventID.cs</code>）</td><td><code>string</code> + 业务自定义静态常量</td><td>王者有几千个事件、要求极致性能，且有大团队维护生成器；小项目里"业务自己能加事件、日志可读"更重要。差距是常量级的哈希查找，不是数量级</td></tr>
-          <tr><td>类型不匹配</td><td><code>as</code> 转换，失败即静默</td><td><b>大声报出两侧类型</b></td><td>王者那套有生成器保证 ID 和签名一致；这里没有生成器兜底，就必须让错误自己冒出来</td></tr>
+          <tr><td>事件键</td><td><code>ulong</code> 事件 ID（自动生成的 <code>EventID.cs</code>）</td><td><code>string</code> + 业务自定义静态常量</td><td>参考实现有几千个事件、要求极致性能，且有大团队维护生成器；小项目里"业务自己能加事件、日志可读"更重要。差距是常量级的哈希查找，不是数量级</td></tr>
+          <tr><td>类型不匹配</td><td><code>as</code> 转换，失败即静默</td><td><b>大声报出两侧类型</b></td><td>那套参考实现有生成器保证 ID 和签名一致；这里没有生成器兜底，就必须让错误自己冒出来</td></tr>
           <tr><td>局部事件路由</td><td><code>CLocalEventRouter</code>（子节点向上冒泡、任一层处理即停）</td><td><b>本期未纳入</b></td><td>它是独立子系统（适合 UI 层级事件），不影响全局事件；需要时可以按同样风格补一个</td></tr>
-          <tr><td>异步派发</td><td>无</td><td>无（旧框架有，被砍掉）</td><td><code>async void</code> 的异常与顺序问题大于它的便利</td></tr>
-          <tr><td>优先级</td><td>无</td><td><b>有</b>（可选，默认 0）</td><td>旧框架有、业务习惯有这个能力（如"先刷数据再埋点"），保留但做成"只有真用到才付排序代价"</td></tr>
+          <tr><td>异步派发</td><td>无</td><td>无（早期实现有，被砍掉）</td><td><code>async void</code> 的异常与顺序问题大于它的便利</td></tr>
+          <tr><td>优先级</td><td>无</td><td><b>有</b>（可选，默认 0）</td><td>早期实现有、业务习惯有这个能力（如"先刷数据再埋点"），保留但做成"只有真用到才付排序代价"</td></tr>
         </tbody>
       </table>
     </div>
@@ -636,16 +636,7 @@ RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
         </tbody>
       </table>
     </div>
-    <p>三方对照（想深挖设计取舍的话）：</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th style="width:52%">参考资料</th><th>位置</th></tr></thead>
-        <tbody>
-          <tr><td>王者事件系统设计分析（五个亮点）</td><td><code>工作日志\第二月\第5周\2026年9月15日\框架\01-事件系统.md</code></td></tr>
-          <tr><td>旧版事件系统（对照用，未改动）</td><td><code>唐老师框架升级版\Runtime\事件中心\</code></td></tr>
-        </tbody>
-      </table>
-    </div>
+    <p>设计对照与取舍记录属于内部资料，未随仓库提供 —— 想搞清取舍原因，看本节各文件的职责划分，以及《使用说明》里对应的"坑清单"。</p>
   </section>
 
   <!-- ==================== 九 ==================== -->
@@ -655,7 +646,7 @@ RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
       <table>
         <thead><tr><th style="width:34%">项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>局部事件路由（树形冒泡）</td><td>王者 <code>CLocalEventRouter</code>：子节点派发 → 自己处理不了就向上冒泡。适合 UI 层级事件，属独立子系统</td></tr>
+          <tr><td>局部事件路由（树形冒泡）</td><td>参考实现 <code>CLocalEventRouter</code>：子节点派发 → 自己处理不了就向上冒泡。适合 UI 层级事件，属独立子系统</td></tr>
           <tr><td><code>AddOnce</code>（只监听一次）</td><td>目前可在回调第一行 <code>RemoveEventListener</code> 达到同样效果；真需要再补一个 <code>once</code> 参数</td></tr>
           <tr><td>事件名生成器</td><td>像 <code>RevResPath</code> 那样扫代码生成 <code>GameEventId</code> 静态常量类，把"事件名来自哪里"也纳入编译期保护</td></tr>
           <tr><td>异步派发</td><td>有意不做，见 2.6</td></tr>
