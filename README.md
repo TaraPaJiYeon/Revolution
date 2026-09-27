@@ -269,23 +269,30 @@ Revolution/
 
 ## 📚 文档导航
 
-> 👉 **文档站（推荐从这里进）**：<https://yokino337088.github.io/Revolution/> ——
-> 一页看全 13 个模块 28 份文档，带分组、搜索与阅读顺序建议（源码在 [`Revolution.Document/index.html`](Revolution.Document/index.html)）。
->
-> 本地预览：双击 [`Revolution.Document/预览文档.cmd`](Revolution.Document/预览文档.cmd)（或直接双击 `index.html`）——
-> 文档站由工作流 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 里的内容即重新发布。
+> 🌐 **在线文档站**：<https://yokino337088.github.io/Revolution/> —— 一页看全所有模块，带分组、搜索与阅读顺序建议。
+> 💻 **本地预览**：双击 [`Revolution.Document/预览文档.cmd`](Revolution.Document/预览文档.cmd)（或直接双击 `index.html`）；
+> 文档站由 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 即重新发布。
 
-### 各模块使用说明（手把手）
+**每个模块都有《使用说明》（手把手，照着做就能跑通）**；带 ✅ 的还有《架构解析》（设计论证：为什么这么设计、与别的方案差在哪）。
+下表点链接直接跳转（`.md` 在 GitHub 与编辑器里读；带排版的网页版见在线文档站）：
 
-| 模块 | 文档 |
-|---|---|
-| 📖 日志系统 | [`Revolution.Document/日志系统/日志系统使用说明.html`](Revolution.Document) |
-| ⏱ 计时器系统 | [`Revolution.Document/计时器系统/计时器系统使用说明.html`](Revolution.Document) |
-| 🧵 公共 Mono 模块 | [`Revolution.Document/公共Mono模块/公共Mono模块使用说明.html`](Revolution.Document) |
-| 📦 资源加载系统 | [`Revolution.Document/资源加载系统/`](Revolution.Document) |
-| 🎨 UI 系统 / 事件系统 / 对象池 | [`Revolution.Document/`](Revolution.Document) 下的同名目录 |
-| 🎬 动作序列 / 状态机 / 服务定位器 | 同上 |
-| 🔊 音效系统 / 🕹 GM 指令 / 📊 导表工具 | 同上 |
+| 模块 | 《使用说明》手把手 | 《架构解析》设计论证 |
+|---|---|---|
+| 📝 日志系统 | [日志系统使用说明](Revolution.Document/日志系统/日志系统使用说明.md) | — |
+| ⏱ 计时器系统 | [计时器系统使用说明](Revolution.Document/计时器系统/计时器系统使用说明.md) | — |
+| 🧵 公共 Mono 模块 | [公共Mono模块使用说明](Revolution.Document/公共Mono模块/公共Mono模块使用说明.md) | — |
+| 📦 资源加载系统 | [资源加载系统使用说明](Revolution.Document/资源加载系统/资源加载系统使用说明.md) | ✅ [架构解析](Revolution.Document/资源加载系统/资源加载系统架构解析.md) |
+| 🎨 UI 系统 | [UI系统使用说明](Revolution.Document/UI系统/UI系统使用说明.md) | ✅ [架构解析](Revolution.Document/UI系统/UI系统架构解析.md) |
+| 🎬 动作序列 | [动作序列使用说明](Revolution.Document/动作序列/动作序列使用说明.md) | ✅ [架构解析](Revolution.Document/动作序列/动作序列架构解析.md) |
+| 🎮 状态机 | [状态机使用说明](Revolution.Document/状态机/状态机使用说明.md) | ✅ [架构解析](Revolution.Document/状态机/状态机架构解析.md) · [Demo 示例讲解](Revolution.Document/状态机/状态机Demo示例讲解.md) |
+| 🔊 音效系统 | [音效系统使用说明](Revolution.Document/音效系统/音效系统使用说明.md) | — |
+| 📣 事件系统 | [事件系统使用说明](Revolution.Document/事件系统/事件系统使用说明.md) | ✅ [架构解析](Revolution.Document/事件系统/事件系统架构解析.md) |
+| 📦 对象池 | [对象池使用说明](Revolution.Document/对象池/对象池使用说明.md) | ✅ [架构解析](Revolution.Document/对象池/对象池架构解析.md) |
+| 🧭 服务定位器 | [服务定位器使用说明](Revolution.Document/服务定位器/服务定位器使用说明.md) | ✅ [依赖注入 vs 服务定位器](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
+| 🕹 GM 指令 | [GM指令使用说明](Revolution.Document/GM指令/GM指令使用说明.md) | — |
+| 📊 导表工具 | [导表工具使用说明](Revolution.Document/导表工具/导表工具使用说明.md) | ✅ [架构解析](Revolution.Document/导表工具/导表工具架构解析.md) · [对比与设计说明](Revolution.Document/导表工具/导表工具对比与设计说明.md) |
+
+> 📂 全部文档的文件清单与命名规则见 [`Revolution.Document/README.md`](Revolution.Document/README.md)。
 
 ### 代码里的"3 分钟上手"
 
