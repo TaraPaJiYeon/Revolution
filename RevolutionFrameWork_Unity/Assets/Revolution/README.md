@@ -1,12 +1,34 @@
-# Revolution —— 框架本体
+# Revolution
 
-Unity 游戏框架本体（框架的全部代码都在这个目录里，`git clone` / 子模块 / UPM 三种装法都指向它）。
+**Unity 游戏框架本体** —— 框架的全部代码都在这个目录里（`git clone` / 子模块 / UPM 三种装法都指向它）
 
-- **Unity**：2022.3+（开发版本 2022.3.15f1c1）
-- **依赖**：无（只用 Unity 引擎模块）
-- **许可**：MIT
+[![Unity](https://img.shields.io/badge/Unity-2022.3%2B-blue.svg?style=flat-square)](https://unity.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/Yokino337088/Revolution/blob/main/LICENSE)
+[![Modules](https://img.shields.io/badge/Runtime%20模块-15%20个-brightgreen.svg?style=flat-square)](https://github.com/Yokino337088/Revolution)
 
-## 三种安装方式
+---
+
+## 🚀 一行上手
+
+```csharp
+RevSound.Play("ui_click");                                   // 播放音效
+RevUI.Open<LoginPanel>();                                    // 打开面板
+RevTimer.After(2f, () => RevUI.Close<LoadingPanel>());        // 2 秒后关掉
+RevLog.Info("登录成功", "Login");                             // 打日志（分级 + 模块标签）
+RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每帧跑一次
+```
+
+不摆物体、不挂脚本、零配置 —— 框架自己解决"谁在每帧驱动"的问题。
+
+## ✨ 特点
+
+- 🧩 **模块化** - 15 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevLog` …），可单独拿走、可整块删除
+- 🧪 **可脱离 Unity 验证** - 内核是纯 C#，链接进普通 .NET 工程就能跑断言（145 条，不打开 Unity）
+- 🛡 **防漏防崩** - 句柄代际校验、`owner` / 作用域一行清理、逐回调异常隔离、失败必带原因枚举
+- 📦 **编辑器工具齐** - LiteAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
+- 🔧 **无第三方依赖** - 只用 Unity 官方模块
+
+## 📦 三种安装方式
 
 | 方式 | 命令 / 操作 | 框架落在哪 |
 |---|---|---|
@@ -29,13 +51,15 @@ Unity 游戏框架本体（框架的全部代码都在这个目录里，`git clo
 1. 包在 `Packages/` 下 → 上面两条限制生效（`Resources` 不保证、生成物跳过）；**要用完整能力请用方式①②**；
 2. 包目录是只读缓存 → 想改代码请先 **Embed**（Package Manager → 右键包 → Embed），或改用方式①②。
 
-## 装完后的三步
+## ✅ 装完后的三步
 
 1. 若工程里没有 `Assets/GameRes`，新建一个（框架的**资源根目录**约定）；
 2. 菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → ① 打包配置 → 把「资源根目录」设为 `Assets/GameRes`；
-3. 直接 `RevSound.Play("ui_click")` / `RevSequence.Create(...)` 开始写业务。
+3. 直接 `RevSound.Play("ui_click")` / `RevTimer.After(2f, ...)` 开始写业务。
 
-## 更新到最新版
+> 打包配置（`Assets/Editor/ABBuildConfig.asset`）属于**本机设置**，不在仓库里 —— 文件不存在时工具会自动生成一份默认的。
+
+## 🔄 更新到最新版
 
 | 装法 | 更新命令 |
 |---|---|
@@ -46,7 +70,28 @@ Unity 游戏框架本体（框架的全部代码都在这个目录里，`git clo
 > `package` 分支由仓库的 GitHub Actions 自动同步（只同步 `Assets/Revolution/`）；也可手动同步：
 > `git subtree split --prefix=RevolutionFrameWork_Unity/Assets/Revolution -b package && git push -f origin package`
 
-## 文档
+## 📁 这个目录里有什么
 
-- 各模块《使用说明》与《使用指南》：仓库 `Revolution.Document/`
-- 3 分钟上手（模块级 README）：`Runtime/RevSoundSystem/README.md`、`Runtime/RevActionSequence/README.md`、`Runtime/RevGMCommand/README.md` 等
+```text
+Revolution/
+├── Runtime/          15 个运行期模块（RevResourceSystem / RevUISystem / RevSoundSystem / RevTimer / RevLog / …）
+├── Editor/           编辑器工具（LiteAB 打包窗口、GM 指令面板）
+├── Generation/       生成的路径常量（RevResPath.cs，勿手改）
+├── Resources/        框架自带运行时资源（ResMap.txt、UI 预制体）
+├── package.json      UPM 包描述（com.yokino.revolution，零依赖）
+├── README.md         本文件
+└── CHANGELOG.md      版本记录
+```
+
+模块内部统一按 `Core`（数据与契约）/ `Facade`（对外入口）/ `Implementation`（实现）/ `Interfaces`（接口）/ `Support`（宿主适配）分层，
+上手只需要读 `Facade` 里的那一个入口文件。
+
+## 📚 文档
+
+- **文档总入口（推荐从这里进）**：[`Revolution.Document/index.html`](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/index.html)
+- 各模块《使用说明》（手把手）与《使用指南》（设计论证）：仓库 `Revolution.Document/`
+- 3 分钟上手（模块级 README）：`Runtime/RevSoundSystem/README.md`、`Runtime/RevTimer/README.md`、`Runtime/RevLog/README.md` 等
+
+## 📄 许可
+
+[MIT](https://github.com/Yokino337088/Revolution/blob/main/LICENSE) © 2026 Yokino337088

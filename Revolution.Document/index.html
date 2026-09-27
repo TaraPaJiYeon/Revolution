@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolution · 文档总入口</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--page);color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15.5px;line-height:1.85;-webkit-font-smoothing:antialiased;}
+  code{font-family:Consolas,"Cascadia Mono","SFMono-Regular",Menlo,monospace;font-size:.92em;
+    background:#F1F3F7;border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:#26313F;}
+  a{color:var(--accent);}
+
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+  .hero .wrap{max-width:1080px;margin:0 auto;position:relative;z-index:2;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+  .hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+    animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+  @keyframes march{to{background-position:28px 0;}}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+
+  /* 顶部工具条：搜索 + 统计 */
+  .toolbar{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 18px;margin-bottom:20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    position:sticky;top:0;z-index:5;box-shadow:0 2px 10px rgba(20,30,50,.04);}
+  .toolbar input{flex:1 1 240px;min-width:200px;font:inherit;font-size:14px;padding:8px 12px;
+    border:1px solid var(--border);border-radius:8px;background:#FAFBFD;color:var(--text);outline:none;}
+  .toolbar input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft);}
+  .toolbar .hint{font-size:13px;color:var(--text-sub);}
+  .toolbar .hint b{color:var(--accent);}
+
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 26px;margin-bottom:20px;}
+  h2{font-size:20px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+  h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .card{border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;background:#FCFDFF;
+    transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .card:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(47,111,237,.10);transform:translateY(-1px);}
+  .card h3{margin:0 0 4px;font-size:15.5px;line-height:1.5;}
+  .card h3 .ico{font-size:16px;margin-right:4px;}
+  .card .desc{font-size:13.5px;color:var(--text-sub);margin:0 0 10px;}
+  .card .links{display:flex;gap:8px;flex-wrap:wrap;}
+  .card .links a{display:inline-block;font-size:12.5px;text-decoration:none;padding:3px 10px;border-radius:999px;
+    background:var(--accent-soft);border:1px solid #CFE0FD;color:#1F55C4;}
+  .card .links a:hover{background:#DCE8FE;}
+  .card .links a.md{background:#F0F2F6;border-color:var(--border);color:#3B4657;}
+  .card .links a.md:hover{background:#E7EAF0;}
+  .card .tag{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;margin-left:6px;
+    vertical-align:2px;border:1px solid transparent;}
+  .tag.beginner{background:var(--good-soft);border-color:#C8EAD8;color:#0E7C3E;}
+  .tag.deep{background:var(--warn-soft);border-color:#F0E0B8;color:#8A5B12;}
+
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  th{background:#F7F9FC;font-weight:600;}
+  td code{white-space:nowrap;}
+
+  .callout{border-radius:var(--radius);padding:12px 16px;margin:14px 0;font-size:14px;border:1px solid;}
+  .callout.tip{background:var(--accent-soft);border-color:#CFE0FD;}
+  .callout.good{background:var(--good-soft);border-color:#C8EAD8;}
+  .callout b{color:#12305F;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:12px 0;}
+  .steps li{counter-increment:st;position:relative;padding-left:40px;margin:10px 0;font-size:14.5px;}
+  .steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:26px;height:26px;line-height:26px;
+    text-align:center;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;font-weight:700;}
+
+  .empty{display:none;padding:14px 4px;color:var(--text-sub);font-size:14px;}
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13.5px;}
+  footer a{text-decoration:none;}
+  @media (max-width:640px){
+    .hero h1{font-size:24px;} main{padding:18px 14px 50px;} section{padding:18px 16px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <span class="kicker">REVOLUTION · 文档总入口</span>
+    <h1>Revolution 文档导航</h1>
+    <p>15 个运行期模块 + 2 套编辑器工具的文档都在这一页。<b>第一次来</b>：先看 ①，再按需要往下跳。</p>
+    <div class="meta">13 个模块 · 28 份文档（<code>.html</code> 直接看 / <code>.md</code> 可进版本库对比）· <code>使用说明</code> = 手把手 · <code>使用指南</code> = 设计论证</div>
+  </div>
+  <div class="deco"></div>
+</div>
+
+<main>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="搜索模块 / 关键词（例如：计时器、UI、分包、特性…）" autocomplete="off">
+    <span class="hint"><b id="cnt">17</b> 张卡片已显示</span>
+  </div>
+
+  <!-- ① -->
+  <section>
+    <h2><span class="num">1</span>第一次用：从这里开始</h2>
+    <p class="lead">这三个模块是"完全没接触过框架也能照着做完"的手把手文档，也是最常用的三件事：<b>打日志、写计时、每帧回调</b>。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="ico">📝</span>日志系统<span class="tag beginner">小白向</span></h3>
+        <p class="desc">分级输出（Debug 正式包编译期删除）、模块标签静音、刷屏抑制、环形缓冲看现场、异步落盘。</p>
+        <div class="links"><a href="日志系统/日志系统使用说明.html">使用说明</a></div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">⏱</span>计时器系统<span class="tag beginner">小白向</span></h3>
+        <p class="desc">一行创建（到点 / 每间隔 / 下一帧 / 服务器时刻）、四时间域、句柄代际失效、作用域一行全停。</p>
+        <div class="links"><a href="计时器系统/计时器系统使用说明.html">使用说明</a></div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🧵</span>公共 Mono 模块<span class="tag beginner">小白向</span></h3>
+        <p class="desc">让纯 C# 类也能每帧跑（Update / LateUpdate / FixedUpdate）与协程宿主；去重、上限、异常隔离。</p>
+        <div class="links"><a href="公共Mono模块/公共Mono模块使用说明.html">使用说明</a></div>
+      </div>
+    </div>
+    <div class="callout tip">
+      <b>推荐阅读顺序</b>：日志 → 计时器 → 公共 Mono → 资源加载 → UI → 动作序列。
+      前三篇决定你"怎么观察、怎么排时序"，后面三篇是业务天天要用的三件套。
+    </div>
+  </section>
+
+  <!-- ② -->
+  <section>
+    <h2><span class="num">2</span>业务三件套：资源 · UI · 动作</h2>
+    <p class="lead">日常开发用得最多的三个模块。它们的《使用指南》里都带了完整数据流与失败处理说明。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="ico">📦</span>资源加载系统</h3>
+        <p class="desc">编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查；含 LiteAB 打包工具的分包 / 依赖 / 体积 / 漏标 / 快照。</p>
+        <div class="links">
+          <a href="资源加载系统/资源加载系统使用指南.html">使用指南</a>
+          <a class="md" href="资源加载系统/资源加载系统使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🎨</span>UI 系统</h3>
+        <p class="desc">面板声明式配置（<code>[RevUIPanel(root, layer)]</code>）、层级管理、与对象池联动、关闭即回收。</p>
+        <div class="links">
+          <a href="UI系统/UI系统使用指南.html">使用指南</a>
+          <a class="md" href="UI系统/UI系统使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🎬</span>动作序列</h3>
+        <p class="desc">链式 DSL 表达"播放 → 等待 → 并行 → 嵌套"，构建与播放分离，取消也有收尾契约。</p>
+        <div class="links">
+          <a href="动作序列/动作序列使用说明.html">使用说明</a>
+          <a href="动作序列/动作序列使用指南.html">使用指南</a>
+          <a class="md" href="动作序列/动作序列使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🔊</span>音效系统</h3>
+        <p class="desc">一行播放（2D / 3D / BGM）、音量总线、作用域，音效表与路径常量由工具生成。</p>
+        <div class="links"><a href="音效系统/音效系统使用说明.html">使用说明</a></div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🎮</span>状态机</h3>
+        <p class="desc">轻量流程（GameFlow）与重量级 AI 两种形态，切换有明确生命周期回调。</p>
+        <div class="links">
+          <a href="状态机/状态机使用指南.html">使用指南</a>
+          <a class="md" href="状态机/状态机使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">📣</span>事件系统</h3>
+        <p class="desc">强类型事件 + 订阅句柄（取消订阅不用记委托）；派发期间增删订阅的安全语义写在文档里。</p>
+        <div class="links">
+          <a href="事件系统/事件系统使用指南.html">使用指南</a>
+          <a class="md" href="事件系统/事件系统使用指南.md">.md</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ -->
+  <section>
+    <h2><span class="num">3</span>结构类与工具链</h2>
+    <p class="lead">搭架子时用的模块，以及编辑器里的两套工具。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="ico">📦</span>对象池</h3>
+        <p class="desc">GameObject 池 + 纯 C# 对象池，与资源加载打通（池端着资源引用，不会被卸载掉）。</p>
+        <div class="links">
+          <a href="对象池/对象池使用指南.html">使用指南</a>
+          <a class="md" href="对象池/对象池使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🧭</span>服务定位器</h3>
+        <p class="desc">把业务依赖挡在框架之外：三档取服务（必须有 / 可选 / TryGet）、生命周期可控。</p>
+        <div class="links">
+          <a href="服务定位器/服务定位器使用说明.html">使用说明</a>
+          <a href="服务定位器/依赖注入vs服务定位器.html">依赖注入 vs 服务定位器</a>
+          <a class="md" href="服务定位器/服务定位器使用说明.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🕹</span>GM 指令</h3>
+        <p class="desc">给方法加一个特性就注册好一条指令；游戏内控制台与编辑器面板共用同一套。</p>
+        <div class="links">
+          <a href="GM指令/GM指令使用说明.html">使用说明</a>
+          <a class="md" href="GM指令/GM指令使用说明.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">📊</span>导表工具</h3>
+        <p class="desc">Excel → C# 数据类 + txt 数据文件（WPF 独立工具，源码在 <code>Revolution.ExcelTool/</code>）。</p>
+        <div class="links">
+          <a href="导表工具/导表工具使用指南.html">使用指南</a>
+          <a href="导表工具/导表工具对比与设计说明.html">对比与设计说明</a>
+          <a class="md" href="导表工具/导表工具使用指南.md">.md</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ -->
+  <section>
+    <h2><span class="num">4</span>进阶：为什么这么设计</h2>
+    <p class="lead">想知道"框架为什么这样写、跟别的方案比差在哪"时读这几篇（不影响使用，纯设计论证）。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="ico">🔍</span>动作序列使用指南<span class="tag deep">设计向</span></h3>
+        <p class="desc">从"为什么不用协程"讲到步骤库分层、取消收尾契约与异常隔离。</p>
+        <div class="links">
+          <a href="动作序列/动作序列使用指南.html">打开</a>
+          <a class="md" href="动作序列/动作序列使用指南.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🧠</span>状态机 Demo 示例讲解<span class="tag deep">设计向</span></h3>
+        <p class="desc">用 Boss AI / 游戏流程 / UI 栈三个例子讲两种状态机形态的分工。</p>
+        <div class="links">
+          <a href="状态机/状态机Demo示例讲解.html">打开</a>
+          <a class="md" href="状态机/状态机Demo示例讲解.md">.md</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">⚖️</span>依赖注入 vs 服务定位器<span class="tag deep">设计向</span></h3>
+        <p class="desc">为什么不引 DI 容器、服务定位器怎么避免变成"全局变量筐"。</p>
+        <div class="links"><a href="服务定位器/依赖注入vs服务定位器.html">打开</a></div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🧾</span>导表工具对比与设计说明<span class="tag deep">设计向</span></h3>
+        <p class="desc">跟主流导表方案（Luban 等）的取舍：表 = 资源、零依赖、生成物可读。</p>
+        <div class="links">
+          <a href="导表工具/导表工具对比与设计说明.html">打开</a>
+          <a class="md" href="导表工具/导表工具对比与设计说明.md">.md</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ -->
+  <section>
+    <h2><span class="num">5</span>还没写进这里的：模块级"3 分钟上手"</h2>
+    <p class="lead">每个运行期模块的代码目录里都自带一份短 README（离代码最近，改代码时会顺手看到）。在 IDE 或 GitHub 里打开：</p>
+    <table>
+      <tr><th>模块</th><th>文件</th></tr>
+      <tr><td>音效系统</td><td><code>RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/README.md</code></td></tr>
+      <tr><td>计时器</td><td><code>.../Runtime/RevTimer/README.md</code></td></tr>
+      <tr><td>日志</td><td><code>.../Runtime/RevLog/README.md</code></td></tr>
+      <tr><td>公共 Mono</td><td><code>.../Runtime/RevPublicMono/README.md</code></td></tr>
+      <tr><td>动作序列</td><td><code>.../Runtime/RevActionSequence/README.md</code></td></tr>
+      <tr><td>GM 指令</td><td><code>.../Runtime/RevGMCommand/README.md</code></td></tr>
+    </table>
+    <div class="callout good">
+      <b>还有个总览</b>：仓库根目录的 <code>README.md</code> 里有模块一览表（每个模块多少代码、一句话能力）、
+      三种安装方式、目录结构与设计取向 —— 是给"准备接入的人"看的入口。
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · Unity 游戏框架　|　文档与代码同仓库，改代码时顺手改文档　|　
+  <a href="../README.md">仓库首页</a> ·
+  <a href="../RevolutionFrameWork_Unity/Assets/Revolution/README.md">框架本体说明</a> ·
+  <a href="../LICENSE">MIT License</a>
+</footer>
+
+<script>
+  // 极简筛选：按标题 / 描述 / 文件名匹配，隐藏不命中的卡片；全空时给提示
+  (function () {
+    var q = document.getElementById('q');
+    var cnt = document.getElementById('cnt');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+    var sections = Array.prototype.slice.call(document.querySelectorAll('section'));
+    var empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = '没有匹配的文档 —— 换个词试试（例如：计时器 / UI / 分包）。';
+    document.querySelector('main').appendChild(empty);
+
+    function apply() {
+      var kw = (q.value || '').trim().toLowerCase();
+      var hit = 0;
+      cards.forEach(function (c) {
+        var text = (c.textContent || '') + ' ' + Array.prototype.map.call(c.querySelectorAll('a'), function (a) { return a.getAttribute('href'); }).join(' ');
+        var ok = !kw || text.toLowerCase().indexOf(kw) >= 0;
+        c.style.display = ok ? '' : 'none';
+        if (ok) hit++;
+      });
+      sections.forEach(function (s) {
+        var any = Array.prototype.some.call(s.querySelectorAll('.card'), function (c) { return c.style.display !== 'none'; });
+        var hasCards = s.querySelectorAll('.card').length > 0;
+        s.style.display = (!hasCards || any) ? '' : 'none';
+      });
+      cnt.textContent = hit;
+      empty.style.display = hit === 0 ? 'block' : 'none';
+    }
+
+    q.addEventListener('input', apply);
+    apply();
+  })();
+</script>
+
+</body>
+</html>
