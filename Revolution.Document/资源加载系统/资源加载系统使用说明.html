@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>资源加载系统 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>资源加载系统 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（两段路径、一行加载、引用计数保证不泄漏）</p>
+    <p class="meta">读完你能做到：3 分钟加载第一个资源 · 分清「编辑器直读」和「AB 打包」两种模式 · 知道什么时候该 Release · 出问题 3 分钟定位</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表（全部 API）</a></li>
+      <li><a href="#s3">三、路径怎么给（唯一需要记的约定）</a></li>
+      <li><a href="#s4">四、什么时候该释放</a></li>
+      <li><a href="#s5">五、两种加载模式（编辑器直读 / AB）</a></li>
+      <li><a href="#s6">六、新手最容易踩的 5 个坑</a></li>
+      <li><a href="#s7">七、出问题怎么查 + 相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 3 个东西就能干活（真的）</span>
+      <pre style="margin:10px 0 6px">ResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt; img.sprite = sprite);  <span class="c">// ① 异步加载（推荐）</span>
+<span class="k">var</span> prefab = ResManager.Load&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>);              <span class="c">// ② 同步加载（小资源 / 已预热）</span>
+ResManager.Release(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>);                                    <span class="c">// ③ 不用了释放（引用计数减一）</span></pre>
+      <p style="margin-bottom:0">
+        更省心的写法是用 <b>作用域</b>：<code>using (ResManager.OpenScope()) { … }</code> —— 出块时这一批全放掉。<br>
+        剩下的（预加载、按组卸载、句柄、缓存统计……）都是<b>用到再看</b>的增值项。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>资源加载 = 你只给"哪个目录、哪个名字"，剩下的事（走编辑器还是 AB、加载中重复请求怎么合并、谁在用、什么时候能卸载）它全包。</b>
+      <p>引用计数是核心：同一份资源被 3 个人用就记 3，谁都不用（计数归零）才会被卸载 —— 所以<b>你拿一次就要还一次</b>，这一条记住就不会泄漏。</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>同一份资源被多处加载</td><td>内部<b>共享缓存</b> + 引用计数：第二个人拿到的是同一份，不会加载两次</td></tr>
+          <tr><td>加载中又有人请求同一份</td><td>请求合并（回调排队），不会重复走 IO</td></tr>
+          <tr><td>忘记卸载导致内存涨</td><td>计数归零即进"待卸载"名单；<code>FlushUnused()</code> 主动清、<code>ResAutoUnloader</code> 也可自动清</td></tr>
+          <tr><td>编辑器里想直接跑、不想打包</td><td><b>编辑器直读</b>模式：直接从 <code>Assets</code> 读，改完立刻生效</td></tr>
+          <tr><td>上线后要按包管理</td><td><b>AB 模式</b>：按 <code>ResMap.txt</code> 把逻辑路径映射到真实 AB</td></tr>
+          <tr><td>失败不知道为什么</td><td>失败原因带枚举 <code>ResLoadErrorReason</code>（路径没映射 / 包里没有 / 类型不符…）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">不用初始化、不用挂脚本。</p>
+
+    <pre><span class="c">// ① 异步加载一张图（最常见的用法）</span>
+<span class="k">void</span> Start()
+{
+    ResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt;
+    {
+        image.sprite = sprite;                    <span class="c">// 回调里直接用</span>
+        <span class="c">// 这个界面关掉时记得：ResManager.Release("UI/Bag", "icon_sword");</span>
+    });
+}
+
+<span class="c">// ② 加载预制体并实例化</span>
+ResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>, prefab =&gt;
+{
+    Instantiate(prefab, container);
+});
+
+<span class="c">// ③ 一批资源一起用、一起放（作用域，最省心）</span>
+<span class="k">using</span> (ResManager.OpenScope())
+{
+    <span class="k">var</span> bg  = ResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"bg_main"</span>);
+    <span class="k">var</span> ico = ResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"ico_coin"</span>);
+    <span class="c">// …这一段里用它们…</span>
+}   <span class="c">// 出块：上面两个资源自动 Release</span>
+
+<span class="c">// ④ 看一眼当前缓存了多少（排查用）</span>
+Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸载 {ResManager.UnusedCount} 份"</span>);</pre>
+
+    <div class="callout">
+      <span class="t">就这样，没有初始化步骤</span>
+      第一次用到时框架会自己选加载后端（编辑器里直读、打包后用 AB）。<b>资源根目录</b>由打包工具配置（菜单 <code>Revolution.Tools / 资源 / LiteAB 打包工具</code> → ① 打包配置）。
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">左边找需求，右边抄一行。入口统一是 <code>ResManager</code>。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:36%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>异步加载（推荐）</td><td><code>ResManager.LoadAsync&lt;T&gt;(rootPath, resName, obj =&gt; { })</code></td></tr>
+          <tr><td>同步加载</td><td><code>ResManager.Load&lt;T&gt;(rootPath, resName)</code></td></tr>
+          <tr><td>拿句柄（自己管引用）</td><td><code>ResManager.LoadHandle&lt;T&gt;(rootPath, resName)</code></td></tr>
+          <tr><td>查已在缓存里的</td><td><code>ResManager.Get(rootPath, resName)</code>（没有就是 <code>ResHandle.Empty</code>）</td></tr>
+          <tr><td>释放一个</td><td><code>ResManager.Release(rootPath, resName)</code></td></tr>
+          <tr><td>一批一起放（推荐）</td><td><code>using (ResManager.OpenScope()) { … }</code></td></tr>
+          <tr><td>手动加减引用</td><td><code>ResManager.AddRef(key)</code> / <code>ResManager.DecRef(key)</code>（key 从句柄拿）</td></tr>
+          <tr><td>立刻清掉没人用的</td><td><code>ResManager.FlushUnused()</code></td></tr>
+          <tr><td>按分组卸载</td><td><code>ResManager.UnloadGroup(ResGroup.Config)</code>（<code>force: true</code> 连在用的一起卸）</td></tr>
+          <tr><td>看缓存状况</td><td><code>ResManager.CachedCount</code> / <code>ResManager.UnusedCount</code> / <code>ResManager.CachedHandles</code></td></tr>
+          <tr><td>接自己的加载策略</td><td><code>ResManager.RegisterPolicy(policy)</code>（进阶：实现 <code>IResPolicy</code>）</td></tr>
+          <tr><td>自定义资源分组</td><td><code>ResGroupUtil.Custom(0)</code>（传 0/1/2… 得到不同分组）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">句柄（ResHandle）什么时候用</span>
+      只有你要<b>把"用了哪些资源"当数据传来传去</b>时才需要它（比如一个界面的资源清单）。
+      一般业务用 <code>LoadAsync</code> + <code>Release</code> 就够了 —— 别为了"看起来高级"去手动 <code>AddRef/DecRef</code>。
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>路径怎么给（唯一需要记的约定）</h2>
+    <p class="lead">永远是<b>两段</b>：<code>rootPath</code>（目录）+ <code>resName</code>（文件名）。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">实际文件</th><th style="width:34%">这么写</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Assets/GameRes/UI/Bag/icon_sword.png</code></td><td><code>("UI/Bag", "icon_sword")</code></td><td>相对<b>资源根目录</b>（打包配置里那个）</td></tr>
+          <tr><td><code>…/UI/Bag/ItemSlot.prefab</code></td><td><code>("UI/Bag", "ItemSlot")</code></td><td>不带扩展名</td></tr>
+          <tr><td><code>…/Config/Hero.txt</code></td><td><code>("Config", "Hero")</code></td><td>配置表也走同一套（见《配置表 / 导表工具》）</td></tr>
+          <tr><td>按包分组</td><td><code>("UI/Bag", "icon_sword", ResGroup.UI)</code></td><td>分组影响 AB 归属与批量卸载</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <span class="t">两个高频错误</span>
+      <b>① 把整个路径当 resName：</b><code>("", "Assets/GameRes/UI/Bag/icon_sword.png")</code> ✗ —— 两段都要按上面来。<br>
+      <b>② 写扩展名：</b><code>("UI/Bag", "icon_sword.png")</code> ✗ —— 名字不带后缀。
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>什么时候该释放</h2>
+    <p class="lead">一句话：<b>拿了几次就还几次；界面/场景销毁时一定要还。</b></p>
+
+    <div class="cheat">
+      <div><b>临时用一下就丢（读表、图标、特效贴图）</b>用 <code>using (ResManager.OpenScope())</code>，别手写 Release</div>
+      <div><b>界面用的资源</b>在 <code>OnClose</code> / <code>OnRelease</code> 里 Release（面板生命周期见《UI 系统使用说明》）</div>
+      <div><b>对象池里的实例</b>由池端着引用 —— 不要自己 Release，池销毁时会处理（见《对象池使用说明》）</div>
+      <div><b>整块玩法结束</b>（一局战斗、一个活动）按分组 <code>UnloadGroup(group)</code> 一次收干净</div>
+      <div><b>内存紧张</b>调一次 <code>FlushUnused()</code>：只清计数为 0 的，绝对安全</div>
+      <div><b>不确定有没有泄漏</b>看 <code>CachedCount</code> 涨不涨；配合 LiteAB 窗口的「体积」页签看谁大</div>
+    </div>
+
+    <div class="callout good">
+      <span class="t">不需要"手动卸载"到底</span>
+      计数归零的资源会进待卸载名单，框架在合适时机（切换场景、主动 Flush、或自动卸载器）回收。<b>你只管配对拿/放，不用管销毁时机。</b>
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>两种加载模式（编辑器直读 / AB）</h2>
+    <p class="lead">同一行业务代码，两种模式下都不用改 —— 但行为有两处差别要知道。</p>
+
+    <div class="cmp">
+      <div class="yes">
+        <div class="h">编辑器直读（开发期）</div>
+        从 <code>Assets</code> 直接读文件：改动立刻生效、不用打包。<br>
+        <b>注意</b>：不走 AB，所以"包归属""依赖是否被复制"这类问题它<b>看不出来</b> —— 这类问题要用 LiteAB 窗口的「依赖 / 体积 / 检查」页签看。
+      </div>
+      <div class="yes">
+        <div class="h">AB 模式（打包后 / 真机）</div>
+        按 <code>ResMap.txt</code>（逻辑路径 → AB 与真实路径）加载。<br>
+        <b>注意</b>：改了资源或分包后，必须先回「打包」页签点一次<b>「扫描并生成映射」</b>，否则新资源在真机上会报"没映射"。
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">现象</th><th>原因与处理</th></tr></thead>
+        <tbody>
+          <tr><td>编辑器里好好的，真机说找不到</td><td>没生成映射（<code>ResMap.txt</code> 里没有这条路径）→ 点「扫描并生成映射」再打包</td></tr>
+          <tr><td>路径对但类型不对（图拿成 Prefab）</td><td>泛型参数写错：<code>LoadAsync&lt;Sprite&gt;</code> 与文件真实类型要一致</td></tr>
+          <tr><td>同一个资源在两个界面各加载一次</td><td>两段路径写法不一致（编辑器会当成两个资源）→ 统一约定（见第三节）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>新手最容易踩的 5 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 加载了不释放，内存一直涨</td><td>要么 <code>using (OpenScope())</code>，要么在销毁时 Release —— 成对出现</td></tr>
+          <tr><td>② 把同步 <code>Load</code> 用在"大资源"上</td><td>大资源（模型、大图、场景）一律 <code>LoadAsync</code>，避免卡帧</td></tr>
+          <tr><td>③ 在回调里假设"马上就到"</td><td>异步回调可能<b>下一帧甚至更晚</b>才来；回调里要判 <code>this</code> 是否已销毁（界面已关）</td></tr>
+          <tr><td>④ 同一个资源 Release 两次</td><td>引用计数会变成负数（框架会告警但不背锅）→ 用作用域或配对管理</td></tr>
+          <tr><td>⑤ 手写 <code>Resources.Load</code></td><td>绕过框架就享受不到引用计数/映射/打包管理 ✗ → 一律 <code>ResManager</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">七</span>出问题怎么查 + 相关文档</h2>
+
+    <h3>3 分钟定位</h3>
+    <ol>
+      <li><b>看缓存</b>：<code>ResManager.CachedCount</code> 一直涨 → 有地方只拿不放（在界面关闭处找）；<code>UnusedCount</code> 一直不清 → 没人触发回收，调一次 <code>FlushUnused()</code> 看能不能清掉。</li>
+      <li><b>看映射</b>：报"找不到"先在 <code>Assets/Revolution/Resources/ResourceSystem/ResMap.txt</code> 里搜这条逻辑路径；搜不到就是没生成映射。</li>
+      <li><b>看分包</b>：菜单 <code>Revolution.Tools / 资源 / LiteAB 打包工具</code> → 「分包」页签（带自动同步）：确认资源<b>有没有 AB 标记</b>、「检查」页签有没有漏标。</li>
+      <li><b>看体积</b>：「体积」页签找"哪个包突然变大"；「依赖」页签看有没有资源被复制多份。</li>
+    </ol>
+
+    <h3>相关文档</h3>
+    <ul>
+      <li><a href="资源加载系统使用指南.md">《资源加载系统 · 使用指南》</a> —— 设计论证：为什么只走异步、引用计数怎么实现、AB 与直读如何切换、失败原因分类</li>
+      <li><a href="../index.html">文档总入口</a> · <a href="../公共Mono模块/公共Mono模块使用说明.html">公共 Mono 模块</a>（每帧回调 / 协程宿主）· <a href="../对象池/对象池使用说明.html">对象池使用说明</a>（与资源加载配合）</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 资源加载系统　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

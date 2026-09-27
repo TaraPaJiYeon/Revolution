@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>导表工具 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>导表工具 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（Excel 四行结构 → 三步导出 → 业务一行读表）</p>
+    <p class="meta">读完你能做到：知道 Excel 该怎么写（唯一契约）· 会用 WPF 界面导出 · 把生成物接进 Unity · 用一行代码读到表数据</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、30 秒看懂整条链路</a></li>
+      <li><a href="#s1">一、准备：运行与启动</a></li>
+      <li><a href="#s2">二、Excel 该怎么写（唯一的契约）</a></li>
+      <li><a href="#s3">三、导出 → 接进 Unity</a></li>
+      <li><a href="#s4">四、业务侧：一行读表（运行时 API）</a></li>
+      <li><a href="#s5">五、新手最容易踩的 5 个坑</a></li>
+      <li><a href="#s6">六、相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>30 秒看懂整条链路</h2>
+    <p class="lead">策划写 Excel → 工具生成"代码 + 数据" → 业务读表。就这三步。</p>
+
+    <div class="callout good">
+      <span class="t">四行结构 + 三步 + 一行加载</span>
+      <pre style="margin:10px 0 6px"><span class="c">① 写 Excel（每张工作表 = 一张表）</span>
+   第 1 行：字段名     ID | Name  | Quality
+   第 2 行：类型       int | string | int
+   第 3 行：描述       英雄ID | 英雄名 | 品质
+   第 4 行起：数据      1001 | 亚瑟 | 3
+
+<span class="c">② 启动工具 → 选 Excel → [读取] → 选三个输出目录 → [开始导出]</span>
+
+<span class="c">③ 把产物拷进工程，业务就这么读：</span>
+<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+HeroTable.Instance.FindByKey(1001, <span class="k">out  var</span> hero);   <span class="c">// 拿到 1001 这行</span></pre>
+      <p style="margin-bottom:0">
+        没有第 4 步。表的读写都走<b>资源系统</b>（表就是资源），所以打包、热更、分包与其它资源一套规则。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>导表工具 = 一个独立的 WPF 小工具：吃 Excel，吐 C# 数据类 + txt 数据文件。</b>
+      <p>它<b>不需要开 Unity</b>、也不依赖 Excel 安装（自带 xlsx 解析）；生成的代码是纯 C#，可以直接进版本库看 diff。</p>
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>准备：运行与启动</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>运行环境</td><td><b>.NET 8 桌面运行时</b>（Windows）。工程目标是 <code>net8.0-windows</code></td></tr>
+          <tr><td>启动（开发期）</td><td><code>cd RevolutionFramework\Revolution.ExcelTool</code> → <code>dotnet run</code></td></tr>
+          <tr><td>启动（给策划用）</td><td>直接跑 <code>Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</code>；给别人就用 <code>dotnet publish -c Release</code> 把产物目录拷走（零第三方依赖）</td></tr>
+          <tr><td>首次启动</td><td>会自动在附近找 <code>RevolutionFrameWork_Unity</code> 并<b>预填三个输出目录</b>；没猜到就手动选一下（不影响使用）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>界面六个区块（从左到右、从上到下点一遍就完事）</h3>
+    <pre>① Excel 数据源    [路径输入框]  [选择文件]  [选择目录]  [读取]
+② 表列表          读到的每张工作表都在这里（点一下看右边）
+③ 表结构预览      字段摘要 + 前 50 行数据（先在这里确认没读歪）
+④ 输出路径        数据结构类 [目录] / 容器类 [目录] / TXT 数据文件 [目录]
+⑤ [开始导出]      状态提示
+⑥ 日志            每一步的结果都在这里，成功失败都看得见</pre>
+
+    <div class="callout">
+      <span class="t">先"读取"再"导出"</span>
+      读取只解析、不改任何文件（可以放心点）；确认 ③ 的预览对了，再点 ⑤ 导出。
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>Excel 该怎么写（唯一的契约）</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">行</th><th style="width:26%">内容</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>第 1 行</td><td><b>字段名</b></td><td>要能当 C# 字段名</td></tr>
+          <tr><td>第 2 行</td><td><b>字段类型</b></td><td>只支持 <code>int</code> / <code>float</code> / <code>string</code> / <code>bool</code></td></tr>
+          <tr><td>第 3 行</td><td><b>字段描述</b></td><td>只进代码注释与 txt 表头，不参与数据</td></tr>
+          <tr><td>第 4 行起</td><td><b>数据</b></td><td>一行一条记录</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">两条最容易记住的规则</span>
+      <b>① 第一个字段（第一列）就是主键</b>，不需要额外标记；<br>
+      <b>② 一个工作表 = 一张表</b>：工作表名 <code>Hero</code> → 生成 <code>Hero</code> 数据结构 + <code>HeroTable</code> 容器。
+    </div>
+
+    <h3>一个能直接抄的例子（工作表名：Hero）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th></tr></thead>
+        <tbody>
+          <tr><td><b>1</b></td><td>ID</td><td>Name</td><td>Quality</td><td>Attack</td><td>Hp</td><td>MoveSpeed</td><td>IsRanged</td><td>Camp</td></tr>
+          <tr><td><b>2</b></td><td>int</td><td>string</td><td>int</td><td>float</td><td>int</td><td>float</td><td>bool</td><td>string</td></tr>
+          <tr><td><b>3</b></td><td>英雄ID</td><td>英雄名</td><td>品质</td><td>攻击力</td><td>生命值</td><td>移动速度</td><td>是否远程</td><td>所属阵营</td></tr>
+          <tr><td><b>4</b></td><td>1001</td><td>亚瑟</td><td>3</td><td>120.5</td><td>3600</td><td>3.8</td><td>false</td><td>秩序</td></tr>
+          <tr><td><b>5</b></td><td>1002</td><td>妲己</td><td>3</td><td>95</td><td>3200</td><td>3.6</td><td>true</td><td>无序</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>列与行的处理规则（省得踩坑）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">情况</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td>第 1 行该列留空</td><td>整列忽略（右侧常见的空列不用管）</td></tr>
+          <tr><td>列名以 <code>#</code> 开头</td><td>视为策划备注列，整列忽略</td></tr>
+          <tr><td>某行少填了几列</td><td>按空值处理（列数以第 1 行为准）</td></tr>
+          <tr><td>整行为空</td><td>跳过</td></tr>
+          <tr><td>该行第一列以 <code>#</code> 开头</td><td>整行当作注释跳过（表尾写备注很方便）</td></tr>
+          <tr><td>主键列为空 / 主键重复</td><td><b>报错</b>（会在 ⑥ 日志里写清是哪一行）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">可运行的样例</span>
+      <code>Revolution.Demo\ExcelTool\Excel\DemoConfig.xlsx</code> —— 4 张表（Hero / Item / Skill / Buff，含 <b>string 主键</b>的示例）可以直接对着抄。
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>导出 → 接进 Unity</h2>
+    <p class="lead">工具只负责"生成文件"，放哪由你决定（默认会预填好）。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">输出</th><th style="width:34%">拷到哪</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>数据结构类 + 容器类</td><td><code>Assets/Revolution/Generation/</code></td><td>C# 代码，进版本库（生成物，别手改）</td></tr>
+          <tr><td>TXT 数据文件</td><td><b>资源根目录</b>下（如 <code>Assets/GameRes/Data/</code>）</td><td>它<b>是资源</b>，走资源系统加载 / 打包 / 热更</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flow">
+      <span class="n">Excel 改动</span><span class="ar">→</span>
+      <span class="n on">工具导出</span><span class="ar">→</span>
+      <span class="n">拷贝产物</span><span class="ar">→</span>
+      <span class="n">Unity 自动导入</span><span class="ar">→</span>
+      <span class="n wait">生成映射（LiteAB）</span><span class="ar">→</span>
+      <span class="n">运行期 LoadAsync 读表</span>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">别漏掉"生成映射"</span>
+      数据 txt 是新资源：在 <b>AB 模式</b>（真机/打包后）下，必须回 LiteAB 窗口点一次<b>「扫描并生成映射」</b>，
+      否则运行期会报"找不到映射"。编辑器直读模式下不需要。
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>业务侧：一行读表（运行时 API）</h2>
+    <p class="lead">入口是 <code>DataTableManager</code>；生成的 <code>XxxTable.Instance</code> 就是它的快捷方式。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>加载一张表（异步，推荐）</td><td><code>await DataTableManager.LoadAsync&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>加载（同步）</td><td><code>HeroTable t = DataTableManager.Load&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>拿已加载的表</td><td><code>DataTableManager.Get&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>拿不到就算了</td><td><code>DataTableManager.TryGet&lt;HeroTable&gt;(out var t)</code></td></tr>
+          <tr><td>判断是否已加载</td><td><code>DataTableManager.IsLoaded&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>卸载 / 全部卸载</td><td><code>DataTableManager.Unload&lt;HeroTable&gt;()</code> · <code>UnloadAll()</code></td></tr>
+          <tr><td>看加载了哪些</td><td><code>DataTableManager.Tables</code> · <code>DataTableManager.LoadedCount</code></td></tr>
+          <tr><td>按主键查一行</td><td><code>HeroTable.Instance.FindByKey(1001, out var hero)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">为什么"表 = 资源"很重要</span>
+      表跟着资源体系走：<b>打包、分包、热更、卸载</b>都用同一套；表大了还能单独分一个包（配置组 <code>ResGroup.Config</code>）。
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>新手最容易踩的 5 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 主键留空 / 重复</td><td>第一个字段必须每行都有值且唯一（工具会报错，日志里写着行号）</td></tr>
+          <tr><td>② 用了不支持的类型（如 <code>double</code>/<code>long</code>）</td><td>只有 <code>int</code>/<code>float</code>/<code>string</code>/<code>bool</code>；需要别的就在业务里转换</td></tr>
+          <tr><td>③ 改了工作表名，业务里没跟着改</td><td>表名 = 工作表名，生成的类名跟着变 → 改名后要重新编译（编译期就报错，不会静默）</td></tr>
+          <tr><td>④ 改了 Excel 没重新导出</td><td>数据是<b>快照</b>：Excel 改动必须重导一次（工具不监听 Excel 变化）</td></tr>
+          <tr><td>⑤ 直接改生成的 C# 文件</td><td>那是生成物，下次导出会被覆盖 → 要改结构就改 Excel，要改逻辑就写在业务层</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <span class="t">最坑的一条：忘了"生成映射"</span>
+      编辑器里读表好好的，打包到真机就报找不到 —— 十有八九是漏了点 LiteAB 的<b>「扫描并生成映射」</b>。
+      把这一步固化到打包流程里（或每次改表后点一次）。
+    </div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>相关文档</h2>
+    <ul>
+      <li><a href="导表工具使用指南.md">《导表工具 · 使用指南》</a> —— 更细的使用说明（含运行环境、界面细节、全部规则与报错处理）</li>
+      <li><a href="导表工具对比与设计说明.md">《导表工具 · 对比与设计说明》</a> —— 设计论证：与主流导表方案（Luban 等）的取舍、为什么"表 = 资源"、生成物形态</li>
+      <li><a href="../资源加载系统/资源加载系统使用说明.html">《资源加载系统 · 使用说明》</a> —— 表为什么要"生成映射"才在真机可用</li>
+      <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 导表工具　|　本文是"手把手"版；设计取舍请看同目录的《对比与设计说明》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>状态机 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>状态机 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该用哪一种、怎么写？</b>（轻量管流程、重量级管 AI，两套都在这一页）</p>
+    <p class="meta">读完你能做到：3 分钟写出游戏流程状态机 · 3 分钟给 Boss 写一个状态 · 知道返回栈状态机怎么用 · 清楚"谁来每帧驱动"</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、两种形态：先选对（30 秒）</a></li>
+      <li><a href="#s1">一、轻量状态机：3 分钟写游戏流程</a></li>
+      <li><a href="#s2">二、重量级状态机：3 分钟给 Boss 写状态</a></li>
+      <li><a href="#s3">三、对照表（两套 API 全列）</a></li>
+      <li><a href="#s4">四、返回栈状态机（UI 栈 / 流程栈）</a></li>
+      <li><a href="#s5">五、谁负责每帧驱动（最常问）</a></li>
+      <li><a href="#s6">六、新手最容易踩的 5 个坑</a></li>
+      <li><a href="#s7">七、相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>两种形态：先选对（30 秒）</h2>
+    <p class="lead">同一个模块里给了两种状态机 —— 不是"新旧"，是<b>两种用法</b>。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th style="width:39%">轻量（Lightweight）</th><th>重量级（Heavyweight）</th></tr></thead>
+        <tbody>
+          <tr><td><b>用来管</b></td><td>游戏流程、界面栈、玩法阶段</td><td>复杂 AI：Boss、小怪、技能阶段</td></tr>
+          <tr><td><b>状态是什么</b></td><td>实现 <code>RevILightState</code> 的类（一般继承 <code>RevLightStateBase</code>）</td><td>继承 <code>RevHeavyFsmState&lt;状态枚举, 宿主接口&gt;</code> 的类</td></tr>
+          <tr><td><b>类型安全</b></td><td>泛型 <code>RevLightStateMachine&lt;T&gt;</code>（T 是基类/接口）</td><td>状态用<b>枚举</b>索引：<code>RevHeavyFsm&lt;BossState, IBossObj&gt;</code></td></tr>
+          <tr><td><b>特色能力</b></td><td>可异步切换、返回栈版本（Push/Pop）</td><td>切换历史、异步进出（<code>PrepareEnterAsync</code>）、FixedUpdate/LateUpdate</td></tr>
+          <tr><td><b>典型代码量</b></td><td>一个状态类 10 行</td><td>一个状态类 + 一个行为接口</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">一句话选法</span>
+      <b>流程/界面 → 轻量；敌人/角色行为 → 重量级。</b>
+      拿不准就用轻量（它更简单，也能覆盖大部分玩法阶段）。
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>轻量状态机：3 分钟写游戏流程</h2>
+    <p class="lead">目标：登录 → 大厅 → 战斗，三个状态互相切换。</p>
+
+    <pre><span class="c">// ① 状态：继承 RevLightStateBase，重写关心的回调（三个都是可选的）</span>
+<span class="k">public class</span> LoginState : RevLightStateBase
+{
+    <span class="k">public override void</span> OnEnter()  { <span class="c">/* 打开登录界面、连服务器 */</span> }
+    <span class="k">public override void</span> OnUpdate(<span class="k">float</span> dt) { <span class="c">/* 需要每帧做的事 */</span> }
+    <span class="k">public override void</span> OnExit()   { <span class="c">/* 关界面、清理 */</span> }
+}
+<span class="k">public class</span> LobbyState  : RevLightStateBase { }
+<span class="k">public class</span> BattleState : RevLightStateBase { }
+
+<span class="c">// ② 建机器 + 注册状态（T 写你要共用的基类/接口）</span>
+<span class="k">var</span> flow = <span class="k">new</span> RevLightStateMachine&lt;RevLightStateBase&gt;();
+flow.Register(<span class="k">new</span> LoginState());
+flow.Register(<span class="k">new</span> LobbyState());
+flow.Register(<span class="k">new</span> BattleState());
+
+<span class="c">// ③ 切状态（走 OnExit → OnEnter）</span>
+flow.ChangeTo(flow.CurrentState <span class="k">is</span> LoginState ? GetLobby() : GetBattle());
+
+<span class="c">// ④ 每帧驱动（谁来调见第五节）</span>
+flow.Update(Time.deltaTime);
+
+<span class="c">// ⑤ 想监听切换（埋点、日志、音效）</span>
+flow.StateChanged += (from, to) =&gt; RevLog.Info($<span class="s">"流程：{from?.GetType().Name} → {to?.GetType().Name}"</span>, <span class="s">"Flow"</span>);
+
+<span class="c">// ⑥ 常用查询</span>
+<span class="k">bool</span> inBattle = flow.Is&lt;BattleState&gt;();
+<span class="k">float</span> t = flow.StateTime;              <span class="c">// 当前状态已经持续了多久（做超时很有用）</span></pre>
+
+    <div class="callout">
+      <span class="t">异步切换（要等加载完才进下一个状态）</span>
+      <code>await flow.ChangeToAsync(GetBattle())</code> —— 切换过程中 <code>IsTransitioning</code> 为 true、<code>PendingState</code> 是目标状态；
+      想取消就 <code>flow.CancelAsyncTransition()</code>。
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>重量级状态机：3 分钟给 Boss 写状态</h2>
+    <p class="lead">关键设计：状态类<b>只面向"行为接口"编程</b>，不认识具体 MonoBehaviour —— 所以状态逻辑能单测。</p>
+
+    <pre><span class="c">// ① 定义宿主的行为接口：Boss 有哪些能力，由业务说（继承 RevIHeavyFsmOwner 标记接口）</span>
+<span class="k">public interface</span> IBossObj : RevIHeavyFsmOwner
+{
+    <span class="k">float</span> Health { <span class="k">get</span>; }
+    <span class="k">void</span> MoveTo(Vector3 pos);
+    <span class="k">void</span> PlayAnim(<span class="k">string</span> name);
+}
+
+<span class="c">// ② 状态枚举：Boss 有哪些状态</span>
+<span class="k">public enum</span> BossState { Idle, Chase, Attack, Die }
+
+<span class="c">// ③ 状态类：泛型参数 = （状态枚举, 宿主接口）</span>
+<span class="k">public class</span> BossChaseState : RevHeavyFsmState&lt;BossState, IBossObj&gt;
+{
+    <span class="k">public override void</span> OnEnter()
+    {
+        Owner.PlayAnim(<span class="s">"run"</span>);                    <span class="c">// Owner 就是宿主（IBossObj）</span>
+    }
+    <span class="k">public override void</span> OnUpdate(<span class="k">float</span> dt)
+    {
+        Owner.MoveTo(PlayerPos());
+        <span class="k">if</span> (NearPlayer()) Fsm.ChangeState(BossState.Attack, <span class="s">"进入攻击距离"</span>);
+    }
+    <span class="k">public override void</span> OnExit() { Owner.PlayAnim(<span class="s">"idle"</span>); }
+}
+
+<span class="c">// ④ 组装 + 驱动（宿主类里：Boss 自己实现 IBossObj）</span>
+_fsm = <span class="k">new</span> RevHeavyFsm&lt;BossState, IBossObj&gt;(<span class="k">this</span>);
+_fsm.AddState(BossState.Idle,   <span class="k">new</span> BossIdleState());
+_fsm.AddState(BossState.Chase,  <span class="k">new</span> BossChaseState());
+_fsm.AddState(BossState.Attack, <span class="k">new</span> BossAttackState());
+_fsm.ChangeState(BossState.Idle, <span class="s">"初始化"</span>);
+
+<span class="k">void</span> Update()      { _fsm.UpdateState(Time.deltaTime); }        <span class="c">// 每帧驱动</span>
+<span class="k">void</span> FixedUpdate() { _fsm.FixedUpdateState(Time.fixedDeltaTime); }
+<span class="k">void</span> OnDestroy()   { _fsm.Dispose(); }</pre>
+
+    <div class="callout">
+      <span class="t">异步进出（播放动画、等技能前摇）</span>
+      重写 <code>PrepareEnterAsync(token)</code> / <code>PrepareExitAsync(token)</code> 返回一个 <code>RevTask</code>，
+      用 <code>ChangeStateAsync(...)</code> 切换时框架会等你完成。
+    </div>
+
+    <div class="callout good">
+      <span class="t">为什么值得这么绕一层接口</span>
+      状态类里不出现 <code>BossController</code>、不出现 <code>GetComponent</code> ——
+      于是"Boss 在血量低于 30% 时该进狂暴"这种规则，可以用一个假的宿主实现来<b>跑单元测试</b>。
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>对照表（两套 API 全列）</h2>
+
+    <h3>轻量：<code>RevLightStateMachine&lt;T&gt;</code></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>注册状态</td><td><code>machine.Register(new LoginState())</code></td></tr>
+          <tr><td>切换（同步 / 异步）</td><td><code>machine.ChangeTo(state)</code> · <code>await machine.ChangeToAsync(state)</code></td></tr>
+          <tr><td>每帧驱动</td><td><code>machine.Update(deltaTime)</code></td></tr>
+          <tr><td>查询当前 / 判断类型 / 已持续多久</td><td><code>machine.CurrentState</code> · <code>machine.Is&lt;BattleState&gt;()</code> · <code>machine.StateTime</code></td></tr>
+          <tr><td>切换中想知道目标</td><td><code>machine.IsTransitioning</code> · <code>machine.PendingState</code> · <code>CancelAsyncTransition()</code></td></tr>
+          <tr><td>监听切换</td><td><code>machine.StateChanged += (from, to) =&gt; { }</code></td></tr>
+          <tr><td>状态回调</td><td>继承 <code>RevLightStateBase</code>：<code>OnEnter</code> / <code>OnExit</code> / <code>OnUpdate</code> / <code>OnSuspend</code> / <code>OnResume</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>重量级：<code>RevHeavyFsm&lt;TStateEnum, TOwner&gt;</code></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>建机器（宿主传自己）</td><td><code>new RevHeavyFsm&lt;BossState, IBossObj&gt;(this)</code></td></tr>
+          <tr><td>增 / 删 / 查状态</td><td><code>fsm.AddState(BossState.Idle, new BossIdleState())</code> · <code>RemoveState</code> · <code>HasState</code></td></tr>
+          <tr><td>切换</td><td><code>fsm.ChangeState(BossState.Attack, "进入攻击距离")</code>（返回 bool：被拒绝时是 false）</td></tr>
+          <tr><td>异步切换</td><td><code>await fsm.ChangeStateAsync(...)</code> · 取消：<code>fsm.CancelAsyncTransition()</code></td></tr>
+          <tr><td>驱动三种帧</td><td><code>fsm.UpdateState(dt)</code> · <code>FixedUpdateState</code> · <code>LateUpdateState</code></td></tr>
+          <tr><td>看重切历史 / 重置 / 清理</td><td><code>fsm.GetHistory()</code> · <code>fsm.Reset(BossState.Idle)</code> · <code>fsm.Clear()</code> · <code>fsm.Dispose()</code></td></tr>
+          <tr><td>状态回调</td><td>继承 <code>RevHeavyFsmState&lt;TEnum, TOwner&gt;</code>：<code>OnEnter/OnExit/OnUpdate/OnFixedUpdate/OnLateUpdate/PrepareEnterAsync/PrepareExitAsync</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">状态里怎么拿到"宿主"和"状态机"</span>
+      基类已经给了：<code>Owner</code>（你的行为接口实例）与 <code>Fsm</code>（当前状态机）。
+      <b>不要再自己维护一份 static 引用</b> —— 那是老框架最容易出错的写法。
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>返回栈状态机（UI 栈 / 流程栈）</h2>
+    <p class="lead">当"新状态压在旧状态上面，退出后回到上一个"时，用栈版本。</p>
+
+    <pre><span class="c">// 界面栈：设置界面压在背包上面，返回时回到背包</span>
+<span class="k">var</span> uiStack = <span class="k">new</span> RevLightStackStateMachine&lt;RevLightStateBase&gt;();
+
+uiStack.Push(<span class="k">new</span> BagState());        <span class="c">// 压入（原来那个被挂起：OnSuspend）</span>
+uiStack.Push(<span class="k">new</span> SettingsState());   <span class="c">// 再压一个</span>
+
+<span class="k">var</span> top = uiStack.Pop();               <span class="c">// 弹出 → 下面那个自动 OnResume 回来</span>
+<span class="k">var</span> under = uiStack.Under;             <span class="c">// 只在"下面那个"上做点事（不弹它）</span>
+<span class="k">int</span> n = uiStack.Count;                 <span class="c">// 栈里几个
+
+uiStack.Change(<span class="k">new</span> ShopState());         <span class="c">// 替换栈顶（Pop + Push 一步）</span>
+uiStack.Clear();                        <span class="c">// 全清（回主界面）</span>
+
+uiStack.StatePushed += s =&gt; RevLog.Info($<span class="s">"进入 {s.GetType().Name}"</span>, <span class="s">"UIStack"</span>);
+uiStack.StatePopped += s =&gt; RevLog.Info($<span class="s">"退出 {s.GetType().Name}"</span>, <span class="s">"UIStack"</span>);</pre>
+
+    <div class="callout">
+      <span class="t">栈状态用 OnSuspend / OnResume</span>
+      被压在下面时 <code>OnSuspend()</code>（暂停逻辑、停特效），弹回来时 <code>OnResume()</code>。
+      这与 UI 系统的 <code>OnCovered(bool)</code> 是同一个思路（界面被盖住/恢复）。
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>谁负责每帧驱动（最常问）</h2>
+    <p class="lead">状态机是<b>纯逻辑</b>：它不自己挂物体、不自己抢 Update —— 由你决定在哪驱动，这样它才能被单测。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">你的宿主是什么</th><th>推荐驱动方式</th></tr></thead>
+        <tbody>
+          <tr><td>MonoBehaviour（角色、Boss）</td><td>在它自己的 <code>Update</code> 里：<code>_fsm.UpdateState(Time.deltaTime)</code></td></tr>
+          <tr><td>纯 C# 类（流程管理器、玩法模块）</td><td>用公共 Mono 模块注册：<code>RevMono.AddUpdate(dt =&gt; flow.Update(dt), owner: this)</code></td></tr>
+          <tr><td>只想"定时看一眼"（如从登录轮询到服务器就绪）</td><td><code>RevTimer.Every(0.2f, () =&gt; …)</code>（见《计时器系统》）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">为什么不做成自动驱动</span>
+      自动挂 Update 会带来两个问题：<b>① 纯 C# 里跑不了断言</b>；<b>② 谁在驱动不明确</b>（出了问题时找不到"到底谁在推它"）。
+      现在这样：<b>你看得见驱动点，测试里也能手动喂时间</b>。
+    </div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>新手最容易踩的 5 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 往状态对象里塞"这一局的临时数据"</td><td>状态对象是<b>复用的</b>；临时数据放宿主（Owner）或上下文里</td></tr>
+          <tr><td>② 忘了每帧调用 <code>Update/UpdateState</code></td><td>驱动点只能有一处（第五节）；重复驱动会让状态走两遍</td></tr>
+          <tr><td>③ 在 <code>OnUpdate</code> 里频繁切状态</td><td>切状态有开销（OnExit/OnEnter）；用"条件 + 冷却/阈值"避免每帧抖动（抖动=状态在两个状态间跳）</td></tr>
+          <tr><td>④ 忽略 <code>ChangeState</code> 的返回值</td><td>返回 false = 这次切换被拒绝（异步切换中/状态不存在）→ 需要时判断并打日志</td></tr>
+          <tr><td>⑤ 异步切换时又发起一次切换</td><td>用 <code>IsTransitioning</code>/<code>PendingState</code> 判重，或先 <code>CancelAsyncTransition()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <span class="t">最贵的一课：状态抖动</span>
+      "进入攻击距离 → 攻击；一离开就回追击；于是每帧来回切" —— 这类 bug 症状是
+      <b>动画抽搐、日志刷屏、性能掉</b>。解决：阈值要带滞回（进 3 米、退 4 米），或加最短持续时间（<code>StateTime</code> 就是给你判这个的）。
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">七</span>相关文档</h2>
+    <ul>
+      <li><a href="状态机使用指南.md">《状态机 · 使用指南》</a> —— 设计论证：两种形态的分工、泛型宿主接口为什么这么设计、异步切换的实现</li>
+      <li><a href="状态机Demo示例讲解.md">《状态机 Demo 示例讲解》</a> —— Boss AI / 游戏流程 / UI 栈三个完整例子</li>
+      <li><a href="../公共Mono模块/公共Mono模块使用说明.html">《公共 Mono 模块 · 使用说明》</a> —— 纯 C# 流程管理器怎么拿每帧回调</li>
+      <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 状态机　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>事件系统 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>事件系统 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（用名字订阅、带 owner 退订，1~4 个参数都支持）</p>
+    <p class="meta">读完你能做到：3 分钟接上第一个事件 · 知道"退订"为什么只要一行 · 分清广播/单播该用哪个 · 不会写出"对象销毁了回调还在跑"</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟接上第一个事件</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表（全部 API）</a></li>
+      <li><a href="#s3">三、三条必守约定（踩了就出 bug）</a></li>
+      <li><a href="#s4">四、广播 vs 直接调用：什么时候该用事件</a></li>
+      <li><a href="#s5">五、调试与异常（OnException / Log 钩子）</a></li>
+      <li><a href="#s6">六、新手最容易踩的 5 个坑</a></li>
+      <li><a href="#s7">七、相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 3 个东西就能干活（真的）</span>
+      <pre style="margin:10px 0 6px">RevEvent.AddEventListener&lt;<span class="k">int</span>&gt;(<span class="s">"HpChanged"</span>, OnHpChanged, owner: <span class="k">this</span>);   <span class="c">// ① 订阅（一定带 owner）</span>
+RevEvent.DispatchEvent(<span class="s">"HpChanged"</span>, 100);                            <span class="c">// ② 广播（谁想听谁听）</span>
+RevEvent.RemoveAllByOwner(<span class="k">this</span>);                                     <span class="c">// ③ 退订全部（对象销毁时一行搞定）</span>
+
+<span class="k">void</span> OnHpChanged(<span class="k">int</span> hp) { hpText.text = hp.ToString(); }      <span class="c">// 回调：参数类型与订阅时一致</span></pre>
+      <p style="margin-bottom:0">
+        不想要参数也行：<code>AddEventListener("GameStart", OnStart, owner: this)</code>（无参版本 ✓）。<br>
+        需要 2/3/4 个参数、优先级、按名字清空……都在第二节的对照表里。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>事件系统 = "广播"：广播方不知道谁在听，听的人自己订阅；名字是约定，参数是类型安全的。</b>
+      <p>它最重要的价值不是"解耦"这个说法，而是 <code>owner</code>：<b>对象销毁时一行退订全部</b> —— 这是 90% 的事件 bug（空引用、重复触发）的解药。</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>找不到委托引用没法退订</td><td><code>owner</code>：注册时带上自己，销毁时 <code>RemoveAllByOwner(this)</code></td></tr>
+          <tr><td>参数到处强转（object 满天飞）</td><td>泛型订阅：<code>AddEventListener&lt;T1&gt;</code> … 最多 4 个参数，类型编译期就定死</td></tr>
+          <tr><td>对象销毁了回调还在跑</td><td>owner 机制 + 框架侧校验（见第三节第 2 条）</td></tr>
+          <tr><td>不知道有哪些事件、谁在听</td><td><code>GetAllEventNames()</code> / <code>GetListenerCount(name)</code> / <code>HasListener(name)</code></td></tr>
+          <tr><td>某个回调抛异常炸掉整条广播</td><td>统一异常出口 <code>RevEvent.OnException</code>（可接管上报），不会被静默吞掉</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟接上第一个事件</h2>
+    <p class="lead">场景：战斗里血量变了，血条自己更新 —— 两边互不认识。</p>
+
+    <pre><span class="c">// ① 血条（订阅方）：挂到血条物体上</span>
+<span class="k">public class</span> HpBar : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Image fill;
+
+    <span class="k">void</span> OnEnable()
+    {
+        <span class="c">// 订阅：事件名 + 处理函数 + owner（this）</span>
+        RevEvent.AddEventListener&lt;<span class="k">int</span>, <span class="k">int</span>&gt;(<span class="s">"HpChanged"</span>, OnHpChanged, owner: <span class="k">this</span>);
+    }
+
+    <span class="k">void</span> OnDisable()
+    {
+        <span class="c">// 退订：一行，按 owner 全清（不用记委托、不用记事件名）</span>
+        RevEvent.RemoveAllByOwner(<span class="k">this</span>);
+    }
+
+    <span class="k">void</span> OnHpChanged(<span class="k">int</span> cur, <span class="k">int</span> max)
+    {
+        fill.fillAmount = max &gt; 0 ? (<span class="k">float</span>)cur / max : 0f;
+    }
+}
+
+<span class="c">// ② 战斗逻辑（广播方）：谁都不用认识，直接广播</span>
+RevEvent.DispatchEvent(<span class="s">"HpChanged"</span>, hp, hpMax);
+
+<span class="c">// ③ 无参事件（开服、回大厅、切语言…）</span>
+RevEvent.AddEventListener(<span class="s">"EnterLobby"</span>, () =&gt; Refresh(), owner: <span class="k">this</span>);
+RevEvent.DispatchEvent(<span class="s">"EnterLobby"</span>);</pre>
+
+    <div class="callout">
+      <span class="t">就这样，没有初始化步骤</span>
+      不需要注册事件中心、不需要在场景里摆"EventSystem"物体。事件名就是字符串，<b>框架自带去重与数量上限保护</b>。
+    </div>
+
+    <div class="callout warn">
+      <span class="t">OnEnable/OnDisable 还是 Start/OnDestroy？</span>
+      两者都行，但语义不同：<b>OnEnable/OnDisable</b> = "显示时听、隐藏时不听"（推荐，能省掉无效回调）；
+      <b>Start/OnDestroy</b> = "创建到销毁期间一直听"。别在 OnEnable 里订阅却在 OnDestroy 里退订 —— 会重复订阅。
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">入口统一是 <code>RevEvent</code>。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>订阅（无参 / 1 参）</td><td><code>RevEvent.AddEventListener(name, handler, owner: this)</code> · <code>AddEventListener&lt;T1&gt;(name, h, owner: this)</code></td></tr>
+          <tr><td>订阅（2 / 3 / 4 个参数）</td><td><code>AddEventListener&lt;T1,T2&gt;(…)</code> · <code>&lt;T1,T2,T3&gt;</code> · <code>&lt;T1,T2,T3,T4&gt;</code></td></tr>
+          <tr><td>指定回调先后顺序</td><td>多传一个 <code>priority</code>（默认 0，需要时再用）</td></tr>
+          <tr><td>广播（对应参数个数）</td><td><code>RevEvent.DispatchEvent(name)</code> · <code>DispatchEvent&lt;T1&gt;(name, a1)</code> · 以此类推到 4 个参数</td></tr>
+          <tr><td>退订某一个处理函数</td><td><code>RevEvent.RemoveEventListener(name, handler)</code>（泛型版本同理）</td></tr>
+          <tr><td><b>退订"我的全部订阅"</b></td><td><code>RevEvent.RemoveAllByOwner(this)</code> ← 最常用</td></tr>
+          <tr><td>清掉某个事件的所有订阅</td><td><code>RevEvent.Clear(name)</code></td></tr>
+          <tr><td>清掉全部（换关卡时）</td><td><code>RevEvent.ClearAll()</code> · <code>RevEvent.ResetAll()</code></td></tr>
+          <tr><td>查有没有人在听 / 查有哪些事件</td><td><code>RevEvent.HasListener(name)</code> · <code>GetListenerCount(name)</code> · <code>GetAllEventNames()</code></td></tr>
+          <tr><td>接自己的日志 / 异常处理</td><td><code>RevEvent.Log = msg =&gt; …</code> · <code>RevEvent.OnException = (e, ctx) =&gt; …</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">广播的返回值有用</span>
+      <code>DispatchEvent</code> 返回<b>实际被调用的订阅数</b>（int）。排查"为什么没人响应"时直接看它是不是 0：
+      <code>int n = RevEvent.DispatchEvent("EnterLobby"); if (n == 0) RevLog.Warn("没人监听 EnterLobby", "Event");</code>
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>三条必守约定（踩了就出 bug）</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">约定</th><th style="width:34%">反例 ✗</th><th>正例 ✓</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>① 事件名用常量</b></td>
+            <td><code>DispatchEvent("HpChanged")</code> 和 <code>AddEventListener("HpChange", …)</code>（打错一个字母，静默失效）</td>
+            <td>定义 <code>static class EventIds { public const string HpChanged = "HpChanged"; }</code>，两边都用常量</td>
+          </tr>
+          <tr>
+            <td><b>② 订阅一定带 owner</b></td>
+            <td><code>AddEventListener&lt;int&gt;("HpChanged", OnHp)</code>（没 owner → 退订时找不到它）</td>
+            <td><code>owner: this</code>，销毁时 <code>RemoveAllByOwner(this)</code></td>
+          </tr>
+          <tr>
+            <td><b>③ 参数类型两端一致</b></td>
+            <td>订阅 <code>Action&lt;int&gt;</code>、广播却传 <code>float</code>（编译期就会拦，注意别用 <code>object</code> 绕）</td>
+            <td>参数类型用具体类型；复合数据传一个数据类（<code>AddEventListener&lt;DamageInfo&gt;</code>）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <span class="t">第 ② 条为什么最要命</span>
+      Unity 对象销毁后，<b>事件中心并不知道</b>。如果订阅没带 owner，那条订阅会一直留在那里 ——
+      下次广播时调到一个已销毁对象的方法：轻则报"MissingReferenceException"，重则逻辑错乱。
+      <b>带 owner + 销毁时 RemoveAllByOwner，是唯一稳妥的写法。</b>
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>广播 vs 直接调用：什么时候该用事件</h2>
+
+    <div class="cmp">
+      <div class="no">
+        <div class="h">不该用事件（直接调用更好）</div>
+        <b>A 明确拥有 B</b>，B 就是给 A 用的：<br>
+        面板 → 它自己的按钮 · 战斗系统 → 它的伤害计算器 · 加载器 → 它的回调。<br>
+        <b>直接调用</b>：看得见数据流、能断点、能返回结果。
+      </div>
+      <div class="yes">
+        <div class="h">该用事件（一对多 / 互不认识）</div>
+        <b>一个变化，多处反应，且广播方不该知道有谁</b>：<br>
+        血量变化 → 血条 / 飘字 / 音效 / 成就统计 · 回大厅 → UI、缓存、音频、埋点 各自收尾。<br>
+        <b>广播</b>：加一个新系统不用改老代码。
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="t">一条实用判据</span>
+      "如果我加了第四个监听者，广播方要不要改代码？" —— <b>要改就别用事件；不用改就用事件。</b>
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>调试与异常（OnException / Log 钩子）</h2>
+
+    <pre><span class="c">// ① 接住回调里的异常（默认会被框架记下并继续广播，不会炸掉整条链）</span>
+RevEvent.OnException = (ex, context) =&gt;
+{
+    RevLog.Exception(ex, <span class="s">"事件回调异常："</span> + context, <span class="s">"Event"</span>);
+    <span class="c">// 需要上报就挂这里（框架不硬编码任何上报 SDK）</span>
+};
+
+<span class="c">// ② 想看事件流量（开发期临时开）</span>
+RevEvent.Log = msg =&gt; Debug.Log(<span class="s">"[Event] "</span> + msg);
+
+<span class="c">// ③ 排查"为什么没反应"</span>
+Debug.Log($<span class="s">"EnterLobby 订阅数：{RevEvent.GetListenerCount("EnterLobby")}"</span>);
+Debug.Log(<span class="k">string</span>.Join(<span class="s">", "</span>, RevEvent.GetAllEventNames()));   <span class="c">// 当前所有事件名</span></pre>
+
+    <div class="callout good">
+      <span class="t">排查顺序（30 秒）</span>
+      ① <code>GetListenerCount(名字)</code> 是 0 吗 → 说明没人订阅（名字打错了？订阅方还没 OnEnable？）<br>
+      ② 订阅数对，但逻辑没跑 → 看参数类型/值是不是发错了 → 开 <code>RevEvent.Log</code> 看有没有广播出来<br>
+      ③ 报空引用 → 十有八九是没带 <code>owner</code> 的老订阅指向了已销毁对象（第三节第 2 条）
+    </div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>新手最容易踩的 5 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 事件名硬编码 + 打错字</td><td>统一常量类（或用 <code>nameof</code>）；排查时用 <code>GetAllEventNames()</code> 对照</td></tr>
+          <tr><td>② 订阅不带 owner</td><td>永远 <code>owner: this</code>；对象销毁/禁用时 <code>RemoveAllByOwner(this)</code></td></tr>
+          <tr><td>③ OnEnable 订阅、OnDestroy 退订</td><td>成对：OnEnable ↔ OnDisable（否则每次显示都加一条，重复触发）</td></tr>
+          <tr><td>④ 用事件当"函数调用"（一发一收还要结果）</td><td>需要返回值/需要知道谁处理了 → 直接调用（第四节）；事件是广播，不是 RPC</td></tr>
+          <tr><td>⑤ 回调里做重活（加载大资源、开界面）</td><td>回调里只做标记/转发，重活丢给状态机或下一帧（<code>RevTimer.NextFrame</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">七</span>相关文档</h2>
+    <ul>
+      <li><a href="事件系统使用指南.md">《事件系统 · 使用指南》</a> —— 设计论证：内部结构（事件中心 / 监听组 / 侦听器）、派发中增删订阅的语义、异常隔离、上限保护</li>
+      <li><a href="../UI系统/UI系统使用说明.html">《UI 系统 · 使用说明》</a> —— 界面上订阅事件的推荐位置（OnOpen/OnClose）</li>
+      <li><a href="../日志系统/日志系统使用说明.html">《日志系统 · 使用说明》</a> —— 排查时配日志一起看</li>
+      <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 事件系统　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

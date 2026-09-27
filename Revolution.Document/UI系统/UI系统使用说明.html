@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI 系统 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>UI 系统 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（一个特性声明面板、一行打开、事件自动绑到方法）</p>
+    <p class="meta">读完你能做到：3 分钟写出第一个面板 · 分清 7 个生命周期回调谁先谁后 · 会给面板传数据 · 知道返回栈与层级怎么用</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟写出第一个面板</a></li>
+      <li><a href="#s2">二、面板的生命周期（谁先谁后）</a></li>
+      <li><a href="#s3">三、"我要做 X" 对照表（全部 API）</a></li>
+      <li><a href="#s4">四、带数据的面板（一个面板多处复用）</a></li>
+      <li><a href="#s5">五、层级 / 遮罩 / 返回栈</a></li>
+      <li><a href="#s6">六、新手最容易踩的 6 个坑</a></li>
+      <li><a href="#s7">七、相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 3 件事就能干活（真的）</span>
+      <pre style="margin:10px 0 6px"><span class="c">// ① 声明一个面板：特性写"预制体在哪个目录、哪个名字"</span>
+[RevUIPanel(<span class="s">"UI/Bag"</span>, RevUILayer.Normal, <span class="s">"BagPanel"</span>)]
+<span class="k">public class</span> BagPanel : RevUIPanel
+{
+    <span class="k">protected override void</span> OnBindView() { }        <span class="c">// ② 唯一必须实现的方法：这里做绑定</span>
+    <span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName) <span class="c">// ③ 点哪个按钮就走这里（不用手动挂监听）</span>
+    {
+        <span class="k">if</span> (nodeName == <span class="s">"BtnClose"</span>) RequestClose();
+    }
+}
+
+<span class="c">// 打开 / 关闭（业务里就这两行）</span>
+RevUI.Open&lt;BagPanel&gt;();
+RevUI.Close&lt;BagPanel&gt;();</pre>
+      <p style="margin-bottom:0">
+        带数据的、异步打开、返回栈、按组关闭……都在第三节的对照表里，<b>用到再查</b>。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>UI 系统 = 你只写"面板类 + 预制体名"，剩下的事（加载预制体、挂到哪个 Canvas、层级顺序、遮罩、关闭时回收还是销毁）它全包。</b>
+      <p>面板自己就是 MonoBehaviour，但<b>不要手动 Instantiate</b> —— 一律 <code>RevUI.Open</code>，否则层级、缓存、事件都接不上。</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>面板预制体路径到处硬编码</td><td>写在特性里：<code>[RevUIPanel("UI/Bag", RevUILayer.Normal, "BagPanel")]</code>（目录, 层级, 预制体名），只有一处</td></tr>
+          <tr><td>按钮监听重复挂/忘记卸</td><td>节点名回调：<code>OnClick(nodeName)</code> / <code>OnToggleChanged</code> / <code>OnSliderChanged</code>… 由框架统一分发</td></tr>
+          <tr><td>打开顺序、层级盖住别人</td><td><code>RevUILayer</code> 四层（Scene / Normal / Popup / Toast）+ 同层按打开顺序</td></tr>
+          <tr><td>关了再开卡一下</td><td><b>面板池</b>：默认缓存复用，支持 <code>[RevUIPanel(..., CacheMode = …)]</code> 调策略</td></tr>
+          <tr><td>弹窗忘了加遮罩、点击穿透</td><td><code>Mask = RevUIMaskMode.Auto</code>：弹窗默认带遮罩挡住下面操作</td></tr>
+          <tr><td>返回键该关哪个面板</td><td><code>InBackStack</code> + <code>RevUI.Back()</code>：Toast 之类不进返回栈</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟写出第一个面板</h2>
+    <p class="lead">准备：一个预制体放在资源根目录的 <code>UI/Bag/BagPanel.prefab</code>。</p>
+
+    <pre><span class="c">// ① 新建脚本 BagPanel.cs —— 就这么短，能跑</span>
+<span class="k">using</span> UnityEngine;
+
+[RevUIPanel(<span class="s">"UI/Bag"</span>, RevUILayer.Normal, <span class="s">"BagPanel"</span>)]
+<span class="k">public class</span> BagPanel : RevUIPanel
+{
+    <span class="c">// RevUIPanel 是抽象类，这个方法必须实现 —— 做"拿组件、填初始内容"的事</span>
+    <span class="k">protected override void</span> OnBindView()
+    {
+        <span class="c">// 例：拿到预制体里名为 Title 的文本并设置</span>
+        <span class="c">// (按你项目的绑定方式：RevBind 特性 / 自己 GetComponentInChildren)</span>
+    }
+
+    <span class="k">protected override void</span> OnOpen()
+    {
+        <span class="c">// 每次打开都会走这里：刷新数据、播开场动画</span>
+    }
+
+    <span class="c">// 点了预制体里名为 BtnClose 的按钮（名字对得上就会进来）</span>
+    <span class="k">protected override void</span> OnClick(<span class="k">string</span> nodeName)
+    {
+        <span class="k">switch</span> (nodeName)
+        {
+            <span class="k">case</span> <span class="s">"BtnClose"</span>: RequestClose(); <span class="k">break</span>;
+            <span class="k">case</span> <span class="s">"BtnSort"</span>:  SortBag();      <span class="k">break</span>;
+        }
+    }
+}
+
+<span class="c">// ② 业务里打开它（哪都能调，不用挂物体）</span>
+RevUI.Open&lt;BagPanel&gt;();
+
+<span class="c">// ③ 打开后拿到实例做点事</span>
+RevUI.Open&lt;BagPanel&gt;(panel =&gt; panel.RefreshView());
+
+<span class="c">// ④ 关闭（面板内部也可以 RequestClose()）</span>
+RevUI.Close&lt;BagPanel&gt;();</pre>
+
+    <div class="callout">
+      <span class="t">就这么点东西</span>
+      没有 Canvas 配置、没有 Init 调用、没有手动 Instantiate。<b>预制体放对目录 + 特性写对名字 = 能打开</b>；
+      打不开看第六节最后一条。
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>面板的生命周期（谁先谁后）</h2>
+    <p class="lead">只要记住"创建一次、打开很多次"这一点，其余照着图用。</p>
+
+    <div class="flow">
+      <span class="n">OnInit</span><span class="ar">→</span>
+      <span class="n">OnBindView</span><span class="ar">→</span>
+      <span class="n on">OnOpen</span><span class="ar">→</span>
+      <span class="n wait">OnReuse（复用打开时）</span><span class="ar">→</span>
+      <span class="n">OnRefreshView</span><span class="ar">→</span>
+      <span class="n">OnCovered(true/false)</span><span class="ar">→</span>
+      <span class="n">OnClose</span><span class="ar">→</span>
+      <span class="n">OnRelease</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">回调</th><th style="width:20%">什么时候</th><th>该放什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>OnInit()</code></td><td>面板对象<b>第一次</b>创建时，一次</td><td>只做一次的初始化（缓存组件引用）</td></tr>
+          <tr><td><code>OnBindView()</code> <b>（必须实现）</b></td><td>紧随 OnInit，一次</td><td>绑定 UI 元素、挂必要的内部结构</td></tr>
+          <tr><td><code>OnOpen()</code></td><td><b>每次</b>打开</td><td>刷新数据、播开场动画（最常用）</td></tr>
+          <tr><td><code>OnReuse()</code></td><td>从池里<b>复用</b>打开时</td><td>想区分"全新"与"复用"时用（一般不需要）</td></tr>
+          <tr><td><code>OnRefreshView()</code></td><td>你调 <code>RefreshView()</code> 时</td><td>只重刷显示内容（不动结构）</td></tr>
+          <tr><td><code>OnCovered(bool)</code></td><td>上面盖了别人 / 别人关了</td><td>被盖住时停特效、暂停刷新（省性能）</td></tr>
+          <tr><td><code>OnClose()</code></td><td>关闭时（对象还在池里）</td><td>停协程/计时器、退订事件、<b>释放资源</b></td></tr>
+          <tr><td><code>OnRelease()</code></td><td>对象真正销毁时</td><td>清理非托管/静态引用（少见）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="h">自定义开场 / 关闭动画</div>
+      <div class="when">想让"打开动画播完再算打开完"，重写这两个方法即可</div>
+      <pre><span class="k">protected override void</span> PlayOpenTransition(Action onDone)  { <span class="c">/* 播动画，结束后 */</span> onDone?.Invoke(); }
+<span class="k">protected override void</span> PlayCloseTransition(Action onDone) { onDone?.Invoke(); }</pre>
+      <div class="note">不重写就立即算完成（默认实现就是直接回调）。</div>
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">入口统一是 <code>RevUI</code>。所有泛型参数都要求 <code>T : RevUIPanel</code>。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:36%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>打开（最常用）</td><td><code>RevUI.Open&lt;BagPanel&gt;()</code></td></tr>
+          <tr><td>打开并拿到实例</td><td><code>RevUI.Open&lt;BagPanel&gt;(p =&gt; p.xxx)</code></td></tr>
+          <tr><td>打开并传数据</td><td><code>RevUI.Open&lt;BagPanel, BagData&gt;(data)</code></td></tr>
+          <tr><td>异步打开（可用 await）</td><td><code>T p = await RevUI.OpenAsync&lt;BagPanel&gt;()</code></td></tr>
+          <tr><td>关闭 / 关闭某类型</td><td><code>RevUI.Close(panel)</code> · <code>RevUI.Close&lt;BagPanel&gt;()</code></td></tr>
+          <tr><td>关掉某一层 / 某一组</td><td><code>RevUI.CloseAll(RevUILayer.Popup)</code> · <code>RevUI.CloseGroup("Bag")</code></td></tr>
+          <tr><td>返回上一级（响应返回键）</td><td><code>RevUI.Back()</code></td></tr>
+          <tr><td>全部关掉（切场景/回登录）</td><td><code>RevUI.ShutdownAll()</code></td></tr>
+          <tr><td>判断是否开着 / 拿实例</td><td><code>RevUI.IsOpen&lt;BagPanel&gt;()</code> · <code>RevUI.Get&lt;BagPanel&gt;()</code></td></tr>
+          <tr><td>看某层最上面是谁</td><td><code>RevUI.TopOf(RevUILayer.Popup)</code></td></tr>
+          <tr><td>提前加载（避免首次打开卡）</td><td><code>RevUI.Preload&lt;BagPanel&gt;()</code></td></tr>
+          <tr><td>调试：看当前所有面板</td><td><code>Debug.Log(RevUI.DumpStats())</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">关闭 ≠ 销毁</span>
+      <code>Close</code> 只是关掉（对象进池，下次打开更快）；想彻底销毁用 <code>ShutdownAll()</code> 或按 <code>CacheMode</code> 配置。
+      所以<b>不要依赖 OnRelease 做常规清理</b> —— 清理写在 <code>OnClose</code>。
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>带数据的面板（一个面板多处复用）</h2>
+    <p class="lead">同一个界面既要显示"英雄详情"又要显示"道具详情"时，用泛型面板传数据。</p>
+
+    <pre><span class="c">// ① 数据类随便定义（class / struct 都行）</span>
+<span class="k">public class</span> DetailData { <span class="k">public int</span> Id; <span class="k">public string</span> Title; }
+
+<span class="c">// ② 面板继承 RevUIPanel&lt;TData&gt;：重写 OnDataChanged 收数据</span>
+[RevUIPanel(<span class="s">"UI/Common"</span>, RevUILayer.Normal, <span class="s">"DetailPanel"</span>)]
+<span class="k">public class</span> DetailPanel : RevUIPanel&lt;DetailData&gt;
+{
+    <span class="k">protected override void</span> OnBindView() { }                 <span class="c">// 仍需实现（做绑定）</span>
+    <span class="k">protected override void</span> OnRefreshView() { }               <span class="c">// 用 _data 刷新显示</span>
+    <span class="k">protected override void</span> OnDataChanged(DetailData oldData, DetailData newData)
+    {
+        <span class="c">// 数据换了：刷新界面（最常写的地方）</span>
+    }
+}
+
+<span class="c">// ③ 打开时传进去</span>
+RevUI.Open&lt;DetailPanel, DetailData&gt;(<span class="k">new</span> DetailData { Id = 1001, Title = <span class="s">"亚瑟"</span> });
+
+<span class="c">// ④ 已经开着时再传一份新数据（不会重开面板）</span>
+RevUI.Get&lt;DetailPanel&gt;()?.SetData(<span class="k">new</span> DetailData { Id = 1002, Title = <span class="s">"妲己"</span> });</pre>
+
+    <div class="callout good">
+      <span class="t">为什么要泛型面板</span>
+      避免"详情弹窗"写三份、也避免用 <code>object</code> 到处强转。<b>数据从特性/框架外进来，界面只管显示。</b>
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>层级 / 遮罩 / 返回栈</h2>
+    <p class="lead">都在特性上声明，不用写代码。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">层级</th><th style="width:26%">放什么</th><th>特点</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevUILayer.Scene</code></td><td>主界面、大厅、全屏场景面板</td><td>最底层，会被普通界面盖住</td></tr>
+          <tr><td><code>RevUILayer.Normal</code></td><td>二级界面：背包、商店、设置</td><td>默认层级</td></tr>
+          <tr><td><code>RevUILayer.Popup</code></td><td>确认框、奖励结算</td><td><b>默认带遮罩</b>挡住下面的操作，进返回栈</td></tr>
+          <tr><td><code>RevUILayer.Toast</code></td><td>飘字、跑马灯</td><td>不挡操作、<b>不参与返回栈</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="h">特性上还能配什么</div>
+      <div class="when">一个面板的全部"外观策略"集中在这一行，不用散在代码里</div>
+      <pre>[RevUIPanel(<span class="s">"UI/Common"</span>, RevUILayer.Popup, <span class="s">"ConfirmDialog"</span>,
+            CacheMode   = RevUICacheMode.Unspecified,   <span class="c">// 缓存策略（默认按框架规则）</span>
+            Mask        = RevUIMaskMode.Auto,          <span class="c">// 遮罩：弹窗默认自动加</span>
+            ExclusiveGroup = <span class="s">"Dialog"</span>,               <span class="c">// 互斥组：同组只留一个</span>
+            InBackStack = <span class="k">true</span>)]                       <span class="c">// 是否进返回栈（Back() 能关它）</span></pre>
+      <div class="note">这些字段都是可选的，不写就用默认值（默认值见 <code>RevUIPanelAttribute</code> 的字段声明）。</div>
+    </div>
+
+    <div class="callout">
+      <span class="t">返回键怎么接</span>
+      在需要的地方调 <code>RevUI.Back()</code>：它会按"返回栈"关掉最上面的面板；没有可关的返回 <code>false</code>（这时业务自己决定：退到登录 / 弹退出确认）。
+    </div>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>新手最容易踩的 6 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 自己 <code>Instantiate</code> 面板预制体</td><td>一律 <code>RevUI.Open</code> —— 否则层级/缓存/事件分发都失效</td></tr>
+          <tr><td>② 忘了实现 <code>OnBindView()</code></td><td>它是抽象方法，编译期就会拦你；里面做绑定，不要做业务</td></tr>
+          <tr><td>③ 在 <code>OnBindView</code> 里开计时器/协程</td><td>那是一次性的；每次打开要做的事写 <code>OnOpen</code></td></tr>
+          <tr><td>④ 关闭时不停计时器、不退订事件</td><td>面板会被<b>缓存复用</b>，旧计时器会在下次打开时乱跑 → 全放 <code>OnClose</code> 里清</td></tr>
+          <tr><td>⑤ 用 <code>CloseAll()</code> 当"关一个"用</td><td>要关单个用 <code>Close&lt;T&gt;()</code>；切场景才用 <code>ShutdownAll()</code></td></tr>
+          <tr><td>⑥ 打不开却没有任何提示</td><td>检查三处：预制体是否在资源根目录的对应路径下 · 特性里目录/名字是否写对 · 「打包」页签是否已生成映射</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout bad">
+      <span class="t">最贵的一课：面板会复用</span>
+      面板不是"打开就新建、关闭就销毁"，而是<b>从池里拿、关掉放回</b>。所以任何"只做一次"的事情别写在 <code>OnOpen</code>，
+      任何"离开要清"的事情必须写在 <code>OnClose</code> —— 这两条反过来写，就是最难查的那类 bug。
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">七</span>相关文档</h2>
+    <ul>
+      <li><a href="UI系统使用指南.md">《UI 系统 · 使用指南》</a> —— 设计论证：面板池策略、绑定机制、层级与遮罩的实现、为什么会复用</li>
+      <li><a href="../资源加载系统/资源加载系统使用说明.html">《资源加载系统 · 使用说明》</a> —— 面板里加载图标的正确姿势（记得 Release）</li>
+      <li><a href="../公共Mono模块/公共Mono模块使用说明.html">《公共 Mono 模块 · 使用说明》</a> —— 面板里要每帧跑的逻辑怎么写</li>
+      <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · UI 系统　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《使用指南》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

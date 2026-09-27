@@ -84,9 +84,10 @@ jobs:
           site = pathlib.Path('_site')
           site.mkdir(exist_ok=True)
 
-          # ① 文档目录整体拷贝（.html 与 .md 都带，保持相对结构；.cmd 之类的辅助文件跳过）
+          # ① 拷贝文档目录（按扩展名白名单：跳过 .cmd 这类辅助文件，带上公共样式 assets/docs.css）
+          KEEP = {'.html', '.md', '.css', '.js', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp'}
           for p in doc.rglob('*'):
-              if p.is_file() and p.suffix.lower() in ('.html', '.md', '.css', '.js', '.png', '.jpg', '.svg'):
+              if p.is_file() and p.suffix.lower() in KEEP:
                   dst = site / p.relative_to(doc)
                   dst.parent.mkdir(parents=True, exist_ok=True)
                   dst.write_bytes(p.read_bytes())
@@ -94,29 +95,46 @@ jobs:
           # ② .nojekyll：不再让 Pages 走 Jekyll 处理（否则下划线开头的文件会被跳过）
           (site / '.nojekyll').write_text('')
 
-          # ③ 链接修正：站内没有的目标（.md 文档、仓库根 README/LICENSE、框架说明）
-          #    改成 GitHub 上的渲染地址 —— 那边有目录与排版，比让浏览器下载纯文本好读
+          # ③ 链接修正（逐个 HTML 文件，按其所在目录解析）：
+          #    · 站内确实存在的目标（如 ../index.html、../assets/docs.css、同目录 .html）→ 保持相对链接
+          #    · .md 文档 → 指到 GitHub 渲染版（浏览器直接看 .md 是纯文本/会下载）
+          #    · 站点之外（../README.md、../LICENSE、../RevolutionFrameWork_Unity/…）→ 指到 GitHub
           repo = os.environ.get('GITHUB_REPOSITORY', 'Yokino337088/Revolution')
           blob = f'https://github.com/{repo}/blob/main/'
+          site_abs = site.resolve()
 
-          idx  = site / 'index.html'
-          html = idx.read_text(encoding='utf-8')
+          pages = sorted(site.rglob('*.html'))
+          total = 0
+          for page in pages:
+              html = page.read_text(encoding='utf-8')
 
-          def fix(m):
-              href = m.group(1)
-              if href.startswith(('http://', 'https://', '#', 'mailto:')):
+              def fix(m, page=page):
+                  href = m.group(1)
+                  if href.startswith(('http://', 'https://', '#', 'mailto:', 'data:')):
+                      return m.group(0)
+                  target = (page.parent / href.split('#')[0]).resolve()
+                  try:
+                      rel = target.relative_to(site_abs).as_posix()
+                      inside = True
+                  except ValueError:
+                      rel, inside = None, False
+
+                  if href.endswith('.md'):
+                      # 站内是纯文本，站外（仓库根）反正是仓库里的文件 → 一律 GitHub 渲染版
+                      path = f'Revolution.Document/{rel}' if inside else href[3:].split('#')[0]
+                      return f'href="{blob}{path}"'
+                  if not inside:
+                      # 站点之外：仓库根的 README / LICENSE / 框架目录
+                      return f'href="{blob}{href[3:].split("#")[0]}"'
                   return m.group(0)
-              if href.startswith('../'):                       # 指向仓库根的路径（README / LICENSE / 框架目录）
-                  return f'href="{blob}{href[3:]}"'
-              if href.endswith('.md'):                         # 文档的 markdown 版本
-                  return f'href="{blob}Revolution.Document/{href}"'
-              return m.group(0)
 
-          html, n = re.subn(r'href="([^"]+)"', fix, html)
-          idx.write_text(html, encoding='utf-8')
+              html, n = re.subn(r'href="([^"]+)"', fix, html)
+              if n:
+                  page.write_text(html, encoding='utf-8')
+                  total += n
 
           files = [f for f in site.rglob('*') if f.is_file()]
-          print(f'站点文件 {len(files)} 个，改写链接 {n} 处')
+          print(f'站点文件 {len(files)} 个 / 处理 HTML {len(pages)} 个 / 检查链接 {total} 处')
           PY
 
       - name: 上传站点产物
