@@ -183,6 +183,16 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
     <h2><span class="num">五</span>两种加载模式（编辑器直读 / AB）</h2>
     <p class="lead">同一行业务代码，两种模式下都不用改 —— 但行为有两处差别要知道。</p>
 
+    <div class="callout bad">
+      <span class="t">⚠️ 先明确一件事：本框架不含热更新</span>
+      AB 只从<b>本机</b> <code>StreamingAssets</code> 读，<b>没有</b>远程下载、版本比对、差量更新，也没有 <code>persistentDataPath</code> 覆盖路径
+      （源码里就写着这句，见 <code>ABLoader.cs</code> 头部注释）。要接热更：资源层对外只有 <code>IResPolicy</code> + <code>IResLoader</code> 两个接口 ——
+      自己实现（接你的下载/CDN 体系）或整体换成 YooAsset，<b>上层业务代码都不用改</b>。
+      方案与步骤见仓库首页 README《不做什么：热更新与远程更新》：
+      <a href="https://github.com/Yokino337088/Revolution#-不做什么热更新与远程更新">GitHub 上打开</a> ·
+      <a href="https://yokino337088.github.io/Revolution/index.html">在线文档站</a>
+    </div>
+
     <div class="cmp">
       <div class="yes">
         <div class="h">编辑器直读（开发期）</div>

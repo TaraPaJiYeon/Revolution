@@ -28,6 +28,18 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 - 📦 **编辑器工具齐** - LiteAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
 - 🔧 **无第三方依赖** - 只用 Unity 官方模块
 
+## ⚠️ 不含热更新（用前必读）
+
+本框架**不含**：
+- ❌ **代码热更新**（HybridCLR / ILRuntime / xLua —— 全仓库 0 处相关代码）；
+- ❌ **AB 远程下载 / 版本管理 / 差量更新** —— AB 只从本机 `StreamingAssets` 读（编辑器下直读），没有 `persistentDataPath` 覆盖路径、没有下载器与版本比对。
+
+**要接热更**：资源层对外只有 `IResPolicy` + `IResLoader` **两个接口**（在 `Runtime/RevResourceSystem/Interfaces/`，`ABLoader` 是同接口的现成范例），
+可以自己实现（接你已有的下载/CDN 体系），也可以整体换成 **YooAsset** 等第三方资源框架 —— **两条路都不需要改上层业务代码**。
+
+详细方案（含步骤、注意事项与"要不要上热更"的决策表）见仓库首页 README：
+<https://github.com/Yokino337088/Revolution#-不做什么热更新与远程更新>
+
 ## 📦 三种安装方式
 
 | 方式 | 命令 / 操作 | 框架落在哪 |
