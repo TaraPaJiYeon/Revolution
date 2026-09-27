@@ -1,0 +1,96 @@
+name: Deploy docs to GitHub Pages
+
+# 把 Revolution.Document/ 发布成在线文档站（入口就是那份 index.html）
+#
+# 触发：文档目录或本工作流有改动时；也可以在 Actions 页面手动 Run workflow。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Revolution.Document/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# GitHub Pages 官方要求的三项权限
+permissions:
+  contents: read      # 读仓库
+  pages: write        # 写 Pages 站点
+  id-token: write     # 部署用的 OIDC 令牌
+
+# 同一时间只跑一份；不取消正在进行的部署（避免站点处于半发布状态）
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      # enablement: true = 若仓库还没开 Pages，就用工作流令牌帮你开（省掉手动去 Settings 点一步）
+      - name: 准备 Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: 生成站点文件
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+
+          doc  = pathlib.Path('Revolution.Document')
+          site = pathlib.Path('_site')
+          site.mkdir(exist_ok=True)
+
+          # ① 文档目录整体拷贝（含 .md 与 .html，保持相对结构）
+          for p in doc.rglob('*'):
+              if p.is_file():
+                  dst = site / p.relative_to(doc)
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  dst.write_bytes(p.read_bytes())
+
+          # ② .nojekyll：不再让 Pages 走 Jekyll 处理（否则下划线开头的文件会被跳过）
+          (site / '.nojekyll').write_text('')
+
+          # ③ 链接修正：站内没有的目标（.md 文档、仓库根 README/LICENSE、框架说明）
+          #    改成 GitHub 上的渲染地址 —— 那边有目录与排版，比让浏览器下载纯文本好读
+          repo = os.environ.get('GITHUB_REPOSITORY', 'Yokino337088/Revolution')
+          blob = f'https://github.com/{repo}/blob/main/'
+
+          idx  = site / 'index.html'
+          html = idx.read_text(encoding='utf-8')
+
+          def fix(m):
+              href = m.group(1)
+              if href.startswith(('http://', 'https://', '#', 'mailto:')):
+                  return m.group(0)
+              if href.startswith('../'):                       # 指向仓库根的路径（README / LICENSE / 框架目录）
+                  return f'href="{blob}{href[3:]}"'
+              if href.endswith('.md'):                         # 文档的 markdown 版本
+                  return f'href="{blob}Revolution.Document/{href}"'
+              return m.group(0)
+
+          html, n = re.subn(r'href="([^"]+)"', fix, html)
+          idx.write_text(html, encoding='utf-8')
+
+          files = [f for f in site.rglob('*') if f.is_file()]
+          print(f'站点文件 {len(files)} 个，改写链接 {n} 处')
+          PY
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
