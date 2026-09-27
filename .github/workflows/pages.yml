@@ -35,7 +35,7 @@ jobs:
       skip: ${{ steps.pages.outcome != 'success' }}   # 传下去：Pages 不可用就别白跑部署
     steps:
       - name: 检出仓库
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # enablement: true = 若仓库还没开 Pages，就用工作流令牌帮你开（省掉手动去 Settings 点一步）
       # continue-on-error：私有仓库 + Free 计划会失败 —— 那种情况交给下一步给出可读提示，而不是让工作流报红
@@ -49,14 +49,23 @@ jobs:
       - name: Pages 不可用时的说明
         if: steps.pages.outcome != 'success'
         run: |
-          echo "::warning title=Pages 未启用::GitHub Pages 对私有仓库只在付费计划下可用（Public 仓库不受限）。当前站点未发布 —— 本地预览：双击 Revolution.Document/预览文档.cmd 或 index.html。要上线：把仓库改成 Public，或升级到 GitHub Pro/Team 后重跑本工作流。"
+          # 顺手查一下 Pages 到底开没开（公开仓库可匿名查；200=已开 / 404=未开）
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
+          echo "Pages API 状态码：$CODE"
+          echo "::warning title=Pages 未启用::站点未发布（Pages API 返回 $CODE）。请到仓库 Settings → Pages → Build and deployment → Source 选择「GitHub Actions」，然后重跑本工作流。本地预览：双击 Revolution.Document/预览文档.cmd。"
           {
-            echo "## 📄 文档站未发布（Pages 不可用）"
+            echo "## 📄 文档站未发布：Pages 还没开（API 返回 $CODE）"
             echo ""
-            echo "GitHub Pages 对**私有仓库**只在付费计划（Pro / Team / Enterprise）下可用。"
+            echo "**一次性操作**（做完本工作流全自动，之后改文档即自动发布）："
             echo ""
-            echo "- 要上线：把仓库改成 **Public**（Settings → General → Danger Zone → Change visibility），或升级计划，然后重跑本工作流；"
-            echo "- 本地随时可看：双击 \`Revolution.Document/预览文档.cmd\`，或直接双击 \`index.html\`。"
+            echo "1. 打开 https://github.com/${GITHUB_REPOSITORY}/settings/pages"
+            echo "2. **Build and deployment → Source** 选 **GitHub Actions**（不要选 Deploy from a branch）"
+            echo "3. 回到本工作流点 **Re-run all jobs**，或再推一次 \`Revolution.Document/\` 里的改动"
+            echo ""
+            echo "> 为什么必须手动这一步：Pages 站点必须由**有 admin 权限的人**创建一次 —— 工作流令牌没有这个权限，"
+            echo "> 之前的报错就是 \`Resource not accessible by integration\`（Create Pages site failed）。"
+            echo "> 若第 2 步里看不到 GitHub Actions 选项：说明该仓库的 Pages 不可用（私有仓库需要 Pro/Team 计划；Public 仓库不受限）。"
+            echo "> 本地随时可看：双击 \`Revolution.Document/预览文档.cmd\`，或直接双击 \`index.html\`。"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 生成站点文件
