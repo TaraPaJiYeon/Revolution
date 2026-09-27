@@ -269,6 +269,9 @@ Revolution/
 
 ## 📚 文档导航
 
+> 👉 **总入口（推荐从这里进）**：[`Revolution.Document/index.html`](Revolution.Document/index.html) ——
+> 一页看全 13 个模块 28 份文档，带分组、搜索与阅读顺序建议。
+
 ### 各模块使用说明（手把手）
 
 | 模块 | 文档 |
