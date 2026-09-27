@@ -272,9 +272,8 @@ Revolution/
 > 👉 **文档站（推荐从这里进）**：<https://yokino337088.github.io/Revolution/> ——
 > 一页看全 13 个模块 28 份文档，带分组、搜索与阅读顺序建议（源码在 [`Revolution.Document/index.html`](Revolution.Document/index.html)）。
 >
-> 本地预览（等价于在线文档站的效果）：双击 [`Revolution.Document/预览文档.cmd`](Revolution.Document/预览文档.cmd)，
-> 或直接双击 `index.html`。GitHub Actions 里另有 `pages.yml`：仓库为 Public 时会把文档自动发布成站点
-> （私有 + Free 计划下 Pages 不可用，该工作流会跳过并给出提示，不影响其它流程）。
+> 本地预览：双击 [`Revolution.Document/预览文档.cmd`](Revolution.Document/预览文档.cmd)（或直接双击 `index.html`）——
+> 文档站由工作流 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 里的内容即重新发布。
 
 ### 各模块使用说明（手把手）
 

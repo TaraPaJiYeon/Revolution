@@ -49,12 +49,16 @@ jobs:
       - name: Pages 不可用时的说明
         if: steps.pages.outcome != 'success'
         run: |
-          # 顺手查一下 Pages 到底开没开（公开仓库可匿名查；200=已开 / 404=未开）
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
-          echo "Pages API 状态码：$CODE"
-          echo "::warning title=Pages 未启用::站点未发布（Pages API 返回 $CODE）。请到仓库 Settings → Pages → Build and deployment → Source 选择「GitHub Actions」，然后重跑本工作流。本地预览：双击 Revolution.Document/预览文档.cmd。"
+          # 探一下站点到底能不能访问（注意：不要用 api.github.com/.../pages 判断 ——
+          # 那个接口匿名访问时即使站点已上线也返回 404，会误报；这里直接探站点地址）
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          URL="https://${OWNER,,}.github.io/${REPO}/"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -L "$URL")
+          echo "站点探针：$URL → HTTP $CODE"
+          echo "::warning title=Pages 未启用::站点未发布（$URL 返回 $CODE）。请到仓库 Settings → Pages → Build and deployment → Source 选择「GitHub Actions」（需仓库 admin 点一次），然后重跑本工作流。本地预览：双击 Revolution.Document/预览文档.cmd。"
           {
-            echo "## 📄 文档站未发布：Pages 还没开（API 返回 $CODE）"
+            echo "## 📄 文档站未发布：Pages 还没开（站点探针返回 $CODE）"
             echo ""
             echo "**一次性操作**（做完本工作流全自动，之后改文档即自动发布）："
             echo ""
@@ -62,8 +66,10 @@ jobs:
             echo "2. **Build and deployment → Source** 选 **GitHub Actions**（不要选 Deploy from a branch）"
             echo "3. 回到本工作流点 **Re-run all jobs**，或再推一次 \`Revolution.Document/\` 里的改动"
             echo ""
+            echo "预期站点地址：$URL"
+            echo ""
             echo "> 为什么必须手动这一步：Pages 站点必须由**有 admin 权限的人**创建一次 —— 工作流令牌没有这个权限，"
-            echo "> 之前的报错就是 \`Resource not accessible by integration\`（Create Pages site failed）。"
+            echo "> 报错原文是 \`Resource not accessible by integration\`（Create Pages site failed）。"
             echo "> 若第 2 步里看不到 GitHub Actions 选项：说明该仓库的 Pages 不可用（私有仓库需要 Pro/Team 计划；Public 仓库不受限）。"
             echo "> 本地随时可看：双击 \`Revolution.Document/预览文档.cmd\`，或直接双击 \`index.html\`。"
           } >> "$GITHUB_STEP_SUMMARY"
