@@ -3,6 +3,12 @@ name: Deploy docs to GitHub Pages
 # 把 Revolution.Document/ 发布成在线文档站（入口就是那份 index.html）
 #
 # 触发：文档目录或本工作流有改动时；也可以在 Actions 页面手动 Run workflow。
+#
+# ⚠️ 前置条件：GitHub Pages 对「私有仓库」只在付费计划（Pro / Team / Enterprise）下可用。
+#    · 仓库是 Public          → 直接可用，本工作流会自动开启 Pages 并部署；
+#    · 仓库是 Private（Free） → 无法发布。此时本工作流**不会报错**，而是在运行摘要里给出提示后跳过
+#      （要上线：① 把仓库改成 Public 后重跑；② 或升级计划后重跑）。
+#    另外：就算线上没开，本地随时可看 —— 双击 Revolution.Document/预览文档.cmd，或直接双击 index.html。
 on:
   push:
     branches: [main]
@@ -25,17 +31,36 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.pages.outcome != 'success' }}   # 传下去：Pages 不可用就别白跑部署
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
 
       # enablement: true = 若仓库还没开 Pages，就用工作流令牌帮你开（省掉手动去 Settings 点一步）
+      # continue-on-error：私有仓库 + Free 计划会失败 —— 那种情况交给下一步给出可读提示，而不是让工作流报红
       - name: 准备 Pages
+        id: pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
+      - name: Pages 不可用时的说明
+        if: steps.pages.outcome != 'success'
+        run: |
+          echo "::warning title=Pages 未启用::GitHub Pages 对私有仓库只在付费计划下可用（Public 仓库不受限）。当前站点未发布 —— 本地预览：双击 Revolution.Document/预览文档.cmd 或 index.html。要上线：把仓库改成 Public，或升级到 GitHub Pro/Team 后重跑本工作流。"
+          {
+            echo "## 📄 文档站未发布（Pages 不可用）"
+            echo ""
+            echo "GitHub Pages 对**私有仓库**只在付费计划（Pro / Team / Enterprise）下可用。"
+            echo ""
+            echo "- 要上线：把仓库改成 **Public**（Settings → General → Danger Zone → Change visibility），或升级计划，然后重跑本工作流；"
+            echo "- 本地随时可看：双击 \`Revolution.Document/预览文档.cmd\`，或直接双击 \`index.html\`。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: 生成站点文件
+        if: steps.pages.outcome == 'success'
         run: |
           python3 - <<'PY'
           import os, pathlib, re
@@ -44,9 +69,9 @@ jobs:
           site = pathlib.Path('_site')
           site.mkdir(exist_ok=True)
 
-          # ① 文档目录整体拷贝（含 .md 与 .html，保持相对结构）
+          # ① 文档目录整体拷贝（.html 与 .md 都带，保持相对结构；.cmd 之类的辅助文件跳过）
           for p in doc.rglob('*'):
-              if p.is_file():
+              if p.is_file() and p.suffix.lower() in ('.html', '.md', '.css', '.js', '.png', '.jpg', '.svg'):
                   dst = site / p.relative_to(doc)
                   dst.parent.mkdir(parents=True, exist_ok=True)
                   dst.write_bytes(p.read_bytes())
@@ -80,12 +105,14 @@ jobs:
           PY
 
       - name: 上传站点产物
+        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
     needs: build
+    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
