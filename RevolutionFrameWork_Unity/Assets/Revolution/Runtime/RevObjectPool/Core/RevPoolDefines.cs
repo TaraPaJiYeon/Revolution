@@ -204,7 +204,7 @@ namespace Revolution
                 return;
             }
 
-            Console.Error.WriteLine(message);
+            RevLog.Warn(message, "Pool");
         }
     }
 }

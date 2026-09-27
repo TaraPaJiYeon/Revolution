@@ -105,15 +105,15 @@ namespace Revolution
     /// </summary>
     internal static class RevUILog
     {
-        /// <summary>错误出口（默认打 Debug.LogError）</summary>
-        public static Action<string> Error = msg => Debug.LogError($"[RevUI] {msg}");
+        /// <summary>错误出口（默认走框架日志系统 RevLog，tag = UI）</summary>
+        public static Action<string> Error = msg => RevLog.Error(msg, "UI");
 
-        /// <summary>告警出口</summary>
-        public static Action<string> Warning = msg => Debug.LogWarning($"[RevUI] {msg}");
+        /// <summary>告警出口（同上）</summary>
+        public static Action<string> Warning = msg => RevLog.Warn(msg, "UI");
 
         public static void Info(string msg)
         {
-            if (RevUISetting.VerboseLog) Debug.Log($"[RevUI] {msg}");
+            if (RevUISetting.VerboseLog) RevLog.Info(msg, "UI");   // 开关：RevUISetting.VerboseLog
         }
 
         /// <summary>执行一个业务钩子：抛异常只报错，不影响调用方流程</summary>

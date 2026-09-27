@@ -43,7 +43,7 @@ namespace Revolution.Editor
             {
                 // 没配置根目录 → 不生成。写出一个空常量类，只会让人以为"工具跑了、但没扫到东西"，
                 // 真正的问题其实在配置上。
-                Debug.LogWarning("[RevResPath] 还没设置「资源根目录」，已跳过生成。\n" +
+                RevABLog.Warn("[RevResPath] 还没设置「资源根目录」，已跳过生成。\n" +
                                  "请在菜单 Tools/资源/LiteAB 打包工具 里指定资源根目录。");
                 return;
             }
@@ -66,7 +66,7 @@ namespace Revolution.Editor
             string code = ResPathNaming.BuildCode(resRoot, dirs, out List<string> conflicts);
 
             foreach (string c in conflicts)
-                Debug.LogWarning($"[RevResPath] 常量名冲突，已跳过：{c} —— 建议给其中一个目录改名");
+                RevABLog.Warn($"[RevResPath] 常量名冲突，已跳过：{c} —— 建议给其中一个目录改名");
 
             // ★ 防抖：内容没变直接返回，否则会触发"写文件 → 重编译 → 回调 → 再写"的死循环
             if (File.Exists(ABBuildSetting.ResPathCodePath) &&
@@ -81,10 +81,10 @@ namespace Revolution.Editor
             AssetDatabase.ImportAsset(ABBuildSetting.ResPathCodePath);
 
             if (dirs.Count == 0)
-                Debug.LogWarning($"[RevResPath] 资源根目录 \"{resRoot}\" 下没扫到任何文件夹，" +
+                RevABLog.Warn($"[RevResPath] 资源根目录 \"{resRoot}\" 下没扫到任何文件夹，" +
                                  $"生成的是空常量类。请在打包窗口里确认资源根目录是否正确。");
             else
-                Debug.Log($"[RevResPath] 已生成 {dirs.Count} 个目录常量 → {ABBuildSetting.ResPathCodePath}");
+                RevABLog.Info($"[RevResPath] 已生成 {dirs.Count} 个目录常量 → {ABBuildSetting.ResPathCodePath}");
         }
 
         /// <summary>菜单入口：不想开打包窗口时也能单独刷新常量</summary>

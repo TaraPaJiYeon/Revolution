@@ -20,7 +20,7 @@ namespace Revolution.Editor
         /// <summary>CI 打包入口（public static + 无参，才能被 -executeMethod 调用）</summary>
         public static void Build()
         {
-            Debug.Log("[LiteAB][CI] 开始打包...");
+            RevABLog.Info("[LiteAB][CI] 开始打包...");
 
             // ① 收集 AB 标记
             ABCollectResult collect = ABCollector.Collect();
@@ -29,8 +29,8 @@ namespace Revolution.Editor
             ABValidateResult validate = ABValidator.Validate(collect);
             if (!validate.CanBuild)
             {
-                Debug.LogError($"[LiteAB][CI] 校验失败 {validate.errors.Count} 项");
-                foreach (string e in validate.errors) Debug.LogError(e);
+                RevABLog.Error($"[LiteAB][CI] 校验失败 {validate.errors.Count} 项");
+                foreach (string e in validate.errors) RevABLog.Error(e);
 
                 EditorApplication.Exit(1);      // 非 0 退出码 = 流水线判定失败
                 return;
@@ -40,7 +40,7 @@ namespace Revolution.Editor
             ABBuildResult build = ABBuilderCore.Build();
             if (!build.success)
             {
-                Debug.LogError("[LiteAB][CI] 打包失败");
+                RevABLog.Error("[LiteAB][CI] 打包失败");
                 EditorApplication.Exit(1);
                 return;
             }
@@ -49,7 +49,7 @@ namespace Revolution.Editor
             ABDependencyReport dep = ABDependencyAnalyzer.Analyze(build.manifest.raw);
             if (dep.circularBundles.Count > 0)
             {
-                Debug.LogError($"[LiteAB][CI] 存在循环依赖：{string.Join(", ", dep.circularBundles)}");
+                RevABLog.Error($"[LiteAB][CI] 存在循环依赖：{string.Join(", ", dep.circularBundles)}");
                 EditorApplication.Exit(1);
                 return;
             }
@@ -61,7 +61,7 @@ namespace Revolution.Editor
             ABBuilderCore.CopyToStreamingAssets(build.outputDir);
 
             AssetDatabase.Refresh();
-            Debug.Log($"[LiteAB][CI] 打包成功：{build.manifest.allBundles.Length} 个包");
+            RevABLog.Info($"[LiteAB][CI] 打包成功：{build.manifest.allBundles.Length} 个包");
             EditorApplication.Exit(0);          // 0 = 成功
         }
     }

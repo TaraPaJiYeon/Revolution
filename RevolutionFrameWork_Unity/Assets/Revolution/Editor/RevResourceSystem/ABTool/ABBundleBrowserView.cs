@@ -94,6 +94,7 @@ namespace Revolution.Editor
 
         private void DrawHeader()
         {
+            // 第一行：刷新 + 概览 + 同步状态（状态文字放右端，跟着时间变，眼睛不用来回找）
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("刷新", EditorStyles.miniButton, GUILayout.Width(48)))
@@ -105,13 +106,24 @@ namespace Revolution.Editor
 
                 GUILayout.FlexibleSpace();
 
+                EditorGUILayout.LabelField(ABMarkerWatcher.StatusContent(),
+                    EditorStyles.miniLabel, GUILayout.Width(156));
+            }
+
+            // 第二行：两个开关（都是"看得见的分包信息"，放一起）
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 // 自动同步：别处改了分包标记，这里自动跟随（「刷新」永远可用，关掉也不影响手动刷）
                 bool autoSync = EditorGUILayout.ToggleLeft("自动同步", ABMarkerWatcher.Enabled,
                     EditorStyles.miniLabel, GUILayout.Width(66));
                 if (autoSync != ABMarkerWatcher.Enabled) ABMarkerWatcher.Enabled = autoSync;
 
-                EditorGUILayout.LabelField(ABMarkerWatcher.StatusContent(),
-                    EditorStyles.miniLabel, GUILayout.Width(156));
+                // Project 窗口每行右端标出"属于哪个包"（▪ 自己标的 / ▫ 继承自文件夹）
+                bool badge = EditorGUILayout.ToggleLeft("Project 显示包名", ABProjectWindowOverlay.Enabled,
+                    EditorStyles.miniLabel, GUILayout.Width(116));
+                if (badge != ABProjectWindowOverlay.Enabled) ABProjectWindowOverlay.Enabled = badge;
+
+                GUILayout.FlexibleSpace();
             }
 
             EditorGUILayout.LabelField(
@@ -346,7 +358,7 @@ namespace Revolution.Editor
             if (added > 0) AssetDatabase.SaveAssets();                 // 标记写在 .meta 里，显式落盘
             _pending.Remove(bundle);                                   // 它已经有资源了，不再是"空包"
 
-            Debug.Log($"[LiteAB] 加入包 \"{bundle}\"：新增 {added} 个" +
+            RevABLog.Info($"[LiteAB] 加入包 \"{bundle}\"：新增 {added} 个" +
                       (moved > 0 ? $"，其中 {moved} 个是从别的包挪过来的" : "") +
                       (skipped > 0 ? $"，跳过 {skipped} 个" : ""));
             Refresh();
@@ -361,7 +373,7 @@ namespace Revolution.Editor
             string name = (_newName ?? string.Empty).Trim();
             if (!IsLegalBundleName(name, out string why))
             {
-                Debug.LogError($"[LiteAB] 包名不合法：{why}");
+                RevABLog.Error($"[LiteAB] 包名不合法：{why}");
                 return;
             }
 
@@ -377,7 +389,7 @@ namespace Revolution.Editor
             _renameName = name;
             _newName = "";
 
-            Debug.Log($"[LiteAB] 已新建空包 \"{name}\"：把 Project 里的资源拖到它上面，就真正建好了。");
+            RevABLog.Info($"[LiteAB] 已新建空包 \"{name}\"：把 Project 里的资源拖到它上面，就真正建好了。");
             Refresh();
         }
 
@@ -389,7 +401,7 @@ namespace Revolution.Editor
             if (string.IsNullOrEmpty(oldName)) return;
             if (!IsLegalBundleName(newName, out string why))
             {
-                Debug.LogError($"[LiteAB] 包名不合法：{why}");
+                RevABLog.Error($"[LiteAB] 包名不合法：{why}");
                 return;
             }
             if (newName == oldName) return;
@@ -399,7 +411,7 @@ namespace Revolution.Editor
             if (_pending.Remove(oldName)) _pending.Add(newName);
             _selected = newName;
 
-            Debug.Log($"[LiteAB] 包 \"{oldName}\" 已重命名为 \"{newName}\"（改了 {changed} 处标记）");
+            RevABLog.Info($"[LiteAB] 包 \"{oldName}\" 已重命名为 \"{newName}\"（改了 {changed} 处标记）");
             Refresh();
         }
 
@@ -420,7 +432,7 @@ namespace Revolution.Editor
             _pending.Remove(bundle);
             _selected = null;
 
-            Debug.Log($"[LiteAB] 已删除包 \"{bundle}\"（清掉了 {changed} 处标记）");
+            RevABLog.Info($"[LiteAB] 已删除包 \"{bundle}\"（清掉了 {changed} 处标记）");
             Refresh();
         }
 
@@ -431,7 +443,7 @@ namespace Revolution.Editor
 
             if (IsInherited(logic))
             {
-                Debug.LogWarning($"[LiteAB] \"{logic}\" 的包是从文件夹标记继承来的，单独移不掉 —— " +
+                RevABLog.Warn($"[LiteAB] \"{logic}\" 的包是从文件夹标记继承来的，单独移不掉 —— " +
                                  "请在 Project 里选中它所在的文件夹、把 AssetBundle 栏清空，" +
                                  "或者直接用「删除包」。");
                 return;
@@ -444,7 +456,7 @@ namespace Revolution.Editor
             importer.assetBundleVariant = string.Empty;
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[LiteAB] 已把 \"{logic}\" 移出包");
+            RevABLog.Info($"[LiteAB] 已把 \"{logic}\" 移出包");
             Refresh();
         }
 

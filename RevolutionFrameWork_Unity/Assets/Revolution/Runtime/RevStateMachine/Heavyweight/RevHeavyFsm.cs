@@ -121,8 +121,9 @@ namespace Revolution
                 return;
             }
 
-            if (isError) UnityEngine.Debug.LogError(message);
-            else UnityEngine.Debug.LogWarning(message);
+            // 没被业务接管时走框架日志系统（以前是直接 Debug —— 业务改不了、也不算"统一出口"）
+            if (isError) RevLog.Error(message, "StateMachine");
+            else RevLog.Warn(message, "StateMachine");
         }
     }
 

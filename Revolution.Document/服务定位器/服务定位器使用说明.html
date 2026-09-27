@@ -574,12 +574,12 @@ Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; a.GetRequired&lt;ISessio
       <table>
         <thead><tr><th style="width:46%">文件</th><th class="c" style="width:12%">行数</th><th>要不要读</th></tr></thead>
         <tbody>
-          <tr><td><code>Core\RevServiceLocator.cs</code></td><td class="c">317</td><td>★ 必读：唯一入口（取服务 / 作用域 / 释放）</td></tr>
-          <tr><td><code>Core\RevServiceBuilder.cs</code></td><td class="c">137</td><td>★ 必读：注册（AddSingleton / AddScoped / Build）</td></tr>
-          <tr><td><code>Core\RevIServiceLocator.cs</code></td><td class="c">37</td><td>建议扫一眼：取服务的只读契约（底层模块只依赖它）</td></tr>
+          <tr><td><code>Facade\RevServiceLocator.cs</code></td><td class="c">317</td><td>★ 必读：唯一入口（取服务 / 作用域 / 释放）</td></tr>
+          <tr><td><code>Facade\RevServiceBuilder.cs</code></td><td class="c">137</td><td>★ 必读：注册（AddSingleton / AddScoped / Build）</td></tr>
+          <tr><td><code>Interfaces\RevIServiceLocator.cs</code></td><td class="c">37</td><td>建议扫一眼：取服务的只读契约（底层模块只依赖它）</td></tr>
           <tr><td><code>Core\RevServiceLifetime.cs</code></td><td class="c">22</td><td>扫一眼：<code>Singleton</code> / <code>Scoped</code></td></tr>
-          <tr><td><code>Engine\RevServiceRegistry.cs</code> · <code>RevServiceDescriptor.cs</code></td><td class="c">98 / 44</td><td>不用读（实例表、逆序释放、Tick 列表）</td></tr>
-          <tr><td><code>Extras\RevIServiceInit.cs</code> · <code>RevITickable.cs</code></td><td class="c">26 / 21</td><td>用到再读（两个可选钩子）</td></tr>
+          <tr><td><code>Implementation\RevServiceRegistry.cs</code> · <code>RevServiceDescriptor.cs</code></td><td class="c">98 / 44</td><td>不用读（实例表、逆序释放、Tick 列表）</td></tr>
+          <tr><td><code>Interfaces\RevIServiceInit.cs</code> · <code>RevITickable.cs</code></td><td class="c">26 / 21</td><td>用到再读（两个可选钩子）</td></tr>
         </tbody>
       </table>
     </div>

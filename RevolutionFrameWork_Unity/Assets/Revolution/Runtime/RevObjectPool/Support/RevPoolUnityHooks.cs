@@ -39,10 +39,8 @@ namespace Revolution
 
         private static void Install()
         {
-            if (RevPoolLog.Sink == null)
-            {
-                RevPoolLog.Sink = message => Debug.LogWarning(message);
-            }
+            // 池的告警统一走框架日志系统（tag = Pool）；业务之后想换出口再赋值覆盖即可
+            RevPoolLog.Sink = message => RevLog.Warn(message, "Pool");
         }
     }
 }

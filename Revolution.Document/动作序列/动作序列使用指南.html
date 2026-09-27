@@ -237,7 +237,7 @@
   <div class="wrap">
     <span class="kicker">使用指南 · 含动画演示 · 含王者真实场景 Demo</span>
     <h1>动作序列 · 使用指南</h1>
-    <p>覆盖：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（<code>Core</code> 必读 3 个文件 / <code>Engine</code> 引擎内部 / <code>Steps</code> 步骤库 / <code>Extras</code> 可选能力 / <code>Unity</code> 宿主适配），另有 <code>README.md</code> = 3 分钟上手</p>
+    <p>覆盖：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（<code>Facade</code> 接入入口 3 个 / <code>Core</code> 数据与基类 3 个 / <code>Implementation</code> 引擎内部 7 个 / <code>Implementation\Steps</code> 步骤库 6 个 / <code>Interfaces</code> 契约 2 个 / <code>Support</code> 宿主适配 1 个），另有 <code>README.md</code> = 3 分钟上手</p>
     <p class="meta">目标：判断它适合什么业务、把它接进 Unity 跑起来、写出扛得住并发与取消的序列；并说清它从王者「动作序列执行系统」继承了什么、改掉了什么、为什么这么改</p>
   </div>
   <div class="deco"></div>
@@ -333,7 +333,7 @@ RevSequencePlayer.Default.Play(MyFlow, source: gameObject);   <span class="c">//
       </table>
     </div>
     <div class="callout">
-      这张"三层地图"同时写在代码的入口文件头（<code>Core\RevSequence.cs</code> 顶部；代码目录里还放了一份 <code>README.md</code> = 3 分钟上手，24 个文件里只有前 3 个需要读）——
+      这张"三层地图"同时写在代码的入口文件头（<code>Facade\RevSequence.cs</code> 顶部；代码目录里还放了一份 <code>README.md</code> = 3 分钟上手，24 个文件里只有前 3 个需要读）——
       打开框架<b>第一眼就能看到</b>，不用翻文档。
     </div>
 
@@ -423,7 +423,7 @@ _clicked = <span class="k">false</span>; _waiting = <span class="k">true</span>;
           <tr><td>谁驱动</td><td><code>DimensionTriggerService</code>：每物理帧 × 每个 actor × 每个触发器</td><td>宿主自己 <code>Tick(dt)</code>（<code>RevSequencePlayer</code> 可零配置代劳）</td></tr>
           <tr><td>触发方式</td><td>碰撞进入/离开/停留 + 系统事件 + 自定义字符串事件</td><td>触发源契约（区域/事件/定时/手动）+ 手动 <code>Play</code></td></tr>
           <tr><td>节点数量</td><td>15 个（<b>其中 6 个实现已失效</b>）</td><td>3 个内置 + 3 个等待 + 4 个组合 + 1 个事件；业务能力靠服务注入</td></tr>
-          <tr><td>核心代码</td><td><code>SimpleTrigger</code> 约 500 行（触发+调度+执行三合一）</td><td>24 文件 / 2561 行（注释 757 + 净代码 1383），拆成 Core（必读）/ Engine（内部）/ Steps / Extras / Unity</td></tr>
+          <tr><td>核心代码</td><td><code>SimpleTrigger</code> 约 500 行（触发+调度+执行三合一）</td><td>24 文件 / 2561 行（注释 757 + 净代码 1383），拆成 Facade（接入入口）/ Core（数据与契约）/ Implementation（引擎内部）/ Implementation\Steps（步骤库）/ Interfaces（契约）/ Support（宿主适配）</td></tr>
           <tr><td>取消</td><td><b>无</b>（没有句柄概念）</td><td><code>handle.Stop()</code> / <code>StopAll()</code> + <code>OnCancel</code> 收尾</td></tr>
           <tr><td>等待</td><td>只有"等玩家输入"，<b>没有等秒数/等条件</b></td><td><code>Wait</code> / <code>WaitFrames</code> / <code>WaitUntil</code>（带超时）/ <code>WaitTask</code></td></tr>
           <tr><td>并行 / 重复 / 嵌套</td><td><b>纯线性序列，都没有</b></td><td><code>Parallel</code> / <code>Repeat</code> / <code>Sequence</code></td></tr>
@@ -554,10 +554,10 @@ runner = <span class="k">new</span> RevSequenceRunner(RevDemoServiceHub.CreateSe
       <table>
         <thead><tr><th style="width:44%">依赖边界检查项</th><th>实测结果</th></tr></thead>
         <tbody>
-          <tr><td>全框架真正的引擎调用</td><td><b>0 行</b> —— <code>Core\</code> / <code>Engine\</code> / <code>Steps\</code> / <code>Extras\</code> 一个字都不碰引擎；只有宿主适配层 <code>Unity\RevSequencePlayer.cs</code> 用 MonoBehaviour + 2 条 Debug 告警</td></tr>
+          <tr><td>全框架真正的引擎调用</td><td><b>0 行</b> —— <code>Core\</code> / <code>Implementation\</code> / <code>Implementation\Steps\</code> / <code>Interfaces\</code> 一个字都不碰引擎；只有宿主适配层 <code>Support\RevSequencePlayer.cs</code> 用 MonoBehaviour + 2 条 Debug 告警</td></tr>
           <tr><td>框架里出现的业务类型</td><td><b>0 个</b>（不认识音效 / 特效 / 相机 / Timeline / 奖励）</td></tr>
           <tr><td>LINQ / 反射实例化</td><td><b>0 处</b>（无 <code>Activator.CreateInstance</code>；<code>typeof()</code> 只作类型键）</td></tr>
-          <tr><td>引擎依赖目录</td><td>只有 <code>Unity\</code>（驱动组件 1 个文件）—— 内核与步骤库完全不碰引擎</td></tr>
+          <tr><td>引擎依赖目录</td><td>只有 <code>Support\</code>（驱动组件 1 个文件）—— 其余目录完全不碰引擎</td></tr>
         </tbody>
       </table>
     </div>
@@ -1131,22 +1131,22 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
         <thead><tr><th style="width:50%">文件</th><th>职责</th></tr></thead>
         <tbody>
           <tr><td><code>README.md</code>（代码目录内）</td><td><b>3 分钟上手</b>：三步走 + 读我顺序 + 三条铁律 + 排障清单（非编译文件）</td></tr>
-          <tr><td><code>Core\RevSequence.cs</code> ★</td><td><b>唯一入口</b>：<code>RevSequence.Create(...)</code> + 三条铁律 —— 24 个文件里，你只需要读 <code>Core\</code> 的前 3 个</td></tr>
-          <tr><td><code>Core\RevSequenceBuilder.cs</code></td><td><b>常用 DSL 6 个</b>：<code>Do</code> / <code>Wait</code> / <code>WaitFrames</code> / <code>WaitUntil</code> / <code>OnCancel</code> / <code>Build</code></td></tr>
-          <tr><td><code>Core\RevSequenceBuilder.Advanced.cs</code></td><td><b>进阶 DSL</b>（同一 <code>partial</code> 类，用到才查）：并行 / 重复 / 嵌套 / 事件 / 等异步 / 自定义步骤 / 埋点</td></tr>
+          <tr><td><code>Facade\RevSequence.cs</code> ★</td><td><b>唯一入口</b>：<code>RevSequence.Create(...)</code> + 三条铁律 —— 24 个文件里，你只需要读 <code>Core\</code> 的前 3 个</td></tr>
+          <tr><td><code>Facade\RevSequenceBuilder.cs</code></td><td><b>常用 DSL 6 个</b>：<code>Do</code> / <code>Wait</code> / <code>WaitFrames</code> / <code>WaitUntil</code> / <code>OnCancel</code> / <code>Build</code></td></tr>
+          <tr><td><code>Facade\RevSequenceBuilder.Advanced.cs</code></td><td><b>进阶 DSL</b>（同一 <code>partial</code> 类，用到才查）：并行 / 重复 / 嵌套 / 事件 / 等异步 / 自定义步骤 / 埋点</td></tr>
           <tr><td><code>Core\RevSequenceContext.cs</code></td><td>上下文：触发者 / 服务 / 事件 / 时间（步骤与宿主的唯一通道）</td></tr>
           <tr><td><code>Core\RevSequenceStatus.cs</code></td><td>状态枚举 + 并发策略枚举</td></tr>
-          <tr><td><code>Core\RevISequenceStep.cs</code> / <code>RevStepBase.cs</code></td><td>步骤契约；自定义步骤基类（状态槽 API）</td></tr>
-          <tr><td colspan="2" style="background:#f6f8fa"><b>以下都不用读：</b><code>Engine\</code> 引擎内部（要调优排查时再进） · <code>Steps\</code> 内置步骤库 · <code>Extras\</code> 可选能力 · <code>Unity\</code> 宿主适配</td></tr>
-          <tr><td><code>Engine\RevSequenceRunner.cs</code></td><td><b>执行引擎</b>：Play / Stop / Tick / 池化 / 并发策略 / 异常边界（最大文件，470 行）</td></tr>
-          <tr><td><code>Engine\RevSequenceDefinition.cs</code></td><td><b>不可变蓝图</b>：步骤数组、并发策略、生命周期回调、状态槽分配</td></tr>
-          <tr><td><code>Engine\RevSequenceRun.cs</code></td><td><b>运行实例</b>：进度、状态槽数组、取消标记、句柄、子序列句柄</td></tr>
-          <tr><td><code>Engine\RevSequenceHandle.cs</code></td><td>句柄（值类型）：可查询、可取消，结束后自动失效</td></tr>
-          <tr><td><code>Engine\RevSequenceServices.cs</code></td><td><b>服务容器</b>：把业务依赖从框架里赶出去</td></tr>
-          <tr><td><code>Engine\RevSequenceEventBus.cs</code></td><td>强类型事件总线 + 订阅句柄</td></tr>
-          <tr><td><code>Steps\RevWaitSteps.cs</code> / <code>RevCompositeSteps.cs</code> / <code>RevNestedStep.cs</code></td><td>四种等待 / 并行与重复（含子步骤槽位分配）/ 嵌套序列</td></tr>
-          <tr><td><code>Extras\RevITriggerSource.cs</code> / <code>RevEventTriggerSource.cs</code></td><td>触发源契约（唯一写法：实现接口）；事件触发源 + <code>Bind</code> / <code>BindEvents</code> 一行绑定（<b>可选层，可整块删</b>）</td></tr>
-          <tr><td><code>Unity\RevSequencePlayer.cs</code></td><td>Unity 驱动组件（全局 / 场景级引擎）</td></tr>
+          <tr><td><code>Interfaces\RevISequenceStep.cs</code> / <code>RevStepBase.cs</code></td><td>步骤契约；自定义步骤基类（状态槽 API）</td></tr>
+          <tr><td colspan="2" style="background:#f6f8fa"><b>以下都不用读：</b><code>Implementation\</code> 引擎内部（要调优排查时再进） · <code>Implementation\Steps\</code> 内置步骤库 · <code>Interfaces\</code> 触发源契约 · <code>Support\</code> 宿主适配</td></tr>
+          <tr><td><code>Implementation\RevSequenceRunner.cs</code></td><td><b>执行引擎</b>：Play / Stop / Tick / 池化 / 并发策略 / 异常边界（最大文件，470 行）</td></tr>
+          <tr><td><code>Implementation\RevSequenceDefinition.cs</code></td><td><b>不可变蓝图</b>：步骤数组、并发策略、生命周期回调、状态槽分配</td></tr>
+          <tr><td><code>Implementation\RevSequenceRun.cs</code></td><td><b>运行实例</b>：进度、状态槽数组、取消标记、句柄、子序列句柄</td></tr>
+          <tr><td><code>Implementation\RevSequenceHandle.cs</code></td><td>句柄（值类型）：可查询、可取消，结束后自动失效</td></tr>
+          <tr><td><code>Implementation\RevSequenceServices.cs</code></td><td><b>服务容器</b>：把业务依赖从框架里赶出去</td></tr>
+          <tr><td><code>Implementation\RevSequenceEventBus.cs</code></td><td>强类型事件总线 + 订阅句柄</td></tr>
+          <tr><td><code>Implementation\Steps\RevWaitSteps.cs</code> / <code>RevCompositeSteps.cs</code> / <code>RevNestedStep.cs</code></td><td>四种等待 / 并行与重复（含子步骤槽位分配）/ 嵌套序列</td></tr>
+          <tr><td><code>Interfaces\RevITriggerSource.cs</code> / <code>RevEventTriggerSource.cs</code></td><td>触发源契约（唯一写法：实现接口）；事件触发源 + <code>Bind</code> / <code>BindEvents</code> 一行绑定（<b>可选层，可整块删</b>）</td></tr>
+          <tr><td><code>Support\RevSequencePlayer.cs</code></td><td>Unity 驱动组件（全局 / 场景级引擎）</td></tr>
         </tbody>
       </table>
     </div>
@@ -1198,7 +1198,7 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
 </main>
 
 <footer>
-  对应代码版本：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（24 文件 / 2561 行 = 注释 757 + 净代码 1383；其中 <code>Core\</code> 的 3 个文件是上手必读，同目录 <code>README.md</code> = 3 分钟上手）。
+  对应代码版本：<code>Assets\Revolution\Runtime\RevActionSequence\</code>（24 文件 / 2561 行 = 注释 757 + 净代码 1383；其中 <code>Facade\</code> 的 3 个文件是上手必读，同目录 <code>README.md</code> = 3 分钟上手）。
   Demo：<code>Assets\Revolution.Demo\RevActionSequence.Demo\</code>（10 文件 / 1181 行）。
   HTML 版含 3 段动画 + 2 处微动画，纯 CSS 驱动，无外部依赖。
 </footer>

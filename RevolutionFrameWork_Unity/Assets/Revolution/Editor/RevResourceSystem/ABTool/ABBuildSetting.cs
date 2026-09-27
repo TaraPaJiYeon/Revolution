@@ -120,7 +120,7 @@ namespace Revolution.Editor
         {
             if (!IsInstalledAsReadOnlyPackage()) return true;
 
-            Debug.LogWarning(
+            RevABLog.Warn(
                 $"[{what}] 检测到框架是以 UPM 包（只读缓存）方式安装的，已跳过生成：{targetPath}\n" +
                 "  · 包里的常量文件是随包发布的版本，直接用即可；\n" +
                 "  · 要按自己的目录结构重新生成，请改用「把框架放进工程 Assets」的安装方式：\n" +

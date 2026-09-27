@@ -59,18 +59,21 @@ git clone https://github.com/Yokino337088/Revolution.git
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
 | `RevStateMachine` | 状态机：轻量流程（GameFlow）/ 重量级 AI，两种形态 | 10 / 1,576 |
 | `RevSoundSystem` | 音效系统：一行播放（2D 直接播 / 3D 挂到 GameObject）、BGM、音量总线、作用域、音效表 | 10 / 1,640 |
+| `RevTimer` | 计时器：一行创建（到点 / 每间隔 / 下一帧 / 服务器绝对时刻）、四时间域、句柄代际失效、作用域一行全停、秒表 | 10 / 1,419 |
+| `RevLog` | 日志系统：一行分级输出（Debug 编译期零成本）、tag 静默、重复抑制、环形缓冲看现场、异步落盘、上报可插拔；**全框架出口统一** | 8 / 1,053 |
+| `RevPublicMono` | 公共 Mono 模块：给纯 C# 类 **每帧回调**（Update / LateUpdate / FixedUpdate）与**协程宿主**；去重、上限、异常隔离、owner/作用域一行清理 | 6 / 661 |
 | `RevEventSystem` | 事件系统：强类型事件 + 订阅句柄 | 5 / 1,101 |
 | `RevGMCommand` | GM 指令：游戏内控制台，业务一行注册一条指令 | 11 / 1,023 |
 | `DataLoad` | 配置表加载：表 = 资源（走资源系统），支持按类型取表 | 6 / 714 |
 | `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 702 |
 | `RevTask` | 异步任务：`await` 一帧 / 等资源加载完成 | 4 / 639 |
-| `RevSingleton` | 单例基类（60 行，尽量少用） | 1 / 63 |
+| `RevSingleton` | 单例基类三件套：纯 C#（`RevSingleton<T>`）/ 自己摆的组件单例（`RevSingletonMono<T>`）/ 自动创建（`RevSingletonAutoMono<T>`）；尽量少用 | 3 / 267 |
 
 ### 编辑器（`Assets/Revolution/Editor/`）
 
 | 工具 | 一句话 | 规模 |
 |---|---|---|
-| `RevResourceSystem`（ABTool） | **LiteAB 打包工具**：分包浏览 / 依赖 / 体积 / 漏标检查；生成 `ResMap.txt` 与路径常量 | 15 / 3,645 |
+| `RevResourceSystem`（ABTool） | **LiteAB 打包工具**：分包浏览（自动同步）/ Project 窗口包名角标 / 依赖 / 体积 / 漏标检查 / 布局快照对比；生成 `ResMap.txt` 与路径常量（日志统一进 `RevLog`） | 20 / 4,769 |
 | `RevGMCommand` | GM 指令的编辑器部分（指令面板） | 2 / 820 |
 
 ### 独立工具与示例
@@ -109,14 +112,14 @@ Revolution/
 ## 四、设计取向
 
 1. **内核尽量不依赖引擎**。路径拼接、句柄、槽位表、对象池引擎等是纯 C#，可以链接进普通 .NET 工程直接跑断言（见第六节）；
-   与引擎相关的部分收敛在"适配层"（如 `Unity/` 目录、`*Player`/`*Driver` 组件）。
+   与引擎相关的部分收敛在"适配层"（如 `Support/` 目录、`*Player`/`*Driver` 组件）。
 2. **不打日志、不做查询**。框架自身一条日志都不打；需要观测就订阅事件（失败一律带**原因枚举**）。
    这不是省事，而是为了"等框架自己的日志系统接上之前，不制造第二套日志"。
 3. **只走异步加载**。不为"看起来同步"的 API 付出代价：异步加载有明确完成回调，不会出现"同步命中正在加载的句柄 → 拿到空内容"。
 4. **能用生成代码就不手写常量**。目录前缀由编辑器工具生成成 `const`（写错编译不过），新增资源不用重新生成。
 5. **默认值取安全侧**。不静默卸载、不停播、不静音；需要破坏性行为必须显式传参。
 6. **门面只留一个**。每个模块一个入口文件（`RevSound.Play(...)` / `RevSequence.Create(...)` / `RevPool.Get(...)`），
-   其余按"要不要读"分层（`Engine/` 内核、`Extras/` 可选能力），小白只需要读第一个文件。
+   其余按"要不要读"分层（`Core/` 数据与契约、`Implementation/` 内核、`Interfaces/` 接口、`Support/` 宿主适配），小白只需要读第一个文件。
 
 ---
 
@@ -146,8 +149,8 @@ Revolution/
 
 ```text
 RevResourceSystem/Core/ResPathUtil.cs          路径拼接 + 缓存键（含"两段键 == 完整路径键"不变量）
-RevSoundSystem/Engine/RevSoundVoiceTable.cs    声音槽位表（代际号 / 同帧去重 / 上限淘汰）
-RevSoundSystem/Engine/RevSoundCatalog.cs       音效表（逻辑名 → 路径 + 默认参数）
+RevSoundSystem/Core/RevSoundVoiceTable.cs    声音槽位表（代际号 / 同帧去重 / 上限淘汰）
+RevSoundSystem/Implementation/RevSoundCatalog.cs       音效表（逻辑名 → 路径 + 默认参数）
 RevObjectPool/Core/RevPoolCore.cs              池引擎
 ```
 

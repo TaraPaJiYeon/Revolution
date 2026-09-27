@@ -19,6 +19,9 @@
 //      反射查找同时包含 public 与 nonPublic，两种情况都能命中。
 //
 // 【注意】本类是纯 C# 类，不能用于 MonoBehaviour。
+//         要"挂在物体上的单例"请用同目录的：
+//           · RevSingletonMono<T>      —— 自己摆一个（Inspector 配参数 / 需要 Unity 生命周期）
+//           · RevSingletonAutoMono<T>  —— 不摆也行，首次访问 Instance 自动建隐藏宿主
 //         资源系统里只有 ResBootstrap 需要它；ResManager / AsyncLoadPump 是静态类。
 // ============================================================
 using System;

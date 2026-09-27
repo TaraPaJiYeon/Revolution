@@ -69,7 +69,7 @@ namespace Revolution.Editor
 
             string folder = cfg.GetResRoot() + "/" + segment;
             if (!AssetDatabase.IsValidFolder(folder))
-                Debug.LogWarning($"[RevSoundPath] {label}目录还不存在：{folder}\n" +
+                RevABLog.Warn($"[RevSoundPath] {label}目录还不存在：{folder}\n" +
                                  "（把音频放进去就行；或回打包窗口的「音效目录」重新选一个。）");
         }
 
@@ -86,7 +86,7 @@ namespace Revolution.Editor
             File.WriteAllText(ABBuildSetting.SoundPathCodePath, code, Encoding.UTF8);
             AssetDatabase.ImportAsset(ABBuildSetting.SoundPathCodePath);
 
-            Debug.Log($"[RevSoundPath] 已生成音效目录常量 → {ABBuildSetting.SoundPathCodePath}");
+            RevABLog.Info($"[RevSoundPath] 已生成音效目录常量 → {ABBuildSetting.SoundPathCodePath}");
         }
 
         /// <summary>拼源码：内容与 Generated\RevSoundPath.cs 完全一致（防抖就是靠这个字符串比较）</summary>

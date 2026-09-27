@@ -1,7 +1,7 @@
 # 音效系统（RevSoundSystem）—— 3 分钟上手
 
 > **一行代码播放音效**：`RevSound.Play("ui_click");`
-> 10 个 `.cs` / 1640 行（注释 453 + 净代码 907 + 空行 280）。**你要读的只有 1 个文件**：`Core\RevSound.cs`（296 行）。
+> 10 个 `.cs` / 1640 行（注释 453 + 净代码 907 + 空行 280）。**你要读的只有 1 个文件**：`Facade\RevSound.cs`（296 行）。
 
 ## 一、2D 还是 3D？（先看这一张表）
 
@@ -150,16 +150,16 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 
 | 文件 | 行数 | 说明 |
 |---|---|---|
-| `Core\RevSound.cs` | 296 | ★ **唯一入口**：`Play`(2D) / `PlayOn`、`PlayAt`(3D) / BGM / 音量 / 开关 / 预加载 / **音效表** / 两个事件 |
+| `Facade\RevSound.cs` | 296 | ★ **唯一入口**：`Play`(2D) / `PlayOn`、`PlayAt`(3D) / BGM / 音量 / 开关 / 预加载 / **音效表** / 两个事件 |
 | `Core\RevSoundKind.cs` | 69 | 四类声音 + 默认行为表（纯 C#） |
 | `Core\RevSoundHandle.cs` | 58 | 句柄：`Stop()`、"过期句柄不误伤新声音"（纯 C#） |
-| `Core\RevSoundScope.cs` | 83 | `using` 一块：退出时把这块播的声音全停 |
-| `Engine\RevSoundCore.cs` | 587 | 内核：加载→播放→挂点→每帧推进→回收（不用读） |
-| `Engine\RevSoundVoiceTable.cs` | 191 | 槽位表：代际 / 同帧去重 / 上限淘汰（纯 C#，可工程外单测） |
-| `Engine\RevSoundCatalog.cs` | 97 | **音效表**：逻辑名 → 真实路径 + 默认参数（纯 C#，可工程外单测） |
-| `Engine\RevSoundAssets.cs` | 182 | 资源层：clip 加载释放（接 `RevResourceSystem`）+ 播放器池（接 `RevObjectPool`） |
+| `Support\RevSoundScope.cs` | 83 | `using` 一块：退出时把这块播的声音全停 |
+| `Implementation\RevSoundCore.cs` | 587 | 内核：加载→播放→挂点→每帧推进→回收（不用读） |
+| `Core\RevSoundVoiceTable.cs` | 191 | 槽位表：代际 / 同帧去重 / 上限淘汰（纯 C#，可工程外单测） |
+| `Implementation\RevSoundCatalog.cs` | 97 | **音效表**：逻辑名 → 真实路径 + 默认参数（纯 C#，可工程外单测） |
+| `Implementation\RevSoundAssets.cs` | 182 | 资源层：clip 加载释放（接 `RevResourceSystem`）+ 播放器池（接 `RevObjectPool`） |
 | `Generated\RevSoundPath.cs` | 31 | **工具生成，勿手改**：音效 / BGM 目录常量（在打包工具窗口里选） |
-| `Unity\RevSoundDriver.cs` | 46 | 隐藏宿主：每帧驱动（零配置，自动创建） |
+| `Support\RevSoundDriver.cs` | 46 | 隐藏宿主：每帧驱动（零配置，自动创建） |
 
 ## 六、与王者音效系统的对照
 
@@ -173,7 +173,7 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 生命周期即作用域（14 个 Bank 域 + 一行批量回收） | `RevSoundScope`：`using` 一块，退出全停 |
 | 筛选先于提交（最便宜的调用是不调用） | 策略 → 同帧去重 → 上限淘汰，三步都在"取播放器"之前 |
 | 分类即语义 | `RevSoundKind` 四类 + 各自默认行为（**替掉**王者用事件名后缀 `_Hit_`/`_VO_` 匹配的魔法字符串） |
-| 元数据驱动（代码不认识任何具体音效名，只认识 ID 和表） | 默认：音效名 = 相对根目录的路径（走资源系统的路径映射）；要"代码只写逻辑名"就用**音效表** `RevSound.Register`（`Engine\RevSoundCatalog.cs`） |
+| 元数据驱动（代码不认识任何具体音效名，只认识 ID 和表） | 默认：音效名 = 相对根目录的路径（走资源系统的路径映射）；要"代码只写逻辑名"就用**音效表** `RevSound.Register`（`Implementation\RevSoundCatalog.cs`） |
 | 策略可插拔、内核无知 | `IRevSoundPolicy`：内核不知道任何业务规则 |
 | 性能内建：缓存先于计算、分帧、近似 | 播放器池化（`RevObjectPool`）+ 只遍历活跃槽位 + 稳态零分配（无 LINQ、无装箱） |
 | 可观测性 | `Failed`（带原因枚举）/ `VoiceFinished` 两个事件 + `RevSound.Core.ToString()` |

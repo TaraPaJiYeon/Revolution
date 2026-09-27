@@ -427,10 +427,10 @@ public static class GameCommands
 
 | 文件 | 行数 | 要不要读 |
 |---|---|---|
-| `Runtime\RevGMCommand\Core\RevGM.cs` | 入口 | ★ 必读：一行注册（6 个重载）/ `Execute` / `Suggest` |
+| `Runtime\RevGMCommand\Facade\RevGM.cs` | 入口 | ★ 必读：一行注册（6 个重载）/ `Execute` / `Suggest` |
 | `Runtime\RevGMCommand\Core\RevGMArgs.cs` | ~200 | ★ 必读：取参数（`Int` / `Float` / `Bool` / `Str` / `Enum`） |
 | `Core\RevGMArg.cs` · `RevGMFlags.cs` · `RevGMResult.cs` · `RevGMUsageException.cs` | 小 | 用到再读（参数说明 / 标记 / 结果 / 用法错误） |
-| `Engine\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎 | 不用读（注册表 / 记录 / 分词 / 匹配打分） |
-| `Extras\RevGMEntryAttribute.cs` | 小 | 想让面板编辑期列命令时读 |
+| `Implementation\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎 | 不用读（注册表 / 记录 / 分词 / 匹配打分） |
+| `Core\RevGMEntryAttribute.cs` | 小 | 想让面板编辑期列命令时读 |
 | `Editor\RevGMCommand\RevGMWindow.cs` · `RevGMEditorCatalog.cs` | 820 | 想改面板时读 |
 | `Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs` | 72 | ★ 建议先读这个（9 条示例，直接抄） |

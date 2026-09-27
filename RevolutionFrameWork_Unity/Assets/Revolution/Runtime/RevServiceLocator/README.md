@@ -29,17 +29,17 @@ using (var battle = Services.CreateScope())
 
 | 顺序 | 文件 | 内容 |
 |---|---|---|
-| ① | `Core\RevServiceLocator.cs` | 唯一入口：`Create` / `GetRequired` / `Get` / `TryGet` / `CreateScope` / `Tick` / `Dispose` |
-| ② | `Core\RevServiceBuilder.cs` | 注册：`AddSingleton` / `AddScoped` / `Build`（含重复注册、空工厂的报错） |
+| ① | `Facade\RevServiceLocator.cs` | 唯一入口：`Create` / `GetRequired` / `Get` / `TryGet` / `CreateScope` / `Tick` / `Dispose` |
+| ② | `Facade\RevServiceBuilder.cs` | 注册：`AddSingleton` / `AddScoped` / `Build`（含重复注册、空工厂的报错） |
 
 **其余都不用读：**
 
 | 目录 / 文件 | 是什么 | 要不要读 |
 |---|---|---|
-| `Core\RevIServiceLocator.cs` | 取服务的**只读契约**（3 个方法）—— 底层模块只依赖它，不依赖具体容器 | 建议扫一眼（30 行） |
+| `Interfaces\RevIServiceLocator.cs` | 取服务的**只读契约**（3 个方法）—— 底层模块只依赖它，不依赖具体容器 | 建议扫一眼（30 行） |
 | `Core\RevServiceLifetime.cs` | `Singleton` / `Scoped` 两个生命周期 | 扫一眼 |
-| `Engine\RevServiceRegistry.cs` · `RevServiceDescriptor.cs` | 引擎内部：实例表、逆序释放、Tick 列表、循环依赖检测 | 不用读 |
-| `Extras\RevIServiceInit.cs` · `RevITickable.cs` | 可选钩子：创建后取依赖、每帧做事 | 用到再读 |
+| `Implementation\RevServiceRegistry.cs` · `RevServiceDescriptor.cs` | 引擎内部：实例表、逆序释放、Tick 列表、循环依赖检测 | 不用读 |
+| `Interfaces\RevIServiceInit.cs` · `RevITickable.cs` | 可选钩子：创建后取依赖、每帧做事 | 用到再读 |
 
 ## 三、与王者服务定位器的对照（取精华 / 去糟粕）
 
@@ -69,7 +69,7 @@ using (var battle = Services.CreateScope())
 | 6 | 未注入返回 null 兜底，**掩盖错误**；调用点常不判空 | `SystemManager.cs:17`、`DimensionNpcCamera.cs:119` | `GetRequired` 抛异常且错误信息带"已注册清单 + 常见原因"；只有可选能力才用 `Get` |
 | 7 | World 级服务被挂成**全局单例**就破坏多实例 | `00:121`、`05:184` | Scoped 服务**在根容器上取会直接报错**，并告诉你正确写法 |
 | 8 | 容器绑死 **MonoBehaviour 单例**，无法脱离引擎单测 | `CSystemManager.cs:39-42` | 纯 C# 实例（不引用 UnityEngine / RevTask），可直接工程外单测 |
-| 9 | 三套机制 + 5 个近义入口（`SafeGet`/`Get`/`ContainSystem`/`GetSystems`…），250 字段单文件 | `02:157`、`01:35-55` | 一套入口 3 个方法 + 2 个生命周期；文件按 `Core` / `Engine` / `Extras` 分层 |
+| 9 | 三套机制 + 5 个近义入口（`SafeGet`/`Get`/`ContainSystem`/`GetSystems`…），250 字段单文件 | `02:157`、`01:35-55` | 一套入口 3 个方法 + 2 个生命周期；文件按 `Core` / `Facade` / `Implementation` / `Interfaces` 分层 |
 | 10 | 无循环依赖保护（靠"先入表"绕过，有死循环风险） | `CSystemManager.cs:75` | **循环依赖检测**：报错并打印依赖链 `A → B → A` |
 | 11 | 热路径 `for + is T + as T` 线性扫描，业务还得自己缓存 | `DimensionBaseWorld.cs:213-226` | 类型字典 O(1) 查找（一次 `TryGetValue`） |
 | 12 | 枚举 + 手写 switch 工厂的"扩展仪式"（22 个分支） | `04:60-71` | 泛型 `new()` 闭包，新增服务只写一行 `AddSingleton` |
@@ -105,7 +105,7 @@ using (var battle = Services.CreateScope())
 
 ## 七、单元测试（可直接工程外跑）
 
-本模块是纯 C#，最小编译集合：`Core\*.cs` + `Engine\*.cs` + `Extras\*.cs`（不含任何 Unity 引用）。测试要点：
+本模块是纯 C#，最小编译集合：`Core\*.cs` + `Facade\*.cs` + `Implementation\*.cs` + `Interfaces\*.cs`（不含任何 Unity 引用）。测试要点：
 
 ```csharp
 var root = RevServiceLocator.Create()

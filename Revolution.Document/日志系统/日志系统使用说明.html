@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日志系统 · 使用说明（手把手教程）</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15.5px; line-height:1.85; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+  .hero .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:2;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+  .hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+  .hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+    animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+
+  main{max-width:1000px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;}
+  h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+  h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  h3{font-size:17px;margin:28px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:15px;margin:20px 0 8px;color:#2B3444;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:24px;}
+  li{margin:6px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .plain{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14.5px;background:#F7F9FC;border:1px solid #E4E9F2;}
+  .plain .tag{display:inline-block;font-size:11.5px;background:#5B6B84;color:#fff;border-radius:999px;padding:1px 9px;margin-right:8px;vertical-align:2px;}
+  .plain p:first-child{margin-top:0;}
+  .plain p:last-child{margin-bottom:0;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14.5px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:15px 17px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.7;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .card{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 18px;margin:16px 0;}
+  .card > .h{font-weight:700;font-size:15.5px;margin-bottom:4px;}
+  .card > .when{font-size:13.5px;color:var(--text-sub);margin-bottom:10px;}
+  .card pre{margin:10px 0;}
+  .card .note{font-size:13px;color:var(--text-sub);margin-top:8px;}
+
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .cmp > div{border-radius:9px;padding:12px 14px;font-size:13.5px;border:1px solid;}
+  .cmp .no{background:var(--bad-soft);border-color:#F3C9C3;}
+  .cmp .yes{background:var(--good-soft);border-color:#BFE9D2;}
+  .cmp .h{font-weight:700;margin-bottom:6px;}
+  .cmp pre{margin:6px 0 0;font-size:12px;}
+
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+  .flow .n{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;}
+  .flow .n.on{border-color:var(--accent);background:var(--accent-soft);}
+  .flow .n.wait{border-color:#EBCF8A;background:var(--warn-soft);}
+  .flow .ar{color:var(--accent);font-weight:700;}
+
+  .cheat{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:14px 0;}
+  .cheat div{border:1px solid var(--border);border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;}
+  .cheat div b{display:block;font-size:12.5px;color:var(--text-sub);font-weight:400;margin-bottom:2px;}
+
+  footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @keyframes march{to{background-position:28px 0;}}
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+    .cmp{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){ .hero .deco{animation:none !important;} }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>日志系统 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（一行分级输出、零配置、正式包零成本）</p>
+    <p class="meta">读完你能做到：3 分钟打出第一条日志 · 分清五个级别各花多少钱 · 知道出事前的现场去哪看 · 看不到日志时 3 分钟定位</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的（一句话）</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表（全部 API）</a></li>
+      <li><a href="#s3">三、级别就是成本契约（最该记住）</a></li>
+      <li><a href="#s4">四、两个开关：阈值与按模块静音</a></li>
+      <li><a href="#s5">五、出事前的现场（环形缓冲）</a></li>
+      <li><a href="#s6">六、落盘与上报（默认都不开）</a></li>
+      <li><a href="#s7">七、接自己的输出通道</a></li>
+      <li><a href="#s8">八、全框架统一出口（接入现状）</a></li>
+      <li><a href="#s9">九、怎么防止日志刷屏（重复抑制）</a></li>
+      <li><a href="#s10">十、新手最容易踩的 6 个坑</a></li>
+      <li><a href="#s11">十一、看不到日志怎么查（3 分钟）</a></li>
+      <li><a href="#s12">十二、附：文件清单 / 验收 / 设计来源</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 4 个东西就能干活（真的）</span>
+      <pre style="margin:10px 0 6px">RevLog.Info(<span class="s">"登录成功"</span>);                            <span class="c">// ① 普通信息（正式包保留）</span>
+RevLog.Warn(<span class="s">"配置缺失，用默认值"</span>, <span class="s">"Config"</span>);         <span class="c">// ② 告警 + tag（第二个参数就是 tag）</span>
+RevLog.Error(<span class="s">"数据库连不上"</span>, <span class="s">"Network"</span>);             <span class="c">// ③ 错误（自动带堆栈）</span>
+RevLog.Debug(<span class="s">"仅编辑器可见，正式包零成本"</span>);              <span class="c">// ④ 调试（编译期删除，连拼接都不发生）</span></pre>
+      <p style="margin-bottom:0">
+        异常用 <code>RevLog.Exception(e, "战斗开始失败", "Battle")</code> —— 控制台里堆栈可点击跳转。<br>
+        剩下的（落盘、上报、面板、自定义通道……）都是<b>用到再看</b>的增值项。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>日志系统 = 你只说"什么级别、哪个模块、说了什么"，剩下的（往哪输出、要不要落盘、要不要上报、会不会刷屏）它全包。</b>
+      <p>它甚至不需要你配置：Unity 下第一次用到就自动装好控制台通道；纯 C# 环境下退到标准错误 —— <b>任何情况都不会静默丢日志</b>。</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>正式包不想带日志</td><td><code>Debug</code> 用 <code>[Conditional]</code> <b>编译期删除</b>：连参数表达式都不会求值</td></tr>
+          <tr><td>日志太多刷屏</td><td><b>连续重复抑制</b>：同一句只留首条，出现不同日志时补一条"重复 N 次"</td></tr>
+          <tr><td>出问题后没有现场</td><td><b>环形缓冲</b>常驻最近 2048 条，<code>RevLog.Dump(200)</code> 直接拿走</td></tr>
+          <tr><td>手机上没有日志文件</td><td><code>EnableFileLog(目录)</code> 一行开异步落盘（不卡帧、大小/份数双上限）</td></tr>
+          <tr><td>想接自己的崩溃平台</td><td><code>RevLog.OnReport += ...</code>（默认不接 = 不上报，不硬编码任何 SDK）</td></tr>
+          <tr><td>框架各处各打一套日志</td><td>全框架出口已统一到 <code>RevLog</code>（见第八节）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">不用配置、不用挂脚本、不用写 Update。</p>
+
+    <pre><span class="c">// ① 随便找个 MonoBehaviour，在 Start 里写：</span>
+<span class="k">void</span> Start()
+{
+    RevLog.Info(<span class="s">"游戏启动"</span>);
+    RevLog.Warn(<span class="s">"配置表缺字段，用默认值"</span>, <span class="s">"Config"</span>);
+    RevLog.Debug(<span class="s">"这条只有编辑器和带 REVLOG_DEBUG 的包能看到"</span>);
+}
+
+<span class="c">// ② 打开 Unity 控制台 → 应该看到三行：</span>
+<span class="c">//    "HH:mm:ss.fff I [General] 游戏启动 frame:123"</span>
+<span class="c">//    "HH:mm:ss.fff W [Config] 配置表缺字段，用默认值 frame:123"</span>
+<span class="c">//    "HH:mm:ss.fff D [General] 这条只有编辑器… frame:123"</span>
+
+<span class="c">// ③ 想看现场（最近 200 行，一键复制）：</span>
+<span class="n">Debug</span>.Log(RevLog.Dump(<span class="n">200</span>));</pre>
+
+    <div class="callout">
+      <span class="t">就这样，没有第 4 步</span>
+      没有初始化调用、没有场景物体、没有配置文件。<b>能打出来就说明已经在工作</b>；
+      打不出来看第十一节。
+    </div>
+  </section>
+
+  <!-- ==================== 二 ==================== -->
+  <section id="s2">
+    <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">左边找需求，右边抄一行。<b>所有方法签名都写在一行里</b>，参数不用换行。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>打普通信息 / 告警 / 错误</td><td><code>RevLog.Info(msg, tag)</code> · <code>RevLog.Warn(msg, tag)</code> · <code>RevLog.Error(msg, tag)</code></td></tr>
+          <tr><td>打调试日志（正式包零成本）</td><td><code>RevLog.Debug(msg, tag)</code></td></tr>
+          <tr><td>记录一个异常（带堆栈）</td><td><code>RevLog.Exception(e, msg, tag)</code></td></tr>
+          <tr><td>按自己的级别打</td><td><code>RevLog.Log(RevLogLevel.Warn, msg, tag)</code></td></tr>
+          <tr><td>热循环里先问一句（省拼接）</td><td><code>if (RevLog.IsEnabled(RevLogLevel.Info, "Net")) RevLog.Info("...", "Net")</code></td></tr>
+          <tr><td>调输出阈值</td><td><code>RevLog.MinLevel = RevLogLevel.Warn;</code></td></tr>
+          <tr><td>按模块关日志</td><td><code>RevLog.MuteTag("Network")</code> / <code>RevLog.MuteTag("Network", false)</code> / <code>RevLog.IsTagMuted("Network")</code></td></tr>
+          <tr><td>落盘（异步、不卡帧）</td><td><code>RevLog.EnableFileLog(Application.persistentDataPath + "/revlog")</code></td></tr>
+          <tr><td>把队列里的日志立刻写下去</td><td><code>RevLog.Flush()</code></td></tr>
+          <tr><td>接崩溃上报</td><td><code>RevLog.OnReport += (e, msg) =&gt; 你的平台.Report(e, msg);</code></td></tr>
+          <tr><td>看现场 / 清现场</td><td><code>RevLog.Dump(200)</code> · <code>RevLog.Recent(50)</code> · <code>RevLog.Count</code> · <code>RevLog.Clear()</code></td></tr>
+          <tr><td>接自己的输出后端</td><td><code>RevLog.AddSink(自定义)</code> · <code>RevLog.RemoveSink(自定义)</code> · <code>RevLog.Fallback = 你的出口</code></td></tr>
+          <tr><td>自检：日志是不是在丢</td><td><code>RevLog.SinkErrors</code>（0 = 正常；&gt;0 = 某个通道坏了）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">tag 是"第二个参数"，不是重载</span>
+      王者原版有两个参数位置不同、语义不同的"频道"重载（<code>Debug(eLog, msg)</code> 与 <code>Debug(msg, "Module")</code>），
+      极易写反。这里只有<b>一个</b> tag 轴，而且位置固定：<code>RevLog.Warn(消息, tag)</code> —— <b>不可能写反</b>。
+    </div>
+  </section>
+
+  <!-- ==================== 三 ==================== -->
+  <section id="s3">
+    <h2><span class="num">三</span>级别就是成本契约（最该记住）</h2>
+    <p class="lead">级别不只是"严重程度"，更是"调用要花多少钱"。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="c" style="width:12%">级别</th><th style="width:30%">成本</th><th>正式包里</th><th>什么时候用</th></tr></thead>
+        <tbody>
+          <tr><td class="c"><code>Debug</code></td><td><b>零</b>（调用点连同参数表达式被编译器删除）</td><td><b>不存在</b>（编译期删除）</td><td>开发期的过程细节；无所谓刷屏</td></tr>
+          <tr><td class="c"><code>Info</code></td><td>便宜（不采堆栈）</td><td>保留</td><td>关键流程节点（登录、进战斗、加载完成）</td></tr>
+          <tr><td class="c"><code>Warn</code></td><td>便宜（不采堆栈）</td><td>保留</td><td>"可疑但还能跑"：用了默认值、重试成功、被降级</td></tr>
+          <tr><td class="c"><code>Error</code></td><td>较贵（<b>默认采堆栈</b>，微秒级）</td><td>保留</td><td>必须修的错：状态不对、数据非法、流程中断</td></tr>
+          <tr><td class="c"><code>Exception</code></td><td>最贵（堆栈 + 可触发上报）</td><td>保留</td><td>捕获到的异常对象</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>3.1 <code>Debug</code> 为什么是"零成本"</h3>
+    <pre><span class="c">// 你写：</span>
+RevLog.Debug(<span class="s">"坐标 = "</span> + Heavy().ToString());      <span class="c">// Heavy() 很贵</span>
+
+<span class="c">// 正式包里编译出来（IL）：什么都没有 —— 连 Heavy() 都不会被调用</span>
+<span class="c">// 对比"运行期判断"：if (isDebug) { ... } 参数已经求值、GC 已经产生，钱已经花了</span></pre>
+
+    <div class="callout warn">
+      <span class="t">想让 Debug 在正式包里也出现？加个宏</span>
+      <code>Debug</code> 上是 <code>[Conditional("UNITY_EDITOR"), Conditional("REVLOG_DEBUG")]</code>。
+      在自己的工程里加 Scripting Define Symbol <code>REVLOG_DEBUG</code>（或 CI 里给"带日志包"加），
+      <b>Debug 调用点就会重新编译进去</b> —— 不需要改任何业务代码。
+    </div>
+
+    <h3>3.2 热循环里别拼字符串</h3>
+    <div class="cmp">
+      <div class="no">
+        <div class="h">✗ 每条都拼（贵）</div>
+        <pre>for (...)
+    RevLog.Info($"hp={hp} pos={pos}");</pre>
+      </div>
+      <div class="yes">
+        <div class="h">✓ 先问再拼（便宜）</div>
+        <pre>for (...)
+    if (RevLog.IsEnabled(RevLogLevel.Info, "HP"))
+        RevLog.Info($"hp={hp} pos={pos}", "HP");</pre>
+      </div>
+    </div>
+    <p><code>RevLog.IsEnabled</code> 只做两次比较（阈值 + tag 静音表），是热路径里唯一值得的守卫。</p>
+  </section>
+
+  <!-- ==================== 四 ==================== -->
+  <section id="s4">
+    <h2><span class="num">四</span>两个开关：阈值与按模块静音</h2>
+    <p class="lead">"一切有开关" —— 日志系统自己也不例外。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">开关</th><th style="width:26%">作用</th><th>例子</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevLog.MinLevel</code></td><td>全局阈值（默认 <code>Info</code>）</td><td><code>RevLog.MinLevel = RevLogLevel.Warn;</code>（只留告警以上）</td></tr>
+          <tr><td><code>RevLog.MuteTag(tag)</code></td><td>按模块/标签静音</td><td><code>RevLog.MuteTag("Network");</code>（网络层刷屏时先关它）</td></tr>
+          <tr><td><code>RevLog.IsEnabled(level, tag)</code></td><td>查询（热循环守卫）</td><td><code>if (RevLog.IsEnabled(RevLogLevel.Info, "Net")) ...</code></td></tr>
+          <tr><td><code>[Conditional]</code>（编译期）</td><td>Debug 存不存在</td><td>加 <code>REVLOG_DEBUG</code> 宏</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">推荐的 tag 命名</span>
+      用<b>模块名</b>（<code>"Network"</code>、<code>"Battle"</code>、<code>"UI"</code>、<code>"Config"</code>）而不是具体类名 ——
+      静音时的粒度才刚好。框架自己的标签：<code>Event</code> / <code>Pool</code> / <code>Timer</code> / <code>UI</code> /
+      <code>StateMachine</code> / <code>LiteAB</code>。
+    </div>
+  </section>
+
+  <!-- ==================== 五 ==================== -->
+  <section id="s5">
+    <h2><span class="num">五</span>出事前的现场（环形缓冲）</h2>
+    <p class="lead">线上最需要的不是"从现在开始记"，而是"出事之前发生了什么"。</p>
+
+    <pre>RevLog.Dump(<span class="n">200</span>);        <span class="c">// 最近 200 行拼成多行文本（一键复制）</span>
+RevLog.Recent(<span class="n">50</span>);      <span class="c">// 最近 50 条结构化条目（时间/级别/tag/消息/堆栈/帧号）</span>
+RevLog.Count;           <span class="c">// 当前留了多少条</span>
+RevLog.Clear();         <span class="c">// 清空历史（通道不动）</span></pre>
+
+    <div class="callout good">
+      <span class="t">容量是特性，不是限制</span>
+      缓冲固定 <b>2048</b> 条：内存有硬顶（日志刷屏也吃不光内存）、写入 O(1) 且零分配、满了覆盖最旧的。
+      "日志的价值随时间衰减" —— 留最近的就够了。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>LevelChar</code></td><td>级别单字母：<code>D / I / W / E / X</code>（写文件时第一列就是它）</td></tr>
+          <tr><td><code>Tag</code></td><td>模块标签（没传就是 <code>General</code>）</td></tr>
+          <tr><td><code>Time</code></td><td>本地时间（精确到毫秒）</td></tr>
+          <tr><td><code>Frame</code></td><td>Unity 渲染帧号；<b>没有来源时是 -1</b>（不用 0 冒充：第 0 帧是合法帧号）</td></tr>
+          <tr><td><code>Stack</code></td><td>堆栈（只有 <code>Error</code> / <code>Exception</code> 采）</td></tr>
+          <tr><td><code>Repeat</code></td><td>&gt;1 表示"上一行重复了 N 次"（见第九节）</td></tr>
+          <tr><td><code>Error</code></td><td>原始异常对象（只有 <code>Exception</code> 级别有）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 六 ==================== -->
+  <section id="s6">
+    <h2><span class="num">六</span>落盘与上报（默认都不开）</h2>
+    <p class="lead">"要不要写文件、要不要上报"是产品决策，不是框架替你决定的事。</p>
+
+    <h3>6.1 落盘：一行，异步，不卡帧</h3>
+    <pre>RevLog.EnableFileLog(Application.persistentDataPath + <span class="s">"/revlog"</span>);</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">特性</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>异步</td><td>主线程只入队（微秒级），<b>Lowest 优先级后台线程</b>格式化并写盘；连 <code>ToString</code> 的分配都不在主线程</td></tr>
+          <tr><td>双上限</td><td>单文件 4MB + 保留 10 份（文件名带毫秒时间戳，天然按时间排序）</td></tr>
+          <tr><td>目录不可写</td><td><b>禁用通道 + 明确报到 <code>RevLog.SinkErrors</code></b>（不是静默降级）</td></tr>
+          <tr><td>退出前</td><td>Unity 退出时钩子自动 <code>Flush</code>；你也可以随时手动 <code>RevLog.Flush()</code>（≤1 秒排空，超时自己兜底写完）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.2 上报：接一行，不接就不报</h3>
+    <pre>RevLog.OnReport += (e, msg) =&gt; CrashSightAgent.ReportException(e, msg);   <span class="c">// 你的平台</span>
+RevLog.OnReport += (e, msg) =&gt; 自建上报.Post(e, msg);                     <span class="c">// 或自建</span></pre>
+
+    <div class="callout">
+      <span class="t">上报只在 Exception 级别触发</span>
+      日志与上报是<b>两件事</b>：<code>Error</code> 只是"必须修的错"，不进上报；
+      只有你显式用 <code>RevLog.Exception(e, ...)</code> 记录异常对象时才触发 <code>OnReport</code>。
+      这样"滥用上报"的成本问题就不再是纪律问题，而是 API 语义。
+    </div>
+  </section>
+
+  <!-- ==================== 七 ==================== -->
+  <section id="s7">
+    <h2><span class="num">七</span>接自己的输出通道</h2>
+    <p class="lead">门面自己不写任何地方 —— 输出全靠通道（Sink）。</p>
+
+    <div class="flow">
+      <div class="n on">RevLog.Warn(...)</div><span class="ar">→</span>
+      <div class="n">过滤（阈值 + tag）</div><span class="ar">→</span>
+      <div class="n">重复抑制</div><span class="ar">→</span>
+      <div class="n">环形缓冲留底</div><span class="ar">→</span>
+      <div class="n on">逐个 Sink 输出</div>
+    </div>
+
+    <div class="card">
+      <div class="h">自定义通道（20 行就能写一个）</div>
+      <div class="when">场景：把日志同时发给你的 WebSocket 面板 / 上报平台 / 文件格式自定义</div>
+      <pre><span class="k">sealed class</span> MySink : IRevLogSink
+{
+    <span class="k">public string</span> Name =&gt; <span class="s">"MySink"</span>;
+    <span class="k">public void</span> Write(<span class="k">in</span> RevLogEntry entry) =&gt; 你的队列.Enqueue(entry);   <span class="c">// 别在这里做慢活</span>
+    <span class="k">public void</span> Flush()   =&gt; 你的队列.排空();
+    <span class="k">public void</span> Dispose() =&gt; 你的队列.收尾();
+}
+
+RevLog.AddSink(<span class="k">new</span> MySink());</pre>
+      <div class="note">通道里抛异常会被 RevLog 隔离（计数 + 不传染调用方），<b>先加后坏不会拖垮游戏</b>。</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">通道</th><th>装在哪 / 谁装</th></tr></thead>
+        <tbody>
+          <tr><td><code>Console</code>（默认）</td><td>Unity 下由 <code>RevLogUnityHooks</code> 自动装；Error 走红字，Exception 额外给可点击跳转的堆栈</td></tr>
+          <tr><td><code>File</code></td><td>你调 <code>RevLog.EnableFileLog(目录)</code> 才装（默认不写文件）</td></tr>
+          <tr><td>你的通道</td><td><code>RevLog.AddSink(...)</code>；想整体换后端就同时设 <code>RevLog.Fallback</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 八 ==================== -->
+  <section id="s8">
+    <h2><span class="num">八</span>全框架统一出口（接入现状）</h2>
+    <p class="lead">框架从"每个模块各打一套"变成了"只有一个日志出口"。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">模块</th><th style="width:22%">tag</th><th>接入方式</th></tr></thead>
+        <tbody>
+          <tr><td>事件系统</td><td><code>Event</code></td><td><code>RevEvent.Log / OnException</code> → RevLog</td></tr>
+          <tr><td>对象池</td><td><code>Pool</code></td><td><code>RevPoolLog.Sink</code> → RevLog（内核兜底也走 RevLog）</td></tr>
+          <tr><td>计时器</td><td><code>Timer</code></td><td><code>RevTimer.Log / OnException</code> → RevLog（内核兜底从"静默"改成 RevLog）</td></tr>
+          <tr><td>UI 系统</td><td><code>UI</code></td><td><code>RevUILog.Error / Warning / Info</code> 默认实现 → RevLog</td></tr>
+          <tr><td>状态机</td><td><code>StateMachine</code></td><td><code>RevHeavyFsmLog</code> 默认出口 → RevLog</td></tr>
+          <tr><td>宿主适配层</td><td><code>Timer</code> / <code>ActionSequence</code> / <code>Res</code></td><td>计时器驱动、动作序列驱动、编辑器直读策略的裸 <code>Debug.Log*</code> → RevLog</td></tr>
+          <tr><td><b>LiteAB 打包工具（Editor）</b></td><td><code>LiteAB</code></td><td>工具自己的出口类 <code>RevABLog</code> → RevLog（28 处调用统一）</td></tr>
+          <tr><td>音效 / 资源加载</td><td>—</td><td><b>不接</b>：它们的契约是"失败带原因码 + <code>Failed</code> 事件 / <code>handle.ErrorReason</code>"，业务订阅即可</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <span class="t">一键换后端</span>
+      只要动三个口子，<b>业务调用点一行都不用改</b>：<code>RevLog.AddSink/RemoveSink</code>（往哪输出）、
+      <code>RevLog.Fallback</code>（没通道时的兜底）、<code>RevLog.OnReport</code>（上报）。
+    </div>
+  </section>
+
+  <!-- ==================== 九 ==================== -->
+  <section id="s9">
+    <h2><span class="num">九</span>怎么防止日志刷屏（重复抑制）</h2>
+    <p class="lead">"每帧都在刷同一句话"是日志系统最真实的头号杀手。</p>
+
+    <pre>RevLog.Warn(<span class="s">"每帧都在刷同一句话"</span>);   <span class="c">// 连刷 5 次</span>
+RevLog.Warn(<span class="s">"换了一句话"</span>);           <span class="c">// 出现不同日志时，补一条汇总</span>
+
+<span class="c">// 控制台看到：</span>
+<span class="c">//   W [General] 每帧都在刷同一句话 frame:10</span>
+<span class="c">//   W [General] 每帧都在刷同一句话（重复 5 次） frame:10   ← 汇总（条目的 Repeat 字段）</span>
+<span class="c">//   W [General] 换了一句话 frame:10</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">规则</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>只抑制<b>连续</b>相同的</td><td><code>a, b, a</code> 三条都在（不改变日志顺序语义）</td></tr>
+          <tr><td>首条立刻可见</td><td>不是"攒够再报" —— 出事那一刻你就能看到</td></tr>
+          <tr><td>汇总在"换话"时补出</td><td>一条 <code>Repeat = N</code> 的条目告诉你刷了多少次</td></tr>
+          <tr><td>收益</td><td>10 万次相同日志 = <b>1 条记录 + 0 字节分配</b>（实测）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">看起来像"日志丢了"？</span>
+      如果你确实需要每一条都留（例如每次都要看坐标），说明那些日志<b>并不是真的相同</b> —— 消息里带上变化的字段即可。
+      想立刻结束汇总可以调一次 <code>RevLog.Flush()</code>。
+    </div>
+  </section>
+
+  <!-- ==================== 十 ==================== -->
+  <section id="s10">
+    <h2><span class="num">十</span>新手最容易踩的 6 个坑</h2>
+    <p class="lead">每条都会让人白干一阵子。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="c" style="width:6%">#</th><th style="width:30%">坑</th><th>正解</th></tr></thead>
+        <tbody>
+          <tr><td class="c">1</td><td>以为 <code>RevLog.Debug</code> 正式包里"打得出来但被过滤"</td><td>它是<b>编译期删除</b>（连参数都不求值）。要在正式包看，给工程加 <code>REVLOG_DEBUG</code> 宏</td></tr>
+          <tr><td class="c">2</td><td>在热循环里拼字符串</td><td>先 <code>IsEnabled</code> 再拼；<code>Debug</code> 例外（它零成本）</td></tr>
+          <tr><td class="c">3</td><td>什么都往 <code>Error</code> 上糊</td><td><code>Error</code> 默认采堆栈（有成本）。"可疑但能跑"用 <code>Warn</code></td></tr>
+          <tr><td class="c">4</td><td>忘了 <code>Flush</code></td><td>文件通道是异步的（这是不卡帧的代价）。切场景/退后台/出包前调一次（Unity 退出时自动调）</td></tr>
+          <tr><td class="c">5</td><td>看到"重复 N 次"以为日志丢了</td><td>那是重复抑制在工作；见第九节</td></tr>
+          <tr><td class="c">6</td><td><code>SinkErrors &gt; 0</code> 却继续跑</td><td>说明某个通道在坏（磁盘满 / 目录无权限 / 自定义 Sink 抛异常）—— 它在提醒你"日志可能在丢"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十一 ==================== -->
+  <section id="s11">
+    <h2><span class="num">十一</span>看不到日志怎么查（3 分钟）</h2>
+    <p class="lead">按顺序排除，每一步都能立刻验证。</p>
+
+    <div class="flow">
+      <div class="n">① 阈值？</div><span class="ar">→</span>
+      <div class="n">② tag 被静音？</div><span class="ar">→</span>
+      <div class="n">③ 是 Debug？</div><span class="ar">→</span>
+      <div class="n">④ 没有通道？</div><span class="ar">→</span>
+      <div class="n">⑤ 被抑制了？</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">现象</th><th>查这里</th></tr></thead>
+        <tbody>
+          <tr><td>完全看不到任何日志</td><td><code>RevLog.Fallback</code> 被设成了什么都不做的委托？把 <code>RevLog.AddSink(new RevConsoleSink())</code> 补回来（Unity 下正常是钩子自动装的）</td></tr>
+          <tr><td>Info 看不到、Warn 能看到</td><td><code>RevLog.MinLevel</code> 被调高了 → <code>RevLog.MinLevel = RevLogLevel.Info;</code></td></tr>
+          <tr><td>某个模块看不到</td><td>被 <code>MuteTag</code> 了 → <code>RevLog.IsTagMuted("Network")</code></td></tr>
+          <tr><td>正式包里 Debug 全没有</td><td>预期行为（编译期删除）→ 加 <code>REVLOG_DEBUG</code> 宏</td></tr>
+          <tr><td>只看到一条、后面没了</td><td>连续重复被抑制了 → 看条目的 <code>Repeat</code>，或 <code>RevLog.Dump</code> 看全貌</td></tr>
+          <tr><td>文件里没有</td><td>没调 <code>EnableFileLog</code>，或目录不可写（查 <code>RevLog.SinkErrors</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">一条能救命的命令</span>
+      <code>Debug.Log(RevLog.Dump(300));</code> —— 不管日志是什么时候打的、有没有开文件，
+      最近 300 行现场一直都在环形缓冲里。
+    </div>
+  </section>
+
+  <!-- ==================== 十二 ==================== -->
+  <section id="s12">
+    <h2><span class="num">十二</span>附：文件清单 / 验收 / 设计来源</h2>
+    <p class="lead">想深入看代码或判断可信度时读这一节。</p>
+
+    <h3>12.1 文件都在哪（你只需要读一个）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">文件</th><th class="c" style="width:10%">行数</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>Facade\RevLog.cs</code></td><td class="c">156</td><td>★ <b>唯一入口</b>：五个级别 + 开关 + 通道 + 现场 + 出口</td></tr>
+          <tr><td><code>Core\RevLogDefines.cs</code></td><td class="c">125</td><td>级别 = 成本契约、条目字段、上限（纯 C#）</td></tr>
+          <tr><td><code>Core\RevLogRing.cs</code></td><td class="c">94</td><td>环形缓冲（纯 C#，零分配写入）</td></tr>
+          <tr><td><code>Interfaces\IRevLogSink.cs</code></td><td class="c">37</td><td>输出通道契约</td></tr>
+          <tr><td><code>Implementation\RevLogCore.cs</code></td><td class="c">260</td><td>内核：过滤 → 重复抑制 → 留底 → 派发（不用读）</td></tr>
+          <tr><td><code>Implementation\RevFileSink.cs</code></td><td class="c">259</td><td>异步写文件 + 双上限轮转（不用读）</td></tr>
+          <tr><td><code>Support\RevConsoleSink.cs</code></td><td class="c">58</td><td>Unity 控制台通道（不用读）</td></tr>
+          <tr><td><code>Support\RevLogUnityHooks.cs</code></td><td class="c">64</td><td>★ 全框架日志接入点（不用读）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>12.2 验收情况</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td>工程外行为断言（纯 C#，脱离 Unity）</td><td><b>41 / 41 通过</b>：级别阈值、tag 静音、堆栈按级别采、帧号缺失值 -1、重复抑制、通道隔离、环形缓冲顺序与覆盖、异常对象与上报出口、异步落盘与轮转、目录不可写时的失能可见</td></tr>
+          <tr><td>零分配</td><td>10 万次相同日志 = <b>0 B</b>；10 万条不同日志 = <b>0 B</b>（除日志条目本身）</td></tr>
+          <tr><td>环形缓冲</td><td>硬顶 2048 条（写满覆盖最旧的）</td></tr>
+          <tr><td>编译</td><td><code>Revolution.Runtime</code> <b>0 错 0 警</b>；<code>Revolution.Editor</code> 0 错</td></tr>
+          <tr><td>依赖</td><td>无（内核纯 C#；只有控制台通道与钩子用 UnityEngine）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>12.3 设计来源（王者日志系统）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">抄来的（精华）</th><th>本框架怎么落</th></tr></thead>
+        <tbody>
+          <tr><td><code>[Conditional]</code> 编译期删除调用点与参数表达式</td><td>保留（<code>Debug</code> 上的两个 Conditional；业务加 <code>REVLOG_DEBUG</code> 就能在正式包看到）</td></tr>
+          <tr><td>级别即成本契约（原版用注释三遍强调纪律）</td><td>升级成<b>结构性保障</b>：堆栈只在 Error 及以上采</td></tr>
+          <tr><td>门面不写文件、输出通道解耦</td><td><code>IRevLogSink</code> 列表（原版是单一事件，只能挂一个、还会漏挂）</td></tr>
+          <tr><td>异步文件写入（Lowest 线程 + 双缓冲）</td><td>同款；但<b>入队的是条目不是字符串</b> —— 主线程连一次分配都没有</td></tr>
+          <tr><td>崩溃前尽量落盘</td><td><code>Flush()</code> 等排空（≤1 秒）后自己兜底写完；Unity 退出自动 Flush</td></tr>
+          <tr><td>启动时探测写权限，失败不影响游戏</td><td>保留 + 升级：失败明确计入 <code>RevLog.SinkErrors</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">原版承认的空白</th><th>这里怎么做</th></tr></thead>
+        <tbody>
+          <tr><td>无重复日志抑制 / 采样 / 聚合（刷屏只能靠人工纪律）</td><td><b>连续重复抑制</b>（首条立刻可见 + "重复 N 次"汇总；10 万次 = 0 分配）</td></tr>
+          <tr><td>无模块级开关表（文档承诺了、实现里没有）</td><td><code>RevLog.MuteTag(tag)</code>（运行期可改）</td></tr>
+          <tr><td>无单文件大小上限（只有"份数"）</td><td>大小 + 份数双上限（4MB / 10 份）</td></tr>
+          <tr><td>日志系统失能不可观测（目录无权限就静默降级）</td><td><code>RevLog.SinkErrors</code>（通道坏 / 写盘失败 / 目录不可写都计入）</td></tr>
+          <tr><td>无"出事之前的现场"</td><td>环形缓冲 2048 条 → <code>RevLog.Dump(200)</code></td></tr>
+          <tr><td>两个"频道"参数位置/语义冲突，极易写反</td><td>只有一个 tag 轴、位置固定（<code>Warn(消息, tag)</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="t">配套文档</span>
+      代码目录里还有一份 <code>Assets/Revolution/Runtime/RevLog/README.md</code>（3 分钟上手 + 6 个坑 + 排障），内容与本文一致、更适合对着代码看。<br>
+      王者的原始设计文档在：<code>工作日志\第二月\第6周\2026年9月24日\日志系统\</code>（00 设计哲学 / 01 架构 / 02 API 与级别 / 03 异步文件写入 / 05 抽离方案）。
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  日志系统 · 使用说明 &nbsp;|&nbsp; 路径：<code>Assets/Revolution/Runtime/RevLog/</code> &nbsp;|&nbsp;
+  入口：<code>RevLog</code>（Info / Warn / Error / Exception / Debug）&nbsp;|&nbsp;
+  文档版本：2026-09-27（对应代码：8 个 <code>.cs</code> / 1053 行 · 断言 41 / 41）
+</footer>
+
+</body>
+</html>

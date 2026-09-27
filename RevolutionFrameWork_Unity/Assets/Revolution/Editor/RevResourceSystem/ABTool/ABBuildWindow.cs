@@ -30,13 +30,14 @@ namespace Revolution.Editor
         private static int _collectSyncStamp;
 
         private Vector2 _scroll;
-        private int _tab;                                          // 0=打包 1=分包 2=依赖 3=体积 4=检查
-        private static readonly string[] Tabs = { "打包", "分包", "依赖", "体积", "检查" };
+        private int _tab;                                          // 0=打包 1=分包 2=依赖 3=体积 4=检查 5=快照
+        private static readonly string[] Tabs = { "打包", "分包", "依赖", "体积", "检查", "快照" };
 
         private readonly ABBundleBrowserView _browser = new ABBundleBrowserView();
         private readonly ABDependencyView _dependencyView = new ABDependencyView();
         private readonly ABSizeView _sizeView = new ABSizeView();
         private readonly ABDuplicateView _duplicateView = new ABDuplicateView();
+        private readonly ABSnapshotView _snapshotView = new ABSnapshotView();
 
         [MenuItem("Revolution.Tools/资源/LiteAB 打包工具", false, 1)]
         public static void Open()
@@ -86,7 +87,8 @@ namespace Revolution.Editor
                 case 1: _browser.Draw(viewHeight); break;           // 分包
                 case 2: _dependencyView.Draw(viewHeight); break;    // 依赖
                 case 3: _sizeView.Draw(viewHeight); break;          // 体积
-                default: _duplicateView.Draw(viewHeight); break;    // 重名
+                case 4: _duplicateView.Draw(viewHeight); break;     // 重名
+                default: _snapshotView.Draw(viewHeight); break;     // 快照
             }
         }
 
@@ -362,6 +364,10 @@ namespace Revolution.Editor
                 {
                     CollectAndValidate();
                     ABManifestWriter.WriteResMap(_collect);
+
+                    // 「上次打包」快照留底：此刻的分包布局以后补算不出来（"快照"页签靠它做对比）
+                    ABLayoutSnapshotStore.WriteLastBuild(_collect, "扫描并生成映射");
+
                     ABResPathGenerator.Generate();
                     AssetDatabase.Refresh();
                 }
@@ -441,7 +447,7 @@ namespace Revolution.Editor
             CollectAndValidate();
             if (!_validate.CanBuild)
             {
-                Debug.LogError($"[LiteAB] 校验未通过，共 {_validate.errors.Count} 个错误，已中止打包");
+                RevABLog.Error($"[LiteAB] 校验未通过，共 {_validate.errors.Count} 个错误，已中止打包");
                 return;
             }
 
@@ -449,7 +455,7 @@ namespace Revolution.Editor
             _build = ABBuilderCore.Build();
             if (!_build.success)
             {
-                Debug.LogError("[LiteAB] 打包失败");
+                RevABLog.Error("[LiteAB] 打包失败");
                 return;
             }
 
@@ -460,12 +466,15 @@ namespace Revolution.Editor
             int mapCount = ABManifestWriter.WriteResMap(_collect);
             ABManifestWriter.WriteBuildManifest(_build);
 
+            // 「上次打包」快照留底（快照页签里"上次出包到现在多/少了什么"就靠它）
+            ABLayoutSnapshotStore.WriteLastBuild(_collect, "一键打包");
+
             // 6. 生成 RevResPath 常量类 + 可选拷贝到 StreamingAssets
             ABResPathGenerator.Generate();
             ABBuilderCore.CopyToStreamingAssets(_build.outputDir);
 
             AssetDatabase.Refresh();
-            Debug.Log($"[LiteAB] 打包完成：{_build.manifest.allBundles.Length} 个包，映射 {mapCount} 条 → {_build.outputDir}");
+            RevABLog.Info($"[LiteAB] 打包完成：{_build.manifest.allBundles.Length} 个包，映射 {mapCount} 条 → {_build.outputDir}");
         }
 
         // ==================== 校验报告 ====================

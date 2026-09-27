@@ -45,23 +45,15 @@ namespace Revolution
             RevEvent.ResetAll();
         }
 
-        /// <summary>装上默认日志出口；业务已经设过就不动它。</summary>
+        /// <summary>
+        /// 装上默认日志出口：统一走框架日志系统 <see cref="RevLog"/>（事件系统不再自己打 Debug）。
+        /// ★ 只在启动阶段（SubsystemRegistration / InitializeOnLoad）执行 —— 那时业务还没机会设出口，
+        ///   所以这里直接赋值是安全的；业务之后想换成自己的日志系统，再赋值覆盖即可。
+        /// </summary>
         private static void Install()
         {
-            if (RevEvent.Log == null)
-            {
-                RevEvent.Log = message => Debug.LogWarning(message);
-            }
-
-            if (RevEvent.OnException == null)
-            {
-                // LogError 给出"哪个事件、哪个监听者"，LogException 给出可点击跳转的原始堆栈
-                RevEvent.OnException = (e, message) =>
-                {
-                    Debug.LogError(message);
-                    Debug.LogException(e);
-                };
-            }
+            RevEvent.Log = message => RevLog.Warn(message, "Event");
+            RevEvent.OnException = (e, message) => RevLog.Exception(e, message, "Event");
         }
     }
 }

@@ -22,18 +22,18 @@ RevSequencePlayer.Default.Play(ChestOpen, source: gameObject);
 
 | 顺序 | 文件 | 内容 |
 |---|---|---|
-| ① | `Core\RevSequence.cs` | 构建入口 + 三条铁律 + 常见错（最短） |
-| ② | `Core\RevSequenceBuilder.cs` | 常用 6 个方法：`Do` / `Wait` / `WaitFrames` / `WaitUntil` / `OnCancel` / `Build` |
-| ③ | `Core\RevSequenceBuilder.Advanced.cs` | 用到才查：并行 / 重复 / 嵌套 / 事件 / 等异步 / 自定义步骤 |
+| ① | `Facade\RevSequence.cs` | 构建入口 + 三条铁律 + 常见错（最短） |
+| ② | `Facade\RevSequenceBuilder.cs` | 常用 6 个方法：`Do` / `Wait` / `WaitFrames` / `WaitUntil` / `OnCancel` / `Build` |
+| ③ | `Facade\RevSequenceBuilder.Advanced.cs` | 用到才查：并行 / 重复 / 嵌套 / 事件 / 等异步 / 自定义步骤 |
 
 **其余都不用读：**
 
 | 目录 | 是什么 | 要不要读 |
 |---|---|---|
-| `Engine\` | 引擎内部（Runner / Run / Handle / 池化 / 并发策略 / 事件总线） | 不用读；调优排查时再进 |
-| `Steps\` | 内置步骤库（等待 / 委托 / 事件 / 并行 / 重复 / 嵌套的实现） | 不用读；看名字就懂 |
-| `Extras\` | 可选能力（区域触发源 / 事件触发源） | 用到再读；整块删掉也不影响主流程 |
-| `Unity\` | 宿主适配（每帧 Tick 的驱动组件） | 不用读；但它就是你 Play 的那一行 |
+| `Implementation\` | 引擎内部（Runner / Run / Handle / 池化 / 并发策略 / 事件总线） | 不用读；调优排查时再进 |
+| `Implementation\Steps\` | 内置步骤库（等待 / 委托 / 事件 / 并行 / 重复 / 嵌套的实现） | 不用读；看名字就懂 |
+| `Interfaces\` + `Implementation\RevEventTriggerSource.cs` | 触发源契约与实现（可选能力） | 用到再读；整块删掉也不影响主流程 |
+| `Support\` | 宿主适配（每帧 Tick 的驱动组件） | 不用读；但它就是你 Play 的那一行 |
 
 ## 三、三条铁律（踩了必出 bug）
 

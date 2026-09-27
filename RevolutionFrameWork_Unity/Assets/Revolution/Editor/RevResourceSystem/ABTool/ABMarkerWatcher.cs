@@ -74,6 +74,14 @@ namespace Revolution.Editor
         private static string _lastSyncReason = "";
         private static string _lastSyncClock = "";
 
+        /// <summary>
+        /// "项目里的分包可能变了"的单调计数：**每次发现变更就 +1**，与窗口开没开、
+        /// 自动同步开没开都无关（MarkChanged 的第一件事就是它）。
+        /// 给"不在本窗口里显示、但也要跟着变"的地方用 —— 目前是 Project 窗口的分包角标
+        /// （ABProjectWindowOverlay）：它用这个当"该清缓存了"的信号，比自己轮询更早。
+        /// </summary>
+        public static int Revision { get; private set; }
+
         static ABMarkerWatcher()
         {
             _enabled = EditorPrefs.GetBool(EnabledKey, true);
@@ -138,6 +146,8 @@ namespace Revolution.Editor
         /// <summary>有东西可能改了分包信息 —— 这里只置脏标记（很便宜），重扫留给窗口绘制时做</summary>
         public static void MarkChanged(string reason)
         {
+            Revision++;                            // ★ 先记"变过"：与自动同步开关无关（见 Revision 的说明）
+
             if (!_enabled) return;
 
             _dirty = true;
@@ -205,19 +215,20 @@ namespace Revolution.Editor
         internal static void OnAssetsChanged(string[] imported, string[] deleted,
             string[] movedTo, string[] movedFrom)
         {
-            if (!_enabled) return;
-
             // ① 包名清单变了（新增 / 删除 / 重命名包）→ 一定相关，不用再看具体是哪个资源
-            if (SignatureChanged())
-            {
-                MarkChanged("包名清单变更");
-                return;
-            }
+            //    ② 变动里出现"资源根目录下的资源"或"已经标进包的资源"→ 相关
+            //
+            // ★ 判断顺序：**先判断相关性、再管自动同步开关** ——
+            //   MarkChanged 内部第一步就 Revision++（Project 窗口的角标靠它），
+            //   所以这里不能因为"自动同步关了"就提前 return，否则角标会停在上一次的状态。
+            bool signatureChanged = SignatureChanged();
+            bool relevant = signatureChanged
+                || IsRelevant(imported) || IsRelevant(deleted)
+                || IsRelevant(movedTo) || IsRelevant(movedFrom);
 
-            // ② 变动里出现"资源根目录下的资源"或"已经标进包的资源"→ 相关
-            if (IsRelevant(imported) || IsRelevant(deleted) ||
-                IsRelevant(movedTo) || IsRelevant(movedFrom))
-                MarkChanged("资源导入");
+            if (!relevant) return;
+
+            MarkChanged(signatureChanged ? "包名清单变更" : "资源导入");
         }
 
         /// <summary>

@@ -239,7 +239,7 @@ namespace Revolution.Editor
             if (_warnedResRoot) return;
             _warnedResRoot = true;
 
-            Debug.LogWarning(
+            RevABLog.Warn(
                 "[LiteAB] 还没设置「资源根目录」，编辑器直读（不打包直接跑）无法工作。\n" +
                 "请在菜单 Tools/资源/LiteAB 打包工具 里指定资源根目录（拖拽文件夹或点「选择…」）。");
         }

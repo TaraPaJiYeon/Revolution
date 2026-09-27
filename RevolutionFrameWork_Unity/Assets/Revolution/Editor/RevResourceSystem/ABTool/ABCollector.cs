@@ -91,7 +91,7 @@ namespace Revolution.Editor
             {
                 // 没配根目录时，逻辑路径只能退化成"相对 Assets/" 计算 —— 结果不可用。
                 // 明确报错，别让它悄悄打出一堆"运行时装不上"的包。
-                UnityEngine.Debug.LogError(
+                RevABLog.Error(
                     "[LiteAB] 未配置「资源根目录」，逻辑路径会退化成相对 Assets/ 计算，结果不可用。\n" +
                     "请在打包窗口里指定资源根目录（拖拽文件夹或点「选择…」）。");
             }

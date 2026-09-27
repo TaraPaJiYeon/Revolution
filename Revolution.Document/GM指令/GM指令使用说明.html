@@ -692,11 +692,11 @@ MyGameCommands.Register();
       <table>
         <thead><tr><th style="width:52%">文件</th><th>要不要读</th></tr></thead>
         <tbody>
-          <tr><td><code>Core\RevGM.cs</code></td><td>★ 必读：一行注册（6 个重载）/ <code>Execute</code> / <code>Suggest</code></td></tr>
+          <tr><td><code>Facade\RevGM.cs</code></td><td>★ 必读：一行注册（6 个重载）/ <code>Execute</code> / <code>Suggest</code></td></tr>
           <tr><td><code>Core\RevGMArgs.cs</code></td><td>★ 必读：取参数（<code>Int</code> / <code>Float</code> / <code>Bool</code> / <code>Str</code> / <code>Enum</code>）</td></tr>
           <tr><td><code>Core\RevGMArg.cs</code> · <code>RevGMFlags.cs</code> · <code>RevGMResult.cs</code> · <code>RevGMUsageException.cs</code></td><td>用到再读（参数说明 / 标记 / 结果 / 用法错误）</td></tr>
-          <tr><td><code>Engine\RevGMRegistry.cs</code> · <code>RevGMCommand.cs</code> · <code>RevGMParser.cs</code> · <code>RevGMMatcher.cs</code></td><td>不用读（注册表 / 记录 / 分词 / 匹配打分）</td></tr>
-          <tr><td><code>Extras\RevGMEntryAttribute.cs</code></td><td>想让面板编辑期列命令时读</td></tr>
+          <tr><td><code>Implementation\RevGMRegistry.cs</code> · <code>RevGMCommand.cs</code> · <code>RevGMParser.cs</code> · <code>RevGMMatcher.cs</code></td><td>不用读（注册表 / 记录 / 分词 / 匹配打分）</td></tr>
+          <tr><td><code>Core\RevGMEntryAttribute.cs</code></td><td>想让面板编辑期列命令时读</td></tr>
           <tr><td><code>Editor\RevGMCommand\RevGMWindow.cs</code> · <code>RevGMEditorCatalog.cs</code></td><td>想改面板时读（共 820 行）</td></tr>
           <tr><td><code>Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs</code></td><td>★ 建议先读这个（9 条示例，直接抄）</td></tr>
         </tbody>

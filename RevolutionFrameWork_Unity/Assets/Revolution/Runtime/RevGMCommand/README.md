@@ -38,14 +38,14 @@ public static class MyGameCommands
 
 | 文件 | 行数级别 | 说明 |
 |---|---|---|
-| `Core\RevGM.cs` ★ | 入口 | 一行注册（6 个重载）/ `Execute` / `Suggest` / `Clear` / `Enabled` |
+| `Facade\RevGM.cs` ★ | 入口 | 一行注册（6 个重载）/ `Execute` / `Suggest` / `Clear` / `Enabled` |
 | `Core\RevGMArgs.cs` ★ | ~200 行 | 取参数：`Int` / `Float` / `Bool` / `Str` / `Enum`（都带默认值，解析失败给人话） |
 | `Core\RevGMArg.cs` | 参数说明 | 面板据此显示帮助 + 执行前校验（`Int/IntRequired/Float/Bool/Str/Enum`） |
 | `Core\RevGMFlags.cs` | 标记 | `HighRisk`（二次确认）/ `Hidden`（不进联想） |
 | `Core\RevGMResult.cs` | 结果 | 成功与否 + 消息 + 耗时 |
 | `Core\RevGMUsageException.cs` | 用法错误 | 业务抛它就等于"把这句话显示给测试同学" |
-| `Engine\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎内部 | 注册表 / 命令记录 / 分词 / 模糊匹配打分 |
-| `Extras\RevGMEntryAttribute.cs` | 可选 | 标记注册入口（让面板在不进 Play 时也能列出命令） |
+| `Implementation\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎内部 | 注册表 / 命令记录 / 分词 / 模糊匹配打分 |
+| `Core\RevGMEntryAttribute.cs` | 可选 | 标记注册入口（让面板在不进 Play 时也能列出命令） |
 
 编辑器侧：`Editor\RevGMCommand\RevGMWindow.cs`（面板）+ `RevGMEditorCatalog.cs`（命令目录：Play 读运行期、编辑期走 `[RevGMEntry]` 快照）。
 

@@ -260,7 +260,7 @@ namespace Revolution
             else Write(message);
         }
 
-        /// <summary>统一的消息出口：没人接日志时退到标准错误，绝不静默。</summary>
+        /// <summary>统一的消息出口：没人接日志时走框架日志系统的纯 C# 兜底（它再退到标准错误），绝不静默。</summary>
         private static void Write(string message)
         {
             Action<string> sink = Log;
@@ -270,7 +270,7 @@ namespace Revolution
                 return;
             }
 
-            Console.Error.WriteLine(message);
+            RevLog.Warn(message, "Event");
         }
 
         /// <summary>把类型名写成好读的形式（Action`2 → Action&lt;Int32, String&gt;），只用在出错路径上。</summary>

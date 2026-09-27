@@ -95,9 +95,9 @@ namespace Revolution
             if (_warnedRoot) return;
             _warnedRoot = true;
 
-            UnityEngine.Debug.LogError(
-                "[EditorResPolicy] 未配置「资源根目录」，编辑器直读（不打包直接跑）无法工作。\n" +
-                "请在菜单 Tools/资源/LiteAB 打包工具 里设置「资源根目录」。");
+            RevLog.Error(
+                "[EditorResPolicy] 未配置「资源根目录」，编辑器直读（不打包直接跑）无法工作。" +
+                "请在菜单 Tools/资源/LiteAB 打包工具 里设置「资源根目录」。", "Res");
         }
 
         private string Cache(string key, string realPath)
