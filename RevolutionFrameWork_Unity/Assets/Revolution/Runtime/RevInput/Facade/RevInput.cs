@@ -490,6 +490,48 @@ namespace Revolution
             set => Core.Failed = value;
         }
 
+        // ── 事件驱动接入（推荐：业务不在 Update 里轮询）──────
+        //
+        //  两种用法，可混用：
+        //   ① 监听者：实现 RevInputListener（或继承 RevInputListenerBase），AddListener 一次，
+        //      之后按下 / 抬起 / 连发 / 轴变化 / 手势全部由框架推给你；
+        //   ② 按事件订阅：OnPressed / OnReleased / OnRepeat / OnAxis / OnGesture。
+        //  想让"按住持续做的事"也不用 Update：SetRepeat 配好节拍，再订阅 OnRepeat。
+
+        /// <summary>
+        /// 登记一个监听者：之后本模块的输入事件都会投给它。
+        /// <b>记得给 owner</b> —— 销毁时 <c>RevInput.OffAllOf(owner)</c> 一行清干净。
+        /// </summary>
+        public static void AddListener(RevInputListener listener, object owner = null)
+            => Core.AddListener(listener, owner);
+
+        /// <summary>移除一个监听者（按引用相等；重复移除安全）。</summary>
+        public static bool RemoveListener(RevInputListener listener) => Core.RemoveListener(listener);
+
+        /// <summary>当前监听者数量（诊断用）。</summary>
+        public static int ListenerCount => Core.ListenerCount;
+
+        /// <summary>
+        /// 订阅"某个轴的值变化"（移动 / 摇杆走这里）。<b>只在数值变化时回调</b>；
+        /// 订阅后的第一帧会先收到一次当前值（方便初始化移动方向或 UI 摇杆）。
+        /// 轴名与 <c>BindAxis</c> / <c>BindNamedAxis</c> 一致。
+        /// </summary>
+        public static bool OnAxis(string axis, Action<float> handler, object owner = null)
+            => Core.AddAxisHandler(axis, handler, owner);
+
+        /// <summary>退订轴变化（<paramref name="handler"/> 传 null = 退掉该轴的全部订阅）。</summary>
+        public static bool OffAxis(string axis, Action<float> handler) => Core.RemoveAxisHandler(axis, handler);
+
+        /// <summary>
+        /// 订阅"某动作连发触发"（先用 <c>SetRepeat</c> 配节拍）。
+        /// 用它可以彻底摆脱 <c>Update</c>：按住连发由框架按节拍推给你。
+        /// </summary>
+        public static bool OnRepeat(string action, Action handler, object owner = null)
+            => Core.AddRepeatHandler(action, handler, owner);
+
+        /// <summary>退订连发（<paramref name="handler"/> 传 null = 退掉该动作的全部连发订阅）。</summary>
+        public static bool OffRepeat(string action, Action handler) => Core.RemoveRepeatHandler(action, handler);
+
         // ── 设备类型（键鼠 / 触屏 / 手柄）─────────────────────
 
         /// <summary>本帧识别出的设备类型（键鼠 / 触屏 / 手柄）。</summary>

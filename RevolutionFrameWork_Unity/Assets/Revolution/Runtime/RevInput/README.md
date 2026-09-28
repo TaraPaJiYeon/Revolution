@@ -3,7 +3,7 @@
 **一行绑定、一行查询的通用输入系统**（键盘 / 鼠标 / 触屏 / 手柄 / 手势），
 `RevInput.Pressed("Jump")` —— 业务不写 `Input.GetKeyDown`，键位怎么绑由绑定表决定。
 
-- 来源：`Assets/Revolution/Runtime/RevInput/`（14 个 `.cs`）
+- 来源：`Assets/Revolution/Runtime/RevInput/`（15 个 `.cs`）
 - 引擎依赖：**只有 `Support/` 两个文件碰 `UnityEngine`**（`RevInputDriver` / `RevInputUnityDevice`，
   外加接线用的 `RevInputUnityHooks`）；`Core/` 与 `Implementation/` 是纯 C#，可脱机跑断言
 - 零配置：第一次用到就自动建隐藏宿主 `[RevInput]`，不用摆物体、不用挂脚本

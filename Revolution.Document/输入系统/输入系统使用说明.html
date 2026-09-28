@@ -12,7 +12,7 @@
   <div class="wrap">
     <span class="kicker">使用说明 · 从零到能写业务</span>
     <h1>输入系统 · 使用说明（手把手教程）</h1>
-    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（先绑动作名，再问"按了没"，键位/触屏/手柄都不用你区分）</p>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（先绑动作名，再<b>登记一个监听者</b> —— 输入由框架推给你，业务里不用写 Update）</p>
     <p class="meta">读完你能做到：3 分钟绑好跳跃与移动 · 分清"按下 / 按住 / 抬起" · 会用点击/滑动/长按/双指 · 知道弹窗怎么挡输入 · 出问题 3 分钟定位</p>
   </div>
   <div class="deco"></div>
@@ -40,11 +40,12 @@
     <div class="callout good">
       <span class="t">只学 3 件事就能干活（真的）</span>
       <pre style="margin:10px 0 6px">RevInput.Bind(<span class="s">"Jump"</span>, RevKey.Space, RevKey.JoystickButton0);   <span class="c">// ① 绑一次（键盘和手柄一起绑）</span>
-<span class="k">if</span> (RevInput.Pressed(<span class="s">"Jump"</span>)) Jump();                          <span class="c">// ② 问"本帧刚按下？"</span>
-<span class="k">float</span> x = RevInput.Axis(<span class="s">"MoveX"</span>);                              <span class="c">// ③ 问轴（-1..1）</span></pre>
-      <p>绑定可以写在启动时，也可以从存档读（<code>RevInput.LoadBindings(文本)</code>）。</p>
-      <p>剩下的（手势、屏蔽、改键、事件）都是<b>用到再看</b>的增值项。</p>
-      <p style="margin-bottom:0"><span class="tag">人话</span> 输入系统 = 你只说"什么动作、什么状态"，剩下的（这个动作是空格还是手柄 A、这根手指算不算点击、弹窗开着要不要挡）它全包。</p>
+RevInput.OnPressed(<span class="s">"Jump"</span>, Jump, owner: <span class="k">this</span>);                 <span class="c">// ② 订阅事件：按下时框架叫你</span>
+RevInput.OnAxis(<span class="s">"MoveX"</span>, v =&gt; _moveX = v, owner: <span class="k">this</span>);        <span class="c">// ③ 订阅轴：数值变了才叫你</span></pre>
+      <p>键位 / 触屏 / 手柄的差异、按下与抬起的判定、手势识别，框架全包 —— <b>业务不需要在 Update 里问"按了没"</b>。</p>
+      <p>想让"按住持续做的事"也不用 Update：<code>SetRepeat</code> 配好节拍 + <code>OnRepeat</code> 订阅，框架按节拍推给你。</p>
+      <p>需要"此刻的状态"（比如某键是不是按着、摇杆当前多少）时，轮询 API 也都在：<code>RevInput.Held("Fire")</code> / <code>RevInput.Axis("MoveX")</code>，两种写法可混用。</p>
+      <p style="margin-bottom:0"><span class="tag">人话</span> 输入系统 = 你只说"什么动作、什么状态"，剩下的（这个动作是空格还是手柄 A、这根手指算不算点击、弹窗开着要不要挡）它全包；<b>输入一发生，它主动通知你</b>，你在回调里干活就行。</p>
     </div>
     <div class="table-wrap">
       <table>
@@ -63,7 +64,53 @@
   </section>
   <section id="s2">
     <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
-    <p class="lead">不用初始化、不用挂脚本、不用写 Update。</p>
+    <p class="lead">不用初始化、不用挂脚本。**推荐写法 A：事件驱动 —— 业务里连 Update 都不用写。</p>
+    <h3>写法 A：事件驱动（推荐）</h3>
+    <pre style="margin:10px 0 6px"><span class="k">sealed</span> <span class="k">class</span> PlayerInput : RevInputListenerBase      <span class="c">// ① 继承基类：只重写你关心的方法</span>
+{
+    <span class="k">float</span> _moveX, _moveY;
+
+    <span class="k">void</span> OnEnable()
+    {
+        RevInput.Bind(<span class="s">"Jump"</span>, RevKey.Space, RevKey.JoystickButton0);
+        RevInput.Bind(<span class="s">"Fire"</span>, RevMouseButton.Left);
+        RevInput.BindAxis(<span class="s">"MoveX"</span>, RevKey.A, RevKey.D);
+        RevInput.BindAxis(<span class="s">"MoveY"</span>, RevKey.S, RevKey.W);
+        RevInput.SetRepeat(<span class="s">"Fire"</span>, <span class="n">0.35f</span>, <span class="n">0.08f</span>);    <span class="c">// 想让"按住自动连发"也走事件，就先配节拍</span>
+        RevInput.AddListener(<span class="k">this</span>, owner: <span class="k">this</span>);     <span class="c">// ② 登记一次：之后输入**由框架推给你**</span>
+    }
+
+    <span class="k">void</span> OnDisable() =&gt; RevInput.OffAllOf(<span class="k">this</span>);     <span class="c">// ③ 一行退订（事件 + 屏蔽一起清）</span>
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> OnInputPressed(<span class="k">string</span> action)
+    {
+        <span class="k">switch</span> (action)                              <span class="c">// ④ 在回调里干活，不用每帧问"按了没"</span>
+        {
+            <span class="k">case</span> <span class="s">"Jump"</span>: Jump(); <span class="k">break</span>;
+            <span class="k">case</span> <span class="s">"Fire"</span>: Shoot(); <span class="k">break</span>;
+        }
+    }
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> OnInputRepeat(<span class="k">string</span> action) =&gt; Shoot();   <span class="c">// 按住连发（框架按节拍推）</span>
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> OnInputAxis(<span class="k">string</span> axis, <span class="k">float</span> value)      <span class="c">// 轴：**只在数值变化时**回调</span>
+    {
+        <span class="k">if</span> (axis == <span class="s">"MoveX"</span>) _moveX = value;         <span class="c">// 只记下来；什么时候用由你的移动逻辑决定</span>
+        <span class="k">if</span> (axis == <span class="s">"MoveY"</span>) _moveY = value;
+    }
+
+    <span class="k">public</span> <span class="k">override</span> <span class="k">void</span> OnInputGesture(RevGestureEvent g)          <span class="c">// 手势：点击 / 滑动 / 长按 / 双指…</span>
+    {
+        <span class="k">if</span> (g.Kind == RevGestureKind.Swipe) Dodge(g.Direction);
+    }
+}</pre>
+    <p>不想继承基类也行，按事件单独订阅（可混用）：</p>
+    <pre style="margin:10px 0 6px">RevInput.OnPressed(<span class="s">"Jump"</span>, Jump, owner: <span class="k">this</span>);                    <span class="c">// 按下</span>
+RevInput.OnRepeat(<span class="s">"Fire"</span>, Shoot, owner: <span class="k">this</span>);                    <span class="c">// 连发</span>
+RevInput.OnAxis(<span class="s">"MoveX"</span>, v =&gt; _moveX = v, owner: <span class="k">this</span>);           <span class="c">// 轴变化</span>
+RevInput.OnGesture(OnAnyGesture, owner: <span class="k">this</span>);                    <span class="c">// 全部手势</span></pre>
+    <h3>写法 B：在 Update 里轮询（问"此刻状态"时用）</h3>
+    <p>上面两种<b>和轮询可以混用</b> —— 需要"当前是不是按着 / 摇杆此刻多少 / 按住多久了"这类快照式问题，直接读：</p>
     <pre style="margin:10px 0 6px"><span class="k">void</span> Start()
 {
     <span class="c">// ① 绑定（一次；写在任意启动代码里都行）</span>
@@ -121,7 +168,11 @@
           <tr><td>挡掉世界输入（弹窗/过场/教程）</td><td><code>var b = RevInput.Block()</code> → <code>b.Close()</code>；或 <code>using (var s = RevInput.OpenScope()) { s.Block(); }</code></td></tr>
           <tr><td>只挡某根手指</td><td><code>RevInput.Block(RevInputBlockKind.Pointer, pointerId)</code>（比如"这根手指在拖镜头"）</td></tr>
           <tr><td>查屏蔽状态</td><td><code>RevInput.WorldBlocked</code> · <code>RevInput.IsBlocked(RevInputBlockKind.All)</code> · <code>RevInput.BlockCount</code></td></tr>
-          <tr><td>订阅按下/抬起/手势（可选）</td><td><code>RevInput.OnPressed("Jump", OnJump, owner: this)</code> · <code>RevInput.OnGesture(OnAnyGesture, owner: this)</code></td></tr>
+          <tr><td><b>登记监听者（推荐：事件驱动）</b></td><td><code>RevInput.AddListener(this, owner: this)</code> —— <code>this</code> 继承 <code>RevInputListenerBase</code>，只重写关心的方法</td></tr>
+          <tr><td>退掉监听者 / 查数量</td><td><code>RevInput.RemoveListener(this)</code> · <code>RevInput.ListenerCount</code></td></tr>
+          <tr><td><b>订阅轴变化（只在数值变化时回调）</b></td><td><code>RevInput.OnAxis("MoveX", OnMoveX, owner: this)</code> · 退订 <code>RevInput.OffAxis("MoveX", OnMoveX)</code></td></tr>
+          <tr><td><b>订阅连发（按住按节拍推给你）</b></td><td><code>RevInput.SetRepeat("Fire", 0.35f, 0.08f)</code> + <code>RevInput.OnRepeat("Fire", Shoot, owner: this)</code></td></tr>
+          <tr><td>订阅按下 / 抬起 / 手势</td><td><code>RevInput.OnPressed("Jump", OnJump, owner: this)</code> · <code>OnReleased(...)</code> · <code>OnGesture(OnAnyGesture, owner: this)</code></td></tr>
           <tr><td>退订（一行）</td><td><code>RevInput.OffAllOf(this)</code>（事件 + 屏蔽一起清）</td></tr>
           <tr><td>手动复位（换场景/结算）</td><td><code>RevInput.ResetAll("换场景")</code></td></tr>
           <tr><td>改键后存档 / 读档</td><td><code>string text = RevInput.SaveBindings();</code> · <code>RevInput.LoadBindings(text)</code></td></tr>
@@ -300,7 +351,7 @@ RevInput.LoadBindings(text);                <span class="c">// 载入（整体�
 </main>
 
 <footer>
-  Revolution · 输入系统 &nbsp;|&nbsp; 本文是“手把手”版；想搞清“为什么这么设计”请看同目录的《架构解析》 &nbsp;|&nbsp; <a href=https://yokino337088.github.io/Revolution/>在线文档站</a>
+  Revolution · 输入系统 &nbsp;|&nbsp; 本文是“手把手”版（事件驱动为主）；想搞清“为什么这么设计”请看同目录的《架构解析》 &nbsp;|&nbsp; <a href=https://yokino337088.github.io/Revolution/>在线文档站</a>
 </footer>
 
 </body>

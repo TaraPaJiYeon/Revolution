@@ -13,7 +13,7 @@
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 161 个 `.cs` / 约 2.4 万行），
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 162 个 `.cs` / 约 2.4 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：本框架不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
@@ -251,7 +251,8 @@ git clone https://github.com/Yokino337088/Revolution.git
 - ✅ **屏蔽栈（精确到指针）**：`using (var s = RevInput.OpenScope()) { s.Block(); }` —— 弹窗挡世界输入、ESC 照常可用；屏蔽期间**仍记按下时间**，解除瞬间缓冲输入立刻生效
 - ✅ **手感补偿**：输入缓冲窗口 `PressedBuffered(action, 0.15s)`、连发节拍 `SetRepeat`、死区 `SetDeadzone`
 - ✅ **切后台自动复位**：失焦/切后台清按键与手势（"切回来角色一直跑"的解药）
-- ✅ **可断言 + 零分配**：Core/Facade 零引擎依赖，**68 条断言工程外跑通**（含 600 帧零分配）
+- ✅ **事件驱动接入**：`RevInput.AddListener(this)` 登记一次，按下 / 抬起 / 连发 / 轴变化 / 手势全部由框架推给你 —— **业务里不用写 Update 轮询**（轮询 API 仍保留，问"此刻状态"时用）
+- ✅ **可断言 + 零分配**：Core/Facade 零引擎依赖，**86 条断言工程外跑通**（含 600 帧零分配）
 
 ### 📝 日志（RevLog）
 
@@ -306,12 +307,12 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 161 个 `.cs` / 24,432 行）
+**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 162 个 `.cs` / 24,812 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|
 | `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
-| `RevInput` | 输入：动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 缓冲与连发 / 改键存档 | 14 / 3,263 |
+| `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
 | `RevUISystem` | UI：面板声明式配置、层级、与资源池联动 | 17 / 3,457 |
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
 | `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
