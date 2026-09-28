@@ -45,14 +45,13 @@ using (var scope = RevInput.OpenScope())
 | `Facade/RevInput.cs` | 唯一入口 | **只读这个就能用**（绑定 / 查询 / 手势 / 屏蔽 / 事件 / 自检全在这） |
 | `Core/RevInputDefines.cs` | 词汇表 | 用到了再查：设备类型 / 相位 / 手势种类 / 屏蔽种类 / 错误码 / 全部默认值 |
 | `Core/RevInputCodes.cs` | 键位码表 | 写绑定时查（成员名与 Unity `KeyCode` 一致）；`RevKeyMask` 是零分配的键位掩码 |
-| `Core/RevInputSnapshot.cs` | 一帧快照 | 接自定义设备（回放 / AI）时读 |
+| `Core/RevInputSnapshot.cs` | 一帧快照 | 想看"每帧的输入长什么样"时读 |
 | `Core/RevInputBinding.cs` | 动作绑定 | 想知道"文本格式长什么样"时读（改键存档就是它） |
 | `Core/RevInputActionTable.cs` | 绑定表 + 状态 | 改键 / 冲突检测 / 文本存档往返 时读 |
 | `Core/RevGestureRecognizer.cs` | 手势识别 | 调手势手感（阈值 / 方向 / 速度）时读 |
 | `Core/RevInputBlock.cs` | 屏蔽句柄 | 一般不用读 |
 | `Implementation/RevInputCore.cs` | 内核 | 一般不用读（想看"一帧做了什么"时读） |
 | `Implementation/RevInputLog.cs` | 日志出口 | 一般不用读 |
-| `Interfaces/RevIInputDevice.cs` | 设备契约 | 要接回放 / AI / 远程输入时读 |
 | `Support/RevInputDriver.cs` | 隐藏宿主 | 不用读 —— 但它就是你"零配置"的那一行 |
 | `Support/RevInputUnityDevice.cs` | 默认设备 | 要换 Input System 包时读（只改这一个文件） |
 | `Support/RevInputUnityHooks.cs` | 生命周期接线 | 不用读（进 Play 复位 / 日志出口 / UI 命中判定） |

@@ -66,7 +66,6 @@
 ├── Implementation/
 │   ├── RevInputCore  内核：一帧的流水线 + 屏蔽栈 + 事件派发 + 失败上报
 │   └── RevInputLog   日志出口（正常路径一条不打）
-├── Interfaces/RevIInputDevice  设备契约（回放 / AI / 远程输入靠它接入）
 └── Support/          引擎适配（全模块唯一碰 UnityEngine 的地方）
     ├── RevInputDriver        隐藏宿主：每帧采集 + 失焦/切后台自动复位
     ├── RevInputUnityDevice   默认设备：键鼠 / 触屏 / 手柄 → 快照
@@ -104,9 +103,9 @@
         <thead><tr><th>#</th><th>决定</th><th>为什么</th><th>代价</th></tr></thead>
         <tbody>
           <tr><td>1</td><td><b>键位名与 Unity <code>KeyCode</code> 一一对齐</b>（<code>RevKey.Space</code> …）</td><td>适配层用 <code>Enum.TryParse</code> 建映射表，<b>不手抄上百行数值</b>（抄错一位就是"跳跃绑到退出"的线上事故）</td><td>键位名不能随意改（已发布的改键存档按名字存）</td></tr>
-          <tr><td>2</td><td><b>动作名而不是键位</b></td><td>改键、屏蔽、缓冲、回放全部在一个抽象上做；业务代码里没有键位字面量</td><td>启动时要绑一次（或读存档）</td></tr>
+          <tr><td>2</td><td><b>动作名而不是键位</b></td><td>改键、屏蔽、缓冲全部在一个抽象上做；业务代码里没有键位字面量</td><td>启动时要绑一次（或读存档）</td></tr>
           <tr><td>3</td><td><b>键位掩码 + "绑定并集"轮询</b></td><td>每帧只测"绑定用到的键 ∪ 上一帧按住的键"（十几个），而不是无脑测一百多个键</td><td>键位上限 256（掩码 4×64 位），够用且 <code>MaskFits</code> 会自检</td></tr>
-          <tr><td>4</td><td><b>纯 C# 内核 + 设备接口</b></td><td>手感参数（死区、双击窗口、滑动阈值、多指抢占）必须能<b>脱机断言</b>；同时让回放 / AI / 远程输入只需实现一个接口</td><td>内核不能用 <code>Vector2</code>（返回自定结构）、时间要当参数传</td></tr>
+          <tr><td>4</td><td><b>纯 C# 内核 + 一个采集委托</b></td><td>手感参数（死区、双击窗口、滑动阈值、多指抢占）必须能<b>脱机断言</b>；引擎适配层只通过一个采集委托接进来（内核不认识任何引擎类型，也不认识"输入从哪来"）</td><td>内核不能用 <code>Vector2</code>（返回自定结构）、时间要当参数传</td></tr>
           <tr><td>5</td><td><b>相位只有 4 种</b>（<code>Down/Held/Up/None</code>）</td><td>少即是多："双击""长按""连发"都是<b>派生读数</b>（<code>PressedBuffered</code> / <code>Repeat</code> / 手势），不是新相位</td><td>业务要知道去哪儿找这些派生读数</td></tr>
           <tr><td>6</td><td><b>输入缓冲窗口</b>（<code>PressedBuffered(action, 0.15s)</code>）</td><td>动作游戏标配的"提前按也算"——落到地面前的跳跃不再白按</td><td>业务要显式选"用缓冲还是用严格按下"</td></tr>
           <tr><td>7</td><td><b>屏蔽精确到指针 + 屏蔽期间仍记缓冲</b></td><td>① 弹窗挡世界输入但不能挡 ESC ② 屏蔽解除瞬间，缓冲窗口里的输入<b>立刻生效</b>（否则手感会莫名迟钝）</td><td>屏蔽栈要留 owner（用于一行清理）</td></tr>
@@ -125,7 +124,7 @@
       <table>
         <thead><tr><th>机制</th><th>在本框架里落成</th></tr></thead>
         <tbody>
-          <tr><td>采集与业务分离（组件只报数据，判定在别处）</td><td><code>RevIInputDevice</code> 写快照，内核判定 —— 设备可换成回放 / AI</td></tr>
+          <tr><td>采集与业务分离（组件只报数据，判定在别处）</td><td>采集层写快照、内核判定 —— 两层之间只有一个采集委托</td></tr>
           <tr><td>手势识别的<b>参数化</b>（阈值可调、可迭代）</td><td><code>RevGestureRecognizer</code> 的 8 个阈值字段，全部可运行时改</td></tr>
           <tr><td>连续量要有"来源标记"避免多来源打架</td><td>本模块简化成"屏蔽栈 + 设备替换"（本地输入没有"触屏 vs 手柄同时给同一根轴"的带宽问题）</td></tr>
           <tr><td>零 GC 纪律</td><td>掩码 / 复用数组 / 就地 try-catch / 无 LINQ</td></tr>
@@ -144,7 +143,7 @@
           <tr><td>以帧号（30fps 折算）为节拍（6 帧补发 / 15 帧补停 / 30 帧心跳）</td><td>通用项目帧率自由；这套节拍在这里只会制造"随时间漂移的阈值"</td></tr>
           <tr><td>可靠性通道（seq + 确认 + 补发）</td><td>本地输入没有丢包，可靠性是纯成本</td></tr>
           <tr><td>用"模式状态机 + 一堆 bool 子开关"表达玩法差异</td><td>会布尔组合爆炸；本模块用"绑定 + 屏蔽 + 手势阈值"表达差异</td></tr>
-          <tr><td>采集层绑在具体 UI 框架组件上</td><td>会让输入模块依赖 UI 系统；本模块的采集层只依赖 <code>RevIInputDevice</code></td></tr>
+          <tr><td>采集层绑在具体 UI 框架组件上</td><td>会让输入模块依赖 UI 系统；本模块的采集层与内核之间只有一个采集委托</td></tr>
         </tbody>
       </table>
     </div>
@@ -171,10 +170,10 @@
       <table>
         <thead><tr><th>项</th><th>结果</th></tr></thead>
         <tbody>
-          <tr><td><code>Revolution.Runtime</code> 编译</td><td><b>0 错误 0 警告</b>（含新模块 14 个文件 / 约 3300 行）</td></tr>
+          <tr><td><code>Revolution.Runtime</code> 编译</td><td><b>0 错误 0 警告</b>（含新模块 14 个文件 / 3,263 行）</td></tr>
           <tr><td><code>Revolution.Editor</code> 编译</td><td><b>0 错误</b>（4 条警告是 Unity 测试包自带的旧警告）</td></tr>
-          <tr><td>纯 C# 依赖检查</td><td><code>Core/</code> <code>Implementation/</code> <code>Facade/</code> <code>Interfaces/</code> 里<b>零引擎标识符</b>；<code>#if UNITY_*</code> 共 <b>0 处</b></td></tr>
-          <tr><td><b>工程外行为断言</b></td><td><b>68 / 68 通过</b>（临时工程链接真实源码 + 假设备喂脚本帧，跑完即删）</td></tr>
+          <tr><td>纯 C# 依赖检查</td><td><code>Core/</code> <code>Implementation/</code> <code>Facade/</code> 里<b>零引擎标识符</b>；<code>#if UNITY_*</code> 共 <b>0 处</b></td></tr>
+          <tr><td><b>工程外行为断言</b></td><td><b>68 / 68 通过</b>（临时工程链接真实源码 + 一段脚本直接写快照喂帧，跑完即删）</td></tr>
           <tr><td>断言覆盖</td><td>掩码 / 绑定 / 三态 / 轴与死区 / 缓冲窗口 / 连发节拍 / 文本往返无损 / 坏存档拒绝且不落地 / 冲突检测 / 鼠标 / 八向方向 / 7 种手势 / 双指不秋后算账 / 屏蔽精确到指针 / 屏蔽期间保留缓冲 / 作用域出块自动解除 / 事件派发与 owner 清理 / 复位 / 失败原因码 / <b>600 帧零分配</b></td></tr>
           <tr><td>断言抓到的真 bug</td><td>① <code>RevInputScope.Dispose</code> 先置位再调用导致清理被跳过（出块后屏蔽没解除 ✗）② <code>PointerCount</code> 没过滤被屏蔽的手指（与 <code>Pointer(index)</code> 下标不一致 ✗）—— 都在提交前修掉</td></tr>
         </tbody>
@@ -187,11 +186,10 @@
       <table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><b>录制 / 回放设备</b></td><td>契约已留（<code>RevIInputDevice</code>）：把采样序列存下来、再喂回去即可复现 bug；本期没做，因为"存什么格式"取决于业务</td></tr>
           <tr><td><b>虚拟摇杆 UI 组件</b></td><td>目前给的是"轴 + 手势 + 屏蔽"的原语；摇杆外观/跟手/防误触属于 UI 层，建议在 UI 系统里实现（用本模块的指针与屏蔽接口）</td></tr>
           <tr><td><b>手柄摇杆的默认轴名映射</b></td><td>现在要走 <code>BindNamedAxis("MoveX", "Horizontal")</code>（引擎默认自带）；直接内置会在没配轴的工程里刷 Warn</td></tr>
           <tr><td><b>改键 UI</b></td><td>绑定文本与冲突检测已经就绪（<code>SaveBindings</code> / <code>LoadBindings</code> / <code>FindConflicts</code>），UI 归业务</td></tr>
-          <tr><td><b>Input System 包适配</b></td><td>换包只需新写一个 <code>RevIInputDevice</code>（或改 <code>RevInputUnityDevice</code> 一个文件），内核完全不用动</td></tr>
+          <tr><td><b>Input System 包适配</b></td><td>换包只需改 <code>RevInputUnityDevice</code>（采集层）一个文件，内核完全不用动</td></tr>
         </tbody>
       </table>
     </div>

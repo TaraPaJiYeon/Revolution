@@ -94,7 +94,7 @@ namespace Revolution
         public static void ResetAll(string reason = null) => Core.ResetAll(reason);
 
         /// <summary>
-        /// 手动驱动开关。置 true 后隐藏宿主**让位**（用于回放、自动化测试、自己掌握采集时机）。
+        /// 手动驱动开关。置 true 后隐藏宿主**让位**（用于自动化测试，或自己掌握采集时机）。
         /// </summary>
         public static bool ManualDriven
         {
@@ -106,7 +106,7 @@ namespace Revolution
         public static void Tick(float deltaTime)
             => Tick(deltaTime, deltaTime, Core.Realtime + deltaTime, Core.Frame + 1);
 
-        /// <summary>手动驱动一帧（完整版：自己给时间与帧号，便于回放对齐）。</summary>
+        /// <summary>手动驱动一帧（完整版：自己给时间与帧号，便于测试脚本对齐时间轴）。</summary>
         public static void Tick(float deltaTime, float unscaledDeltaTime, double realtime, int frame)
         {
             RevInputCore core = Core;
@@ -490,20 +490,7 @@ namespace Revolution
             set => Core.Failed = value;
         }
 
-        // ── 设备 ────────────────────────────────────────────
-
-        /// <summary>
-        /// 替换输入设备（回放 / AI / 远程调试）。传 null 交还默认设备。
-        /// </summary>
-        public static void RegisterDevice(RevIInputDevice device)
-        {
-            RevInputCore core = Ensure();
-            core.Device = device;
-            RevInputLog.V("[RevInput] 设备切换为 " + (device != null ? device.Name : "默认（Unity）"));
-        }
-
-        /// <summary>当前设备名（诊断用）。</summary>
-        public static string DeviceName => Core.Device != null ? Core.Device.Name : "无";
+        // ── 设备类型（键鼠 / 触屏 / 手柄）─────────────────────
 
         /// <summary>本帧识别出的设备类型（键鼠 / 触屏 / 手柄）。</summary>
         public static RevInputDeviceKind DeviceKind => Core.Snapshot.Device;

@@ -43,7 +43,7 @@
 if (RevInput.Pressed("Jump")) Jump();                          // ② 问"本帧刚按下？"
 float x = RevInput.Axis("MoveX");                              // ③ 问轴（-1..1）</pre>
       <p>绑定可以写在启动时，也可以从存档读（<code>RevInput.LoadBindings(文本)</code>）。</p>
-      <p>剩下的（手势、屏蔽、改键、事件、回放设备）都是<b>用到再看</b>的增值项。</p>
+      <p>剩下的（手势、屏蔽、改键、事件）都是<b>用到再看</b>的增值项。</p>
       <p><b>人话</b> 输入系统 = 你只说"什么动作、什么状态"，剩下的（这个动作是空格还是手柄 A、这根手指算不算点击、弹窗开着要不要挡）它全包。</p>
     </div>
     <div class="table-wrap">
@@ -127,7 +127,6 @@ void Update()
           <tr><td>改键后存档 / 读档</td><td><code>string text = RevInput.SaveBindings();</code> · <code>RevInput.LoadBindings(text)</code></td></tr>
           <tr><td>改键后查冲突</td><td><code>RevInput.FindConflicts()</code>（同一个键绑了两个动作会列出来）</td></tr>
           <tr><td>解绑 / 删动作 / 清空</td><td><code>RevInput.Unbind("Jump")</code> · <code>RemoveAction("Jump")</code> · <code>ClearBindings()</code></td></tr>
-          <tr><td>用自己的设备（回放/AI）</td><td><code>RevInput.RegisterDevice(myDevice)</code>（实现 <code>RevIInputDevice</code>）</td></tr>
           <tr><td>强制设备类型（测试用）</td><td><code>RevInput.ForceDeviceKind(RevInputDeviceKind.Touch)</code></td></tr>
           <tr><td>诊断</td><td><code>RevInput.VerboseLog = true;</code> · <code>Debug.Log(RevInput.Dump())</code> · <code>RevInput.FailedCount</code></td></tr>
         </tbody>
@@ -267,7 +266,7 @@ string conflicts = RevInput.FindConflicts(); // "Space 同时绑给了 Jump 和 
       <table>
         <thead><tr><th>坑</th><th>正确做法</th></tr></thead>
         <tbody>
-          <tr><td>① 业务里直接写 <code>Input.GetKeyDown(KeyCode.Space)</code></td><td>一律走 <code>RevInput.Pressed("动作名")</code> —— 否则改键、屏蔽、缓冲、回放全部失效</td></tr>
+          <tr><td>① 业务里直接写 <code>Input.GetKeyDown(KeyCode.Space)</code></td><td>一律走 <code>RevInput.Pressed("动作名")</code> —— 否则改键、屏蔽、缓冲全部失效</td></tr>
           <tr><td>② 弹窗时把整个模块关掉（<code>SetEnabled(false)</code> 那种写法）</td><td>用 <code>Block(World)</code>；ESC / 返回键要继续可用</td></tr>
           <tr><td>③ 忘记在对象销毁时退订</td><td>订阅时给 <code>owner: this</code>，销毁时 <code>RevInput.OffAllOf(this)</code>（或用 <code>OpenScope()</code>）</td></tr>
           <tr><td>④ 拿 <code>Pressed</code> 当"按住了"用</td><td><code>Pressed</code> 只成立一帧；持续用 <code>Held</code>，松开用 <code>Released</code></td></tr>

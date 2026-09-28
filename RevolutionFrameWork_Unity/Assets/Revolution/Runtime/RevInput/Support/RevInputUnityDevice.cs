@@ -5,7 +5,7 @@
 //
 // 【要解决的问题】
 //   把 Unity 的三套输入（键鼠、触摸、摇杆轴）压成**同一份快照**，内核只认快照。
-//   于是：换 Input System 包、接回放设备、写 AI 设备 —— 都只动这一层。
+//   于是换引擎输入方案（比如换成 Input System 包）只需改这一个文件。
 //
 // 【三条铁律】
 //   ① **键位靠名字映射**：`RevKey` 的成员名与 Unity `KeyCode` 一致，启动时用 `Enum.TryParse` 建表，
@@ -27,10 +27,10 @@ using UnityEngine;
 namespace Revolution
 {
     /// <summary>默认输入设备：读 Unity 的旧输入 API（不依赖 Input System 包）。</summary>
-    internal sealed class RevInputUnityDevice : RevIInputDevice
+    internal sealed class RevInputUnityDevice
     {
-        /// <summary>设备名（日志 / 自检里显示）。</summary>
-        public string Name => "Unity(KeyMouseTouchPad)";
+        /// <summary>采集源名字（自检输出里显示）。</summary>
+        internal string Name => "Unity(KeyMouseTouchPad)";
 
         private readonly KeyCode[] _keyCodes = new KeyCode[RevInputCodes.KeyCount];
         private readonly HashSet<string> _badAxisNames = new HashSet<string>();
@@ -95,8 +95,8 @@ namespace Revolution
             }
         }
 
-        /// <summary>采集一帧（内核每帧调一次）。</summary>
-        public bool Poll(RevInputSnapshot snapshot)
+        /// <summary>采集一帧，写进快照（内核通过采集委托每帧调一次）。</summary>
+        internal void Poll(RevInputSnapshot snapshot)
         {
             RevInputCore core = RevInput.Core;
 
@@ -217,8 +217,6 @@ namespace Revolution
             else if (keyboardActive || mouseActive) _lastKind = RevInputDeviceKind.KeyboardMouse;
             else if (gamepadActive) _lastKind = RevInputDeviceKind.Gamepad;
             snapshot.Device = _lastKind;
-
-            return touchActive || keyboardActive || mouseActive || gamepadActive;
         }
 
         private static readonly string[] _joyAxes =

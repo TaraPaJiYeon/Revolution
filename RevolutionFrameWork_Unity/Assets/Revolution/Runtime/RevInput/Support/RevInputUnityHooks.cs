@@ -47,12 +47,13 @@ namespace Revolution
             RevInput.WorldPointerOverUI = PointerOverUI;
 
             RevInputCore core = RevInput.Core;
-            if (core.Device == null)
+            if (core.Poll == null)
             {
                 var device = new RevInputUnityDevice();
-                core.Device = device;
+                core.Poll = device.Poll;
+                core.SourceName = device.Name;
                 core.AxisProvider = device.ReadAxis;
-                RevInputLog.V("[RevInput] 默认设备已装载：" + device.Name);
+                RevInputLog.V("[RevInput] 采集口已接上：" + device.Name);
             }
         }
 

@@ -8,7 +8,7 @@
 //   这些都在这里完成，而且**一帧只做一次**（业务查询全是读结果，不再重算）。
 //
 // 【三条铁律】
-//   ① **纯 C#**：时间以参数进来、设备以接口注入、日志以委托注入、宿主以委托喊话 ——
+//   ① **纯 C#**：时间以参数进来、采集 / 日志 / 宿主一律以委托注入 ——
 //      所以这个文件能被链接进普通 .NET 工程跑断言（见模块 README 的验收一节）。
 //   ② **零分配**：每帧只有位运算、数组写入与 for 循环；没有 LINQ、没有装箱、没有字符串拼接。
 //   ③ **失败不静默也不炸**：配置类错误记 <see cref="RevInputErrorReason"/> 并走 `Failed` 事件；
@@ -41,8 +41,14 @@ namespace Revolution
         /// <summary>手势识别器。</summary>
         internal readonly RevGestureRecognizer Gestures = new RevGestureRecognizer();
 
-        /// <summary>当前设备（Support 注入 Unity 设备；业务可换成回放 / AI 设备）。</summary>
-        internal RevIInputDevice Device;
+        /// <summary>
+        /// 采集口：由适配层（Support）接上引擎设备，或由测试脚本直接写入快照。
+        /// 内核**不认识任何引擎类型**，只认这个委托 —— 这就是"内核纯 C#"的接缝。
+        /// </summary>
+        internal Action<RevInputSnapshot> Poll;
+
+        /// <summary>采集源名字（只用于自检输出）。</summary>
+        internal string SourceName = "无";
 
         /// <summary>命名轴提供者（Support 接到 <c>Input.GetAxis</c>；纯 C# 环境下为 null = 不支持命名轴）。</summary>
         internal Func<string, float> AxisProvider;
@@ -118,21 +124,22 @@ namespace Revolution
             Snapshot.Realtime = realtime;
             Snapshot.Frame = frame;
 
-            if (Device != null)
+            Action<RevInputSnapshot> poll = Poll;
+            if (poll != null)
             {
                 try
                 {
-                    Device.Poll(Snapshot);
+                    poll(Snapshot);
                 }
                 catch (Exception e)
                 {
-                    // 设备自己坏了不能拖垮整帧输入：隔离 + 继续（本帧按"无输入"处理）
-                    RevInputLog.OnException?.Invoke(e, "Device.Poll(" + Device.Name + ")");
+                    // 采集坏了不能拖垮整帧输入：隔离 + 继续（本帧按"无输入"处理）
+                    RevInputLog.OnException?.Invoke(e, "输入采集(" + SourceName + ")");
                 }
             }
             else
             {
-                RevInputLog.V("[RevInput] 没有设备：可能是 Support 没装（编辑器里正常）或手工替换后忘了 RegisterDevice");
+                RevInputLog.V("[RevInput] 还没接采集口：Support 未装载时正常（纯 C# 跑断言时也如此）");
             }
 
             if (ForcedDeviceKind != RevInputDeviceKind.Unknown)
@@ -439,7 +446,7 @@ namespace Revolution
         internal string Dump()
         {
             var sb = new System.Text.StringBuilder(256);
-            sb.Append("RevInput 设备=").Append(Device != null ? Device.Name : "无")
+            sb.Append("RevInput 采集=").Append(SourceName)
               .Append(" 帧=").Append(Frame)
               .Append(" 动作=").Append(Actions.Count)
               .Append(" 屏蔽=").Append(_blocks.Count)
