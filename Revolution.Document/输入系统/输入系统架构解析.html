@@ -53,14 +53,14 @@
   </section>
   <section id="s2">
     <h2><span class="num">二</span>分层与文件地图</h2>
-    <pre>RevInput/
+    <pre style="margin:10px 0 6px">RevInput/
 ├── Core/            纯 C#（零引擎依赖，可脱机断言）
 │   ├── RevInputDefines    词汇表：设备类型 / 相位 / 手势 / 屏蔽 / 错误码 / 全部默认值
 │   ├── RevInputCodes      键位码表（名字对齐 Unity KeyCode）+ RevKeyMask（零分配键位掩码）
 │   ├── RevInputSnapshot   一帧快照：键位三份掩码 + 鼠标 + 指针数组（复用实例，零分配）
 │   ├── RevInputBinding    一个动作的绑定（键位 / 鼠标键 / 轴）+ 预计算掩码
 │   ├── RevInputActionTable 绑定表 + 全部动作状态（三态 / 轴 / 连发 / 缓冲 / 文本往返 / 冲突检测）
-│   ├── RevGestureRecognizer 7 种手势的识别状态机（阈值全可调）
+│   ├── RevGestureRecognizer <span class="n">7</span> 种手势的识别状态机（阈值全可调）
 │   └── RevInputBlock      屏蔽句柄
 ├── Facade/RevInput   唯一入口（业务只读这个）
 ├── Implementation/
@@ -198,8 +198,7 @@
 </main>
 
 <footer>
-  Revolution · 输入系统　|　源文件（Markdown 版）在本目录同名 .md 文件里　|　
-  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+  Revolution · 输入系统 &nbsp;|&nbsp; 本文是“设计论证”版；想学怎么用请看同目录的《使用说明》 &nbsp;|&nbsp; <a href=https://yokino337088.github.io/Revolution/>在线文档站</a>
 </footer>
 
 </body>
