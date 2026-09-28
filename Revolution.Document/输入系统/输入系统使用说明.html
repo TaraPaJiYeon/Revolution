@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>输入系统 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>输入系统 · 使用说明（手把手教程）</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（先绑动作名，再问"按了没"，键位/触屏/手柄都不用你区分）</p>
+    <p class="meta">读完你能做到：3 分钟绑好跳跃与移动 · 分清"按下 / 按住 / 抬起" · 会用点击/滑动/长按/双指 · 知道弹窗怎么挡输入 · 出问题 3 分钟定位</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s1">〇、它是干什么的</a></li>
+      <li><a href="#s2">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s3">二、&quot;我要做 X&quot; 对照表（全部 API）</a></li>
+      <li><a href="#s4">三、键位、轴与&quot;动作名&quot;约定</a></li>
+      <li><a href="#s5">四、触屏与手势（7 种）</a></li>
+      <li><a href="#s6">五、弹窗 / 暂停：屏蔽输入的正确姿势</a></li>
+      <li><a href="#s7">六、改键与存档（文本格式）</a></li>
+      <li><a href="#s8">七、新手最容易踩的 6 个坑</a></li>
+      <li><a href="#s9">八、出问题怎么查 + 相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s1">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+    <div class="callout good">
+      <span class="t">只学 3 件事就能干活（真的）</span>
+      <pre>RevInput.Bind("Jump", RevKey.Space, RevKey.JoystickButton0);   // ① 绑一次（键盘和手柄一起绑）
+if (RevInput.Pressed("Jump")) Jump();                          // ② 问"本帧刚按下？"
+float x = RevInput.Axis("MoveX");                              // ③ 问轴（-1..1）</pre>
+      <p>绑定可以写在启动时，也可以从存档读（<code>RevInput.LoadBindings(文本)</code>）。</p>
+      <p>剩下的（手势、屏蔽、改键、事件、回放设备）都是<b>用到再看</b>的增值项。</p>
+      <p><b>人话</b> 输入系统 = 你只说"什么动作、什么状态"，剩下的（这个动作是空格还是手柄 A、这根手指算不算点击、弹窗开着要不要挡）它全包。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>键位写死在业务里，改键要改代码</td><td><b>动作名 + 绑定表</b>：业务只写 <code>"Jump"</code>，键位在绑定表里</td></tr>
+          <tr><td>键盘/鼠标/触屏/手柄各写一套</td><td>三套输入压成<b>同一份快照</b>，动作判定只有一份逻辑</td></tr>
+          <tr><td>切后台回来"按键卡住"（角色一直跑）</td><td>隐藏宿主在<b>失焦/切后台时自动复位</b>（抬起事件丢了也不会卡）</td></tr>
+          <tr><td>弹窗打开时手一滑就操作了角色</td><td><code>RevInput.OpenScope()</code> + <code>scope.Block()</code> —— 只挡世界输入，ESC 照常可用</td></tr>
+          <tr><td>触屏手势要自己算（点击/长按/滑动/双指）</td><td>内置 <b>7 种手势</b>，八向滑动带速度、双指捏合/旋转都有</td></tr>
+          <tr><td>"提前 0.15 秒按的跳跃"白按了</td><td><code>RevInput.PressedBuffered("Jump")</code> —— <b>输入缓冲窗口</b>（手感补偿）</td></tr>
+          <tr><td>输入出问题只能猜</td><td>失败带原因码（<code>RevInput.Failed</code>）+ <code>RevInput.Dump()</code> 自检 + <code>VerboseLog</code> 开关</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="s2">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">不用初始化、不用挂脚本、不用写 Update。</p>
+    <pre>void Start()
+{
+    // ① 绑定（一次；写在任意启动代码里都行）
+    RevInput.Bind("Jump", RevKey.Space, RevKey.JoystickButton0);   // 一个动作可绑多个键
+    RevInput.Bind("Fire", RevMouseButton.Left);                    // 鼠标键也是动作
+    RevInput.BindAxis("MoveX", RevKey.A, RevKey.D);                // 键位轴：A 负 / D 正
+    RevInput.BindAxis("MoveY", RevKey.S, RevKey.W);
+}
+
+void Update()
+{
+    // ② 查相位：按下 / 按住 / 抬起
+    if (RevInput.Pressed("Jump"))  Jump();          // 只成立一帧
+    if (RevInput.Held("Fire"))     Shoot();         // 一直按着一直播
+    if (RevInput.Released("Fire")) StopShoot();
+
+    // ③ 查轴（-1..1，已过死区）
+    float x = RevInput.Axis("MoveX");
+    float y = RevInput.Axis("MoveY");
+    var move = RevInput.Vector("Move");             // 约定：读 MoveX / MoveY，返回 (X, Y) 两个 float
+    transform.Translate(new Vector3(move.X, 0f, move.Y) * Time.deltaTime * speed);
+}</pre>
+    <div class="callout">
+      <span class="t">就这样，没有第 4 步</span>
+      <p>第一次用到 <code>RevInput</code> 时会自动创建一个隐藏宿主 <code>[RevInput]</code>（<code>DontDestroyOnLoad</code>，不出现在 Hierarchy）——</p>
+      <p>它每帧采一次输入。<b>业务不摆物体、不挂脚本、不写 Update。</b></p>
+    </div>
+  </section>
+  <section id="s3">
+    <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">左边找需求，右边抄一行。入口统一是 <code>RevInput</code>。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>绑键位（可多个）</td><td><code>RevInput.Bind("Jump", RevKey.Space, RevKey.JoystickButton0)</code></td></tr>
+          <tr><td>绑鼠标键</td><td><code>RevInput.Bind("Fire", RevMouseButton.Left)</code></td></tr>
+          <tr><td>绑键位轴</td><td><code>RevInput.BindAxis("MoveX", RevKey.A, RevKey.D)</code></td></tr>
+          <tr><td>绑命名轴（手柄摇杆 / 滚轮）</td><td><code>RevInput.BindNamedAxis("LookX", "Mouse X")</code>（要在 InputManager 里配好轴名）</td></tr>
+          <tr><td>查"本帧刚按下"</td><td><code>RevInput.Pressed("Jump")</code></td></tr>
+          <tr><td>查"按住"</td><td><code>RevInput.Held("Fire")</code></td></tr>
+          <tr><td>查"本帧刚抬起"</td><td><code>RevInput.Released("Fire")</code></td></tr>
+          <tr><td>查"最近 0.15 秒内按过"（手感补偿）</td><td><code>RevInput.PressedBuffered("Jump")</code> · 自定义窗口 <code>PressedBuffered("Jump", 0.25f)</code></td></tr>
+          <tr><td>查连发（按住自动重复）</td><td><code>RevInput.SetRepeat("Auto", 0.35f, 0.08f)</code> → <code>if (RevInput.Repeat("Auto"))</code></td></tr>
+          <tr><td>查轴 / 查两个轴</td><td><code>RevInput.Axis("MoveX")</code> · <code>RevInput.Vector("Move")</code></td></tr>
+          <tr><td>查按住多久 / 最近按下帧</td><td><code>RevInput.HeldSeconds("Fire")</code> · <code>RevInput.LastPressedFrame("Jump")</code></td></tr>
+          <tr><td>鼠标位置 / 位移 / 滚轮</td><td><code>RevInput.MousePosition</code> · <code>RevInput.MouseDelta</code> · <code>RevInput.MouseScroll</code></td></tr>
+          <tr><td>鼠标键三态</td><td><code>RevInput.MouseButton(RevMouseButton.Right)</code>（默认查"按住"）</td></tr>
+          <tr><td>查有几根手指 / 第几根的信息</td><td><code>RevInput.PointerCount</code> · <code>RevInput.Pointer(i)</code>（含 X/Y/位移/相位/id）</td></tr>
+          <tr><td>判断指针是不是点在 UI 上</td><td><code>RevInput.IsPointerOverUI(RevInput.PointerId(i))</code>（鼠标用默认参数）</td></tr>
+          <tr><td>查手势（7 种）</td><td><code>RevInput.HasGesture(RevGestureKind.Swipe)</code> · <code>RevInput.TryGetGesture(...)</code></td></tr>
+          <tr><td>查滑动（方向 + 速度）</td><td><code>RevInput.Swipe(out var sw)</code> → <code>sw.Direction</code> / <code>sw.Value</code>（像素/秒）</td></tr>
+          <tr><td>查双指缩放 / 旋转</td><td><code>RevInput.PinchScale</code>（1 = 不变）· <code>RevInput.RotateDegrees</code></td></tr>
+          <tr><td>调手势阈值</td><td><code>RevInput.TapMaxSeconds</code> / <code>LongPressSeconds</code> / <code>DragThreshold</code> / <code>SetSwipeThreshold(距离, 速度)</code></td></tr>
+          <tr><td>挡掉世界输入（弹窗/过场/教程）</td><td><code>var b = RevInput.Block()</code> → <code>b.Close()</code>；或 <code>using (var s = RevInput.OpenScope()) { s.Block(); }</code></td></tr>
+          <tr><td>只挡某根手指</td><td><code>RevInput.Block(RevInputBlockKind.Pointer, pointerId)</code>（比如"这根手指在拖镜头"）</td></tr>
+          <tr><td>查屏蔽状态</td><td><code>RevInput.WorldBlocked</code> · <code>RevInput.IsBlocked(RevInputBlockKind.All)</code> · <code>RevInput.BlockCount</code></td></tr>
+          <tr><td>订阅按下/抬起/手势（可选）</td><td><code>RevInput.OnPressed("Jump", OnJump, owner: this)</code> · <code>RevInput.OnGesture(OnAnyGesture, owner: this)</code></td></tr>
+          <tr><td>退订（一行）</td><td><code>RevInput.OffAllOf(this)</code>（事件 + 屏蔽一起清）</td></tr>
+          <tr><td>手动复位（换场景/结算）</td><td><code>RevInput.ResetAll("换场景")</code></td></tr>
+          <tr><td>改键后存档 / 读档</td><td><code>string text = RevInput.SaveBindings();</code> · <code>RevInput.LoadBindings(text)</code></td></tr>
+          <tr><td>改键后查冲突</td><td><code>RevInput.FindConflicts()</code>（同一个键绑了两个动作会列出来）</td></tr>
+          <tr><td>解绑 / 删动作 / 清空</td><td><code>RevInput.Unbind("Jump")</code> · <code>RemoveAction("Jump")</code> · <code>ClearBindings()</code></td></tr>
+          <tr><td>用自己的设备（回放/AI）</td><td><code>RevInput.RegisterDevice(myDevice)</code>（实现 <code>RevIInputDevice</code>）</td></tr>
+          <tr><td>强制设备类型（测试用）</td><td><code>RevInput.ForceDeviceKind(RevInputDeviceKind.Touch)</code></td></tr>
+          <tr><td>诊断</td><td><code>RevInput.VerboseLog = true;</code> · <code>Debug.Log(RevInput.Dump())</code> · <code>RevInput.FailedCount</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="s4">
+    <h2><span class="num">三</span>键位、轴与"动作名"约定</h2>
+    <p class="lead">只有三条约定要记。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>约定</th><th>说明</th><th>例子</th></tr></thead>
+        <tbody>
+          <tr><td><b>动作名 = 业务语义</b></td><td>用动词或能力名，不用键名（否则改键时全项目搜字符串）</td><td><code>"Jump"</code> / <code>"Fire"</code> / <code>"Interact"</code></td></tr>
+          <tr><td><b>轴用后缀 X / Y</b></td><td><code>Vector("Move")</code> 会去读 <code>MoveX</code> 与 <code>MoveY</code> 两个动作</td><td><code>BindAxis("MoveX", A, D)</code> + <code>BindAxis("MoveY", S, W)</code></td></tr>
+          <tr><td><b>键位名与 Unity KeyCode 一致</b></td><td>写 <code>RevKey.Space</code> / <code>RevKey.JoystickButton0</code> / <code>RevKey.LeftShift</code>，不用记数值</td><td>手柄键就是 <code>JoystickButton0..19</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="t">轴返回的是"两个 float"，不是 Vector2</span>
+      <p>内核刻意不引用 UnityEngine（这样能脱机跑断言），所以返回 <code>RevInputVector2</code>。</p>
+      <p>需要 Unity 类型就自己转：<code>new Vector3(v.X, 0f, v.Y)</code>。</p>
+    </div>
+    <p><b>手柄要额外做一步</b>：摇杆这类"模拟量"要走命名轴 —— 在 <code>Project Settings → Input Manager</code> 里确认有 <code>Horizontal</code> / <code>Vertical</code>（Unity 默认自带），然后</p>
+    <pre>RevInput.BindNamedAxis("LookX", "Mouse X");
+RevInput.BindAxis("MoveX", RevKey.A, RevKey.D);      // 或者：手柄也用命名轴</pre>
+    <p>没配轴名时会<b>按 0 处理并只报警一次</b>（不会每帧刷屏）。</p>
+  </section>
+  <section id="s5">
+    <h2><span class="num">四</span>触屏与手势（7 种）</h2>
+    <p class="lead">编辑器里用鼠标拖拽就能试：Unity 默认会模拟触摸（<code>Input.simulateMouseWithTouches</code>）。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>手势</th><th>怎么用</th><th>参数</th></tr></thead>
+        <tbody>
+          <tr><td><b>Tap 轻点</b></td><td><code>RevInput.Tap(out var t)</code> → <code>t.X / t.Y</code></td><td>最长按住 <code>TapMaxSeconds</code>、最大位移 <code>TapMaxDistance</code></td></tr>
+          <tr><td><b>DoubleTap 双击</b></td><td><code>RevInput.HasGesture(RevGestureKind.DoubleTap)</code></td><td>间隔 <code>DoubleTapSeconds</code>（默认 0.3s）</td></tr>
+          <tr><td><b>LongPress 长按</b></td><td><code>RevInput.HasGesture(RevGestureKind.LongPress)</code></td><td>门槛 <code>LongPressSeconds</code>（默认 0.5s，只报一次）</td></tr>
+          <tr><td><b>Drag 拖动</b></td><td><code>RevInput.Gesture(i)</code> → <code>DeltaX / DeltaY</code>（每帧一条）</td><td>门槛 <code>DragThreshold</code>（默认 8 像素）</td></tr>
+          <tr><td><b>Swipe 滑动</b></td><td><code>RevInput.Swipe(out var sw)</code> → <code>sw.Direction</code>（八向）+ <code>sw.Value</code>（速度）</td><td><code>SetSwipeThreshold(距离, 速度)</code></td></tr>
+          <tr><td><b>Pinch 捏合</b></td><td><code>RevInput.PinchScale</code>（本帧缩放比例，1 = 不变）</td><td>双指</td></tr>
+          <tr><td><b>Rotate 旋转</b></td><td><code>RevInput.RotateDegrees</code>（本帧角度增量，度）</td><td>双指</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre>// 相机缩放（双指）
+if (RevInput.HasGesture(RevGestureKind.Pinch))
+    camera.orthographicSize = Mathf.Clamp(camera.orthographicSize / RevInput.PinchScale, 2f, 12f);
+
+// 闪避（四向滑动）
+if (RevInput.Swipe(out var sw))
+{
+    switch (sw.Direction)
+    {
+        case RevSwipeDirection.Left:  Dodge(Vector3.left);  break;
+        case RevSwipeDirection.Right: Dodge(Vector3.right); break;
+        // 斜向也能收到：UpLeft / UpRight / DownLeft / DownRight
+    }
+}</pre>
+    <div class="callout good">
+      <span class="t">手势是"世界输入"，会被 <code>Block(World)</code> 一起挡掉</span>
+      <p>而且<b>不会秋后算账</b>：被屏蔽期间开始的手势，抬手时不会补发 Tap/Swipe ——</p>
+      <p>否则"关掉弹窗"就会莫名其妙多出一次点击（这是触屏最常见的手感 bug）。</p>
+    </div>
+  </section>
+  <section id="s6">
+    <h2><span class="num">五</span>弹窗 / 暂停：屏蔽输入的正确姿势</h2>
+    <p class="lead">弹窗打开时：挡世界输入，<b>但不要</b>把整个模块关掉（ESC、返回键会一起失灵）。</p>
+    <pre>// ① 最省心：作用域（出块自动解除屏蔽 + 自动退订事件）
+using (var scope = RevInput.OpenScope())
+{
+    scope.Block();                                       // 只挡世界输入（动作 + 手势）
+    scope.OnPressed("Confirm", Save);                    // 事件也挂在这个作用域上
+    ShowDialog();
+}   // 出块：屏蔽解除，事件全部退订
+
+// ② 手动管句柄
+var block = RevInput.Block();
+…
+block.Close();
+
+// ③ 只挡某根手指（比如"左手在拖镜头，右手点技能"）
+RevInputBlock pinch = RevInput.Block(RevInputBlockKind.Pointer, RevInput.PointerId(0));
+
+// ④ 全挡（过场/加载：指针位置也读不到）
+RevInput.Block(RevInputBlockKind.All);</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>场景</th><th>用什么</th></tr></thead>
+        <tbody>
+          <tr><td>弹窗、设置面板、暂停菜单</td><td><code>Block(World)</code>（默认）</td></tr>
+          <tr><td>教程遮罩（只让点指定区域）</td><td><code>Block(World)</code> + 自己判断 <code>IsPointerOverUI()</code></td></tr>
+          <tr><td>过场动画、加载</td><td><code>Block(All)</code></td></tr>
+          <tr><td>"这根手指归摇杆，别当点击"</td><td><code>Block(Pointer, pointerId)</code></td></tr>
+          <tr><td>对象销毁时的兜底</td><td><code>RevInput.OffAllOf(this)</code>（事件 + 屏蔽一起清）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="t">"点在 UI 上"永远由你自己判</span>
+      <p><code>RevInput.IsPointerOverUI(id)</code> 会问 UI 系统的 <code>EventSystem</code>（框架不去改 EventSystem）。</p>
+      <p>常见写法：<code>if (RevInput.Tap(out var t) &amp;&amp; !RevInput.IsPointerOverUI(t.PointerId)) { 处理世界点击 }</code>。</p>
+      <p>UI 按钮请用 UI 系统自己的回调（<code>RevUIPanel.OnClick</code>）—— 本模块只管世界输入。</p>
+    </div>
+  </section>
+  <section id="s7">
+    <h2><span class="num">六</span>改键与存档（文本格式）</h2>
+    <p class="lead">绑定表可以整体导出/载入，玩家改键就存这段文本。</p>
+    <pre># RevInput 绑定表（动作 = 输入源, ...）
+Jump  = Space, JoystickButton0
+Fire  = Mouse0
+MoveX = -A, +D
+MoveY = -S, +W
+LookX = axis:Mouse X</pre>
+    <pre>string text = RevInput.SaveBindings();      // 导出（存 PlayerPrefs / 文件都行）
+RevInput.LoadBindings(text);                // 载入（整体替换，不是合并）
+if (RevInput.LoadBindings(badText) == false) RevInput.Failed += (reason, detail) =&gt; …;   // 坏存档被拒绝且不落地
+string conflicts = RevInput.FindConflicts(); // "Space 同时绑给了 Jump 和 Dash"（改键后必须查一次）</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>规则</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>#</code> 开头</td><td>注释行，忽略</td></tr>
+          <tr><td><code>动作 = 输入源, 输入源</code></td><td>键位直接写名字；鼠标写 <code>Mouse0..Mouse4</code></td></tr>
+          <tr><td><code>-A</code> / <code>+D</code></td><td>键位轴（负向 / 正向）</td></tr>
+          <tr><td><code>axis:名字</code></td><td>命名轴（<code>axis:Mouse X</code>；末尾加 <code>-</code> 表示取反）</td></tr>
+          <tr><td><code>deadzone=0.2</code></td><td>可选：覆盖这个动作的死区</td></tr>
+          <tr><td><b>解析失败</b></td><td>整体拒绝、旧绑定保留（不会出现"载入一半"的坏状态），原因走 <code>RevInput.Failed</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="s8">
+    <h2><span class="num">七</span>新手最容易踩的 6 个坑</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 业务里直接写 <code>Input.GetKeyDown(KeyCode.Space)</code></td><td>一律走 <code>RevInput.Pressed("动作名")</code> —— 否则改键、屏蔽、缓冲、回放全部失效</td></tr>
+          <tr><td>② 弹窗时把整个模块关掉（<code>SetEnabled(false)</code> 那种写法）</td><td>用 <code>Block(World)</code>；ESC / 返回键要继续可用</td></tr>
+          <tr><td>③ 忘记在对象销毁时退订</td><td>订阅时给 <code>owner: this</code>，销毁时 <code>RevInput.OffAllOf(this)</code>（或用 <code>OpenScope()</code>）</td></tr>
+          <tr><td>④ 拿 <code>Pressed</code> 当"按住了"用</td><td><code>Pressed</code> 只成立一帧；持续用 <code>Held</code>，松开用 <code>Released</code></td></tr>
+          <tr><td>⑤ 手势与 UI 抢：点按钮时还触发了世界点击</td><td>先 <code>if (RevInput.IsPointerOverUI(id)) return;</code></td></tr>
+          <tr><td>⑥ 切场景/结算后输入状态没清</td><td><code>RevInput.ResetAll("换场景")</code>（失焦已自动处理，这一步是保险）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="s9">
+    <h2><span class="num">八</span>出问题怎么查 + 相关文档</h2>
+    <p><b>3 分钟定位</b>：</p>
+    <ol>
+      <li><b>打开诊断</b>：<code>RevInput.VerboseLog = true;</code> → 绑定、屏蔽、设备切换都会走 <code>RevLog</code> 的 <code>Input</code> 标签；</li>
+      <li><b>看自检</b>：<code>Debug.Log(RevInput.Dump())</code> → 设备名 / 动作数 / 屏蔽数 / 监听数 / 指针数 / 累计帧数；</li>
+      <li><b>看失败</b>：<code>RevInput.FailedCount</code>（不为 0 就订阅 <code>RevInput.Failed</code> 看原因码：键位名不认识 / 动作名非法 / 存档格式错…）；</li>
+      <li><b>常见症状</b>：</li>
+      <li>按键没反应 → ① 这个动作绑了吗（<code>ActionCount</code>）② 键位名与 <code>KeyCode</code> 一致吗（不一致启动时会有一条 Warn）③ 是不是被 <code>Block</code> 挡住了（<code>RevInput.ActionBlocked("Jump")</code> 能区分"没按"与"被挡"）；</li>
+      <li>切回来角色一直跑 → 说明有别的代码自己读了 <code>Input</code>（本模块的宿主会自动复位）；</li>
+      <li>手势不触发 → 编辑器里确认 <code>Input.simulateMouseWithTouches</code> 为 true（用鼠标模拟触摸），或调低 <code>SetSwipeThreshold</code>。</li>
+    </ol>
+    <p><b>相关文档</b>：</p>
+    <ul>
+      <li><a href="输入系统架构解析.md">《输入系统 · 架构解析》</a> —— 设计论证：为什么这么分层、每帧到底做了什么、与"为帧同步设计的输入方案"相比取了什么舍了什么</li>
+      <li><a href="../UI系统/UI系统使用说明.md">《UI 系统 · 使用说明》</a> —— UI 按钮点击走它，输入模块只管世界输入</li>
+      <li><a href="../公共Mono模块/公共Mono模块使用说明.md">《公共 Mono 模块 · 使用说明》</a> —— 纯 C# 类要每帧跑就用它</li>
+      <li><a href="../README.md">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 输入系统　|　源文件（Markdown 版）在本目录同名 .md 文件里　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

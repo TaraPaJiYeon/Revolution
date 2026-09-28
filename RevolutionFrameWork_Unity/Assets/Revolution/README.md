@@ -4,7 +4,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-2022.3%2B-blue.svg?style=flat-square)](https://unity.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/Yokino337088/Revolution/blob/main/LICENSE)
-[![Modules](https://img.shields.io/badge/Runtime%20模块-15%20个-brightgreen.svg?style=flat-square)](https://github.com/Yokino337088/Revolution)
+[![Modules](https://img.shields.io/badge/Runtime%20模块-16%20个-brightgreen.svg?style=flat-square)](https://github.com/Yokino337088/Revolution)
 
 ---
 
@@ -22,7 +22,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 
 ## ✨ 特点
 
-- 🧩 **模块化** - 15 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevLog` …），可单独拿走、可整块删除
+- 🧩 **模块化** - 16 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevInput` / `RevLog` …），可单独拿走、可整块删除
 - 🧪 **可脱离 Unity 验证** - 内核是纯 C#，链接进普通 .NET 工程就能跑断言（145 条，不打开 Unity）
 - 🛡 **防漏防崩** - 句柄代际校验、`owner` / 作用域一行清理、逐回调异常隔离、失败必带原因枚举
 - 📦 **编辑器工具齐** - LiteAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具

@@ -7,14 +7,14 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
 [![Issues](https://img.shields.io/github/issues/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution/issues)
 [![Top Language](https://img.shields.io/github/languages/top/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
-[![Runtime](https://img.shields.io/badge/Runtime%20模块-15%20个%20·%202.1%20万行-brightgreen?style=flat-square)](#-核心模块)
+[![Runtime](https://img.shields.io/badge/Runtime%20模块-16%20个%20·%202.4%20万行-brightgreen?style=flat-square)](#-核心模块)
 
 ---
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**15 个运行期模块 + 2 套编辑器工具**（Runtime 147 个 `.cs` / 约 2.1 万行），
-覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 162 个 `.cs` / 约 2.4 万行），
+覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：本框架不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
 > （AB 只从本机 `StreamingAssets` 读）。要上线带热更的项目，请先看 [**不做什么：热更新与远程更新**](#-不做什么热更新与远程更新) ——
@@ -243,6 +243,16 @@ git clone https://github.com/Yokino337088/Revolution.git
 - ✅ **一行防泄漏**：`owner: this` + `RevTimer.CancelAllOf(this)`，或 `using (RevTimer.OpenScope())`
 - ✅ 数值实测：**1000 个计时器每帧 0.0139ms**；1 秒循环跑 10 分钟 = 恰好 600 次（无漂移）
 
+### ⌨️ 输入系统（RevInput）
+
+- ✅ **动作名绑定**：业务只写 `RevInput.Pressed("Jump")`，键位/鼠标/触屏/手柄怎么绑由绑定表决定（`RevInput.Bind(...)`，或从存档 `LoadBindings` 读）
+- ✅ **键鼠 + 触屏 + 手柄全覆盖**：三套输入压成同一份快照，判定只有一份逻辑；设备类型自动识别
+- ✅ **7 种手势**：点击 / 双击 / 长按 / 拖动 / **八向滑动（带速度）** / 双指捏合 / 双指旋转，阈值全可调
+- ✅ **屏蔽栈（精确到指针）**：`using (var s = RevInput.OpenScope()) { s.Block(); }` —— 弹窗挡世界输入、ESC 照常可用；屏蔽期间**仍记按下时间**，解除瞬间缓冲输入立刻生效
+- ✅ **手感补偿**：输入缓冲窗口 `PressedBuffered(action, 0.15s)`、连发节拍 `SetRepeat`、死区 `SetDeadzone`
+- ✅ **切后台自动复位**：失焦/切后台清按键与手势（"切回来角色一直跑"的解药）
+- ✅ **可断言 + 零分配**：Core/Facade 零引擎依赖，**68 条断言工程外跑通**（含 600 帧零分配）；设备契约 `RevIInputDevice` 可接回放 / AI
+
 ### 📝 日志（RevLog）
 
 - ✅ **级别就是成本契约**：`RevLog.Debug` 正式包**编译期删除**（连字符串拼接都不发生）
@@ -296,23 +306,26 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，15 个模块 / 147 个 `.cs` / 21,169 行）
+**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 162 个 `.cs` / 24,479 行）
 
-| 模块 | 《使用说明》 | 《架构解析》 |
+| 模块 | 一句话 | 规模 |
 |---|---|---|
-| 📝 日志系统 | [网页](https://yokino337088.github.io/Revolution/日志系统/日志系统使用说明.html) · [md](Revolution.Document/日志系统/日志系统使用说明.md) | — |
-| ⏱ 计时器系统 | [网页](https://yokino337088.github.io/Revolution/计时器系统/计时器系统使用说明.html) · [md](Revolution.Document/计时器系统/计时器系统使用说明.md) | — |
-| 🧵 公共Mono模块 | [网页](https://yokino337088.github.io/Revolution/公共Mono模块/公共Mono模块使用说明.html) · [md](Revolution.Document/公共Mono模块/公共Mono模块使用说明.md) | — |
-| 📦 资源加载系统 | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统使用说明.html) · [md](Revolution.Document/资源加载系统/资源加载系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统架构解析.html) · [md](Revolution.Document/资源加载系统/资源加载系统架构解析.md) |
-| 🎨 UI系统 | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统使用说明.html) · [md](Revolution.Document/UI系统/UI系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统架构解析.html) · [md](Revolution.Document/UI系统/UI系统架构解析.md) |
-| 🎬 动作序列 | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列使用说明.html) · [md](Revolution.Document/动作序列/动作序列使用说明.md) | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列架构解析.html) · [md](Revolution.Document/动作序列/动作序列架构解析.md) |
-| 🎮 状态机 | [网页](https://yokino337088.github.io/Revolution/状态机/状态机使用说明.html) · [md](Revolution.Document/状态机/状态机使用说明.md) | [网页](https://yokino337088.github.io/Revolution/状态机/状态机架构解析.html) · [md](Revolution.Document/状态机/状态机架构解析.md) · [网页](https://yokino337088.github.io/Revolution/状态机/状态机Demo示例讲解.html) · [md](Revolution.Document/状态机/状态机Demo示例讲解.md) |
-| 🔊 音效系统 | [网页](https://yokino337088.github.io/Revolution/音效系统/音效系统使用说明.html) · [md](Revolution.Document/音效系统/音效系统使用说明.md) | — |
-| 📣 事件系统 | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统使用说明.html) · [md](Revolution.Document/事件系统/事件系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统架构解析.html) · [md](Revolution.Document/事件系统/事件系统架构解析.md) |
-| 📦 对象池 | [网页](https://yokino337088.github.io/Revolution/对象池/对象池使用说明.html) · [md](Revolution.Document/对象池/对象池使用说明.md) | [网页](https://yokino337088.github.io/Revolution/对象池/对象池架构解析.html) · [md](Revolution.Document/对象池/对象池架构解析.md) |
-| 🧭 服务定位器 | [网页](https://yokino337088.github.io/Revolution/服务定位器/服务定位器使用说明.html) · [md](Revolution.Document/服务定位器/服务定位器使用说明.md) | [网页](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
-| 🕹 GM指令 | [网页](https://yokino337088.github.io/Revolution/GM指令/GM指令使用说明.html) · [md](Revolution.Document/GM指令/GM指令使用说明.md) | — |
-| 📊 导表工具 | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具使用说明.html) · [md](Revolution.Document/导表工具/导表工具使用说明.md) | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具架构解析.html) · [md](Revolution.Document/导表工具/导表工具架构解析.md) · [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具对比与设计说明.html) · [md](Revolution.Document/导表工具/导表工具对比与设计说明.md) |
+| `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
+| `RevInput` | 输入：动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 缓冲与连发 / 改键存档 | 15 / 3,310 |
+| `RevUISystem` | UI：面板声明式配置、层级、与资源池联动 | 17 / 3,457 |
+| `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
+| `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
+| `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |
+| `RevTimer` | 计时器：四时间域、句柄代际、作用域、秒表 | 10 / 1,414 |
+| `RevLog` | 日志：分级（Debug 编译期零成本）、tag 静默、重复抑制、环形缓冲、异步落盘、上报 | 8 / 1,053 |
+| `RevPublicMono` | 公共 Mono：给纯 C# 类每帧回调与协程宿主 | 6 / 662 |
+| `RevEventSystem` | 事件：强类型事件 + 订阅句柄 | 5 / 1,093 |
+| `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 11 / 1,023 |
+| `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,037 |
+| `DataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 714 |
+| `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 702 |
+| `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 639 |
+| `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |
 
 **编辑器**（`Assets/Revolution/Editor/`，2 套工具 / 22 个 `.cs` / 5,589 行）
 
@@ -329,7 +342,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 Revolution/
 ├── RevolutionFrameWork_Unity/            Unity 工程
 │   ├── Assets/Revolution/                  ★ 框架本体（包分支的仓库根就是它）
-│   │   ├── Runtime/                            15 个运行期模块（RevResourceSystem / RevUISystem / …）
+│   │   ├── Runtime/                            16 个运行期模块（RevResourceSystem / RevUISystem / RevInput / …）
 │   │   ├── Editor/                             编辑器工具（LiteAB 打包 / GM 面板）
 │   │   ├── Generation/                         生成的路径常量（RevResPath.cs）
 │   │   ├── Resources/                          框架自带运行时资源（ResMap、UI 预制体）
@@ -374,26 +387,27 @@ Revolution/
 
 | 模块 | 《使用说明》手把手 | 《架构解析》设计论证 |
 |---|---|---|
-| 📝 日志系统 | [日志系统使用说明](Revolution.Document/日志系统/日志系统使用说明.md) | — |
-| ⏱ 计时器系统 | [计时器系统使用说明](Revolution.Document/计时器系统/计时器系统使用说明.md) | — |
-| 🧵 公共 Mono 模块 | [公共Mono模块使用说明](Revolution.Document/公共Mono模块/公共Mono模块使用说明.md) | — |
-| 📦 资源加载系统 | [资源加载系统使用说明](Revolution.Document/资源加载系统/资源加载系统使用说明.md) | ✅ [架构解析](Revolution.Document/资源加载系统/资源加载系统架构解析.md) |
-| 🎨 UI 系统 | [UI系统使用说明](Revolution.Document/UI系统/UI系统使用说明.md) | ✅ [架构解析](Revolution.Document/UI系统/UI系统架构解析.md) |
-| 🎬 动作序列 | [动作序列使用说明](Revolution.Document/动作序列/动作序列使用说明.md) | ✅ [架构解析](Revolution.Document/动作序列/动作序列架构解析.md) |
-| 🎮 状态机 | [状态机使用说明](Revolution.Document/状态机/状态机使用说明.md) | ✅ [架构解析](Revolution.Document/状态机/状态机架构解析.md) · [Demo 示例讲解](Revolution.Document/状态机/状态机Demo示例讲解.md) |
-| 🔊 音效系统 | [音效系统使用说明](Revolution.Document/音效系统/音效系统使用说明.md) | — |
-| 📣 事件系统 | [事件系统使用说明](Revolution.Document/事件系统/事件系统使用说明.md) | ✅ [架构解析](Revolution.Document/事件系统/事件系统架构解析.md) |
-| 📦 对象池 | [对象池使用说明](Revolution.Document/对象池/对象池使用说明.md) | ✅ [架构解析](Revolution.Document/对象池/对象池架构解析.md) |
-| 🧭 服务定位器 | [服务定位器使用说明](Revolution.Document/服务定位器/服务定位器使用说明.md) | ✅ [依赖注入 vs 服务定位器](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
-| 🕹 GM 指令 | [GM指令使用说明](Revolution.Document/GM指令/GM指令使用说明.md) | — |
-| 📊 导表工具 | [导表工具使用说明](Revolution.Document/导表工具/导表工具使用说明.md) | ✅ [架构解析](Revolution.Document/导表工具/导表工具架构解析.md) · [对比与设计说明](Revolution.Document/导表工具/导表工具对比与设计说明.md) |
+| 📝 日志系统 | [网页](https://yokino337088.github.io/Revolution/日志系统/日志系统使用说明.html) · [md](Revolution.Document/日志系统/日志系统使用说明.md) | — |
+| ⏱ 计时器系统 | [网页](https://yokino337088.github.io/Revolution/计时器系统/计时器系统使用说明.html) · [md](Revolution.Document/计时器系统/计时器系统使用说明.md) | — |
+| 🧵 公共Mono模块 | [网页](https://yokino337088.github.io/Revolution/公共Mono模块/公共Mono模块使用说明.html) · [md](Revolution.Document/公共Mono模块/公共Mono模块使用说明.md) | — |
+| 📦 资源加载系统 | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统使用说明.html) · [md](Revolution.Document/资源加载系统/资源加载系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/资源加载系统/资源加载系统架构解析.html) · [md](Revolution.Document/资源加载系统/资源加载系统架构解析.md) |
+| ⌨️ 输入系统 | [网页](https://yokino337088.github.io/Revolution/输入系统/输入系统使用说明.html) · [md](Revolution.Document/输入系统/输入系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/输入系统/输入系统架构解析.html) · [md](Revolution.Document/输入系统/输入系统架构解析.md) |
+| 🎨 UI系统 | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统使用说明.html) · [md](Revolution.Document/UI系统/UI系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/UI系统/UI系统架构解析.html) · [md](Revolution.Document/UI系统/UI系统架构解析.md) |
+| 🎬 动作序列 | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列使用说明.html) · [md](Revolution.Document/动作序列/动作序列使用说明.md) | [网页](https://yokino337088.github.io/Revolution/动作序列/动作序列架构解析.html) · [md](Revolution.Document/动作序列/动作序列架构解析.md) |
+| 🎮 状态机 | [网页](https://yokino337088.github.io/Revolution/状态机/状态机使用说明.html) · [md](Revolution.Document/状态机/状态机使用说明.md) | [网页](https://yokino337088.github.io/Revolution/状态机/状态机架构解析.html) · [md](Revolution.Document/状态机/状态机架构解析.md) · [网页](https://yokino337088.github.io/Revolution/状态机/状态机Demo示例讲解.html) · [md](Revolution.Document/状态机/状态机Demo示例讲解.md) |
+| 🔊 音效系统 | [网页](https://yokino337088.github.io/Revolution/音效系统/音效系统使用说明.html) · [md](Revolution.Document/音效系统/音效系统使用说明.md) | — |
+| 📣 事件系统 | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统使用说明.html) · [md](Revolution.Document/事件系统/事件系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统架构解析.html) · [md](Revolution.Document/事件系统/事件系统架构解析.md) |
+| 📦 对象池 | [网页](https://yokino337088.github.io/Revolution/对象池/对象池使用说明.html) · [md](Revolution.Document/对象池/对象池使用说明.md) | [网页](https://yokino337088.github.io/Revolution/对象池/对象池架构解析.html) · [md](Revolution.Document/对象池/对象池架构解析.md) |
+| 🧭 服务定位器 | [网页](https://yokino337088.github.io/Revolution/服务定位器/服务定位器使用说明.html) · [md](Revolution.Document/服务定位器/服务定位器使用说明.md) | [网页](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
+| 🕹 GM指令 | [网页](https://yokino337088.github.io/Revolution/GM指令/GM指令使用说明.html) · [md](Revolution.Document/GM指令/GM指令使用说明.md) | — |
+| 📊 导表工具 | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具使用说明.html) · [md](Revolution.Document/导表工具/导表工具使用说明.md) | [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具架构解析.html) · [md](Revolution.Document/导表工具/导表工具架构解析.md) · [网页](https://yokino337088.github.io/Revolution/导表工具/导表工具对比与设计说明.html) · [md](Revolution.Document/导表工具/导表工具对比与设计说明.md) |
 
 > 📂 全部文档的文件清单与命名规则见 [`Revolution.Document/README.md`](Revolution.Document/README.md)。
 
 ### 代码里的"3 分钟上手"
 
 `Assets/Revolution/Runtime/` 下这些模块自带 `README.md`：
-`RevSoundSystem` · `RevActionSequence` · `RevGMCommand` · `RevTimer` · `RevLog` · `RevPublicMono`
+`RevSoundSystem` · `RevActionSequence` · `RevGMCommand` · `RevTimer` · `RevInput` · `RevLog` · `RevPublicMono`
 
 ---
 
