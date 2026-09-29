@@ -166,6 +166,12 @@ namespace Revolution
         /// <summary>某个按钮被点击（nodeName = 节点名）</summary>
         protected virtual void OnClick(string nodeName) { }
 
+        /// <summary>某个控件被长按（按住超过 <c>RevUISetting.ButtonLongPressSeconds</c> 后松开）</summary>
+        protected virtual void OnLongPress(string nodeName) { }
+
+        /// <summary>指针在某个控件上松开（无论按了多久；"松手就停"的操作走这里）</summary>
+        protected virtual void OnLoosen(string nodeName) { }
+
         /// <summary>某个 Toggle 的选中状态变化</summary>
         protected virtual void OnToggleChanged(string nodeName, bool value) { }
 
@@ -344,7 +350,23 @@ namespace Revolution
         // IRevUIUserEvents（绑定器把控件事件转到这里；显式实现，不污染业务 API）
         // ============================================================
 
-        void IRevUIUserEvents.DispatchClick(string nodeName) => RevUILog.Guard($"OnClick({nodeName})", () => OnClick(nodeName));
+        void IRevUIUserEvents.DispatchClick(string nodeName) => RevUILog.Guard($"OnClick({nodeName})", () =>
+        {
+            OnClick(nodeName);
+            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.Click);        // 方法特性那条路
+        });
+
+        void IRevUIUserEvents.DispatchLongPress(string nodeName) => RevUILog.Guard($"OnLongPress({nodeName})", () =>
+        {
+            OnLongPress(nodeName);
+            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.LongPress);
+        });
+
+        void IRevUIUserEvents.DispatchLoosen(string nodeName) => RevUILog.Guard($"OnLoosen({nodeName})", () =>
+        {
+            OnLoosen(nodeName);
+            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.Loosen);
+        });
         void IRevUIUserEvents.DispatchToggleChanged(string nodeName, bool value) => RevUILog.Guard($"OnToggleChanged({nodeName})", () => OnToggleChanged(nodeName, value));
         void IRevUIUserEvents.DispatchSliderChanged(string nodeName, float value) => RevUILog.Guard($"OnSliderChanged({nodeName})", () => OnSliderChanged(nodeName, value));
         void IRevUIUserEvents.DispatchInputChanged(string nodeName, string value) => RevUILog.Guard($"OnInputChanged({nodeName})", () => OnInputChanged(nodeName, value));

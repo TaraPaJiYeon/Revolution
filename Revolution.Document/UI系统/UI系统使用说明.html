@@ -129,7 +129,35 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
   </section>
 
   <section id="s2">
-    <h2><span class="num">二</span>面板的生命周期（谁先谁后）</h2>
+      <h3>控件事件的三种接法（挑一种就用，能混用）</h3>
+    <p>同一个控件的事件，框架给三条路 —— <b>都可用、可混用</b>，按场景挑：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>接法</th><th>长什么样</th><th>什么时候选它</th></tr></thead>
+        <tbody>
+          <tr><td>① <b>方法特性</b>（最省事）</td><td><code>[RevButtonClick("btnStart")] void OnStart() =&gt; StartGame();</code></td><td>"点一下做一件事"：不写绑定字段、不重写回调，方法上标个特性就行</td></tr>
+          <tr><td>② <b>按节点名分发</b></td><td><code>protected override void OnClick(string nodeName) { … }</code></td><td>一个面板上按钮很多、想集中处理（<code>switch (nodeName)</code>）</td></tr>
+          <tr><td>③ <b>绑字段 + 自己挂监听</b>（最灵活）</td><td><code>[RevBind] Button _btn;</code> → <code>_btn.onClick.AddListener(...)</code></td><td>要用 UGUI 的其它回调（拖拽 / 悬停…）或接第三方控件</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>方法特性一共三个（标在面板 / Part 的<b>任意方法</b>上，签名支持 <code>void M()</code> 或 <code>void M(string nodeName)</code>）：</p>
+    <pre style="margin:10px 0 6px"><span class="c">// 控件名 = 节点名（区分大小写）；写多级路径时只取最后一段（"Top/btnStart" 等价于 "btnStart"）</span>
+[RevButtonClick(<span class="s">"btnStart"</span>)]     <span class="k">void</span> OnStart()     =&gt; StartGame();     <span class="c">// ① 点击</span>
+[RevButtonLongPress(<span class="s">"btnSkill"</span>)] <span class="k">void</span> OnSkillHold() =&gt; ShowSkillTip();  <span class="c">// ② 长按（按住 ≥ 0.5s 后松开）</span>
+[RevButtonLoosen(<span class="s">"btnMove"</span>)]     <span class="k">void</span> OnMoveUp()    =&gt; StopMove();      <span class="c">// ③ 松开（指针在控件上抬起）</span>
+
+<span class="c">// 同一个控件可以挂多个方法（都会被调用）；带参数的那个能拿到节点名</span>
+[RevButtonClick(<span class="s">"btnBuy"</span>)]       <span class="k">void</span> OnBuy(<span class="k">string</span> nodeName) =&gt; Buy(nodeName);</pre>
+    <div class="callout warn">
+      <span class="t">四条要记住的</span>
+      <p>· <b>长按的判定</b>：按住时长 ≥ <code>RevUISetting.ButtonLongPressSeconds</code>（默认 0.5 秒），<b>松开时</b>触发长按；同一次操作也会触发"松开"（不会和"点击"抢同一瞬间）。</p>
+      <p>· <b>长按 / 松开只对 Button 生效</b>（UGUI 的 Button 本身不报这两个事件，框架给交互节点挂了一个小继电器）；自研控件用 <code>RevUI.RegisterAutoEvent&lt;T&gt;((d, c) =&gt; { … d.LongPress() … d.Loosen() })</code> 接进来。</p>
+      <p>· <b>控件名写错会当场报错</b>：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。</p>
+      <p style="margin-bottom:0">· 同一次点击里，"重写的 <code>OnClick(节点名)</code>"和"方法特性"<b>两条路都会走到</b> —— 同一件事只放一处做。</p>
+    </div>
+
+  <h2><span class="num">二</span>面板的生命周期（谁先谁后）</h2>
     <p class="lead">只要记住"创建一次、打开很多次"这一点，其余照着图用。</p>
 
     <div class="flow">

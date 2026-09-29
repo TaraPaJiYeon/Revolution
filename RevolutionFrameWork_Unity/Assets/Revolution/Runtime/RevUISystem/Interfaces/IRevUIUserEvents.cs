@@ -18,6 +18,13 @@ namespace Revolution
     internal interface IRevUIUserEvents
     {
         void DispatchClick(string nodeName);
+
+        /// <summary>控件被长按（按住超过 <c>RevUISetting.ButtonLongPressSeconds</c> 后松开；由 RevUIButtonPressRelay 报告）</summary>
+        void DispatchLongPress(string nodeName);
+
+        /// <summary>指针在控件上松开（无论按了多久；由 RevUIButtonPressRelay 报告）</summary>
+        void DispatchLoosen(string nodeName);
+
         void DispatchToggleChanged(string nodeName, bool value);
         void DispatchSliderChanged(string nodeName, float value);
         void DispatchInputChanged(string nodeName, string value);

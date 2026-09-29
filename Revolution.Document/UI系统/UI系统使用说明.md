@@ -109,6 +109,35 @@ RevUI.Close<BagPanel>();
 ---
 
 
+### 控件事件的三种接法（挑一种就用，能混用）
+
+同一个控件的事件，框架给三条路 —— **都可用、可混用**，按场景挑：
+
+| 接法 | 长什么样 | 什么时候选它 |
+|---|---|---|
+| ① **方法特性**（最省事） | `[RevButtonClick("btnStart")] void OnStart() => StartGame();` | "点一下做一件事"：不写绑定字段、不重写回调，方法上标个特性就行 |
+| ② **按节点名分发** | `protected override void OnClick(string nodeName) { … }` | 一个面板上按钮很多、想集中处理（`switch (nodeName)`） |
+| ③ **绑字段 + 自己挂监听**（最灵活） | `[RevBind] Button _btn;` → `_btn.onClick.AddListener(...)` | 要用 UGUI 的其它回调（拖拽 / 悬停…）或接第三方控件 |
+
+方法特性一共三个（标在面板 / Part 的**任意方法**上，签名支持 `void M()` 或 `void M(string nodeName)`）：
+
+```csharp
+// 控件名 = 节点名（区分大小写）；写多级路径时只取最后一段（"Top/btnStart" 等价于 "btnStart"）
+[RevButtonClick("btnStart")]     void OnStart()     => StartGame();     // ① 点击
+[RevButtonLongPress("btnSkill")] void OnSkillHold() => ShowSkillTip();  // ② 长按（按住 ≥ 0.5s 后松开）
+[RevButtonLoosen("btnMove")]     void OnMoveUp()    => StopMove();      // ③ 松开（指针在控件上抬起）
+
+// 同一个控件可以挂多个方法（都会被调用）；带参数的那个能拿到节点名
+[RevButtonClick("btnBuy")]       void OnBuy(string nodeName) => Buy(nodeName);
+```
+
+> [!WARNING]
+> **四条要记住的**
+> · **长按的判定**：按住时长 ≥ `RevUISetting.ButtonLongPressSeconds`（默认 0.5 秒），**松开时**触发长按；同一次操作也会触发"松开"（不会和"点击"抢同一瞬间）。
+> · **长按 / 松开只对 Button 生效**（UGUI 的 Button 本身不报这两个事件，框架给交互节点挂了一个小继电器）；自研控件用 `RevUI.RegisterAutoEvent<T>((d, c) => { … d.LongPress() … d.Loosen() })` 接进来。
+> · **控件名写错会当场报错**：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。
+> · 同一次点击里，"重写的 `OnClick(节点名)`"和"方法特性"**两条路都会走到** —— 同一件事只放一处做。
+
 ## 二、面板的生命周期（谁先谁后）
 
 *只要记住"创建一次、打开很多次"这一点，其余照着图用。*

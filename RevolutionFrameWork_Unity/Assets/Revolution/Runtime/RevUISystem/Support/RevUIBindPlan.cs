@@ -67,7 +67,7 @@ namespace Revolution
         /// <summary>需要绑定的字段（含基类里声明的，派生类在前）</summary>
         public readonly RevUIBindEntry[] Fields;
 
-        /// <summary>这个类是否重写了对应的交互回调 —— 没重写就不给这类控件挂监听</summary>
+        /// <summary>这个类是否重写了对应的交互回调（或标了对应的方法特性）—— 不需要就不给这类控件挂监听</summary>
         public readonly bool WantsClick;
         public readonly bool WantsToggle;
         public readonly bool WantsSlider;
@@ -75,6 +75,13 @@ namespace Revolution
         public readonly bool WantsInputEndEdit;
         public readonly bool WantsDropdown;
         public readonly bool WantsScroll;
+
+        /// <summary>
+        /// 方法特性里有没有"长按 / 松开"（<c>[RevButtonLongPress]</c> / <c>[RevButtonLoosen]</c>）——
+        /// 有就给交互节点挂指针继电器（UGUI 的 Button 本身不报这两个事件）。
+        /// 由 <see cref="RevUIButtonEvents"/> 算出来（纯 C#，可脱机断言）。
+        /// </summary>
+        public readonly bool WantsButtonPress;
 
         /// <summary>这个类有没有任何"按节点名分发"的交互回调（一个都没重写时，绑定器连扫描子节点都省了）</summary>
         public bool WantsAnyEvent => WantsClick || WantsToggle || WantsSlider ||
@@ -112,7 +119,9 @@ namespace Revolution
             Fields = CollectBindFields(targetType, baseType);
 
             // "重写了没"判断：取到的方法如果**不是**基类声明的，就是业务重写的
-            WantsClick = Overrides(targetType, baseType, "OnClick", typeof(string));
+            // ★ 点击多一条：标了 [RevButtonClick] 也要接（方法特性那条路）
+            WantsClick = Overrides(targetType, baseType, "OnClick", typeof(string))
+                         || RevUIButtonEvents.Wants(targetType, RevUIButtonEventKind.Click);
             WantsToggle = Overrides(targetType, baseType, "OnToggleChanged", typeof(string), typeof(bool));
             WantsSlider = Overrides(targetType, baseType, "OnSliderChanged", typeof(string), typeof(float));
             WantsInput = Overrides(targetType, baseType, "OnInputChanged", typeof(string), typeof(string));
@@ -122,6 +131,9 @@ namespace Revolution
             // 滑动用两个 float 而不是 Vector2：既让本文件保持"纯 C#"（Vector2 是 UnityEngine 类型），
             // 业务侧写起来也更直白（x/y 就是滚动位置）。
             WantsScroll = Overrides(targetType, baseType, "OnScrollChanged", typeof(string), typeof(float), typeof(float));
+
+            // 长按 / 松开：UGUI 的 Button 不报这两个事件，标了特性就得给交互节点挂指针继电器
+            WantsButtonPress = RevUIButtonEvents.WantsPressEvents(targetType);
         }
 
         /// <summary>

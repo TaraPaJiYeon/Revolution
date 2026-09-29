@@ -44,6 +44,12 @@ namespace Revolution
         public static bool ClickMaskClosesTop = true;
 
         /// <summary>
+        /// 按住多久算"长按"（秒，默认 0.5）—— <c>[RevButtonLongPress]</c> 用它判定。
+        /// ★ 计时用 <c>Time.unscaledTime</c>：暂停（timeScale = 0）时也照常判定。
+        /// </summary>
+        public static float ButtonLongPressSeconds = 0.5f;
+
+        /// <summary>
         /// 绑定失败（找不到节点 / 组件类型对不上）时是否按错误处理（默认 true）。
         /// 关掉后只告警 —— 不建议关：这类问题在真机上表现为"按钮没反应"，极难定位。
         /// </summary>

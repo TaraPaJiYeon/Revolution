@@ -59,6 +59,12 @@ namespace Revolution
         public void Input(string value) => _receiver.DispatchInputChanged(NodeName, value);
         public void InputEndEdit(string value) => _receiver.DispatchInputEndEdit(NodeName, value);
         public void Dropdown(int index) => _receiver.DispatchDropdownChanged(NodeName, index);
+        /// <summary>长按（由 RevUIButtonPressRelay 报告；自研长按控件也可以直接调这个转发）</summary>
+        public void LongPress() => _receiver.DispatchLongPress(NodeName);
+
+        /// <summary>松开（由 RevUIButtonPressRelay 报告）</summary>
+        public void Loosen() => _receiver.DispatchLoosen(NodeName);
+
         public void Scroll(float x, float y) => _receiver.DispatchScrollChanged(NodeName, x, y);
     }
 
@@ -247,7 +253,13 @@ namespace Revolution
         {
             if (!(target is IRevUIUserEvents receiver)) return;
 
-            // 内置 UGUI 控件：只扫"这个类确实重写了回调"的那几类
+            Type type = target.GetType();
+
+            // 方法特性（[RevButtonClick] / [RevButtonLongPress] / [RevButtonLoosen]）：
+            // 先校验它声明的节点确实存在 —— 名字打错时当场报出来，而不是"点了没反应"
+            if (RevUIButtonEvents.WantsButtonEvents(type)) ValidateButtonEventNodes(type, root);
+
+            // 内置 UGUI 控件：只扫"这个类确实重写了回调（或标了特性）"的那几类
             if (plan.WantsClick)
             {
                 Button[] items = root.GetComponentsInChildren<Button>(true);
@@ -255,6 +267,18 @@ namespace Revolution
                 {
                     RevUINodeRelay relay = new RevUINodeRelay(receiver, items[i].name);
                     items[i].onClick.AddListener(relay.OnClick);
+                }
+            }
+
+            // 长按 / 松开：给交互节点挂一个小继电器（一个节点只挂一次；面板池化复用时不会重复挂）
+            if (plan.WantsButtonPress)
+            {
+                Button[] items = root.GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < items.Length; i++)
+                {
+                    RevUIButtonPressRelay relay = items[i].GetComponent<RevUIButtonPressRelay>();
+                    if (relay == null) relay = items[i].gameObject.AddComponent<RevUIButtonPressRelay>();
+                    relay.Setup(receiver, items[i].name);
                 }
             }
 
@@ -329,6 +353,45 @@ namespace Revolution
         /// 每个交互节点一个"继电器"：它自己记住自己是谁，
         /// 于是**不需要为每个按钮各写一个闭包**（原框架的做法），一个实例上的监听分配次数降到最低。
         /// </summary>
+        /// <summary>
+        /// 校验方法特性声明的节点是否存在（三个种类都查）。
+        /// ★ "名字打错"是这类写法最常见的坑（表现是"点了没反应"），所以这里一次把缺的节点报全，
+        ///   并按 <see cref="RevUISetting.BindFailureIsError"/> 决定是错误还是告警。
+        /// </summary>
+        private static void ValidateButtonEventNodes(Type type, Transform root)
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                var kind = (RevUIButtonEventKind)k;
+                string[] nodes = RevUIButtonEvents.NodeNames(type, kind);
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    if (FindDeep(root, nodes[i]) != null) continue;
+
+                    string msg = $"{type.Name} 的 [{KindAttributeName(kind)}(\"{nodes[i]}\")] " +
+                                 $"找不到名为 \"{nodes[i]}\" 的节点（长按/松开只对 Button 生效）";
+                    if (RevUISetting.BindFailureIsError) RevUILog.Error(msg);
+                    else RevUILog.Warning(msg);
+                }
+            }
+        }
+
+        private static string KindAttributeName(RevUIButtonEventKind kind)
+            => kind == RevUIButtonEventKind.Click ? "RevButtonClick"
+             : kind == RevUIButtonEventKind.LongPress ? "RevButtonLongPress" : "RevButtonLoosen";
+
+        /// <summary>按名字找后代节点（含未激活）—— 只在装配期调用</summary>
+        private static Transform FindDeep(Transform root, string nodeName)
+        {
+            if (root == null || string.IsNullOrEmpty(nodeName)) return null;
+
+            Transform[] all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+                if (string.Equals(all[i].name, nodeName, StringComparison.Ordinal)) return all[i];
+
+            return null;
+        }
+
         private sealed class RevUINodeRelay
         {
             private readonly IRevUIUserEvents _receiver;
