@@ -7,7 +7,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
 [![Issues](https://img.shields.io/github/issues/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution/issues)
 [![Top Language](https://img.shields.io/github/languages/top/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
-[![Runtime](https://img.shields.io/badge/Runtime%20模块-16%20个%20·%202.4%20万行-brightgreen?style=flat-square)](#-核心模块)
+[![Runtime](https://img.shields.io/badge/Runtime%20模块-17%20个%20·%202.76%20万行-brightgreen?style=flat-square)](#-核心模块)
 
 ---
 
