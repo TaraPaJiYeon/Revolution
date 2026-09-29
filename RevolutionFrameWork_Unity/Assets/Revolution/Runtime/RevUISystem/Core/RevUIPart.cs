@@ -92,6 +92,19 @@ namespace Revolution
         /// <summary>指针在某个控件上松开（无论按了多久）</summary>
         protected virtual void OnLoosen(string nodeName) { }
 
+        /// <summary>
+        /// 显示动画：宿主打开本 Part 时自动播（一行加动效）。
+        /// <code>protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.SlideInFromBottom;</code>
+        /// </summary>
+        protected virtual RevUIAnimPreset ShowAnimation => RevUIAnimPreset.None;
+
+        /// <summary>
+        /// 隐藏动画：**注意 Part 的关闭是同步的**（宿主关掉 → 立刻禁用），
+        /// 所以这里只在"宿主自己决定延迟禁用"时才有意义；
+        /// 需要"收起动画播完再走"就把 Part 做成独立开关（在宿主里配合 <c>RevUIAnim</c> 播完再关）。
+        /// </summary>
+        protected virtual RevUIAnimPreset HideAnimation => RevUIAnimPreset.None;
+
         protected virtual void OnToggleChanged(string nodeName, bool value) { }
         protected virtual void OnSliderChanged(string nodeName, float value) { }
         protected virtual void OnInputChanged(string nodeName, string value) { }
@@ -229,6 +242,10 @@ namespace Revolution
 
             RevUILog.Guard($"{GetType().Name}.OnPartOpen", OnPartOpen);
             InternalRefresh();                            // 打开即画一次，免得"宿主忘了刷"
+
+            // ★ 显示动画（一行预设；None = 不做，行为与之前完全一致）
+            if (ShowAnimation != RevUIAnimPreset.None)
+                RevUIAnim.Play(this, ShowAnimation, 0f, null, owner: this);
         }
 
         internal void InternalRefresh()

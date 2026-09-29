@@ -172,6 +172,24 @@ namespace Revolution
         /// <summary>指针在某个控件上松开（无论按了多久；"松手就停"的操作走这里）</summary>
         protected virtual void OnLoosen(string nodeName) { }
 
+        // ============================================================
+        // 显示 / 隐藏动画（一行加动效；不重写 = 没有动画，行为与没有动画库时完全一致）
+        // ============================================================
+
+        /// <summary>
+        /// 显示动画：**打开时自动播，播完才算"打开完成"**（打开回调在动画之后）。
+        /// 一行加动效：
+        /// <code>protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;</code>
+        /// 想自己控制就在 <c>OnOpen</c> 里直接调 <c>RevUIAnim.FadeIn(this)</c>（此时请让本属性保持 None）。
+        /// </summary>
+        protected virtual RevUIAnimPreset ShowAnimation => RevUIAnimPreset.None;
+
+        /// <summary>
+        /// 隐藏动画：**关闭时自动播，播完才真正关闭 / 回池**（所以不会被"一关就隐藏"吞掉）。
+        /// <code>protected override RevUIAnimPreset HideAnimation => RevUIAnimPreset.PopOut;</code>
+        /// </summary>
+        protected virtual RevUIAnimPreset HideAnimation => RevUIAnimPreset.None;
+
         /// <summary>某个 Toggle 的选中状态变化</summary>
         protected virtual void OnToggleChanged(string nodeName, bool value) { }
 
@@ -246,7 +264,7 @@ namespace Revolution
             RevUILog.Guard($"{GetType().Name}.OnInit", OnInit);
         }
 
-        /// <summary>打开：转场结束 → OnOpen → 重画 → 打开所有 Part → 回调</summary>
+        /// <summary>打开：转场结束 → OnOpen → 重画 → 打开所有 Part → 显示动画 → 回调</summary>
         internal void InternalOpen(Action onOpened)
         {
             if (State == RevUIPanelState.Opened)
@@ -266,11 +284,12 @@ namespace Revolution
                 RefreshView();
                 OpenParts();
 
-                onOpened?.Invoke();
+                // ★ 显示动画：播完才算"打开完成"（重写 ShowAnimation 一行就给面板加动效）
+                PlayPanelAnimation(ShowAnimation, onOpened);
             }));
         }
 
-        /// <summary>关闭：关 Part → 转场 → OnClose → 摘事件 → 回调（回池还是销毁由管理器决定）</summary>
+        /// <summary>关闭：关 Part → 转场 → OnClose → 隐藏动画 → 摘事件 → 回调（回池还是销毁由管理器决定）</summary>
         internal void InternalClose(Action onClosed)
         {
             if (State == RevUIPanelState.Closed)
@@ -289,11 +308,31 @@ namespace Revolution
                 // ★ 一行防泄漏：本人（含老代码里手写的解绑清单）注册的事件全摘掉
                 RevEvent.RemoveAllByOwner(this);
 
-                State = RevUIPanelState.Closed;
-                IsCovered = false;
+                // ★ 隐藏动画：播完才真正关闭 / 回池 —— 否则"一关就隐藏"会让动画看不到
+                PlayPanelAnimation(HideAnimation, () =>
+                {
+                    RevUIAnim.StopAllOf(this);           // 兜底：万一同帧还挂着别的动画（如按钮反馈）
+                    State = RevUIPanelState.Closed;
+                    IsCovered = false;
 
-                onClosed?.Invoke();
+                    onClosed?.Invoke();
+                });
             }));
+        }
+
+        /// <summary>
+        /// 播放显示 / 隐藏动画：没配预设（None）就直接回调 —— 保证"没有动画时行为与之前完全一致"。
+        /// 所有动画都以 <c>this</c> 为 owner 登记，关闭时一行全清。
+        /// </summary>
+        private void PlayPanelAnimation(RevUIAnimPreset preset, Action onDone)
+        {
+            if (preset == RevUIAnimPreset.None)
+            {
+                onDone?.Invoke();
+                return;
+            }
+
+            RevUIAnim.Play(this, preset, 0f, onDone, owner: this);
         }
 
         /// <summary>从池里取出、即将再次打开：给业务一次"把上次的残留清掉"的机会</summary>

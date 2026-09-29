@@ -13,7 +13,7 @@
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 164 个 `.cs` / 约 2.5 万行），
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 171 个 `.cs` / 约 2.7 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：本框架不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
@@ -206,6 +206,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 - ✅ **声明式配置**：`[RevUIPanel(root, layer)]` 一个特性搞定层级与根节点
 - ✅ **控件事件三种接法**：九种事件（点击 / 长按 / 松开 / Toggle / Slider / 输入框 / 结束编辑 / Dropdown / 滚动）都能用**方法特性**一行接上（`[RevButtonClick("btnStart")]` · `[RevToggleChanged("tglSound")]` · `[RevScrollChanged("scrollList")]` …）；也可重写 `OnClick(节点名)` 这类回调集中处理，或 `[RevBind]` 字段 + 自己挂监听（最灵活）
+- ✅ **内置 UI 动画库**（不依赖 DOTween）：面板 / Part 一行预设 `ShowAnimation => RevUIAnimPreset.PopIn`（显示隐藏动画**播完才回调**）；控件一行 `RevUIAnim.FadeIn / SlideIn / ScaleTo / Breathe / AddHoverFeedback`；引擎走采样模型 + 帧余量结转（掉帧不改变动画总时长），600 帧稳态零 GC
 - ✅ **与对象池联动**：关闭即回收，重复打开不重建
 - ✅ **纯代码路径可用**：没有 `Resources` 时 Canvas 用代码建（降级不崩）
 
@@ -308,13 +309,13 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 164 个 `.cs` / 25,572 行）
+**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 171 个 `.cs` / 27,118 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|
 | `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
 | `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
-| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ 与资源池联动 | 19 / 4,217 |
+| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **内置 UI 动画库**（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 5,763 |
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
 | `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
 | `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |

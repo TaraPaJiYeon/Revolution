@@ -338,6 +338,44 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
       </table>
     </div>
 
+    <h3>面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）</h3>
+    <p>框架自带一套 <b>UI 专用</b>的轻量动画库（<code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓。</p>
+    <p><b>面板：一行预设属性</b>（显示动画播完才算"打开完成" ✓，隐藏动画播完才真正回收 ✓）：</p>
+    <pre style="margin:10px 0 6px">[RevUIPanel(<span class="s">"UI/Panel"</span>)]
+<span class="k">public sealed class</span> BagPanel : RevUIPanel&lt;BagData&gt;
+{
+    <span class="k">protected override</span> RevUIAnimPreset ShowAnimation =&gt; RevUIAnimPreset.PopIn;    <span class="c">// 打开时自动播</span>
+    <span class="k">protected override</span> RevUIAnimPreset HideAnimation =&gt; RevUIAnimPreset.PopOut;   <span class="c">// 关闭时自动播（播完才关）</span>
+    <span class="c">// ……</span>
+}</pre>
+    <p><b>Part</b> 同理（重写 <code>ShowAnimation</code> ✓）。<b>任意控件</b>直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：</p>
+    <pre style="margin:10px 0 6px">RevUIAnim.FadeIn(icon);                                    <span class="c">// 淡入</span>
+RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top);          <span class="c">// 从上滑入</span>
+RevUIAnim.ScaleTo(icon, 1.2f, 0.12f);                      <span class="c">// 缩放到 1.2 倍（相对基准缩放）</span>
+RevUIAnim.Breathe(tipIcon);                                <span class="c">// 呼吸/闪烁（无限往返）</span>
+RevUIAnim.AddHoverFeedback(btnClose);                      <span class="c">// 按钮：悬停放大 + 按下缩小</span>
+RevUIAnim.Play(icon, RevUIAnimPreset.PopIn, 0.3f, () =&gt; Tip(<span class="s">"播完"</span>), owner: <span class="k">this</span>);</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>预设</th><th>效果</th></tr></thead>
+        <tbody>
+          <tr><td><code>FadeIn</code> / <code>FadeOut</code></td><td>淡入 / 淡出（默认 0.18s）</td></tr>
+          <tr><td><code>PopIn</code> / <code>PopOut</code></td><td>淡入 + 缩放回弹 / 淡出 + 缩小（默认 0.25s，<b>面板默认手感</b>）</td></tr>
+          <tr><td><code>ScaleIn</code> / <code>ScaleOut</code></td><td>只做缩放（0.9 ↔ 1）</td></tr>
+          <tr><td><code>SlideInFromTop</code> / <code>Bottom</code> / <code>Left</code> / <code>Right</code></td><td>从四个方向滑入（默认 0.28s）</td></tr>
+          <tr><td><code>SlideOutToTop</code> / <code>Bottom</code> / <code>Left</code> / <code>Right</code></td><td>往四个方向滑出</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="t">五条要记住的</span>
+      <p>· <b>一定要传 <code>owner</code></b>（面板 / Part 传自己）—— 关闭或销毁时框架会 <code>StopAllOf(owner)</code> 一行清干净；不传就可能留在池化过的面板上继续算。</p>
+      <p>· <b>同一个控件上只留一个动画</b>：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）。</p>
+      <p>· <b>动画走 <code>unscaledDeltaTime</code></b>：暂停（<code>timeScale = 0</code>）时 UI 动画照常播；全局倍速改 <code>RevUIAnim.GlobalSpeed</code> 一个数。</p>
+      <p>· <b>要关动效</b>：<code>RevUISetting.UIAnimationsEnabled = false</code> —— 所有预设直接写终态，业务代码一行都不用改。</p>
+      <p style="margin-bottom:0">· <b>透明度写 <code>CanvasGroup</code></b>（没有会自动补一个），缩放 / 位移写 <code>RectTransform</code>；要恢复基准态用 <code>RevUIAnim.RestoreBase(控件)</code>。</p>
+    </div>
+
   <h2><span class="num">六</span>新手最容易踩的 6 个坑</h2>
 
     <div class="table-wrap">

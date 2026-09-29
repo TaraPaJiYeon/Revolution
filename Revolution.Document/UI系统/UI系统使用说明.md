@@ -320,6 +320,49 @@ RevUISetting.CanvasPlaneDistance = 100f;
 | UI 要被 3D 挡住 / 进 RenderTexture | 见上面那三行 |
 | 六层挂点放哪 | 框架自己建（预制体里**不要**放六个层级节点） |
 
+### 面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）
+
+框架自带一套 **UI 专用**的轻量动画库（`RevUIAnim`）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓。
+
+**面板：一行预设属性**（显示动画播完才算"打开完成"✓，隐藏动画播完才真正回收 ✓）：
+
+```csharp
+[RevUIPanel("UI/Panel")]
+public sealed class BagPanel : RevUIPanel<BagData>
+{
+    protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 打开时自动播
+    protected override RevUIAnimPreset HideAnimation => RevUIAnimPreset.PopOut;   // 关闭时自动播（播完才关）
+    // ……
+}
+```
+
+**Part** 同理（重写 `ShowAnimation` ✓）。**任意控件**直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：
+
+```csharp
+RevUIAnim.FadeIn(icon);                                    // 淡入
+RevUIAnim.SlideIn(this, RevUISlideDirection.Top);          // 从上滑入
+RevUIAnim.ScaleTo(icon, 1.2f, 0.12f);                      // 缩放到 1.2 倍（相对基准缩放）
+RevUIAnim.Breathe(tipIcon);                                // 呼吸/闪烁（无限往返）
+RevUIAnim.AddHoverFeedback(btnClose);                      // 按钮：悬停放大 + 按下缩小
+RevUIAnim.Play(icon, RevUIAnimPreset.PopIn, 0.3f, () => Tip("播完"), owner: this);
+```
+
+| 预设 | 效果 |
+|---|---|
+| `FadeIn` / `FadeOut` | 淡入 / 淡出（默认 0.18s） |
+| `PopIn` / `PopOut` | 淡入 + 缩放回弹 / 淡出 + 缩小（默认 0.25s，**面板默认手感**） |
+| `ScaleIn` / `ScaleOut` | 只做缩放（0.9 ↔ 1） |
+| `SlideInFromTop` / `Bottom` / `Left` / `Right` | 从四个方向滑入（默认 0.28s） |
+| `SlideOutToTop` / `Bottom` / `Left` / `Right` | 往四个方向滑出 |
+
+> [!WARNING]
+> **五条要记住的**
+> · **一定要传 `owner`**（面板 / Part 传自己）—— 关闭或销毁时框架会 `StopAllOf(owner)` 一行清干净；不传就可能留在池化过的面板上继续算。
+> · **同一个控件上只留一个动画**：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）。
+> · **动画走 `unscaledDeltaTime`**：暂停（`timeScale = 0`）时 UI 动画照常播；全局倍速改 `RevUIAnim.GlobalSpeed` 一个数。
+> · **要关动效**：`RevUISetting.UIAnimationsEnabled = false` —— 所有预设直接写终态，业务代码一行都不用改。
+> · **透明度写 `CanvasGroup`**（没有会自动补一个），缩放 / 位移写 `RectTransform`；要恢复基准态用 `RevUIAnim.RestoreBase(控件)`。
+
 ## 六、新手最容易踩的 6 个坑
 
 | 坑 | 正确做法 |
