@@ -220,7 +220,7 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
 
   <section id="s3">
     <h2><span class="num">三</span>"我要做 X" 对照表（全部 API）</h2>
-    <p class="lead">入口统一是 <code>RevUI</code>。所有泛型参数都要求 <code>T : RevUIPanel</code>。</p>
+    <p class="lead">入口统一是 <code>RevUI</code>（动画入口是 <code>RevUIAnim</code>，见第五节"动画"一节）。所有泛型参数都要求 <code>T : RevUIPanel</code>。</p>
 
     <div class="table-wrap">
       <table>
@@ -238,6 +238,12 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
           <tr><td>看某层最上面是谁</td><td><code>RevUI.TopOf(RevUILayer.Popup)</code></td></tr>
           <tr><td>提前加载（避免首次打开卡）</td><td><code>RevUI.Preload&lt;BagPanel&gt;()</code></td></tr>
           <tr><td>调试：看当前所有面板</td><td><code>Debug.Log(RevUI.DumpStats())</code></td></tr>
+          <tr><td>给面板 / Part 加动效（一行）</td><td><code>protected override RevUIAnimPreset ShowAnimation =&gt; RevUIAnimPreset.PopIn;</code></td></tr>
+          <tr><td>给任意控件加动效</td><td><code>RevUIAnim.PopIn(icon, owner: this)</code> · <code>RevUIAnim.SlideIn(this, RevUISlideDirection.Top)</code></td></tr>
+          <tr><td>跳过动画（直接到终态）</td><td><code>RevUIAnim.ApplyEnd(panel, RevUIAnimPreset.PopIn)</code></td></tr>
+          <tr><td>停掉某个对象的动画</td><td><code>RevUIAnim.StopAllOf(this)</code></td></tr>
+          <tr><td>关掉全部动效（配置）</td><td><code>RevUISetting.UIAnimationsEnabled = false</code></td></tr>
+          <tr><td>调试：看正在播的动画</td><td><code>Debug.Log(RevUIAnim.Dump())</code>（<code>RevUIAnim.ActiveCount</code> = 正在播几个）</td></tr>
         </tbody>
       </table>
     </div>
@@ -339,40 +345,66 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
     </div>
 
     <h3>面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）</h3>
-    <p>框架自带一套 <b>UI 专用</b>的轻量动画库（<code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓。</p>
+    <p>框架自带一套 <b>UI 专用</b>的轻量动画库（代码在 <code>Runtime\RevUISystem\Animation\</code>，入口 <code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。</p>
     <p><b>面板：一行预设属性</b>（显示动画播完才算"打开完成" ✓，隐藏动画播完才真正回收 ✓）：</p>
     <pre style="margin:10px 0 6px">[RevUIPanel(<span class="s">"UI/Panel"</span>)]
 <span class="k">public sealed class</span> BagPanel : RevUIPanel&lt;BagData&gt;
 {
     <span class="k">protected override</span> RevUIAnimPreset ShowAnimation =&gt; RevUIAnimPreset.PopIn;    <span class="c">// 打开时自动播</span>
     <span class="k">protected override</span> RevUIAnimPreset HideAnimation =&gt; RevUIAnimPreset.PopOut;   <span class="c">// 关闭时自动播（播完才关）</span>
-    <span class="c">// ……</span>
+
+    <span class="c">// 想自己掌控节奏（与预设并存；★ 结束时必须调 onDone）</span>
+    <span class="k">protected override void</span> PlayOpenTransition(Action onDone)
+        =&gt; RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top, <span class="n">0.25f</span>, onDone, owner: <span class="k">this</span>);
 }</pre>
     <p><b>Part</b> 同理（重写 <code>ShowAnimation</code> ✓）。<b>任意控件</b>直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：</p>
-    <pre style="margin:10px 0 6px">RevUIAnim.FadeIn(icon);                                    <span class="c">// 淡入</span>
-RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top);          <span class="c">// 从上滑入</span>
-RevUIAnim.ScaleTo(icon, 1.2f, 0.12f);                      <span class="c">// 缩放到 1.2 倍（相对基准缩放）</span>
-RevUIAnim.Breathe(tipIcon);                                <span class="c">// 呼吸/闪烁（无限往返）</span>
-RevUIAnim.AddHoverFeedback(btnClose);                      <span class="c">// 按钮：悬停放大 + 按下缩小</span>
-RevUIAnim.Play(icon, RevUIAnimPreset.PopIn, 0.3f, () =&gt; Tip(<span class="s">"播完"</span>), owner: <span class="k">this</span>);</pre>
+    <pre style="margin:10px 0 6px">RevUIAnim.FadeIn(icon);                                        <span class="c">// 淡入</span>
+RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top);              <span class="c">// 从上滑入</span>
+RevUIAnim.ScaleTo(icon, <span class="n">1.2f</span>, <span class="n">0.12f</span>);                          <span class="c">// 缩放到 1.2 倍（相对基准缩放）</span>
+RevUIAnim.FadeTo(icon, <span class="n">0.5f</span>);                                  <span class="c">// 淡到半透明</span>
+RevUIAnim.Breathe(tipIcon);                                    <span class="c">// 呼吸（透明度 0.45 ↔ 1 来回）</span>
+RevUIAnim.Breathe(tipIcon, useScale: <span class="k">true</span>);                    <span class="c">// 换成缩放呼吸</span>
+RevUIAnim.AddHoverFeedback(btnClose);                          <span class="c">// 按钮：悬停放大 + 按下缩小</span>
+RevUIAnim.Play(icon, RevUIAnimPreset.PopIn, <span class="n">0.3f</span>, () =&gt; Tip(<span class="s">"播完"</span>), owner: <span class="k">this</span>);
+RevUIAnim.ApplyEnd(panel, RevUIAnimPreset.PopIn);              <span class="c">// 跳过动画：直接落到终态</span>
+RevUIAnim.StopAllOf(<span class="k">this</span>);                                     <span class="c">// 停掉这个对象的全部动画</span></pre>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>预设</th><th>效果</th></tr></thead>
+        <thead><tr><th style="width:44%">预设（共 14 个）</th><th>效果</th></tr></thead>
         <tbody>
           <tr><td><code>FadeIn</code> / <code>FadeOut</code></td><td>淡入 / 淡出（默认 0.18s）</td></tr>
           <tr><td><code>PopIn</code> / <code>PopOut</code></td><td>淡入 + 缩放回弹 / 淡出 + 缩小（默认 0.25s，<b>面板默认手感</b>）</td></tr>
           <tr><td><code>ScaleIn</code> / <code>ScaleOut</code></td><td>只做缩放（0.9 ↔ 1）</td></tr>
           <tr><td><code>SlideInFromTop</code> / <code>Bottom</code> / <code>Left</code> / <code>Right</code></td><td>从四个方向滑入（默认 0.28s）</td></tr>
           <tr><td><code>SlideOutToTop</code> / <code>Bottom</code> / <code>Left</code> / <code>Right</code></td><td>往四个方向滑出</td></tr>
+          <tr><td><code>None</code></td><td>不做动画（默认值；行为与没有动画库时完全一致）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>门面 API 一览</b>（真实签名，可直接抄）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>按预设播</td><td><code>Play(控件, 预设, 时长 = 0, 完成回调 = null, owner = null)</code> → 返回 <code>RevUIAnimHandle</code></td></tr>
+          <tr><td>淡入 / 淡出 / 弹入 / 弹出 / 缩放进出</td><td><code>FadeIn</code> · <code>FadeOut</code> · <code>PopIn</code> · <code>PopOut</code> · <code>ScaleIn</code> · <code>ScaleOut</code>（控件, 时长 = 0, 完成回调 = null, owner = null）</td></tr>
+          <tr><td>四方向滑入 / 滑出</td><td><code>SlideIn(控件, RevUISlideDirection.Top, 时长 = 0, …)</code> · <code>SlideOut(控件, 方向, …)</code></td></tr>
+          <tr><td>到某个目标值</td><td><code>ScaleTo(控件, 1.2f, 时长 = 0.12f, ease = RevUIEase.CubicOut, …)</code> · <code>FadeTo(控件, 0.5f, …)</code></td></tr>
+          <tr><td>呼吸 / 闪烁（无限往返）</td><td><code>Breathe(控件, 时长 = 0.6f, from = 0.45f, to = 1f, useScale = false)</code></td></tr>
+          <tr><td>控件反馈（悬停 / 按下）</td><td><code>AddHoverFeedback(控件, hoverScale = 1.06f, pressScale = 0.94f, 时长 = 0.09f)</code></td></tr>
+          <tr><td>立即到终态（跳过动画）</td><td><code>ApplyEnd(控件, 预设)</code></td></tr>
+          <tr><td>停止 / 查询 / 复位</td><td><code>Stop(句柄)</code> · <code>StopAllOf(owner)</code> → 返回停掉几个 · <code>StopAll()</code> · <code>IsPlaying(控件)</code> · <code>RestoreBase(控件)</code></td></tr>
+          <tr><td>诊断</td><td><code>RevUIAnim.ActiveCount</code>（正在播几个）· <code>Debug.Log(RevUIAnim.Dump())</code></td></tr>
         </tbody>
       </table>
     </div>
     <div class="callout warn">
-      <span class="t">五条要记住的</span>
+      <span class="t">六条要记住的</span>
+      <p>· <b>时长不传（或 ≤ 0）= 用该预设的默认时长</b> —— 想改节奏就显式传，例如 <code>RevUIAnim.PopIn(panel, 0.35f)</code>。</p>
       <p>· <b>一定要传 <code>owner</code></b>（面板 / Part 传自己）—— 关闭或销毁时框架会 <code>StopAllOf(owner)</code> 一行清干净；不传就可能留在池化过的面板上继续算。</p>
-      <p>· <b>同一个控件上只留一个动画</b>：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）。</p>
+      <p>· <b>同一个控件上只留一个动画</b>：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）；<code>Play</code> 返回的句柄可用 <code>.IsValid</code> 查它是否还在播。</p>
       <p>· <b>动画走 <code>unscaledDeltaTime</code></b>：暂停（<code>timeScale = 0</code>）时 UI 动画照常播；全局倍速改 <code>RevUIAnim.GlobalSpeed</code> 一个数。</p>
-      <p>· <b>要关动效</b>：<code>RevUISetting.UIAnimationsEnabled = false</code> —— 所有预设直接写终态，业务代码一行都不用改。</p>
+      <p>· <b>要关动效</b>：<code>RevUISetting.UIAnimationsEnabled = false</code> —— 所有预设直接写终态，业务代码一行都不用改；只想跳过单个面板用 <code>RevUIAnim.ApplyEnd(控件, 预设)</code>。</p>
       <p style="margin-bottom:0">· <b>透明度写 <code>CanvasGroup</code></b>（没有会自动补一个），缩放 / 位移写 <code>RectTransform</code>；要恢复基准态用 <code>RevUIAnim.RestoreBase(控件)</code>。</p>
     </div>
 

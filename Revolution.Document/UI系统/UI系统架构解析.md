@@ -740,8 +740,8 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 | `Runtime\RevUISystem\Support\RevUIBinder.cs` | 绑定器：按计划赋值控件、安装按节点名分发的监听、自定义控件扩展口 |
 | `Runtime\RevUISystem\Support\RevUISetting.cs` | 全局配置 + 统一日志出口（含异常隔离 `Guard`） |
 | `Runtime\RevUISystem\Support\RevUIUnityHooks.cs` | 进 Play 前清索引（关掉"域重载"时也能正常反复运行） |
-| `Runtime\RevUISystem\Animation\RevUIEase.cs` | 缓动曲线（**纯 C#**）：18 种，边界恒等 / 单调（可脱机断言） |
-| `Runtime\RevUISystem\Animation\RevUIAnimSpec.cs` | 动画规格与预设（**纯 C#**）：三通道掩码（透明度 / 缩放 / 位移）+ 16 个预设（Fade · Pop · Scale · Slide×四方向） |
+| `Runtime\RevUISystem\Animation\RevUIEase.cs` | 缓动曲线（**纯 C#**）：17 种，边界恒等 / 单调（可脱机断言） |
+| `Runtime\RevUISystem\Animation\RevUIAnimSpec.cs` | 动画规格与预设（**纯 C#**）：三通道掩码（透明度 / 缩放 / 位移）+ 14 个预设（Fade · Pop · Scale · Slide×四方向；另有 `None` = 不做动画） |
 | `Runtime\RevUISystem\Animation\RevUIAnimEngine.cs` | **动画内核**（**纯 C#**）：采样模型 + 帧余量结转 + 循环往返 + 运行时对象池 + 版本号句柄 |
 | `Runtime\RevUISystem\Animation\RevUIAnimTarget.cs` | 采样落点：CanvasGroup 自动补、基准值只取一次、透明度 / 缩放 / 位移写入 |
 | `Runtime\RevUISystem\Animation\RevUIAnimDriver.cs` | 每帧推进（复用 `RevMono`；`unscaledDeltaTime` = 暂停也能播；全局倍速 `GlobalSpeed`） |

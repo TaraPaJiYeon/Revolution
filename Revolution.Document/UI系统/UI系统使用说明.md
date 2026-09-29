@@ -191,7 +191,7 @@ PlayCloseTransition(Action onDone) { onDone?.Invoke(); }
 
 ## 三、"我要做 X" 对照表（全部 API）
 
-*入口统一是 `RevUI`。所有泛型参数都要求 `T : RevUIPanel`。*
+*入口统一是 `RevUI`（动画入口是 `RevUIAnim`，见第五节"动画"一节）。所有泛型参数都要求 `T : RevUIPanel`。*
 
 | 我想… | 这么写 |
 |---|---|
@@ -207,6 +207,12 @@ PlayCloseTransition(Action onDone) { onDone?.Invoke(); }
 | 看某层最上面是谁 | `RevUI.TopOf(RevUILayer.Popup)` |
 | 提前加载（避免首次打开卡） | `RevUI.Preload<BagPanel>()` |
 | 调试：看当前所有面板 | `Debug.Log(RevUI.DumpStats())` |
+| 给面板 / Part 加动效（一行） | `protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;` |
+| 给任意控件加动效 | `RevUIAnim.PopIn(icon, owner: this)` · `RevUIAnim.SlideIn(this, RevUISlideDirection.Top)` |
+| 跳过动画（直接到终态） | `RevUIAnim.ApplyEnd(panel, RevUIAnimPreset.PopIn)` |
+| 停掉某个对象的动画 | `RevUIAnim.StopAllOf(this)` |
+| 关掉全部动效（配置） | `RevUISetting.UIAnimationsEnabled = false` |
+| 调试：看正在播的动画 | `Debug.Log(RevUIAnim.Dump())`（`RevUIAnim.ActiveCount` = 正在播几个） |
 
 > [!WARNING]
 > **关闭 ≠ 销毁**
@@ -322,7 +328,7 @@ RevUISetting.CanvasPlaneDistance = 100f;
 
 ### 面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）
 
-框架自带一套 **UI 专用**的轻量动画库（`RevUIAnim`）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓。
+框架自带一套 **UI 专用**的轻量动画库（代码在 `Runtime\RevUISystem\Animation\`，入口 `RevUIAnim`）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。
 
 **面板：一行预设属性**（显示动画播完才算"打开完成"✓，隐藏动画播完才真正回收 ✓）：
 
@@ -332,35 +338,58 @@ public sealed class BagPanel : RevUIPanel<BagData>
 {
     protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 打开时自动播
     protected override RevUIAnimPreset HideAnimation => RevUIAnimPreset.PopOut;   // 关闭时自动播（播完才关）
-    // ……
+
+    // 想自己掌控节奏（与预设并存；★ 结束时必须调 onDone）
+    protected override void PlayOpenTransition(Action onDone)
+        => RevUIAnim.SlideIn(this, RevUISlideDirection.Top, 0.25f, onDone, owner: this);
 }
 ```
 
 **Part** 同理（重写 `ShowAnimation` ✓）。**任意控件**直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：
 
 ```csharp
-RevUIAnim.FadeIn(icon);                                    // 淡入
-RevUIAnim.SlideIn(this, RevUISlideDirection.Top);          // 从上滑入
-RevUIAnim.ScaleTo(icon, 1.2f, 0.12f);                      // 缩放到 1.2 倍（相对基准缩放）
-RevUIAnim.Breathe(tipIcon);                                // 呼吸/闪烁（无限往返）
-RevUIAnim.AddHoverFeedback(btnClose);                      // 按钮：悬停放大 + 按下缩小
+RevUIAnim.FadeIn(icon);                                        // 淡入
+RevUIAnim.SlideIn(this, RevUISlideDirection.Top);              // 从上滑入
+RevUIAnim.ScaleTo(icon, 1.2f, 0.12f);                          // 缩放到 1.2 倍（相对基准缩放）
+RevUIAnim.FadeTo(icon, 0.5f);                                  // 淡到半透明
+RevUIAnim.Breathe(tipIcon);                                    // 呼吸（透明度 0.45 ↔ 1 来回）
+RevUIAnim.Breathe(tipIcon, useScale: true);                    // 换成缩放呼吸
+RevUIAnim.AddHoverFeedback(btnClose);                          // 按钮：悬停放大 + 按下缩小
 RevUIAnim.Play(icon, RevUIAnimPreset.PopIn, 0.3f, () => Tip("播完"), owner: this);
+RevUIAnim.ApplyEnd(panel, RevUIAnimPreset.PopIn);              // 跳过动画：直接落到终态
+RevUIAnim.StopAllOf(this);                                     // 停掉这个对象的全部动画
 ```
 
-| 预设 | 效果 |
+| 预设（共 14 个） | 效果 |
 |---|---|
 | `FadeIn` / `FadeOut` | 淡入 / 淡出（默认 0.18s） |
 | `PopIn` / `PopOut` | 淡入 + 缩放回弹 / 淡出 + 缩小（默认 0.25s，**面板默认手感**） |
 | `ScaleIn` / `ScaleOut` | 只做缩放（0.9 ↔ 1） |
 | `SlideInFromTop` / `Bottom` / `Left` / `Right` | 从四个方向滑入（默认 0.28s） |
 | `SlideOutToTop` / `Bottom` / `Left` / `Right` | 往四个方向滑出 |
+| `None` | 不做动画（默认值；行为与没有动画库时完全一致） |
+
+**门面 API 一览**（真实签名，可直接抄）：
+
+| 我想… | 这么写 |
+|---|---|
+| 按预设播 | `Play(控件, 预设, 时长 = 0, 完成回调 = null, owner = null)` → 返回 `RevUIAnimHandle` |
+| 淡入 / 淡出 / 弹入 / 弹出 / 缩放进出 | `FadeIn` · `FadeOut` · `PopIn` · `PopOut` · `ScaleIn` · `ScaleOut`（控件, 时长 = 0, 完成回调 = null, owner = null） |
+| 四方向滑入 / 滑出 | `SlideIn(控件, RevUISlideDirection.Top, 时长 = 0, …)` · `SlideOut(控件, 方向, …)` |
+| 到某个目标值 | `ScaleTo(控件, 1.2f, 时长 = 0.12f, ease = RevUIEase.CubicOut, …)` · `FadeTo(控件, 0.5f, …)` |
+| 呼吸 / 闪烁（无限往返） | `Breathe(控件, 时长 = 0.6f, from = 0.45f, to = 1f, useScale = false)` |
+| 控件反馈（悬停 / 按下） | `AddHoverFeedback(控件, hoverScale = 1.06f, pressScale = 0.94f, 时长 = 0.09f)` |
+| 立即到终态（跳过动画） | `ApplyEnd(控件, 预设)` |
+| 停止 / 查询 / 复位 | `Stop(句柄)` · `StopAllOf(owner)` → 返回停掉几个 · `StopAll()` · `IsPlaying(控件)` · `RestoreBase(控件)` |
+| 诊断 | `RevUIAnim.ActiveCount`（正在播几个）· `Debug.Log(RevUIAnim.Dump())` |
 
 > [!WARNING]
-> **五条要记住的**
+> **六条要记住的**
+> · **时长不传（或 ≤ 0）= 用该预设的默认时长** —— 想改节奏就显式传，例如 `RevUIAnim.PopIn(panel, 0.35f)`。
 > · **一定要传 `owner`**（面板 / Part 传自己）—— 关闭或销毁时框架会 `StopAllOf(owner)` 一行清干净；不传就可能留在池化过的面板上继续算。
-> · **同一个控件上只留一个动画**：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）。
+> · **同一个控件上只留一个动画**：再起一个会自动顶掉上一个（不会两个动画抢同一个属性）；`Play` 返回的句柄可用 `.IsValid` 查它是否还在播。
 > · **动画走 `unscaledDeltaTime`**：暂停（`timeScale = 0`）时 UI 动画照常播；全局倍速改 `RevUIAnim.GlobalSpeed` 一个数。
-> · **要关动效**：`RevUISetting.UIAnimationsEnabled = false` —— 所有预设直接写终态，业务代码一行都不用改。
+> · **要关动效**：`RevUISetting.UIAnimationsEnabled = false` —— 所有预设直接写终态，业务代码一行都不用改；只想跳过单个面板用 `RevUIAnim.ApplyEnd(控件, 预设)`。
 > · **透明度写 `CanvasGroup`**（没有会自动补一个），缩放 / 位移写 `RectTransform`；要恢复基准态用 `RevUIAnim.RestoreBase(控件)`。
 
 ## 六、新手最容易踩的 6 个坑
