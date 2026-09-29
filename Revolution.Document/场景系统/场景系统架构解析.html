@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场景系统 · 架构解析</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">架构解析 · 设计与实现论证</span>
+    <h1>场景系统 · 架构解析</h1>
+    <p>这份文档回答"<b>为什么这么设计</b>"：每个决策换来了什么、代价是什么、边界画在哪。</p>
+    <p class="meta">想学怎么用请看同目录的《使用说明》</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、先看最短路径</a></li>
+      <li><a href="#s1">一、它解决什么问题</a></li>
+      <li><a href="#s2">二、四个关键设计决策（含代价）</a></li>
+      <li><a href="#s3">三、"轻量"具体体现在哪</a></li>
+      <li><a href="#s4">四、与其它模块的边界</a></li>
+      <li><a href="#s5">五、验证结果</a></li>
+      <li><a href="#s6">六、附：关键文件索引</a></li>
+      <li><a href="#s7">七、本期没做的（可后续扩展）</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>先看最短路径（三句话能跑起来）</h2>
+    <pre style="margin:10px 0 6px"><span class="n">①</span> 切场景      <span class="k">await</span> RevScene.LoadAsync(<span class="s">"Battle"</span>);                  <span class="c">// 异步（推荐）</span>
+<span class="n">②</span> 接进度      RevScene.OnProgress += p =&gt; bar.value = p;            <span class="c">// 挂一次，全局生效</span>
+<span class="n">③</span> 收摊子      RevScene.OnLoadStart += _ =&gt; RevUI.ShutdownAll();    <span class="c">// 对象池框架已默认清</span></pre>
+    <p>就这三步。剩下都是这三步的细节。</p>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>它解决什么问题</h2>
+    <p>场景切换是"看起来简单、做起来到处是坑"的典型：Unity 只给了 <code>SceneManager.LoadSceneAsync</code>，剩下的全靠自己。这个模块把下面这些坑一次填掉：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">问题</th><th style="width:34%">Unity 原生行为</th><th>本模块的做法</th></tr></thead>
+        <tbody>
+          <tr><td>进度条卡 90%</td><td><code>AsyncOperation.progress</code> 激活前最高 0.9</td><td>关掉自动激活 + 归一化到 0~1 + 到 100% 才放行</td></tr>
+          <tr><td>进度条回跳</td><td>采样值会抖动</td><td>只增不减（进度换算里保证）</td></tr>
+          <tr><td>小场景"闪一下"</td><td>加载几十毫秒就完了</td><td><code>minSeconds</code>：进度按时间节奏走，到点才激活</td></tr>
+          <tr><td>重复请求互相踩</td><td>两个 <code>LoadSceneAsync</code> 叠着跑 → 黑屏</td><td>正在切换时<b>忽略 + 告警</b></td></tr>
+          <tr><td>场景名写错黑屏</td><td><code>LoadSceneAsync</code> 返回 null（不抛异常）</td><td>当场判掉并报人话原因</td></tr>
+          <tr><td>旧场景残留</td><td>池化实例 / 画面跟着走</td><td>默认清对象池（<code>AutoClearPool</code>）</td></tr>
+          <tr><td>进度怎么接</td><td>自己每帧读 <code>progress</code></td><td><code>await</code> 直接可用；或挂 <code>OnProgress</code> 事件</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>四个关键设计决策（含代价）</h2>
+
+    <h3>决策 1：关掉 Unity 的自动激活（<code>allowSceneActivation = false</code>）</h3>
+    <p><b>为什么</b>：Unity 在"激活前"只把进度报到 0.9，直接等 <code>isDone</code> 就是"卡 90% + 瞬间跳满"。关掉自动激活后，<b>激活时机由我们掌握</b> —— 显示进度到 100%（且满足最短时长）才放行。</p>
+    <p><b>代价</b>：激活前新场景不参与光照/初始化，多占一点点内存；且加载期间的 <code>Time</code> 仍是旧场景的（所以进度用 <code>unscaledDeltaTime</code>，与时间缩放无关）。</p>
+
+    <h3>决策 2：进度换算做成<b>纯 C#</b>（<code>RevSceneProgressTracker</code>）</h3>
+    <p><b>为什么</b>：这堆规则（0.9 归一化、只增不减、时间限速、何时允许激活）<b>全是可验证的纯逻辑</b>，但藏在协程 / MonoBehaviour 里就只能靠肉眼跑场景验证。抽成纯类后：时间以参数进来（<code>Tick(raw, deltaTime)</code>），<b>脱机断言 20 条</b>（含 1000 帧随机采样验证单调性）。</p>
+    <p><b>代价</b>：调用方要自己把 <code>deltaTime</code> 喂进来（本模块由 Unity 侧 loader 负责，业务无感）。</p>
+
+    <h3>决策 3：接入面<b>双通道</b> —— <code>await</code> 与事件并存</h3>
+    <p><b>为什么</b>：</p>
+    <ul>
+      <li><b><code>await</code> 版</b>适合"切完接着干"（<code>await RevScene.LoadAsync("Battle"); 开战斗界面</code>）—— 用框架自带的 <code>RevTask</code>，<b>不引第三方异步库</b>；</li>
+      <li><b>事件版</b>适合"加载界面自己管自己"（<code>OnLoadStart</code> 开、<code>OnProgress</code> 更新、<code>OnLoaded</code> 关），业务代码里<b>一个 <code>await</code> 都不用写</b>。</li>
+    </ul>
+    <p>两条通道共用同一份状态（<code>RevScene.State / Progress</code>），混用也不会打架。想明确"故意不 await"就写 <code>.Forget()</code>（替代 <code>async void</code>，意图清晰且异常不会被吞）。</p>
+    <p><b>代价</b>：事件是静态的、全局生效 —— 所以<b>订阅方自己要负责退订</b>（或放在长期存活的对象上）。</p>
+
+    <h3>决策 4：切之前<b>只自动清对象池</b>，其余交给 <code>OnLoadStart</code></h3>
+    <p><b>为什么</b>："哪些东西该跨场景保留"是业务决定：有的游戏保留 BGM、有的保留常驻界面、有的保留已加载的资源分组。框架替你做主就会"想保留的被清掉"。</p>
+    <p>所以：<b>只清"肯定不该跟着走"的那一类</b>（对象池里的旧实例），其余给一个<b>必然被调用的时机</b> <code>OnLoadStart</code>，一行挂上即可。</p>
+    <p><b>代价</b>：多写一行（换来的是"不会被框架擅自清掉东西"）。</p>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>"轻量"具体体现在哪</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">项</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td><b>不新起宿主</b></td><td>没有隐藏 <code>GameObject</code>、没有 <code>DontDestroyOnLoad</code> 的管理器 —— 等待靠 <code>RevTaskScheduler.NextFrame()</code>（零分配）</td></tr>
+          <tr><td><b>不引第三方</b></td><td>异步用框架自带的 <code>RevTask</code>（<code>async RevTask</code> / <code>RevTask.Yield</code> / <code>.Forget()</code>），Unity 的异步操作由 <code>RevTaskUnityExtensions</code> 桥接</td></tr>
+          <tr><td><b>不套框架</b></td><td>没有"加载步骤 / 权重 / 状态机"那一套（那属于加载框架，不属于场景切换）；需要就自己在 <code>OnLoadStart</code> / <code>OnLoaded</code> 里编排</td></tr>
+          <tr><td><b>文件少</b></td><td>5 个 <code>.cs</code>：2 个纯 C# 内核（状态枚举 + 进度换算）+ 门面 + Unity 驱动 + 日志出口</td></tr>
+          <tr><td><b>无轮询</b></td><td>业务不需要 <code>Update</code> 里查 <code>IsLoading</code>：完成后有 <code>OnLoaded</code> 事件 / <code>await</code> 续体</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>与其它模块的边界</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">模块</th><th>关系</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevTask</code></td><td><b>依赖</b>：异步原语（本模块不引第三方异步库）</td></tr>
+          <tr><td><code>RevObjectPool</code></td><td><b>默认清理</b>：切场景前 <code>RevPool.ClearAll()</code>（可用 <code>AutoClearPool = false</code> 关掉）</td></tr>
+          <tr><td><code>RevUISystem</code></td><td><b>不依赖</b>：加载界面是普通面板；想关全部界面就在 <code>OnLoadStart</code> 里 <code>RevUI.ShutdownAll()</code></td></tr>
+          <tr><td><code>RevResourceSystem</code></td><td><b>不依赖</b>：按业务域卸资源由你在 <code>OnLoadStart</code> 里 <code>RevResBootstrap.Instance.Shutdown(group)</code></td></tr>
+          <tr><td><code>RevSoundSystem</code></td><td><b>不依赖</b>：停音效同理（<code>RevSound.StopAll()</code>）</td></tr>
+          <tr><td>热更新</td><td><b>无关</b>：本模块只管本机场景切换；AB 的远程更新见 README《不做什么：热更新与远程更新》</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>验证结果</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">项</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td><code>Revolution.Runtime</code> 编译</td><td><b>0 错误 0 警告</b>（含本模块 5 个文件 / 494 行）</td></tr>
+          <tr><td><code>Revolution.Editor</code> 编译</td><td><b>0 错误</b></td></tr>
+          <tr><td>纯 C# 依赖检查</td><td><code>Core/</code> 两个文件<b>零引擎标识符</b>（能单独链接进普通 .NET 工程编译）</td></tr>
+          <tr><td><b>工程外行为断言</b></td><td><b>20 / 20 通过</b>：90% 平台期换算、越界 clamp、原始值回退不回退、1000 帧随机采样单调性、最短时长限速与激活门控、<code>Complete</code> / <code>Reset</code>、异常输入不炸</td></tr>
+          <tr><td>场景名写错</td><td>返回 null 的分支被当场判掉 → <code>Failed</code> + 人话原因（不黑屏）</td></tr>
+          <tr><td>并发请求</td><td>第二次请求被忽略并告警（不叠加载）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>断言工程是临时的（只链接 <code>Core/</code> 两个纯文件），跑完即删 —— 与其它模块的"可脱机断言"做法一致。</p>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">六</span>附：关键文件索引</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:44%">文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>Runtime\RevScene\Core\RevSceneDefine.cs</code></td><td>公共词汇：加载状态枚举（<b>纯 C#</b>）</td></tr>
+          <tr><td><code>Runtime\RevScene\Core\RevSceneProgressTracker.cs</code></td><td><b>进度换算内核</b>（<b>纯 C#</b>）：0.9 归一化 + 只增不减 + 最短时长限速 + 激活门控</td></tr>
+          <tr><td><code>Runtime\RevScene\Facade\RevScene.cs</code></td><td><b>业务唯一入口</b>：Load / LoadAsync / ReloadAsync / 状态查询 / 四个事件 / 配置</td></tr>
+          <tr><td><code>Runtime\RevScene\Support\RevSceneLoader.cs</code></td><td>实际执行者：拒绝并发 → 清理 → <code>allowSceneActivation = false</code> 加载盯进度 → 收尾广播</td></tr>
+          <tr><td><code>Runtime\RevScene\Support\RevSceneLog.cs</code></td><td>统一日志出口（tag = Scene，默认走 <code>RevLog</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">七</span>本期没做的（可后续扩展）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">项</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>Additive 叠加场景 / 多场景管理</td><td>现在是 Single 切换；要做"战斗场景 + 常驻场景"叠加，需要在门面加 <code>LoadAsync(name, LoadSceneMode)</code> 与场景集合管理</td></tr>
+          <tr><td>加载界面预制体</td><td>现在只给进度事件；要做"开箱即用的加载界面"，需要一个约定名（例如 <code>UI/Loading</code>）由框架自动开/关</td></tr>
+          <tr><td>进度权重合并（场景 + 资源）</td><td>常见做法是"场景占 60%、预加载资源占 40%"；本模块只管场景，合并逻辑留给业务或在 <code>OnProgress</code> 里自己算</td></tr>
+          <tr><td>场景名常量生成（<code>RevScenePath</code>）</td><td>像 <code>RevResPath</code> / <code>RevSoundPath</code> 那样由工具生成场景名常量，避免手写字符串写错</td></tr>
+          <tr><td>切换前的确认流程（战斗中禁切）</td><td>现在调用即切；要"战斗中点退出先弹确认"，在 <code>OnLoadStart</code> 之外自己拦一层即可</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets\Revolution\Runtime\RevScene\</code>（5 个 <code>.cs</code> / 494 行）。
+</footer>
+
+</body>
+</html>

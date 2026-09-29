@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场景系统 · 使用说明（手把手教程）</title>
+<link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">使用说明 · 从零到能写业务</span>
+    <h1>场景系统 · 使用说明</h1>
+    <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（一行切场景、进度可接、切之前按约定清理）</p>
+    <p class="meta">读完你能做到：3 分钟切第一个场景 · 分清异步与同步 · 知道进度为什么不会卡在 90% · 知道切场景时该清什么</p>
+  </div>
+  <div class="deco"></div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、它是干什么的</a></li>
+      <li><a href="#s1">一、3 分钟跑起来（可粘贴）</a></li>
+      <li><a href="#s2">二、"我要做 X" 对照表（全部 API）</a></li>
+      <li><a href="#s3">三、三个关键约定</a></li>
+      <li><a href="#s4">四、新手最容易踩的 4 个坑</a></li>
+      <li><a href="#s5">五、出问题怎么查 + 相关文档</a></li>
+    </ol>
+  </nav>
+
+  <section id="s0">
+    <h2><span class="num">〇</span>它是干什么的</h2>
+    <p class="lead">先花 30 秒建立直觉，再动手写。</p>
+
+    <div class="callout good">
+      <span class="t">只学 2 个东西就能干活（真的）</span>
+      <pre style="margin:10px 0 6px"><span class="k">await</span> RevScene.LoadAsync(<span class="s">"Battle"</span>);                          <span class="c">// ① 异步切场景（推荐）</span>
+RevScene.OnProgress += p =&gt; bar.value = p;                   <span class="c">// ② 进度挂一次，全局生效</span></pre>
+      <p style="margin-bottom:0">
+        更省心的写法是挂事件：<code>OnLoadStart</code> 开加载界面、<code>OnLoaded</code> 关加载界面 ——
+        业务里一个 <code>await</code> 都不用写。<br>
+        剩下的（最短展示时长、按分组卸资源、诊断日志……）都是<b>用到再看</b>的增值项。
+      </p>
+    </div>
+
+    <div class="plain">
+      <span class="tag">人话</span>
+      <b>场景切换 = 你看似只写一行"切到 Battle"，其实坑都在暗处：进度卡 90%、小场景闪一下、点两次互相踩、旧场景的东西还留着。</b>
+      <p>这个模块把这些坑一次填掉：你只管给场景名，<b>进度、并发、清理、失败原因</b>都由它兜住。</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:34%">它替你解决的问题</th><th>怎么做的</th></tr></thead>
+        <tbody>
+          <tr><td>进度条卡在 <b>90%</b> 不动，然后瞬间跳满</td><td>关掉 Unity 的自动激活：进度换算成 0~1，到 100% 才放行（见第三节）</td></tr>
+          <tr><td>小场景加载太快，加载界面"闪一下"</td><td>传 <code>minSeconds</code>：进度条至少走这么久，走完才允许切</td></tr>
+          <tr><td>同一个场景被点了两次，互相踩</td><td>正在切换时，后来的请求直接<b>忽略并告警</b>（不会黑屏 / 回不去）</td></tr>
+          <tr><td>切换后旧场景的东西还在（池化实例 / 画面残留）</td><td>默认<b>自动清空对象池</b>；UI / 音效 / 资源分组用 <code>OnLoadStart</code> 一行挂上</td></tr>
+          <tr><td>场景名写错 → 黑屏，只能猜</td><td>当场报人话：<code>场景不存在，或没有加进 Build Settings…</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">它只管"怎么切"，不管"场景里放什么"</span>
+      场景内容（UI、资源、战斗逻辑）不归它管 —— 它只保证：<b>你给场景名，切换这件事就稳了</b>。
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="num">一</span>3 分钟跑起来（可粘贴）</h2>
+    <p class="lead">不用初始化、不用挂脚本。</p>
+
+    <pre style="margin:10px 0 6px"><span class="c">// ① 最常用：异步切场景（async 方法里直接 await）</span>
+<span class="k">async</span> RevTask GoBattle()
+{
+    <span class="k">await</span> RevScene.LoadAsync(<span class="s">"Battle"</span>);
+    RevLog.Info(<span class="s">"已经在战斗场景了"</span>);            <span class="c">// 这一行执行时，新场景已激活</span>
+}
+
+<span class="c">// ② 带进度条（回调参数是 0~1，单调不减，可直接喂 Slider）</span>
+<span class="k">await</span> RevScene.LoadAsync(<span class="s">"Battle"</span>, p =&gt; loadingBar.value = p);
+
+<span class="c">// ③ 不想 await？挂事件就够了（挂一次，全局生效）</span>
+RevScene.OnLoadStart += name =&gt; loadingPanel.Open(name);
+RevScene.OnProgress  += p    =&gt; loadingBar.value = p;
+RevScene.OnLoaded    += name =&gt; loadingPanel.Close();
+RevScene.OnLoadFailed += why  =&gt; RevLog.Error(why);
+RevScene.LoadAsync(<span class="s">"Login"</span>).Forget();        <span class="c">// Forget = 明确表示"故意不 await"</span>
+
+<span class="c">// ④ 死亡重开 / 断线重连：重开当前场景</span>
+<span class="k">await</span> RevScene.ReloadAsync();
+
+<span class="c">// ⑤ 最后：切场景时收自己的摊子（对象池框架已经帮你清了，这里只管你自己的）</span>
+RevScene.OnLoadStart += _ =&gt;
+{
+    RevUI.ShutdownAll();                                       <span class="c">// 关掉所有界面</span>
+    RevSound.StopAll();                                        <span class="c">// 停掉音效</span>
+    RevResBootstrap.Instance.Shutdown(RevResGroup.Battle);     <span class="c">// 按业务域卸资源</span>
+};</pre>
+
+    <div class="callout good">
+      <span class="t">加载界面"至少显示 0.5 秒"这样写</span>
+      <p style="margin-bottom:0">
+        <code>await RevScene.LoadAsync("Battle", p =&gt; bar.value = p, minSeconds: 0.5f);</code><br>
+        或者全局设一次：<code>RevScene.DefaultMinSeconds = 0.5f;</code>
+      </p>
+    </div>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
+    <p class="lead">左边找需求，右边抄一行。入口统一是 <code>RevScene</code>。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">我想…</th><th>这么写</th></tr></thead>
+        <tbody>
+          <tr><td>异步切场景（推荐）</td><td><code>await RevScene.LoadAsync("Battle")</code></td></tr>
+          <tr><td>不 await（挂事件）</td><td><code>RevScene.LoadAsync("Battle").Forget()</code></td></tr>
+          <tr><td>带进度</td><td><code>await RevScene.LoadAsync("Battle", p =&gt; bar.value = p)</code></td></tr>
+          <tr><td>加载界面至少显示 0.5s</td><td><code>await RevScene.LoadAsync("Battle", null, minSeconds: 0.5f)</code></td></tr>
+          <tr><td>全局统一最短时长</td><td><code>RevScene.DefaultMinSeconds = 0.5f</code></td></tr>
+          <tr><td>按 buildIndex 切</td><td><code>await RevScene.LoadAsync(1)</code></td></tr>
+          <tr><td>重开当前场景</td><td><code>await RevScene.ReloadAsync()</code></td></tr>
+          <tr><td>同步切（会卡帧）</td><td><code>RevScene.Load("Login")</code></td></tr>
+          <tr><td>当前场景名 / 序号</td><td><code>RevScene.CurrentName</code> / <code>RevScene.CurrentIndex</code></td></tr>
+          <tr><td>正在切吗 / 进度 / 状态</td><td><code>RevScene.IsLoading</code> / <code>RevScene.Progress</code> / <code>RevScene.State</code></td></tr>
+          <tr><td>接进度（事件式）</td><td><code>RevScene.OnProgress += p =&gt; { }</code></td></tr>
+          <tr><td>开始 / 完成 / 失败</td><td><code>RevScene.OnLoadStart</code> · <code>RevScene.OnLoaded</code> · <code>RevScene.OnLoadFailed</code></td></tr>
+          <tr><td>切之前清理业务域</td><td><code>RevScene.OnLoadStart += _ =&gt; { … }</code></td></tr>
+          <tr><td>关掉自动清对象池</td><td><code>RevScene.AutoClearPool = false</code></td></tr>
+          <tr><td>打开诊断日志</td><td><code>RevScene.VerboseLog = true</code>（走 RevLog，tag = Scene）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">三</span>三个关键约定（记住这三条就够了）</h2>
+
+    <h3>① 进度永远是 0~1，而且<b>到 100% 才真正切</b></h3>
+    <p>Unity 的 <code>AsyncOperation.progress</code> 在场景激活前<b>最高只到 0.9</b> —— 直接喂给进度条就是"卡在 90% 再瞬间跳满"。框架的做法：</p>
+    <ul>
+      <li>关掉自动激活（<code>allowSceneActivation = false</code>）；</li>
+      <li>把 <code>[0, 0.9]</code> 归一化成 <code>[0, 1]</code>，并且<b>只增不减</b>（采样抖动不会让进度条回退）；</li>
+      <li>显示到 100%（且满足最短时长）才放行激活。</li>
+    </ul>
+    <p>于是你拿到的 <code>p</code> / <code>RevScene.Progress</code> 永远可以<b>直接</b>喂 <code>Slider.value</code>，不用自己乘系数。</p>
+
+    <h3>② 最短展示时长：<code>minSeconds</code></h3>
+    <p>小场景加载只要几十毫秒，加载界面会"闪一下"。传 <code>minSeconds</code>（或全局 <code>DefaultMinSeconds</code>）后：</p>
+    <ul>
+      <li>进度条最多按"这么长的节奏"走到 100%；</li>
+      <li>到点之前<b>不会</b>激活场景 —— 所以是"真的多显示了一会儿"，不是假进度。</li>
+    </ul>
+
+    <h3>③ 切之前清理：框架默认只清<b>对象池</b>，其余你一行挂上</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:38%">要清什么</th><th>谁负责</th></tr></thead>
+        <tbody>
+          <tr><td>对象池里的实例（旧场景的残留画面 / 占内存）</td><td>框架默认帮你清（<code>RevScene.AutoClearPool = true</code>）</td></tr>
+          <tr><td>UI 界面</td><td>你挂：<code>RevScene.OnLoadStart += _ =&gt; RevUI.ShutdownAll();</code></td></tr>
+          <tr><td>音效</td><td>你挂：<code>RevScene.OnLoadStart += _ =&gt; RevSound.StopAll();</code></td></tr>
+          <tr><td>资源分组 / 业务域</td><td>你挂：<code>RevScene.OnLoadStart += _ =&gt; RevResBootstrap.Instance.Shutdown(RevResGroup.Battle);</code></td></tr>
+          <tr><td>你自己挂在事件上的监听</td><td>你挂：<code>RevScene.OnLoadStart += _ =&gt; RevEvent.ClearAll();</code>（或按 owner 摘）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <span class="t">为什么"只清对象池"而不把上面全清了？</span>
+      <p style="margin-bottom:0">
+        因为"哪些该清"是<b>业务决定</b>：有的游戏跨场景保留 BGM、有的保留某个常驻界面。<br>
+        框架不替你做主，但给了你<b>一个必然被调用的时机</b>（<code>OnLoadStart</code>），一行就能收摊。
+      </p>
+    </div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">四</span>新手最容易踩的 4 个坑</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>① 场景没加进 Build Settings，切过去黑屏</td><td>日志会直接说"没有加进 Build Settings" → 菜单 <code>File / Build Settings</code> 把场景加进 <code>Scenes In Build</code></td></tr>
+          <tr><td>② 正在切的时候又调一次，想"催一下"</td><td>后一次会被<b>忽略并告警</b>（两个加载互相踩 = 黑屏）→ 用 <code>RevScene.OnLoaded</code> 接完成，别靠 <code>IsLoading</code> 轮询</td></tr>
+          <tr><td>③ 大场景用同步 <code>RevScene.Load</code></td><td>同步切换会<b>卡住这一帧</b>（加载多久卡多久）→ 一律 <code>LoadAsync</code></td></tr>
+          <tr><td>④ 以为 <code>OnLoaded</code> 是"场景里所有 Awake/Start 都跑完了"</td><td>它的语义是<b>"新场景已激活"</b>（Unity 的 <code>LoadSceneAsync</code> 完成时机）→ 要等首帧逻辑就用 <code>await RevTaskScheduler.NextFrame()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">五</span>出问题怎么查 + 相关文档</h2>
+
+    <h3>3 分钟定位</h3>
+    <ol>
+      <li><b>打开日志</b>：<code>RevScene.VerboseLog = true</code> → 能看到"准备切换 → 场景名 / 开始异步切换 / 已进入场景 / 已清理对象池 N 个实例"。</li>
+      <li><b>看状态</b>：<code>RevScene.State</code>（<code>Idle</code> / <code>Loading</code> / <code>Done</code> / <code>Failed</code>）+ <code>RevScene.Progress</code> + <code>RevScene.IsLoading</code>。</li>
+      <li><b>看失败原因</b>：<code>RevScene.OnLoadFailed += why =&gt; RevLog.Error(why);</code> —— 原因里会写明是"场景不存在"还是"没进 Build Settings"。</li>
+      <li><b>进度不动</b>：正常现象是加载期间停在某个值（比如 40%），那是 Unity 还没到 0.9 平台期；<b>真卡住不动</b>要查是不是同步 IO 阻塞了主线程。</li>
+    </ol>
+
+    <h3>相关文档</h3>
+    <ul>
+      <li>同目录《场景系统 · 架构解析》：为什么关掉自动激活、为什么进度的换算是纯 C#、为什么只自动清对象池</li>
+      <li>《资源加载系统 · 使用说明》：场景切换时按业务域卸资源（<code>RevResBootstrap.Instance.Shutdown(group)</code>）</li>
+      <li>《UI 系统 · 使用说明》：加载界面用面板写（<code>RevUI</code>），关全部界面用 <code>RevUI.ShutdownAll()</code></li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Revolution · 场景系统　|　本文是"手把手"版；想搞清"为什么这么设计"请看同目录的《架构解析》　|
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

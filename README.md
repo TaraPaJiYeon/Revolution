@@ -13,7 +13,7 @@
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**16 个运行期模块 + 2 套编辑器工具**（Runtime 171 个 `.cs` / 约 2.7 万行），
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**17 个运行期模块 + 2 套编辑器工具**（Runtime 176 个 `.cs` / 约 2.76 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：本框架不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
@@ -309,11 +309,12 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 171 个 `.cs` / 27,118 行）
+**运行期**（`Assets/Revolution/Runtime/`，17 个模块 / 176 个 `.cs` / 27,612 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|
 | `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
+| `RevScene` | 场景加载：一行切换（await 或挂事件）、进度永远 0~1（不卡 90%）、最短展示时长、切前按约定清理（默认清对象池） | 5 / 494 |
 | `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
 | `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **内置 UI 动画库**（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 5,763 |
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
@@ -345,7 +346,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 Revolution/
 ├── RevolutionFrameWork_Unity/            Unity 工程
 │   ├── Assets/Revolution/                  ★ 框架本体（包分支的仓库根就是它）
-│   │   ├── Runtime/                            16 个运行期模块（RevResourceSystem / RevUISystem / RevInput / …）
+│   │   ├── Runtime/                            17 个运行期模块（RevScene / RevResourceSystem / RevUISystem / RevInput / …）
 │   │   ├── Editor/                             编辑器工具（LiteAB 打包 / GM 面板）
 │   │   ├── Generation/                         生成的路径常量（RevResPath.cs）
 │   │   ├── Resources/                          框架自带运行时资源（ResMap、UI 预制体）

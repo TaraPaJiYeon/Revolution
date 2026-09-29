@@ -103,8 +103,8 @@
   <div class="wrap">
     <span class="kicker">REVOLUTION · 文档总入口</span>
     <h1>Revolution 文档导航</h1>
-    <p>15 个运行期模块 + 2 套编辑器工具的文档都在这一页。<b>第一次来</b>：先看 ①，再按需要往下跳。</p>
-    <div class="meta">14 个模块 · 38 份文档（每个模块都有《使用说明》= 手把手 · 多数另有《架构解析》= 设计论证）</div>
+    <p>17 个运行期模块 + 2 套编辑器工具的文档都在这一页。<b>第一次来</b>：先看 ①，再按需要往下跳。</p>
+    <div class="meta">16 个模块 · 每个模块都有《使用说明》= 手把手 · 多数另有《架构解析》= 设计论证</div>
     <div class="meta">在线地址：<a href="https://yokino337088.github.io/Revolution/" style="color:#fff;text-decoration:underline;">yokino337088.github.io/Revolution</a>　·　本地预览：双击 <code>预览文档.cmd</code></div>
   </div>
   <div class="deco"></div>
@@ -114,7 +114,7 @@
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索模块 / 关键词（例如：计时器、UI、分包、特性…）" autocomplete="off">
-    <span class="hint"><b id="cnt">17</b> 张卡片已显示</span>
+    <span class="hint"><b id="cnt">19</b> 张卡片已显示</span>
   </div>
 
   <!-- ① -->
@@ -146,8 +146,8 @@
 
   <!-- ② -->
   <section>
-    <h2><span class="num">2</span>业务三件套：资源 · UI · 动作</h2>
-    <p class="lead">日常开发用得最多的三个模块。它们的《架构解析》里都带了完整数据流与失败处理说明。</p>
+    <h2><span class="num">2</span>业务四件套：资源 · UI · 动作 · 场景</h2>
+    <p class="lead">日常开发用得最多的四个模块。它们的《架构解析》里都带了完整数据流与失败处理说明。</p>
     <div class="grid">
       <div class="card">
         <h3><span class="ico">📦</span>资源加载系统</h3>
@@ -198,6 +198,11 @@
           <a href="事件系统/事件系统架构解析.html">架构解析</a>
           <a class="md" href="事件系统/事件系统架构解析.md">.md</a>
         </div>
+      </div>
+      <div class="card">
+        <h3><span class="ico">🗺</span>场景系统<span class="tag beginner">小白向</span></h3>
+        <p class="desc">一行切场景（await 或挂事件）、进度永远 0~1（不卡 90%）、加载界面最短展示时长、切前按约定清理（默认清对象池）。</p>
+        <div class="links"><a href="场景系统/场景系统使用说明.html">使用说明</a><a href="场景系统/场景系统架构解析.html">架构解析</a></div>
       </div>
     </div>
   </section>
