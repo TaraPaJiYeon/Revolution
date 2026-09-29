@@ -682,7 +682,7 @@ ChangeToAsync(RevDemoBossStateType.Phase2, <span class="s">"血量低于 50%"</s
 <span class="c">// 二阶段状态里：资源与演出没完，就不允许交割</span>
 <span class="k">public override async</span> RevTask PrepareEnterAsync(RevCancellationToken token)
 {
-    <span class="k">await</span> RevTask.Delay(<span class="n">900</span>);   <span class="c">// 真实项目：await ResManager.LoadAsync&lt;GameObject&gt;("Boss/Phase2Fx", token)</span>
+    <span class="k">await</span> RevTask.Delay(<span class="n">900</span>);   <span class="c">// 真实项目：await RevResManager.LoadAsync&lt;GameObject&gt;("Boss/Phase2Fx", token)</span>
 }</pre>
 
     <div class="demo" id="demo-tx">

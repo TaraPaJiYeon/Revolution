@@ -590,7 +590,7 @@ fsm.ChangeState(BossStateType.CastSkill, <span class="s">"进入射程，技能�
     <p>本框架保留"双方就绪才交割"的语义，但把"就绪"换成<b>本框架的 <code>RevTask</code></b> —— 状态直接把准备过程写成 <code>async</code>：</p>
     <pre><span class="k">public override async</span> RevTask PrepareEnterAsync(RevCancellationToken token)
 {
-    <span class="k">await</span> ResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"Boss"</span>, token);   <span class="c">// 加载完才算"就绪"</span>
+    <span class="k">await</span> RevResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"Boss"</span>, token);   <span class="c">// 加载完才算"就绪"</span>
     <span class="k">await</span> RevTask.Delay(<span class="n">500</span>);                                <span class="c">// 想再等也能等</span>
 }</pre>
 
@@ -850,7 +850,7 @@ sm.StatePopped   += state =&gt; Debug.Log($<span class="s">"弹栈：{state.GetT
     <span class="k">public override async</span> RevTask PrepareEnterAsync(RevCancellationToken token)
     {
         <span class="c">// ★ token 在这次切换被"更新的请求"取代时会被 Cancel —— 用来中断无用的加载</span>
-        <span class="k">await</span> ResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"UI/BattleHud"</span>, token);
+        <span class="k">await</span> RevResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"UI/BattleHud"</span>, token);
         <span class="k">await</span> RevTask.Delay(<span class="n">300</span>);        <span class="c">// 读条至少显示 300ms，别闪一下</span>
     }
 
@@ -942,7 +942,7 @@ ChangeToAsync(Lobby)              <span class="c">← 玩家反悔，点了返�
     {
         Owner.PlayAnimation(<span class="s">"Phase2_Intro"</span>);
         <span class="k">await</span> RevTask.Delay(<span class="n">1200</span>);                                       <span class="c">// 等登场演出</span>
-        <span class="k">await</span> ResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"Boss/Phase2Fx"</span>, token);  <span class="c">// 等资源（可被取消）</span>
+        <span class="k">await</span> RevResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"Boss/Phase2Fx"</span>, token);  <span class="c">// 等资源（可被取消）</span>
     }
 }</pre>
     <div class="table-wrap">

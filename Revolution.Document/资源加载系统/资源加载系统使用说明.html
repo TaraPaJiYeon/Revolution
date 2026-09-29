@@ -39,11 +39,11 @@
 
     <div class="callout good">
       <span class="t">只学 3 个东西就能干活（真的）</span>
-      <pre style="margin:10px 0 6px">ResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt; img.sprite = sprite);  <span class="c">// ① 异步加载（推荐）</span>
-<span class="k">var</span> prefab = ResManager.Load&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>);              <span class="c">// ② 同步加载（小资源 / 已预热）</span>
-ResManager.Release(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>);                                    <span class="c">// ③ 不用了释放（引用计数减一）</span></pre>
+      <pre style="margin:10px 0 6px">RevResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt; img.sprite = sprite);  <span class="c">// ① 异步加载（推荐）</span>
+<span class="k">var</span> prefab = RevResManager.Load&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>);              <span class="c">// ② 同步加载（小资源 / 已预热）</span>
+RevResManager.Release(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>);                                    <span class="c">// ③ 不用了释放（引用计数减一）</span></pre>
       <p style="margin-bottom:0">
-        更省心的写法是用 <b>作用域</b>：<code>using (ResManager.OpenScope()) { … }</code> —— 出块时这一批全放掉。<br>
+        更省心的写法是用 <b>作用域</b>：<code>using (RevResManager.OpenScope()) { … }</code> —— 出块时这一批全放掉。<br>
         剩下的（预加载、按组卸载、句柄、缓存统计……）都是<b>用到再看</b>的增值项。
       </p>
     </div>
@@ -60,10 +60,10 @@ ResManager.Release(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"
         <tbody>
           <tr><td>同一份资源被多处加载</td><td>内部<b>共享缓存</b> + 引用计数：第二个人拿到的是同一份，不会加载两次</td></tr>
           <tr><td>加载中又有人请求同一份</td><td>请求合并（回调排队），不会重复走 IO</td></tr>
-          <tr><td>忘记卸载导致内存涨</td><td>计数归零即进"待卸载"名单；<code>FlushUnused()</code> 主动清、<code>ResAutoUnloader</code> 也可自动清</td></tr>
+          <tr><td>忘记卸载导致内存涨</td><td>计数归零即进"待卸载"名单；<code>FlushUnused()</code> 主动清、<code>RevResAutoUnloader</code> 也可自动清</td></tr>
           <tr><td>编辑器里想直接跑、不想打包</td><td><b>编辑器直读</b>模式：直接从 <code>Assets</code> 读，改完立刻生效</td></tr>
           <tr><td>上线后要按包管理</td><td><b>AB 模式</b>：按 <code>ResMap.txt</code> 把逻辑路径映射到真实 AB</td></tr>
-          <tr><td>失败不知道为什么</td><td>失败原因带枚举 <code>ResLoadErrorReason</code>（路径没映射 / 包里没有 / 类型不符…）</td></tr>
+          <tr><td>失败不知道为什么</td><td>失败原因带枚举 <code>RevResLoadErrorReason</code>（路径没映射 / 包里没有 / 类型不符…）</td></tr>
         </tbody>
       </table>
     </div>
@@ -76,29 +76,29 @@ ResManager.Release(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"
     <pre><span class="c">// ① 异步加载一张图（最常见的用法）</span>
 <span class="k">void</span> Start()
 {
-    ResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt;
+    RevResManager.LoadAsync&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>, sprite =&gt;
     {
         image.sprite = sprite;                    <span class="c">// 回调里直接用</span>
-        <span class="c">// 这个界面关掉时记得：ResManager.Release("UI/Bag", "icon_sword");</span>
+        <span class="c">// 这个界面关掉时记得：RevResManager.Release("UI/Bag", "icon_sword");</span>
     });
 }
 
 <span class="c">// ② 加载预制体并实例化</span>
-ResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>, prefab =&gt;
+RevResManager.LoadAsync&lt;GameObject&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"ItemSlot"</span>, prefab =&gt;
 {
     Instantiate(prefab, container);
 });
 
 <span class="c">// ③ 一批资源一起用、一起放（作用域，最省心）</span>
-<span class="k">using</span> (ResManager.OpenScope())
+<span class="k">using</span> (RevResManager.OpenScope())
 {
-    <span class="k">var</span> bg  = ResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"bg_main"</span>);
-    <span class="k">var</span> ico = ResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"ico_coin"</span>);
+    <span class="k">var</span> bg  = RevResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"bg_main"</span>);
+    <span class="k">var</span> ico = RevResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Common"</span>, <span class="s">"ico_coin"</span>);
     <span class="c">// …这一段里用它们…</span>
 }   <span class="c">// 出块：上面两个资源自动 Release</span>
 
 <span class="c">// ④ 看一眼当前缓存了多少（排查用）</span>
-Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸载 {ResManager.UnusedCount} 份"</span>);</pre>
+Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待卸载 {RevResManager.UnusedCount} 份"</span>);</pre>
 
     <div class="callout">
       <span class="t">就这样，没有初始化步骤</span>
@@ -108,30 +108,30 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
 
   <section id="s2">
     <h2><span class="num">二</span>"我要做 X" 对照表（全部 API）</h2>
-    <p class="lead">左边找需求，右边抄一行。入口统一是 <code>ResManager</code>。</p>
+    <p class="lead">左边找需求，右边抄一行。入口统一是 <code>RevResManager</code>。</p>
 
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:36%">我想…</th><th>这么写</th></tr></thead>
         <tbody>
-          <tr><td>异步加载（推荐）</td><td><code>ResManager.LoadAsync&lt;T&gt;(rootPath, resName, obj =&gt; { })</code></td></tr>
-          <tr><td>同步加载</td><td><code>ResManager.Load&lt;T&gt;(rootPath, resName)</code></td></tr>
-          <tr><td>拿句柄（自己管引用）</td><td><code>ResManager.LoadHandle&lt;T&gt;(rootPath, resName)</code></td></tr>
-          <tr><td>查已在缓存里的</td><td><code>ResManager.Get(rootPath, resName)</code>（没有就是 <code>ResHandle.Empty</code>）</td></tr>
-          <tr><td>释放一个</td><td><code>ResManager.Release(rootPath, resName)</code></td></tr>
-          <tr><td>一批一起放（推荐）</td><td><code>using (ResManager.OpenScope()) { … }</code></td></tr>
-          <tr><td>手动加减引用</td><td><code>ResManager.AddRef(key)</code> / <code>ResManager.DecRef(key)</code>（key 从句柄拿）</td></tr>
-          <tr><td>立刻清掉没人用的</td><td><code>ResManager.FlushUnused()</code></td></tr>
-          <tr><td>按分组卸载</td><td><code>ResManager.UnloadGroup(ResGroup.Config)</code>（<code>force: true</code> 连在用的一起卸）</td></tr>
-          <tr><td>看缓存状况</td><td><code>ResManager.CachedCount</code> / <code>ResManager.UnusedCount</code> / <code>ResManager.CachedHandles</code></td></tr>
-          <tr><td>接自己的加载策略</td><td><code>ResManager.RegisterPolicy(policy)</code>（进阶：实现 <code>IResPolicy</code>）</td></tr>
-          <tr><td>自定义资源分组</td><td><code>ResGroupUtil.Custom(0)</code>（传 0/1/2… 得到不同分组）</td></tr>
+          <tr><td>异步加载（推荐）</td><td><code>RevResManager.LoadAsync&lt;T&gt;(rootPath, resName, obj =&gt; { })</code></td></tr>
+          <tr><td>同步加载</td><td><code>RevResManager.Load&lt;T&gt;(rootPath, resName)</code></td></tr>
+          <tr><td>拿句柄（自己管引用）</td><td><code>RevResManager.LoadHandle&lt;T&gt;(rootPath, resName)</code></td></tr>
+          <tr><td>查已在缓存里的</td><td><code>RevResManager.Get(rootPath, resName)</code>（没有就是 <code>RevResHandle.Empty</code>）</td></tr>
+          <tr><td>释放一个</td><td><code>RevResManager.Release(rootPath, resName)</code></td></tr>
+          <tr><td>一批一起放（推荐）</td><td><code>using (RevResManager.OpenScope()) { … }</code></td></tr>
+          <tr><td>手动加减引用</td><td><code>RevResManager.AddRef(key)</code> / <code>RevResManager.DecRef(key)</code>（key 从句柄拿）</td></tr>
+          <tr><td>立刻清掉没人用的</td><td><code>RevResManager.FlushUnused()</code></td></tr>
+          <tr><td>按分组卸载</td><td><code>RevResManager.UnloadGroup(RevResGroup.Config)</code>（<code>force: true</code> 连在用的一起卸）</td></tr>
+          <tr><td>看缓存状况</td><td><code>RevResManager.CachedCount</code> / <code>RevResManager.UnusedCount</code> / <code>RevResManager.CachedHandles</code></td></tr>
+          <tr><td>接自己的加载策略</td><td><code>RevResManager.RegisterPolicy(policy)</code>（进阶：实现 <code>IRevResPolicy</code>）</td></tr>
+          <tr><td>自定义资源分组</td><td><code>RevResGroupUtil.Custom(0)</code>（传 0/1/2… 得到不同分组）</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout warn">
-      <span class="t">句柄（ResHandle）什么时候用</span>
+      <span class="t">句柄（RevResHandle）什么时候用</span>
       只有你要<b>把"用了哪些资源"当数据传来传去</b>时才需要它（比如一个界面的资源清单）。
       一般业务用 <code>LoadAsync</code> + <code>Release</code> 就够了 —— 别为了"看起来高级"去手动 <code>AddRef/DecRef</code>。
     </div>
@@ -148,7 +148,7 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
           <tr><td><code>Assets/GameRes/UI/Bag/icon_sword.png</code></td><td><code>("UI/Bag", "icon_sword")</code></td><td>相对<b>资源根目录</b>（打包配置里那个）</td></tr>
           <tr><td><code>…/UI/Bag/ItemSlot.prefab</code></td><td><code>("UI/Bag", "ItemSlot")</code></td><td>不带扩展名</td></tr>
           <tr><td><code>…/Config/Hero.txt</code></td><td><code>("Config", "Hero")</code></td><td>配置表也走同一套（见《配置表 / 导表工具》）</td></tr>
-          <tr><td>按包分组</td><td><code>("UI/Bag", "icon_sword", ResGroup.UI)</code></td><td>分组影响 AB 归属与批量卸载</td></tr>
+          <tr><td>按包分组</td><td><code>("UI/Bag", "icon_sword", RevResGroup.UI)</code></td><td>分组影响 AB 归属与批量卸载</td></tr>
         </tbody>
       </table>
     </div>
@@ -165,7 +165,7 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
     <p class="lead">一句话：<b>拿了几次就还几次；界面/场景销毁时一定要还。</b></p>
 
     <div class="cheat">
-      <div><b>临时用一下就丢（读表、图标、特效贴图）</b>用 <code>using (ResManager.OpenScope())</code>，别手写 Release</div>
+      <div><b>临时用一下就丢（读表、图标、特效贴图）</b>用 <code>using (RevResManager.OpenScope())</code>，别手写 Release</div>
       <div><b>界面用的资源</b>在 <code>OnClose</code> / <code>OnRelease</code> 里 Release（面板生命周期见《UI 系统使用说明》）</div>
       <div><b>对象池里的实例</b>由池端着引用 —— 不要自己 Release，池销毁时会处理（见《对象池使用说明》）</div>
       <div><b>整块玩法结束</b>（一局战斗、一个活动）按分组 <code>UnloadGroup(group)</code> 一次收干净</div>
@@ -186,7 +186,7 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
     <div class="callout bad">
       <span class="t">⚠️ 先明确一件事：本框架不含热更新</span>
       AB 只从<b>本机</b> <code>StreamingAssets</code> 读，<b>没有</b>远程下载、版本比对、差量更新，也没有 <code>persistentDataPath</code> 覆盖路径
-      （源码里就写着这句，见 <code>ABLoader.cs</code> 头部注释）。要接热更：资源层对外只有 <code>IResPolicy</code> + <code>IResLoader</code> 两个接口 ——
+      （源码里就写着这句，见 <code>RevABLoader.cs</code> 头部注释）。要接热更：资源层对外只有 <code>IRevResPolicy</code> + <code>IRevResLoader</code> 两个接口 ——
       自己实现（接你的下载/CDN 体系）或整体换成 YooAsset，<b>上层业务代码都不用改</b>。
       方案与步骤见仓库首页 README《不做什么：热更新与远程更新》：
       <a href="https://github.com/Yokino337088/Revolution#-不做什么热更新与远程更新">GitHub 上打开</a> ·
@@ -229,7 +229,7 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
           <tr><td>② 把同步 <code>Load</code> 用在"大资源"上</td><td>大资源（模型、大图、场景）一律 <code>LoadAsync</code>，避免卡帧</td></tr>
           <tr><td>③ 在回调里假设"马上就到"</td><td>异步回调可能<b>下一帧甚至更晚</b>才来；回调里要判 <code>this</code> 是否已销毁（界面已关）</td></tr>
           <tr><td>④ 同一个资源 Release 两次</td><td>引用计数会变成负数（框架会告警但不背锅）→ 用作用域或配对管理</td></tr>
-          <tr><td>⑤ 手写 <code>Resources.Load</code></td><td>绕过框架就享受不到引用计数/映射/打包管理 ✗ → 一律 <code>ResManager</code></td></tr>
+          <tr><td>⑤ 手写 <code>Resources.Load</code></td><td>绕过框架就享受不到引用计数/映射/打包管理 ✗ → 一律 <code>RevResManager</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -240,7 +240,7 @@ Debug.Log($<span class="s">"缓存 {ResManager.CachedCount} 份，其中待卸�
 
     <h3>3 分钟定位</h3>
     <ol>
-      <li><b>看缓存</b>：<code>ResManager.CachedCount</code> 一直涨 → 有地方只拿不放（在界面关闭处找）；<code>UnusedCount</code> 一直不清 → 没人触发回收，调一次 <code>FlushUnused()</code> 看能不能清掉。</li>
+      <li><b>看缓存</b>：<code>RevResManager.CachedCount</code> 一直涨 → 有地方只拿不放（在界面关闭处找）；<code>UnusedCount</code> 一直不清 → 没人触发回收，调一次 <code>FlushUnused()</code> 看能不能清掉。</li>
       <li><b>看映射</b>：报"找不到"先在 <code>Assets/Revolution/Resources/ResourceSystem/ResMap.txt</code> 里搜这条逻辑路径；搜不到就是没生成映射。</li>
       <li><b>看分包</b>：菜单 <code>Revolution.Tools / 资源 / LiteAB 打包工具</code> → 「分包」页签（带自动同步）：确认资源<b>有没有 AB 标记</b>、「检查」页签有没有漏标。</li>
       <li><b>看体积</b>：「体积」页签找"哪个包突然变大"；「依赖」页签看有没有资源被复制多份。</li>

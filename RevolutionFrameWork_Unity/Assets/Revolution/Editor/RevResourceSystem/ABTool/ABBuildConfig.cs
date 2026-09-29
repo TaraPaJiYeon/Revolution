@@ -53,7 +53,7 @@ namespace Revolution.Editor
 
         // ---------------- 音效目录（RevSoundSystem 用：只认"相对资源根目录"的逻辑段） ----------------
         // 【为什么存"逻辑段"而不是"Assets/xxx"全路径？】
-        //   运行期要用的是逻辑目录段（如 "Audio/Sfx"），它与 ResManager 的 rootPath 参数、
+        //   运行期要用的是逻辑目录段（如 "Audio/Sfx"），它与 RevResManager 的 rootPath 参数、
         //   ResMap 里的逻辑名完全一致；存全路径还会因为换工程 / 换盘符而失效。
         //   窗口里那两个"文件夹槽"只是输入方式：拖进来会**自动转成**逻辑段（见 NormalizeSubRoot）。
         //
@@ -211,7 +211,7 @@ namespace Revolution.Editor
         }
 
         /// <summary>
-        /// 把"本实例"的资源根目录推给运行时策略 EditorResPolicy。
+        /// 把"本实例"的资源根目录推给运行时策略 RevEditorResPolicy。
         /// （编辑器程序集可以引用运行时程序集，反过来不行 —— 所以由这里"推"过去。）
         ///
         /// ★ 未配置时**什么都不做**：绝不能把"空根目录"推过去，
@@ -228,7 +228,7 @@ namespace Revolution.Editor
             }
 
             _warnedResRoot = false;                       // 配好了 → 以后再次丢失时可以重新提醒
-            Revolution.EditorResPolicy.ResRoot = root + "/";
+            Revolution.RevEditorResPolicy.ResRoot = root + "/";
         }
 
         // 未配置只提醒一次：ApplyToRuntime 会在每次脚本重编译后自动跑，不去重会刷屏

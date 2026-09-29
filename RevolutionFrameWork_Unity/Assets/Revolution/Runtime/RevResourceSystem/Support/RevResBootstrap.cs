@@ -1,5 +1,5 @@
 // ============================================================
-// ResBootstrap.cs —— 资源系统启动装配
+// RevResBootstrap.cs —— 资源系统启动装配
 //
 // 位置：Runtime\资源加载\
 //
@@ -9,7 +9,7 @@
 //   ③ 提供切场景时的统一清理入口。
 //
 // 【两种模式】
-//   · 开发模式（默认）：编辑器下只注册 EditorResPolicy，
+//   · 开发模式（默认）：编辑器下只注册 RevEditorResPolicy，
 //     所有资源一律 AssetDatabase 直读，AB / Resources 完全不参与。
 //   · AB 模式：真机自动使用；编辑器下需手动开启
 //     （菜单 Revolution.Tools/资源/AB 加载模式（编辑器），或代码设 UseABInEditor = true）。
@@ -19,12 +19,12 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public class ResBootstrap : RevSingleton<ResBootstrap>
+    public class RevResBootstrap : RevSingleton<RevResBootstrap>
     {
         // 单例：构造函数写 private 只是"防止外部 new"的可选加固，不写也能正常工作
-        private ResBootstrap() { }
+        private RevResBootstrap() { }
 
-        private ABLoader _abLoader;
+        private RevABLoader _abLoader;
 
 #if UNITY_EDITOR
         // ============================================================
@@ -61,10 +61,10 @@ namespace Revolution
 
         public void Init()
         {
-            ResManager.ClearAllPolicies();
+            RevResManager.ClearAllPolicies();
 
             // 启动"自动卸载门卫"（开发模式 / AB 模式都需要，所以放在策略注册之前）
-            if (ResAutoUnloader.AutoStart) ResAutoUnloader.EnsureRunning();
+            if (RevResAutoUnloader.AutoStart) RevResAutoUnloader.EnsureRunning();
 
 #if UNITY_EDITOR
             // ================== 开发模式（默认）==================
@@ -72,20 +72,20 @@ namespace Revolution
             // 直接 return，AB / Resources 策略根本不注册。
             if (!UseABInEditor)
             {
-                ResManager.RegisterPolicy(new EditorResPolicy());
+                RevResManager.RegisterPolicy(new RevEditorResPolicy());
                 return;
             }
-            // 开启 AB 模式后不注册 EditorResPolicy，继续走下面的运行时注册
+            // 开启 AB 模式后不注册 RevEditorResPolicy，继续走下面的运行时注册
 #endif
 
             // ================== AB 模式（运行时 / 编辑器手动开启）==================
             // ① AB 策略（主方案）：除 "Res/" 前缀外全部接管；失败可兜底
-            _abLoader = new ABLoader();
+            _abLoader = new RevABLoader();
             Dictionary<string, string> map = LoadResMap();
-            ResManager.RegisterPolicy(new ABResPolicy(map, _abLoader));
+            RevResManager.RegisterPolicy(new RevABResPolicy(map, _abLoader));
 
             // ② Resources 策略（链尾兜底）：接住 "Res/" 特殊资源 + AB 加载失败兜底
-            ResManager.RegisterPolicy(new ResourcesResPolicy());
+            RevResManager.RegisterPolicy(new RevResourcesResPolicy());
 
             // 注册顺序 = 优先级 → AB > Resources
         }
@@ -102,7 +102,7 @@ namespace Revolution
             //   ★ 与 ABBuildSetting.MapAssetPath 是一对，改一个必须改另一个。
             TextAsset ta = Resources.Load<TextAsset>("ResourceSystem/ResMap");
             // 没执行过一键打包（没有映射表）→ 返回空表：
-            //   ABResPolicy 会因查不到映射而失败 → AllowFallback → 全部落到 Resources 兜底
+            //   RevABResPolicy 会因查不到映射而失败 → AllowFallback → 全部落到 Resources 兜底
             if (ta == null) return map;
 
             foreach (string raw in ta.text.Split('\n'))
@@ -124,36 +124,36 @@ namespace Revolution
         /// <summary>
         /// 切场景 / 退出战斗：取消在途加载 → 归还该组预加载引用 → 按组卸载 → 清理未使用表 → 复位令牌。
         ///
-        /// 【关于 force】（配合 ResManager.UnloadGroup 的语义）
+        /// 【关于 force】（配合 RevResManager.UnloadGroup 的语义）
         ///   true（默认）：连"仍被引用的也一并清账" —— 适合"整个业务域一次性销毁"，
         ///                 不必要求业务把每个资源都 Release 一遍。
         ///   false       ：只卸载引用已归零的 —— 安全，但业务若忘了 Release，资源会残留。
         ///
         /// 【force = true 会不会误伤别的域？】
         ///   会 —— 前提是"该分组里混进了跨域共享的资源"。
-        ///   对这类资源请打 ResInstanceFlag.Resident 标志，它永不参与分组卸载（force 也不行）。
+        ///   对这类资源请打 RevResInstanceFlag.Resident 标志，它永不参与分组卸载（force 也不行）。
         /// </summary>
         /// <param name="group">要清理的业务分组</param>
         /// <param name="force">是否解除"还有人在用"的保护（默认 true）</param>
-        public void Shutdown(ResGroup group, bool force = true)
+        public void Shutdown(RevResGroup group, bool force = true)
         {
-            AsyncLoadPump.CancelAll();               // ① 中断在途加载（令牌置为已取消）
-            ResPreloader.Release(group);             // ② 归还该组的"预加载持有"引用
-            ResManager.UnloadGroup(group, force);    // ③ 按业务域批量卸载
-            ResManager.FlushUnused();                // ④ 真正释放未使用资源
+            RevAsyncLoadPump.CancelAll();               // ① 中断在途加载（令牌置为已取消）
+            RevResPreloader.Release(group);             // ② 归还该组的"预加载持有"引用
+            RevResManager.UnloadGroup(group, force);    // ③ 按业务域批量卸载
+            RevResManager.FlushUnused();                // ④ 真正释放未使用资源
 
-            AsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌，供下一个场景使用
+            RevAsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌，供下一个场景使用
         }
 
         /// <summary>全部释放（退出 / 回登录）</summary>
         public void ShutdownAll()
         {
-            AsyncLoadPump.CancelAll();               // ① 中断在途加载
-            ResPreloader.ReleaseAll();               // ② 归还全部预加载引用
+            RevAsyncLoadPump.CancelAll();               // ① 中断在途加载
+            RevResPreloader.ReleaseAll();               // ② 归还全部预加载引用
             _abLoader?.ReleaseAll();                 // ③ 释放所有 AB 包
-            ResManager.UnloadAll();                  // ④ 清空缓存 + 让 Unity 回收无引用对象
+            RevResManager.UnloadAll();                  // ④ 清空缓存 + 让 Unity 回收无引用对象
 
-            AsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌
+            RevAsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌
         }
     }
 }

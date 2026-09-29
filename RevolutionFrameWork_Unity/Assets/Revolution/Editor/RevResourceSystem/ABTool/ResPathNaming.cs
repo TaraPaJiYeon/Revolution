@@ -6,7 +6,7 @@
 // 【它负责什么？】
 //   把"资源根目录下的文件夹"变成一段可以直接编译的 C# 源码：
 //       Assets/GameRes/UI/Icon   →   public const string UI_Icon = "UI/Icon/";
-//   业务侧就写：   ResManager.Load<GameObject>(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
+//   业务侧就写：   RevResManager.Load<GameObject>(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
 //   （框架内部把"根目录 + 资源名"两段拼成 "UI/Icon/Hero_1001"）
 //
 // 【为什么单独一个文件，不写在 ABResPathGenerator 里？】
@@ -21,7 +21,7 @@
 //
 // 【为什么常量值带结尾斜杠？】
 //   让它天生就是"前缀"，看着就知道后面还要接资源名 —— 少一处可能写错的地方。
-//   （ResPathUtil.Join 对"带不带结尾斜杠"都兼容：写 "UI/Icon" 也照样拼得对。）
+//   （RevResPathUtil.Join 对"带不带结尾斜杠"都兼容：写 "UI/Icon" 也照样拼得对。）
 // ============================================================
 using System.Collections.Generic;
 using System.IO;
@@ -155,19 +155,19 @@ namespace Revolution.Editor
                 "//",
                 "// 内容：资源根目录 \"" + resRoot + "\" 下所有文件夹的「目录前缀」常量。",
                 "// 用法：目录前缀与资源名一起交给资源系统（框架内部拼成 \"UI/Icon/Hero_1001\"）",
-                "//       ResManager.Load<GameObject>(RevResPath.UI_Icon, \"Hero_1001\", ResGroup.UI);",
+                "//       RevResManager.Load<GameObject>(RevResPath.UI_Icon, \"Hero_1001\", RevResGroup.UI);",
                 "//",
                 "// 为什么这样设计：",
                 "//   · 目录前缀很少变 —— 新增资源不用重新生成，随手写上资源名即可；",
                 "//   · const 是编译期常量：目录这一段有编译期保护，写错编译不过；",
                 "//   · 两段直接传参即可：框架按「两段增量哈希」算缓存键，",
-                "//     命中缓存时不拼字符串、零分配（见 ResourceSystem\\Core\\ResPathUtil.cs）；",
+                "//     命中缓存时不拼字符串、零分配（见 RevResourceSystem\\Core\\RevResPathUtil.cs）；",
                 "//   · 注意：\"Hero_1001\" 那一段仍是普通字符串 ——",
                 "//     写错不会编译报错，只会在运行时加载失败（建议从 Project 窗口复制名字）。",
                 "// ============================================================",
                 "namespace " + NamespaceName,
                 "{",
-                "    /// <summary>资源目录前缀常量（值均以 \"/\" 结尾；与资源名一起传给 ResManager）</summary>",
+                "    /// <summary>资源目录前缀常量（值均以 \"/\" 结尾；与资源名一起传给 RevResManager）</summary>",
                 "    public static class " + ClassName,
                 "    {"
             };

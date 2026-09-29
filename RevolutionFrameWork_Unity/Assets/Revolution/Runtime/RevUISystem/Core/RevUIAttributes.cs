@@ -22,7 +22,7 @@ namespace Revolution
     /// <summary>
     /// 面板声明：写在面板类上，告诉框架"我的预制体在哪、挂哪一层、怎么缓存"。
     ///
-    /// 【root 是什么】就是资源系统里的"根目录段"（和 <c>ResManager.LoadAsync(rootPath, resName, ...)</c> 的 rootPath 同义）：
+    /// 【root 是什么】就是资源系统里的"根目录段"（和 <c>RevResManager.LoadAsync(rootPath, resName, ...)</c> 的 rootPath 同义）：
     ///   支持多级嵌套，如 "UI/Panel"、"UI/UIPanel/Lobby"；
     ///   结尾带不带 '/' 都行（框架会规范化），也可以用生成的 <c>RevResPath</c> 常量，享受编译期保护。
     ///

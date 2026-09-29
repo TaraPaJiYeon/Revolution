@@ -7,7 +7,7 @@
 //   所以这里不碰任何文件 API —— 数据表统一交给资源系统去取，白拿四件事：
 //     · 缓存：同一张表只读一次盘（重复请求直接命中）
 //     · 引用计数：业务都释放了才真正卸载
-//     · 分组卸载：切场景时可 ResBootstrap.Shutdown(ResGroup.Config) 整组回收
+//     · 分组卸载：切场景时可 RevResBootstrap.Shutdown(RevResGroup.Config) 整组回收
 //     · 平台透明：编辑器直读工程、真机走 AB，业务代码一行都不用改
 //
 // 【为什么禁止直接读 StreamingAssets？】
@@ -118,13 +118,13 @@ namespace Revolution
         /// 真机第一次加载请用异步版（同步加载 AB 是拿不到结果的）。
         /// 失败返回 null。
         /// </summary>
-        public static T Load<T>(ResGroup group = ResGroup.Config) where T : class, IDataTable, new()
+        public static T Load<T>(RevResGroup group = RevResGroup.Config) where T : class, IDataTable, new()
         {
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) return cached;
 
             var table = new T();
-            ResHandle handle = ResManager.Load(table.ResourceRoot, table.ResourceName, typeof(TextAsset), group);
+            RevResHandle handle = RevResManager.Load(table.ResourceRoot, table.ResourceName, typeof(TextAsset), group);
 
             if (!ReadText(table, handle)) return null;
 
@@ -138,10 +138,10 @@ namespace Revolution
         /// 加载失败会抛 DataTableLoadException（带上表名与失败原因，便于定位）。
         /// 同一张表并发请求会被资源系统合并，只会真正加载一次。
         /// </summary>
-        /// <param name="group">归属分组：配置表默认走 ResGroup.Config（切场景不会被误卸载）</param>
+        /// <param name="group">归属分组：配置表默认走 RevResGroup.Config（切场景不会被误卸载）</param>
         /// <param name="priority">加载优先级：紧急资源可传 Urgent 抢在预加载前面</param>
-        public static RevTask<T> LoadAsync<T>(ResGroup group = ResGroup.Config,
-            ResLoadPriority priority = ResLoadPriority.Normal) where T : class, IDataTable, new()
+        public static RevTask<T> LoadAsync<T>(RevResGroup group = RevResGroup.Config,
+            RevResLoadPriority priority = RevResLoadPriority.Normal) where T : class, IDataTable, new()
         {
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) return RevTask<T>.FromResult(cached);
@@ -149,13 +149,13 @@ namespace Revolution
             var table = new T();
             var source = RevTask<T>.CreateSource();
 
-            ResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
+            RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
             {
                 if (!ReadText(table, handle))
                 {
                     source.SetException(new DataTableLoadException(
                         table.TableName, table.ResourceRoot, table.ResourceName,
-                        handle == null ? ResLoadErrorReason.PolicyNotFound : handle.ErrorReason));
+                        handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason));
                     return;
                 }
 
@@ -170,26 +170,26 @@ namespace Revolution
         /// 异步加载（回调式，不抛异常）：失败时 table 为 null，reason 说明原因。
         /// 适合不想在每个调用处写 try/catch 的场景。
         /// </summary>
-        public static void LoadAsync<T>(Action<T, ResLoadErrorReason> onFinished,
-            ResGroup group = ResGroup.Config, ResLoadPriority priority = ResLoadPriority.Normal)
+        public static void LoadAsync<T>(Action<T, RevResLoadErrorReason> onFinished,
+            RevResGroup group = RevResGroup.Config, RevResLoadPriority priority = RevResLoadPriority.Normal)
             where T : class, IDataTable, new()
         {
             T cached = Get<T>();
-            if (cached != null && cached.IsLoaded) { onFinished?.Invoke(cached, ResLoadErrorReason.None); return; }
+            if (cached != null && cached.IsLoaded) { onFinished?.Invoke(cached, RevResLoadErrorReason.None); return; }
 
             var table = new T();
 
-            ResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
+            RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
             {
                 if (!ReadText(table, handle))
                 {
-                    ResLoadErrorReason reason = handle == null ? ResLoadErrorReason.PolicyNotFound : handle.ErrorReason;
+                    RevResLoadErrorReason reason = handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason;
                     onFinished?.Invoke(null, reason);
                     return;
                 }
 
                 Register(table);
-                onFinished?.Invoke(table, ResLoadErrorReason.None);
+                onFinished?.Invoke(table, RevResLoadErrorReason.None);
             }, group, priority);
         }
 
@@ -205,7 +205,7 @@ namespace Revolution
             if (string.IsNullOrEmpty(tableName)) return false;
             if (!_tables.TryGetValue(tableName, out IDataTable table)) return false;
 
-            ResManager.Release(table.ResourceRoot, table.ResourceName);   // ★ 关键：还掉引用，否则 TextAsset 永远卸不掉
+            RevResManager.Release(table.ResourceRoot, table.ResourceName);   // ★ 关键：还掉引用，否则 TextAsset 永远卸不掉
             table.Clear();
             Unregister(table);
             return true;
@@ -216,7 +216,7 @@ namespace Revolution
         {
             foreach (var kv in _tables)
             {
-                ResManager.Release(kv.Value.ResourceRoot, kv.Value.ResourceName);
+                RevResManager.Release(kv.Value.ResourceRoot, kv.Value.ResourceName);
                 kv.Value.Clear();
             }
             _tables.Clear();
@@ -239,7 +239,7 @@ namespace Revolution
         }
 
         /// <summary>把资源句柄里的 TextAsset 文本喂给容器；成功返回 true</summary>
-        private static bool ReadText(IDataTable table, ResHandle handle)
+        private static bool ReadText(IDataTable table, RevResHandle handle)
         {
             if (table == null || handle == null || !handle.IsLoaded) return false;
 

@@ -92,7 +92,7 @@ RevPool.GetAsync(<span class="s">"Battle/Bullet"</span>, <span class="s">"Bullet
     go.transform.position = muzzle.position;    <span class="c">// 回调里再用</span>
 });
 <span class="c">// 也有"整条路径一把传"的重载（框架源码里的推荐写法）：</span>
-<span class="c">// RevPool.GetAsync("Battle/Bullet/Blue", go =&gt; { … }, firePoint, ResGroup.Battle);</span>
+<span class="c">// RevPool.GetAsync("Battle/Bullet/Blue", go =&gt; { … }, firePoint, RevResGroup.Battle);</span>
 
 <span class="c">// ④ 也支持直接给预制体（预制体已经是字段/引用时）</span>
 <span class="k">var</span> slot = RevPool.Get(itemSlotPrefab, container);</pre>
@@ -118,7 +118,7 @@ RevPool.GetAsync(<span class="s">"Battle/Bullet"</span>, <span class="s">"Bullet
           <tr><td>还一个</td><td><code>RevPool.Return(item)</code> / <code>RevPool.Return(component)</code></td></tr>
           <tr><td>延迟还（等动画/特效）</td><td><code>RevPool.Return(item, delayFrames: 30)</code></td></tr>
           <tr><td>清掉某个池的<b>空闲</b>对象</td><td><code>RevPool.Clear(rootPath, resName)</code>（返回清掉几个）</td></tr>
-          <tr><td>清掉整组池的空闲对象</td><td><code>RevPool.ClearGroup(ResGroup.UI)</code></td></tr>
+          <tr><td>清掉整组池的空闲对象</td><td><code>RevPool.ClearGroup(RevResGroup.UI)</code></td></tr>
           <tr><td>清掉全部池的空闲对象</td><td><code>RevPool.ClearAll()</code>（切场景常用）</td></tr>
           <tr><td>彻底销毁某个池（连资源引用一起放）</td><td><code>RevPool.DestroyPool(rootPath, resName)</code> / <code>DestroyPool(prefab)</code></td></tr>
           <tr><td>彻底销毁所有池</td><td><code>RevPool.DestroyAll()</code>（回登录/大版本切换）</td></tr>

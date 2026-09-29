@@ -1,5 +1,5 @@
 // ============================================================
-// EditorLoader.cs —— 编辑器直读加载器
+// RevEditorLoader.cs —— 编辑器直读加载器
 //
 // 位置：Runtime\资源加载\Sub\
 //
@@ -11,28 +11,28 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public class EditorLoader : IResLoader
+    public class RevEditorLoader : IRevResLoader
     {
-        public object Load(ResHandle handle, out ResLoadErrorReason err)
+        public object Load(RevResHandle handle, out RevResLoadErrorReason err)
         {
 #if UNITY_EDITOR
             UnityEngine.Object obj = UnityEditor.AssetDatabase.LoadAssetAtPath(handle.RealPath, handle.ContentType);
 
-            if (obj == null) { err = ResLoadErrorReason.FileNotExist; return null; }
-            if (!handle.ContentType.IsInstanceOfType(obj)) { err = ResLoadErrorReason.TypeMismatch; return null; }
+            if (obj == null) { err = RevResLoadErrorReason.FileNotExist; return null; }
+            if (!handle.ContentType.IsInstanceOfType(obj)) { err = RevResLoadErrorReason.TypeMismatch; return null; }
 
-            err = ResLoadErrorReason.None;
+            err = RevResLoadErrorReason.None;
             return obj;
 #else
-            err = ResLoadErrorReason.FileNotExist;
+            err = RevResLoadErrorReason.FileNotExist;
             return null;
 #endif
         }
 
-        public void LoadAsync(ResHandle handle, Action<ResHandle> onFinished, RevCancellationToken token = null)
+        public void LoadAsync(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token = null)
         {
             // 编辑器直读是同步操作 —— 立刻出结果，但仍按异步契约回调
-            handle.SetContent(Load(handle, out ResLoadErrorReason err));
+            handle.SetContent(Load(handle, out RevResLoadErrorReason err));
             handle.ErrorReason = err;
             onFinished?.Invoke(handle);
         }

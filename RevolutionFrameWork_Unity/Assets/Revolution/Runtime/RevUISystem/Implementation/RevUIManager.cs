@@ -143,9 +143,9 @@ namespace Revolution
             // ⑤ 预制体已经在**资源缓存**里（Preload 过 / 编辑器直读 / 之前加载过被留着）
             //    → 同步实例化。★ 这就是"先 RevUI.Preload<T>() 再同步 Open<T>()"能成立的那条路；
             //    编辑器直读时甚至连 Preload 都不需要（资源系统同步就能取到）。
-            if (ResManager.Contains(meta.Root, meta.Name))
+            if (RevResManager.Contains(meta.Root, meta.Name))
             {
-                GameObject cached = ResManager.Load<GameObject>(meta.Root, meta.Name, ResGroup.UI);
+                GameObject cached = RevResManager.Load<GameObject>(meta.Root, meta.Name, RevResGroup.UI);
                 if (cached == null)
                 {
                     RevUILog.Error(
@@ -164,8 +164,8 @@ namespace Revolution
             _loading[key] = callbacks ?? new List<Action<RevUIPanel>>();
             RevUILog.Info($"开始加载面板 {key}");
 
-            ResManager.LoadAsync<GameObject>(meta.Root, meta.Name,
-                prefab => OnPrefabLoaded(meta, data, prefab), ResGroup.UI);
+            RevResManager.LoadAsync<GameObject>(meta.Root, meta.Name,
+                prefab => OnPrefabLoaded(meta, data, prefab), RevResGroup.UI);
 
             return null;
         }
@@ -177,7 +177,7 @@ namespace Revolution
             // 加载期间根节点被销毁了（切大版本 / ShutdownAll）→ 把这次加载的引用还掉，别再建实例
             if (_root == null)
             {
-                if (prefab != null) ResManager.Release(meta.Root, meta.Name);
+                if (prefab != null) RevResManager.Release(meta.Root, meta.Name);
                 InvokeAll(callbacks, null);
                 return;
             }
@@ -215,7 +215,7 @@ namespace Revolution
                 RevUILog.Error(
                     $"面板预制体 {meta.Key} 的根节点上没有 {meta.PanelType.Name} 组件 —— 预制体与脚本对不上。\n" +
                     $"  默认约定：预制体名 = 面板类名；不一致就在特性里写第三个参数指定资源名。");
-                ResManager.Release(meta.Root, meta.Name);      // 这次加载换来的引用要还回去
+                RevResManager.Release(meta.Root, meta.Name);      // 这次加载换来的引用要还回去
                 RevUIRoot.DestroyObject(go);
                 InvokeAll(callbacks, null);
                 return null;
@@ -421,7 +421,7 @@ namespace Revolution
 
             EnsureReady();
 
-            ResPreloader.Preload(meta.Root, new[] { meta.Name }, ResGroup.UI,
+            RevResPreloader.Preload(meta.Root, new[] { meta.Name }, RevResGroup.UI,
                 onCompleted: _ => onLoaded?.Invoke());
         }
 
@@ -557,7 +557,7 @@ namespace Revolution
         private static void ReleaseResourceOf(RevUIPanel panel)
         {
             if (panel == null || panel.PrefabRoot == null) return;
-            ResManager.Release(panel.PrefabRoot, panel.PrefabName);
+            RevResManager.Release(panel.PrefabRoot, panel.PrefabName);
         }
 
         // ============================================================

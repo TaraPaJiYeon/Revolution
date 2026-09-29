@@ -1,10 +1,10 @@
 // ============================================================
-// EditorResPolicy.cs —— 编辑器策略（开发期零打包）
+// RevEditorResPolicy.cs —— 编辑器策略（开发期零打包）
 //
 // 位置：Runtime\资源加载\Sub\
 //
 // 【它什么时候被注册？】
-//   只在编辑器下、且"AB 模式"未开启时注册（见 ResBootstrap.Init）。
+//   只在编辑器下、且"AB 模式"未开启时注册（见 RevResBootstrap.Init）。
 //   此时它是唯一策略 → Match 恒 true → 所有资源一律直读工程。
 //
 // 【它为什么不允许兜底？】
@@ -20,7 +20,7 @@ using System.Collections.Generic;
 
 namespace Revolution
 {
-    public class EditorResPolicy : IResPolicy
+    public class RevEditorResPolicy : IRevResPolicy
     {
         /// <summary>
         /// 编辑器资源根目录（带结尾 "/"）。
@@ -35,7 +35,7 @@ namespace Revolution
         /// </summary>
         public static string ResRoot = "";
 
-        private readonly EditorLoader _loader = new EditorLoader();
+        private readonly RevEditorLoader _loader = new RevEditorLoader();
 
         // 逻辑路径 → 真实工程路径。查一次文件系统就够，之后直接命中（键里带上 ResRoot，配置换根目录时自动失效）
         private readonly Dictionary<string, string> _pathCache = new Dictionary<string, string>();
@@ -83,7 +83,7 @@ namespace Revolution
                 }
             }
 
-            // ③ 确实找不到 → 原样返回，让 EditorLoader 报 FileNotExist（不掩盖问题）
+            // ③ 确实找不到 → 原样返回，让 RevEditorLoader 报 FileNotExist（不掩盖问题）
             return guess;
         }
 
@@ -96,7 +96,7 @@ namespace Revolution
             _warnedRoot = true;
 
             RevLog.Error(
-                "[EditorResPolicy] 未配置「资源根目录」，编辑器直读（不打包直接跑）无法工作。" +
+                "[RevEditorResPolicy] 未配置「资源根目录」，编辑器直读（不打包直接跑）无法工作。" +
                 "请在菜单 Tools/资源/LiteAB 打包工具 里设置「资源根目录」。", "Res");
         }
 
@@ -106,7 +106,7 @@ namespace Revolution
             return realPath;
         }
 
-        public IResLoader CreateLoader() => _loader;
+        public IRevResLoader CreateLoader() => _loader;
 
         // 编辑器直读失败 = 资源真的不存在，不需要再兜底
         public bool AllowFallback => false;

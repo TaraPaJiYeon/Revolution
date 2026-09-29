@@ -17,7 +17,7 @@
 //   业务侧想怎么写就怎么写，加载、延时、等动画结束都能塞进去：
 //     public async RevTask PrepareEnterAsync(RevCancellationToken token)
 //     {
-//         await ResManager.LoadAsync&lt;GameObject&gt;("Boss", token);   // 资源加载
+//         await RevResManager.LoadAsync&lt;GameObject&gt;("Boss", token);   // 资源加载
 //         await RevTask.Delay(500);                                    // 再等 500ms
 //     }
 //
@@ -46,7 +46,7 @@ namespace Revolution
     /// {
     ///     public override async RevTask PrepareEnterAsync(RevCancellationToken token)
     ///     {
-    ///         await ResManager.LoadAsync&lt;GameObject&gt;("BattleScene", token);   // 加载完才允许切进来
+    ///         await RevResManager.LoadAsync&lt;GameObject&gt;("BattleScene", token);   // 加载完才允许切进来
     ///     }
     /// }
     /// </code>

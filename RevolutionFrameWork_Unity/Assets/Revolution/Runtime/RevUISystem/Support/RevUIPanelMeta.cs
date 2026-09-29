@@ -56,10 +56,10 @@ namespace Revolution
 
         /// <summary>
         /// 面板身份键（唯一）：形如 "UI/Panel/BagPanel"。
-        /// ★ 复用资源系统同一套拼接规则（<see cref="ResPathUtil.Join"/>），
+        /// ★ 复用资源系统同一套拼接规则（<see cref="RevResPathUtil.Join"/>），
         ///   所以面板键与资源键天然一致，排查时可以互相印证。
         /// </summary>
-        public string Key => ResPathUtil.Join(Root, Name);
+        public string Key => RevResPathUtil.Join(Root, Name);
 
         private RevUIPanelMeta(Type panelType, RevUIPanelAttribute attr)
         {
@@ -108,7 +108,7 @@ namespace Revolution
             if (string.IsNullOrEmpty(attr.Root) || string.IsNullOrEmpty(attr.Root.Trim()))
             {
                 error = $"面板 {panelType.Name} 的 [RevUIPanel] 没写资源根目录段（第一个参数 root）。\n" +
-                        $"root 是预制体所在的目录段，和 ResManager 的 rootPath 同义，例如 \"UI/Panel\" 或 RevResPath.UI_Panel。";
+                        $"root 是预制体所在的目录段，和 RevResManager 的 rootPath 同义，例如 \"UI/Panel\" 或 RevResPath.UI_Panel。";
                 return false;
             }
 
@@ -157,7 +157,7 @@ namespace Revolution
         public bool IsPrefab => Root.Length > 0;
 
         /// <summary>Part 身份键（形如 "UI/Part/ShopTab"）</summary>
-        public string Key => ResPathUtil.Join(Root, Name);
+        public string Key => RevResPathUtil.Join(Root, Name);
 
         private RevUIPartMeta(Type partType, RevUIPartAttribute attr)
         {

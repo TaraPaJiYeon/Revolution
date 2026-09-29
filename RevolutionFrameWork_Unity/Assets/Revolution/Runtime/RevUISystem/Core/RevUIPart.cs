@@ -162,7 +162,7 @@ namespace Revolution
                 return;
             }
 
-            ResManager.LoadAsync<GameObject>(meta.Root, meta.Name, prefab =>
+            RevResManager.LoadAsync<GameObject>(meta.Root, meta.Name, prefab =>
             {
                 if (prefab == null)
                 {
@@ -192,7 +192,7 @@ namespace Revolution
                 part.InternalOpen();
 
                 onCreated?.Invoke(part);
-            }, ResGroup.UI);
+            }, RevResGroup.UI);
         }
 
         /// <summary>在宿主的默认挂点下创建</summary>
@@ -268,7 +268,7 @@ namespace Revolution
             if (!_holdsResourceRef || Meta == null) return;
 
             _holdsResourceRef = false;
-            ResManager.Release(Meta.Root, Meta.Name);      // 与 Create 里的 LoadAsync 配对
+            RevResManager.Release(Meta.Root, Meta.Name);      // 与 Create 里的 LoadAsync 配对
         }
 
         // ============================================================

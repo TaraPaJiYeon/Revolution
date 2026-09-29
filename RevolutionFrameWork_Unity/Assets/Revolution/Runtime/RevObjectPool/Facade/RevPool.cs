@@ -10,13 +10,13 @@
 //     RevPool.Return(bullet, delayFrames: 5);                                    // 等 5 帧再回收（特效播完）
 //
 //     // 真机首次 / WebGL：用异步（和资源系统一致，同步加载在 WebGL 上不可用）
-//     RevPool.GetAsync("Battle/Bullet/Blue", go => { ... }, firePoint, ResGroup.Battle);
+//     RevPool.GetAsync("Battle/Bullet/Blue", go => { ... }, firePoint, RevResGroup.Battle);
 //
 // 【它是怎么"基于资源加载系统"的】
 //   · 取对象的路径就是资源系统的逻辑路径（可以用生成的 RevResPath 常量拼，有编译期保护）；
-//   · prefab 通过 ResManager 加载，池**端着那份 ResHandle 引用** → 池在，prefab 就不会被卸载；
+//   · prefab 通过 RevResManager 加载，池**端着那份 RevResHandle 引用** → 池在，prefab 就不会被卸载；
 //   · 池销毁时还掉引用，prefab 才有机会卸载；
-//   · 传 ResGroup 后，prefab 归属该分组，切场景时可以整组清账（见下面 ClearGroup）。
+//   · 传 RevResGroup 后，prefab 归属该分组，切场景时可以整组清账（见下面 ClearGroup）。
 //
 // 【对象池自己不管"实例状态重置"，那是你的组件的事】
 //   预制体上的脚本实现 IRevPoolable，取出/归还时会自动回调：
@@ -82,15 +82,15 @@ namespace Revolution
         /// <param name="resName">资源名（不带扩展名，如 "Blue"）</param>
         /// <param name="parent">取出来挂到哪个节点下（可空）</param>
         /// <param name="group">资源分组（决定归属，便于整组清理）</param>
-        public static GameObject Get(string rootPath, string resName, Transform parent = null, ResGroup group = ResGroup.Unknown)
+        public static GameObject Get(string rootPath, string resName, Transform parent = null, RevResGroup group = RevResGroup.Unknown)
             => RevGameObjectPools.Get(rootPath, resName, parent, group);
 
         /// <summary>取一个 GameObject 并直接拿它身上的组件（省掉 GetComponent）。</summary>
-        public static T Get<T>(string rootPath, string resName, Transform parent = null, ResGroup group = ResGroup.Unknown)
+        public static T Get<T>(string rootPath, string resName, Transform parent = null, RevResGroup group = RevResGroup.Unknown)
             where T : Component
         {
             GameObject item = RevGameObjectPools.Get(rootPath, resName, parent, group);
-            return ExtractComponent<T>(item, ResPathUtil.Join(rootPath, resName));
+            return ExtractComponent<T>(item, RevResPathUtil.Join(rootPath, resName));
         }
 
         /// <summary>
@@ -111,16 +111,16 @@ namespace Revolution
 
         /// <summary>
         /// 异步取一个 GameObject（真机首次加载 / WebGL 必须走这条）。
-        /// 加载失败时回调收到 <c>null</c>（失败原因看 <c>ResManager.Get(rootPath, resName).ErrorReason</c>）。
+        /// 加载失败时回调收到 <c>null</c>（失败原因看 <c>RevResManager.Get(rootPath, resName).ErrorReason</c>）。
         /// 返回 prefab 的资源句柄，用法与资源系统的 <c>LoadAsync</c> 一致。
         /// </summary>
-        public static ResHandle GetAsync(string rootPath, string resName, Action<GameObject> onFinished,
-            Transform parent = null, ResGroup group = ResGroup.Unknown)
+        public static RevResHandle GetAsync(string rootPath, string resName, Action<GameObject> onFinished,
+            Transform parent = null, RevResGroup group = RevResGroup.Unknown)
             => RevGameObjectPools.GetAsync(rootPath, resName, onFinished, parent, group);
 
         /// <summary>异步取组件（预制体上没有该组件时报错并回调 null，同时把对象还回池里）。</summary>
-        public static ResHandle GetAsync<T>(string rootPath, string resName, Action<T> onFinished,
-            Transform parent = null, ResGroup group = ResGroup.Unknown) where T : Component
+        public static RevResHandle GetAsync<T>(string rootPath, string resName, Action<T> onFinished,
+            Transform parent = null, RevResGroup group = RevResGroup.Unknown) where T : Component
         {
             return RevGameObjectPools.GetAsync(rootPath, resName, item =>
             {
@@ -136,7 +136,7 @@ namespace Revolution
                     return;
                 }
 
-                RevPoolLog.Error($"「{ResPathUtil.Join(rootPath, resName)}」的预制体上没有 {typeof(T).Name} 组件，已把对象还回池里。");
+                RevPoolLog.Error($"「{RevResPathUtil.Join(rootPath, resName)}」的预制体上没有 {typeof(T).Name} 组件，已把对象还回池里。");
                 RevGameObjectPools.Return(item, 0);
                 onFinished?.Invoke(null);
             }, parent, group);
@@ -165,10 +165,10 @@ namespace Revolution
 
         /// <summary>
         /// 清空某个资源分组下所有池的空闲实例。
-        /// ★ 和 <c>ResBootstrap.Instance.Shutdown(group)</c> 配对调用：资源那边清账，
+        /// ★ 和 <c>RevResBootstrap.Instance.Shutdown(group)</c> 配对调用：资源那边清账，
         ///   池这边也要把实例放掉，否则会留下"实例还在、贴图没了"的怪状态。
         /// </summary>
-        public static int ClearGroup(ResGroup group) => RevGameObjectPools.ClearGroup(group);
+        public static int ClearGroup(RevResGroup group) => RevGameObjectPools.ClearGroup(group);
 
         /// <summary>销毁整条池（空闲实例销毁 + 还掉 prefab 引用）。按"根目录 + 资源名"找。</summary>
         public static bool DestroyPool(string rootPath, string resName) => RevGameObjectPools.DestroyPool(rootPath, resName);

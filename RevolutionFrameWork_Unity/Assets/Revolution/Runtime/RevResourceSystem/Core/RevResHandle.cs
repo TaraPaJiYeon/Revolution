@@ -1,11 +1,11 @@
 using UnityEngine;
 
-// ResHandle.cs —— 资源实体
+// RevResHandle.cs —— 资源实体
 // 包装「内容 + 状态机 + 位标志 + 引用计数 + 失败原因」。
 // 业务拿到的不是 UnityEngine.Object，而是这个可管理的句柄。
 namespace Revolution
 {
-    public class ResHandle
+    public class RevResHandle
     {
         // ===== 身份信息 =====
         // 【为什么用 ulong Key 而不是字符串路径做字典键？】
@@ -30,15 +30,15 @@ namespace Revolution
         ///     → Shutdown(Battle) 点名不到它 → 永远不会被分组释放（内存泄漏）。
         ///   而它又不参与加载，所以在加载阶段怎么测都测不出问题。
         /// </summary>
-        public ResGroup Group { get; internal set; }
-        public ResState State { get; internal set; }
-        public ResInstanceFlag Flags { get; internal set; }
+        public RevResGroup Group { get; internal set; }
+        public RevResState State { get; internal set; }
+        public RevResInstanceFlag Flags { get; internal set; }
 
         //引用计数
         public int RefCount { get; internal set; }
 
         /// <summary>失败原因（不打日志的前提下，这是唯一的错误线索）</summary>
-        public ResLoadErrorReason ErrorReason { get; internal set; }
+        public RevResLoadErrorReason ErrorReason { get; internal set; }
 
         // ===== 使用统计（自动卸载 / LRU 淘汰用）=====
 
@@ -86,9 +86,9 @@ namespace Revolution
         //这些都是提供给外部来进行查询加载状态的属性
 
         /// <summary>是否已加载完成</summary>
-        public bool IsLoaded => State == ResState.Loaded;
+        public bool IsLoaded => State == RevResState.Loaded;
         /// <summary>是否正在加载中</summary>
-        public bool IsLoading => State == ResState.Loading;
+        public bool IsLoading => State == RevResState.Loading;
         /// <summary>内容是否有效</summary>
         public bool IsValid => _content != null;
 
@@ -98,10 +98,10 @@ namespace Revolution
         // ===== 状态变更（内部使用）=====
 
         //标记加载中
-        internal void MarkLoading() => State = ResState.Loading;
+        internal void MarkLoading() => State = RevResState.Loading;
 
         //标记加载出错
-        internal void MarkError() => State = ResState.LoadErr;
+        internal void MarkError() => State = RevResState.LoadErr;
 
         /// <summary>
         /// 加载结果收口：写入内容，并同步状态机。仅框架内部（Loader 回调）调用。
@@ -110,7 +110,7 @@ namespace Revolution
         internal void SetContent(object content)
         {
             _content = content;
-            State = content != null ? ResState.Loaded : ResState.LoadErr;
+            State = content != null ? RevResState.Loaded : RevResState.LoadErr;
         }
 
         // ===== 位标志操作 =====
@@ -127,30 +127,30 @@ namespace Revolution
         ///   Flags = 0b100_0001，f = Resident (0b000_0010) → 0           → false
         /// f 也可以传组合（如 A|B），语义是"其中任一位置 1"。
         /// </summary>
-        public bool HasFlag(ResInstanceFlag f) => (Flags & f) != 0;
+        public bool HasFlag(RevResInstanceFlag f) => (Flags & f) != 0;
 
         /// <summary>
         /// 置位（打开）：按位或（|=），把 f 对应的位置成 1，其它位保持不动。
         /// 幂等：重复打开同一个标志结果不变。传组合则一次打开多个。
         /// </summary>
-        public void AddFlag(ResInstanceFlag f) => Flags |= f;
+        public void AddFlag(RevResInstanceFlag f) => Flags |= f;
 
         /// <summary>
         /// 清位（关闭）：先按位取反（~）得到"目标位为 0、其余位为 1"的掩码，再按位与（&amp;=），
         /// 从而只把 f 对应的位清 0，其它位不受影响。传组合则一次关闭多个。
         /// </summary>
-        public void RemoveFlag(ResInstanceFlag f) => Flags &= ~f;
+        public void RemoveFlag(RevResInstanceFlag f) => Flags &= ~f;
 
         /// <summary>
         /// 空对象：资源不存在 / 加载失败时返回它，业务判 Content == null 即可，
         /// 永远不会空引用崩溃，同时还能通过 State / ErrorReason 知道失败原因。
         /// </summary>
-        public static readonly ResHandle Empty = new ResHandle
+        public static readonly RevResHandle Empty = new RevResHandle
         {
             Key = 0,
             StandardPath = string.Empty,
             RealPath = string.Empty,
-            State = ResState.LoadErr
+            State = RevResState.LoadErr
         };
     }
 }

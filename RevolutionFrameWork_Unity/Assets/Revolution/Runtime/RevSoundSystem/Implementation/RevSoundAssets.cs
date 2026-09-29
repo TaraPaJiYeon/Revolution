@@ -133,14 +133,14 @@ namespace Revolution
             string root = entry.Root;
 
             // 异步加载：回调里只记结果 —— 等待中的声音由内核每帧轮询（不需要回调队列，也就没有王者的"现场缓存"复杂度）
-            ResManager.LoadAsync<AudioClip>(root, name,
+            RevResManager.LoadAsync<AudioClip>(root, name,
                 clip =>
                 {
                     entry.Loading = false;
                     entry.Clip = clip;
                     entry.Failed = clip == null;
                 },
-                ResGroup.Sound, ResLoadPriority.Urgent);
+                RevResGroup.Sound, RevResLoadPriority.Urgent);
         }
 
         /// <summary>预加载（= 请求加载；加载完常驻，直到 Unload）</summary>
@@ -151,7 +151,7 @@ namespace Revolution
         {
             if (!_map.TryGetValue(name, out Entry entry)) return;
 
-            if (!entry.Loading) ResManager.Release(entry.Root, name);
+            if (!entry.Loading) RevResManager.Release(entry.Root, name);
             _map.Remove(name);
         }
 

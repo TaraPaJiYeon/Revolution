@@ -280,7 +280,7 @@ RevSound.PlayBgm(<span class="s">"login"</span>, fadeSeconds: <span class="n">1f
     <ul>
       <li>子目录名直接进 <b>同帧去重 / 上限淘汰 / 句柄</b> 的判定：<code>"UI/click"</code> 与 <code>"Battle/click"</code> 是两条不同的声音；</li>
       <li>手写习惯会被自动规范化：<code>Play("UI\click")</code>（Windows 反斜杠）、<code>Play("/UI//click/")</code>（多余斜杠）都能正确加载
-        （规范化实现在资源系统的 <code>ResPathUtil.NormalizeResName</code>，纯 C#、其它模块也能复用）；</li>
+        （规范化实现在资源系统的 <code>RevResPathUtil.NormalizeResName</code>，纯 C#、其它模块也能复用）；</li>
       <li>打包窗口里「音效目录」下面会列出<b>当前已有的子目录</b>（含多级），照着抄就行。</li>
     </ul>
     <div class="cmp">
@@ -638,7 +638,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
           </tr>
           <tr>
             <td class="c">7</td><td>音效片段"分组卸载"没生效</td>
-            <td>资源分组只认<b>第一次</b>加载（<code>RevResourceSystem</code> 的规定）：先被别的系统以别的分组加载过，你传 <code>ResGroup.Sound</code> 是无效的。公共音效想"永不参与分组卸载"就 <code>AddFlag(ResInstanceFlag.Resident)</code>。</td>
+            <td>资源分组只认<b>第一次</b>加载（<code>RevResourceSystem</code> 的规定）：先被别的系统以别的分组加载过，你传 <code>RevResGroup.Sound</code> 是无效的。公共音效想"永不参与分组卸载"就 <code>AddFlag(RevResInstanceFlag.Resident)</code>。</td>
           </tr>
           <tr>
             <td class="c">8</td><td>团战"丢了几个音"</td>
@@ -740,7 +740,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
       <div><b>整体状态</b><code>RevSound.Core.ToString()</code></div>
       <div><b>自己驱动</b><code>RevSound.Tick(Time.deltaTime)</code></div>
       <div><b>一块播一块停</b><code>using (var s = RevSound.OpenScope()) { ... }</code></div>
-      <div><b>业务预加载也能用常量</b><code>ResManager.LoadAsync&lt;AudioClip&gt;(RevSoundPath.Sfx, "ui_click", cb)</code></div>
+      <div><b>业务预加载也能用常量</b><code>RevResManager.LoadAsync&lt;AudioClip&gt;(RevSoundPath.Sfx, "ui_click", cb)</code></div>
     </div>
 
     <h3>目录配置（不进代码）</h3>
@@ -827,7 +827,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
           <tr><td>编译</td><td>Debug <b>0 错 0 警</b>；Release 0 错</td></tr>
           <tr><td>内核行为验证（纯 C#，脱离 Unity）</td><td><b>26 / 26 通过</b>：句柄代际、槽位复用不误停、轮转分配、同帧去重、上限淘汰、重复释放幂等、分类默认表</td></tr>
           <tr><td>路径 / 规范化 / 音效表验证（纯 C#）</td><td><b>43 / 43 通过</b>：一层与多级子目录拼接、"两段键 == 完整路径键"不变量、名字规范化 12 项、音效表（登记/覆盖/注销/解析优先级）—— 与内核合计 <b>69 / 69</b></td></tr>
-          <tr><td>名字规范化归属</td><td><code>ResPathUtil.NormalizeResName</code>（资源系统的纯 C# 工具，其它模块也能复用）</td></tr>
+          <tr><td>名字规范化归属</td><td><code>RevResPathUtil.NormalizeResName</code>（资源系统的纯 C# 工具，其它模块也能复用）</td></tr>
           <tr><td>依赖</td><td><code>RevResourceSystem</code>（音频片段）+ <code>RevObjectPool</code>（播放器池，<b>不需要预制体</b>）</td></tr>
         </tbody>
       </table>

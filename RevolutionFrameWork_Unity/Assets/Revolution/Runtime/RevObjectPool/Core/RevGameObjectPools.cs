@@ -5,14 +5,14 @@
 //
 // 【三张索引表，分别服务三种"找池"的路径】
 //   _byKey       业务传"根目录 + 资源名"时 —— 最常用。键就是资源系统的缓存键
-//                （ResPathUtil 用两段增量算出来：命中已有池时**不拼字符串、零分配**）
+//                （RevResPathUtil 用两段增量算出来：命中已有池时**不拼字符串、零分配**）
 //   _byPrefabId  业务直接传 prefab 引用时（连哈希都省了）
 //   _byPoolId    归还时（从实例身上的 RevPooledMember 读出 PoolId）
 //   三张表指向同一批池对象，池不多，内存可以忽略。
 //
 // 【同步 Get 的前提】
 //   池里已有实例、或 prefab 已经加载过 → 同步返回，一行代码搞定。
-//   池是空的且 prefab 还没加载 → 走 ResManager 同步加载：
+//   池是空的且 prefab 还没加载 → 走 RevResManager 同步加载：
 //     · 编辑器 / PC / Android 可用；
 //     · WebGL（含微信、QQ 小游戏）**同步加载不可用** → 必须用 GetAsync。
 //   这一点和资源系统完全一致，报错信息里也会提醒。
@@ -22,7 +22,7 @@
 //   下次 Get 会重新走资源系统加载并 Rebind（旧实例清掉重建），而不是一直报错。
 //
 // 【和分组卸载配对】
-//   prefab 是带分组的（ResGroup.Battle 等），业务调 ResBootstrap.Shutdown(group) 时，
+//   prefab 是带分组的（RevResGroup.Battle 等），业务调 RevResBootstrap.Shutdown(group) 时，
 //   一定要顺手调 RevPool.ClearGroup(group)：资源那边清完账，池这边还攥着实例不放
 //   就会出现"实例还在、贴图没了"。这一条写进了使用文档。
 // ============================================================
@@ -51,24 +51,24 @@ namespace Revolution
         /// 按"根目录 + 资源名"取一个 GameObject（池里有就复用，没有就加载 prefab 并实例化）。
         /// 命中已有池时**不拼字符串**：直接用两段算出的键查表（热路径零分配）。
         /// </summary>
-        internal static GameObject Get(string rootPath, string resName, Transform parent, ResGroup group)
+        internal static GameObject Get(string rootPath, string resName, Transform parent, RevResGroup group)
         {
-            if (!ResPathUtil.IsValidResName(resName))
+            if (!RevResPathUtil.IsValidResName(resName))
             {
                 RevPoolLog.Error("取对象时资源名为空。");
                 return null;
             }
 
             // ① 池已就绪（最常见的情况）→ 直接复用
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
             if (_byKey.TryGetValue(key, out RevGameObjectPool ready) && ready.HasPrefab)
                 return ready.Get(parent);
 
             // ② 池不在 / prefab 被外部卸载了 → 走资源系统同步加载
-            ResHandle handle = ResManager.LoadHandle<GameObject>(rootPath, resName, group);
+            RevResHandle handle = RevResManager.LoadHandle<GameObject>(rootPath, resName, group);
             if (!handle.IsLoaded)
             {
-                RevPoolLog.Error($"取对象失败：「{ResPathUtil.Join(rootPath, resName)}」没能同步加载到 prefab（原因：{handle.ErrorReason}）。" +
+                RevPoolLog.Error($"取对象失败：「{RevResPathUtil.Join(rootPath, resName)}」没能同步加载到 prefab（原因：{handle.ErrorReason}）。" +
                                  $"① 首次加载（真机 / AB 模式）请改用 RevPool.GetAsync；" +
                                  $"② WebGL / 小游戏平台同步加载不可用；" +
                                  $"③ 编辑器里确认「根目录 + 资源名」是否正确（根目录可用生成的 RevResPath 常量）。");
@@ -78,7 +78,7 @@ namespace Revolution
             GameObject prefab = handle.Content as GameObject;
             if (prefab == null)
             {
-                RevPoolLog.Error($"「{ResPathUtil.Join(rootPath, resName)}」加载出来的不是 GameObject（池只能池化 GameObject 预制体）。");
+                RevPoolLog.Error($"「{RevResPathUtil.Join(rootPath, resName)}」加载出来的不是 GameObject（池只能池化 GameObject 预制体）。");
                 ReleaseHandleIfCached(handle);
                 return null;
             }
@@ -102,41 +102,41 @@ namespace Revolution
             if (_byPrefabId.TryGetValue(prefabId, out RevGameObjectPool pooled) && pooled.Prefab == prefab)
                 return pooled.Get(parent);
 
-            // prefab 是调用方自己持有的（不是池通过资源系统加载的），所以这里没有 ResHandle 要端，
+            // prefab 是调用方自己持有的（不是池通过资源系统加载的），所以这里没有 RevResHandle 要端，
             // 也没有"根目录 + 资源名"，只能用 prefab 引用索引（PathKey = 0）
-            RevGameObjectPool pool = new RevGameObjectPool(++_nextPoolId, null, null, ResGroup.Unknown, prefab, null);
+            RevGameObjectPool pool = new RevGameObjectPool(++_nextPoolId, null, null, RevResGroup.Unknown, prefab, null);
             Index(pool);
             RevPoolLog.Debug($"新建 GameObject 池：{pool.Name}（用 prefab 引用建，池不持有资源引用，prefab 的生命周期由业务自己保证）");
             return pool.Get(parent);
         }
 
         /// <summary>异步取一个 GameObject（真机首次加载 / WebGL 必须走这条）。</summary>
-        internal static ResHandle GetAsync(string rootPath, string resName, Action<GameObject> onFinished,
-            Transform parent, ResGroup group)
+        internal static RevResHandle GetAsync(string rootPath, string resName, Action<GameObject> onFinished,
+            Transform parent, RevResGroup group)
         {
-            if (!ResPathUtil.IsValidResName(resName))
+            if (!RevResPathUtil.IsValidResName(resName))
             {
                 RevPoolLog.Error("异步取对象时资源名为空。");
                 onFinished?.Invoke(null);
-                return ResHandle.Empty;
+                return RevResHandle.Empty;
             }
 
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
 
             // ① 池已就绪 → 立即回调（与资源系统"缓存命中直接回调"的行为保持一致，且不拼字符串）
             if (_byKey.TryGetValue(key, out RevGameObjectPool ready) && ready.HasPrefab)
             {
                 onFinished?.Invoke(ready.Get(parent));
-                return ResManager.Get(rootPath, resName);
+                return RevResManager.Get(rootPath, resName);
             }
 
             // ② 走资源系统异步加载（同一资源的并发请求由它自动合并）
-            return ResManager.LoadAsync<GameObject>(rootPath, resName, prefab =>
+            return RevResManager.LoadAsync<GameObject>(rootPath, resName, prefab =>
             {
                 if (prefab == null)
                 {
-                    RevPoolLog.Error($"异步取对象失败：「{ResPathUtil.Join(rootPath, resName)}」加载不到 prefab" +
-                                     $"（原因：{ResManager.Get(rootPath, resName).ErrorReason}）。");
+                    RevPoolLog.Error($"异步取对象失败：「{RevResPathUtil.Join(rootPath, resName)}」加载不到 prefab" +
+                                     $"（原因：{RevResManager.Get(rootPath, resName).ErrorReason}）。");
                     onFinished?.Invoke(null);
                     return;
                 }
@@ -148,11 +148,11 @@ namespace Revolution
                     return;
                 }
 
-                ResHandle handle = ResManager.Get(rootPath, resName);
+                RevResHandle handle = RevResManager.Get(rootPath, resName);
                 if (handle == null || handle.Key == 0 || handle.Content != prefab)
                 {
                     // 罕见：刚加载完，缓存就被别处清账了。此时池不该端这份引用，如实说清楚。
-                    RevPoolLog.Warning($"「{ResPathUtil.Join(rootPath, resName)}」加载完成后资源缓存里已经不是同一个句柄，池将不持有它的引用。");
+                    RevPoolLog.Warning($"「{RevResPathUtil.Join(rootPath, resName)}」加载完成后资源缓存里已经不是同一个句柄，池将不持有它的引用。");
                     handle = null;
                 }
 
@@ -220,9 +220,9 @@ namespace Revolution
         /// <summary>清空某条池的空闲实例（池保留）。返回销毁数量。</summary>
         internal static int Clear(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return 0;
+            if (!RevResPathUtil.IsValidResName(resName)) return 0;
 
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
             return _byKey.TryGetValue(key, out RevGameObjectPool pool) ? pool.ClearIdle() : 0;
         }
 
@@ -238,9 +238,9 @@ namespace Revolution
 
         /// <summary>
         /// 清空某个资源分组下所有池的空闲实例。
-        /// ★ 和 <c>ResBootstrap.Instance.Shutdown(group)</c> 配对使用。
+        /// ★ 和 <c>RevResBootstrap.Instance.Shutdown(group)</c> 配对使用。
         /// </summary>
-        internal static int ClearGroup(ResGroup group)
+        internal static int ClearGroup(RevResGroup group)
         {
             int removed = 0;
             List<RevGameObjectPool> pools = Snapshot();
@@ -256,9 +256,9 @@ namespace Revolution
         /// <summary>按"根目录 + 资源名"销毁整条池（空闲实例销毁 + 还掉 prefab 引用）。</summary>
         internal static bool DestroyPool(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return false;
+            if (!RevResPathUtil.IsValidResName(resName)) return false;
 
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
             if (!_byKey.TryGetValue(key, out RevGameObjectPool pool)) return false;
 
             Unindex(pool);
@@ -317,8 +317,8 @@ namespace Revolution
 
         internal static RevPoolStats GetStats(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return default;
-            return _byKey.TryGetValue(ResPathUtil.ComputeKey(rootPath, resName), out RevGameObjectPool pool)
+            if (!RevResPathUtil.IsValidResName(resName)) return default;
+            return _byKey.TryGetValue(RevResPathUtil.ComputeKey(rootPath, resName), out RevGameObjectPool pool)
                 ? pool.GetStats()
                 : default;
         }
@@ -326,9 +326,9 @@ namespace Revolution
         /// <summary>把某条池的请求计数清零。</summary>
         internal static void ResetStats(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return;
+            if (!RevResPathUtil.IsValidResName(resName)) return;
 
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
             if (_byKey.TryGetValue(key, out RevGameObjectPool pool)) pool.ResetStats();
         }
 
@@ -399,7 +399,7 @@ namespace Revolution
         // ==================== 内部 ====================
 
         private static RevGameObjectPool BindPool(ulong key, string rootPath, string resName,
-            ResGroup group, GameObject prefab, ResHandle handle)
+            RevResGroup group, GameObject prefab, RevResHandle handle)
         {
             if (_byKey.TryGetValue(key, out RevGameObjectPool old))
             {
@@ -438,12 +438,12 @@ namespace Revolution
         }
 
         /// <summary>还掉一份"加载了但没用上"的引用（例如加载出来不是 GameObject）。</summary>
-        private static void ReleaseHandleIfCached(ResHandle handle)
+        private static void ReleaseHandleIfCached(RevResHandle handle)
         {
             if (handle == null || handle.Key == 0) return;
-            if (!ReferenceEquals(ResManager.GetByPath(handle.StandardPath), handle)) return;
+            if (!ReferenceEquals(RevResManager.GetByPath(handle.StandardPath), handle)) return;
 
-            ResManager.DecRef(handle.Key);
+            RevResManager.DecRef(handle.Key);
         }
     }
 }

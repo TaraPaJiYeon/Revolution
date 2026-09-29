@@ -451,9 +451,9 @@ namespace Revolution
 
                 panel.InternalRelease();
 
-                // ★ 与创建时的那一次 ResManager.LoadAsync 配对：实例销毁 = 那一份引用归还。
+                // ★ 与创建时的那一次 RevResManager.LoadAsync 配对：实例销毁 = 那一份引用归还。
                 //   注意池里的实例**不还**（它还要被复用，引用留着，prefab 才不会被卸掉）。
-                if (panel.PrefabRoot != null) ResManager.Release(panel.PrefabRoot, panel.PrefabName);
+                if (panel.PrefabRoot != null) RevResManager.Release(panel.PrefabRoot, panel.PrefabName);
 
                 DestroyObject(panel.gameObject);
             }

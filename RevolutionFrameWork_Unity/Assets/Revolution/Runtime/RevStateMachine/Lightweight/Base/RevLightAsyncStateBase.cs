@@ -12,7 +12,7 @@
 //     {
 //         public override async RevTask PrepareEnterAsync(RevCancellationToken token)
 //         {
-//             await ResManager.LoadAsync&lt;GameObject&gt;("BattleScene", token);
+//             await RevResManager.LoadAsync&lt;GameObject&gt;("BattleScene", token);
 //         }
 //     }
 //

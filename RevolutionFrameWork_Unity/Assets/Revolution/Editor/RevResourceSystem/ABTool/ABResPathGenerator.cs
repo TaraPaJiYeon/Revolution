@@ -5,7 +5,7 @@
 //
 // 【解决什么问题？】
 //   资源系统的入口是"根目录 + 资源名"两段：
-//       ResManager.Load<GameObject>(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
+//       RevResManager.Load<GameObject>(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
 //   其中"根目录"这一段总得有人保证它写对：
 //     · 手写长路径容易拼错，而且只有运行时才发现"资源找不到"；
 //     · 若改成给"每个资源"生成一条全路径常量，那每加一个资源都要重新生成一遍，很烦。

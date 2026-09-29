@@ -102,8 +102,8 @@ namespace Revolution.Editor
             sb.Append("//   （值存在 Assets/Editor/ABBuildConfig.asset 里，团队成员共享同一份）").Append(Eol);
             sb.Append("//").Append(Eol);
             sb.Append("// 【值是「相对资源根目录」的逻辑目录段（带结尾 /）】").Append(Eol);
-            sb.Append("//   与 ResManager.LoadAsync(rootPath, resName) 的 rootPath 同义；").Append(Eol);
-            sb.Append("//   资源根目录本身不写在这里 —— 编辑器直读的前缀由 EditorResPolicy.ResRoot 负责。").Append(Eol);
+            sb.Append("//   与 RevResManager.LoadAsync(rootPath, resName) 的 rootPath 同义；").Append(Eol);
+            sb.Append("//   资源根目录本身不写在这里 —— 编辑器直读的前缀由 RevEditorResPolicy.ResRoot 负责。").Append(Eol);
             sb.Append("//").Append(Eol);
             sb.Append("// 【音效名可以带子目录（任意层）】").Append(Eol);
             sb.Append("//   RevSound.Play(\"UI/ui_click\") → 加载 <资源根目录>/Audio/Sfx/UI/ui_click").Append(Eol);

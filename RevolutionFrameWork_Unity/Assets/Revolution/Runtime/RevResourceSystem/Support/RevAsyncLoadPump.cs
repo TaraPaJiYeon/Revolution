@@ -1,5 +1,5 @@
 // ============================================================
-// AsyncLoadPump.cs —— 异步加载泵
+// RevAsyncLoadPump.cs —— 异步加载泵
 //
 // 位置：Runtime\资源加载\
 //
@@ -12,7 +12,7 @@
 //   _waiting —— 排队中（还没开始加载）
 //   _loading —— 正在加载（数量 ≤ MaxConcurrent）
 //
-// 【回调合并】同一资源被多处同时请求时只加载一次，回调挂在同一个 Job 上。
+// 【回调合并】同一资源被多处同时请求时只加载一次，回调挂在同一个 RevLoadJob 上。
 // ============================================================
 using System;
 using System.Collections.Generic;
@@ -20,19 +20,19 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public static class AsyncLoadPump
+    public static class RevAsyncLoadPump
     {
-        private class Job
+        private class RevLoadJob
         {
-            public ResHandle handle;
-            public IResLoader loader;
+            public RevResHandle handle;
+            public IRevResLoader loader;
             public int priority;
-            public readonly List<Action<ResHandle>> callbacks = new List<Action<ResHandle>>();
+            public readonly List<Action<RevResHandle>> callbacks = new List<Action<RevResHandle>>();
         }
 
-        private static readonly List<Job> _waiting = new List<Job>();
-        private static readonly List<Job> _loading = new List<Job>();
-        private static readonly Dictionary<ulong, Job> _jobByKey = new Dictionary<ulong, Job>();
+        private static readonly List<RevLoadJob> _waiting = new List<RevLoadJob>();
+        private static readonly List<RevLoadJob> _loading = new List<RevLoadJob>();
+        private static readonly Dictionary<ulong, RevLoadJob> _jobByKey = new Dictionary<ulong, RevLoadJob>();
 
         /// <summary>最大并发加载数（可按设备性能调整）</summary>
         public static int MaxConcurrent = 4;
@@ -47,18 +47,18 @@ namespace Revolution
 
         // ==================== 提交 ====================
 
-        public static void Submit(ResHandle handle, IResLoader loader, Action<ResHandle> onFinished, int priority = 0)
+        public static void Submit(RevResHandle handle, IRevResLoader loader, Action<RevResHandle> onFinished, int priority = 0)
         {
-            if (handle == null) { onFinished?.Invoke(ResHandle.Empty); return; }
+            if (handle == null) { onFinished?.Invoke(RevResHandle.Empty); return; }
 
             // 同资源已有任务：合并回调
-            if (_jobByKey.TryGetValue(handle.Key, out Job exist))
+            if (_jobByKey.TryGetValue(handle.Key, out RevLoadJob exist))
             {
                 if (onFinished != null) exist.callbacks.Add(onFinished);
                 return;
             }
 
-            var job = new Job { handle = handle, loader = loader, priority = priority };
+            var job = new RevLoadJob { handle = handle, loader = loader, priority = priority };
             if (onFinished != null) job.callbacks.Add(onFinished);
 
             _waiting.Add(job);
@@ -69,10 +69,10 @@ namespace Revolution
         }
 
         /// <summary>把回调挂到"正在加载中"的资源上</summary>
-        public static void AddCallback(ulong key, Action<ResHandle> cb)
+        public static void AddCallback(ulong key, Action<RevResHandle> cb)
         {
             if (cb == null) return;
-            if (_jobByKey.TryGetValue(key, out Job job)) job.callbacks.Add(cb);
+            if (_jobByKey.TryGetValue(key, out RevLoadJob job)) job.callbacks.Add(cb);
         }
 
         // ==================== 驱动 ====================
@@ -91,7 +91,7 @@ namespace Revolution
                 // ① 把等待队列按并发上限送进加载队列
                 while (_waiting.Count > 0 && _loading.Count < MaxConcurrent)
                 {
-                    Job job = _waiting[0];
+                    RevLoadJob job = _waiting[0];
                     _waiting.RemoveAt(0);
                     _loading.Add(job);
                     RunJob(job).Forget();
@@ -103,7 +103,7 @@ namespace Revolution
             _pumping = false;
         }
 
-        private static async RevTask RunJob(Job job)
+        private static async RevTask RunJob(RevLoadJob job)
         {
             bool done = false;
 
@@ -119,8 +119,8 @@ namespace Revolution
             _loading.Remove(job);
             _jobByKey.Remove(job.handle.Key);
 
-            ResManager.OnAsyncLoaded(job.handle.Key, job.handle);
-            foreach (Action<ResHandle> cb in job.callbacks) cb?.Invoke(job.handle);
+            RevResManager.OnAsyncLoaded(job.handle.Key, job.handle);
+            foreach (Action<RevResHandle> cb in job.callbacks) cb?.Invoke(job.handle);
         }
 
         // ==================== 清理 ====================

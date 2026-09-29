@@ -34,7 +34,7 @@ namespace Revolution.Editor
         /// 运行时映射表路径：放在**框架自己的 Resources 文件夹**里，
         /// 而不是工程根的 Assets/Resources —— 框架的东西归框架，不占用使用者的目录。
         ///
-        /// ★ 它与运行时 ResBootstrap.LoadResMap 里的 Resources.Load 路径是一对：
+        /// ★ 它与运行时 RevResBootstrap.LoadResMap 里的 Resources.Load 路径是一对：
         ///   Resources.Load 的路径"相对任意 Resources 文件夹"、且不带扩展名，
         ///   所以这里是 ".../Resources/ResourceSystem/ResMap.txt" → 那边写 "ResourceSystem/ResMap"。
         ///   改一个必须改另一个。
@@ -70,7 +70,7 @@ namespace Revolution.Editor
         /// <summary>
         /// 平台名：既是产物目录名，也是运行时主包名
         /// （Unity 用输出目录名给 AssetBundleManifest 主包命名）。
-        /// ★ 必须与运行时 ABLoader.MainName 一致。
+        /// ★ 必须与运行时 RevABLoader.MainName 一致。
         /// </summary>
         public static string GetPlatformName(UnityEditor.BuildTarget target)
         {

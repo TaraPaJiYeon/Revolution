@@ -3,7 +3,7 @@
 //
 // 位置：Editor\资源加载\ABTool\
 //
-//   1. ResMap.txt        给运行时的：逻辑名|包名|资源名（ResBootstrap 读它）
+//   1. ResMap.txt        给运行时的：逻辑名|包名|资源名（RevResBootstrap 读它）
 //   2. BuildManifest.json 给人/CI 看的：版本、平台、时间、每个包大小
 //
 // 【为什么 ResMap 不直接读 Manifest？】
@@ -23,7 +23,7 @@ namespace Revolution.Editor
         {
             var sb = new StringBuilder();
 
-            // # 开头的行在运行时 ResBootstrap 里会被跳过（当注释）
+            // # 开头的行在运行时 RevResBootstrap 里会被跳过（当注释）
             sb.AppendLine("# 自动生成，请勿手改。格式：逻辑名|包名|资源名");
             sb.AppendLine("# 逻辑名 = 资源相对资源根目录的路径（去扩展名）；包名由你在资源上自行设置");
 

@@ -235,7 +235,7 @@ namespace Revolution.Editor
         /// <summary>
         /// 画一行"资源根目录下的子目录"选择：拖文件夹进来 / 点「选择…」/ 点「默认」。
         /// ★ 存的是**相对资源根目录的逻辑段**（如 Audio/Sfx）—— 换工程、换盘符都不失效，
-        ///   且与运行时 ResManager 的 rootPath、ResMap 里的逻辑名完全一致。
+        ///   且与运行时 RevResManager 的 rootPath、ResMap 里的逻辑名完全一致。
         /// ★ 必须是资源根目录**之内**的目录：外面的目录编辑器直读拼不出路径，
         ///   RevResPath 也不会为它生成常量（真机与编辑器行为会割裂）。
         /// </summary>

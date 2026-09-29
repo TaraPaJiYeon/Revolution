@@ -319,7 +319,7 @@
               │
               ▼
      运行时 DataTableManager
-         └─ ResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset))    ← 走资源系统
+         └─ RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset))    ← 走资源系统
            两段默认就是 ("Data/", "Hero")，也就是 RevResPath.Data 与表名这两段
          └─ 容器 LoadText() → 生成代码直接赋值 → Dictionary 索引</div>
 
@@ -358,11 +358,11 @@
           <tr><td class="c">10</td><td>表头占几行</td><td>名 / 类型 / key / 描述 = 4 行</td><td>名 / 类型 / 描述 = 3 行</td><td>策划少填一行</td></tr>
           <tr><td class="c">11</td><td>查询 API</td><td>无（自己 <code>dataDic[k]</code>）</td><td><code>FindByKey / Get / TryGet / GetByIndex / ContainsKey / All</code></td><td>业务代码统一、可预测</td></tr>
           <tr><td class="c">12</td><td>数据来源</td><td><code>streamingAssetsPath/Binary</code>、<code>/Json</code>，Android/iOS 手写分支</td><td>逻辑路径 → 资源系统策略链</td><td><b>业务不关心从哪读</b></td></tr>
-          <tr><td class="c">13</td><td>平台分支</td><td><code>GetBinaryFilePath</code> 里 <code>#if</code> 判平台，iOS 还要拼 <code>file://</code></td><td>无（ABLoader 内部处理）</td><td>业务零平台代码</td></tr>
+          <tr><td class="c">13</td><td>平台分支</td><td><code>GetBinaryFilePath</code> 里 <code>#if</code> 判平台，iOS 还要拼 <code>file://</code></td><td>无（RevABLoader 内部处理）</td><td>业务零平台代码</td></tr>
           <tr><td class="c">14</td><td>缓存</td><td>无</td><td>资源系统缓存（同表只读一次盘）</td><td>不会重复读盘</td></tr>
           <tr><td class="c">15</td><td>引用计数</td><td>无</td><td>资源系统引用计数</td><td>不会被提前卸掉</td></tr>
           <tr><td class="c">16</td><td>卸载</td><td>无单表卸载</td><td><code>Unload&lt;T&gt;() / UnloadAll()</code>，归还资源引用</td><td>表能被真正释放</td></tr>
-          <tr><td class="c">17</td><td>分组卸载</td><td>无</td><td><code>ResGroup.Config</code> + <code>Shutdown()</code></td><td>切场景可整组回收</td></tr>
+          <tr><td class="c">17</td><td>分组卸载</td><td>无</td><td><code>RevResGroup.Config</code> + <code>Shutdown()</code></td><td>切场景可整组回收</td></tr>
           <tr><td class="c">18</td><td>校验时机</td><td>生成过程中</td><td>导出前全量校验</td><td>报错更完整</td></tr>
           <tr><td class="c">19</td><td>报错粒度</td><td>异常 / 日志</td><td>第 5 行 [Cost]："abc" 不是合法的 int</td><td>直接指给策划</td></tr>
           <tr><td class="c">20</td><td>坏表处理</td><td>抛异常 / 中断</td><td>坏表警告跳过，<b>好表照常导出</b></td><td>一张笔误不拖累全批</td></tr>

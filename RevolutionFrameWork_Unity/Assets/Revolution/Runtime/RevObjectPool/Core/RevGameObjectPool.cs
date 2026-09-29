@@ -11,7 +11,7 @@
 //
 // 【池端着 prefab 的资源句柄】
 //   这是"基于资源加载系统"的关键：
-//     · prefab 通过 ResManager 加载 → 拿到 ResHandle（带一份引用计数）；
+//     · prefab 通过 RevResManager 加载 → 拿到 RevResHandle（带一份引用计数）；
 //     · 池持有这个句柄 → 只要池还在，prefab 就不会被卸载（池里实例的贴图/材质才安全）；
 //     · 池销毁时才 DecRef 还回去 → prefab 才有机会被卸载。
 //   旧框架在这里是 Resources.Load + Instantiate，既绕过了引用计数，也没有 AB 概念。
@@ -36,12 +36,12 @@ namespace Revolution
         private Transform _root;
         private bool _disposed;
 
-        internal RevGameObjectPool(int poolId, string rootPath, string resName, ResGroup group,
-            GameObject prefab, ResHandle handle)
+        internal RevGameObjectPool(int poolId, string rootPath, string resName, RevResGroup group,
+            GameObject prefab, RevResHandle handle)
         {
             PoolId = poolId;
-            PathKey = ResPathUtil.IsValidResName(resName) ? ResPathUtil.ComputeKey(rootPath, resName) : 0UL;
-            Path = ResPathUtil.IsValidResName(resName) ? ResPathUtil.Join(rootPath, resName) : null;
+            PathKey = RevResPathUtil.IsValidResName(resName) ? RevResPathUtil.ComputeKey(rootPath, resName) : 0UL;
+            Path = RevResPathUtil.IsValidResName(resName) ? RevResPathUtil.Join(rootPath, resName) : null;
             Group = ResolveGroup(group, handle);
             Prefab = prefab;
             PrefabHandle = handle;
@@ -73,8 +73,8 @@ namespace Revolution
         /// <summary>拼好的完整逻辑路径（日志 / 统计展示用；用 prefab 引用建的池为 null）。</summary>
         internal string Path { get; private set; }
 
-        /// <summary>归属的资源分组（与资源系统的 ResGroup 一致，用于 ClearGroup 点名）。</summary>
-        internal ResGroup Group { get; private set; }
+        /// <summary>归属的资源分组（与资源系统的 RevResGroup 一致，用于 ClearGroup 点名）。</summary>
+        internal RevResGroup Group { get; private set; }
 
         internal GameObject Prefab { get; private set; }
 
@@ -82,7 +82,7 @@ namespace Revolution
         internal int PrefabInstanceId { get; private set; }
 
         /// <summary>池端着的那份 prefab 引用（销毁池时还回去）。</summary>
-        internal ResHandle PrefabHandle { get; private set; }
+        internal RevResHandle PrefabHandle { get; private set; }
 
         internal bool HasPrefab => Prefab != null;
 
@@ -144,7 +144,7 @@ namespace Revolution
         /// prefab 换了（原来的被外部卸载 / 销毁）：清掉旧实例、换成新的 prefab 与句柄。
         /// 旧实例跟新 prefab 可能已经对不上（比如资源被重新导入过），所以宁可重建也不复用。
         /// </summary>
-        internal void Rebind(GameObject prefab, ResHandle handle, string rootPath, string resName)
+        internal void Rebind(GameObject prefab, RevResHandle handle, string rootPath, string resName)
         {
             _core.ClearIdle();
 
@@ -152,7 +152,7 @@ namespace Revolution
             PrefabHandle = handle;
             PrefabInstanceId = prefab != null ? prefab.GetInstanceID() : 0;
             Group = ResolveGroup(Group, handle);
-            if (ResPathUtil.IsValidResName(resName)) Path = ResPathUtil.Join(rootPath, resName);
+            if (RevResPathUtil.IsValidResName(resName)) Path = RevResPathUtil.Join(rootPath, resName);
         }
 
         /// <summary>销毁这条池：清空闲实例、拆掉池节点、还掉 prefab 的引用。</summary>
@@ -228,10 +228,10 @@ namespace Revolution
             return _root;
         }
 
-        private static ResGroup ResolveGroup(ResGroup fallback, ResHandle handle)
+        private static RevResGroup ResolveGroup(RevResGroup fallback, RevResHandle handle)
         {
             // 句柄上的归属才是权威（资源系统规定：分组首次确定后不再变更）
-            if (handle != null && handle.Group != ResGroup.Unknown) return handle.Group;
+            if (handle != null && handle.Group != RevResGroup.Unknown) return handle.Group;
             return fallback;
         }
 
@@ -242,13 +242,13 @@ namespace Revolution
         /// </summary>
         private void ReleasePrefabHandle()
         {
-            ResHandle handle = PrefabHandle;
+            RevResHandle handle = PrefabHandle;
             PrefabHandle = null;
 
             if (handle == null || handle.Key == 0) return;
-            if (!ReferenceEquals(ResManager.GetByPath(handle.StandardPath), handle)) return;
+            if (!ReferenceEquals(RevResManager.GetByPath(handle.StandardPath), handle)) return;
 
-            ResManager.DecRef(handle.Key);
+            RevResManager.DecRef(handle.Key);
         }
     }
 }

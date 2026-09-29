@@ -34,7 +34,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 - ❌ **代码热更新**（HybridCLR / ILRuntime / xLua —— 全仓库 0 处相关代码）；
 - ❌ **AB 远程下载 / 版本管理 / 差量更新** —— AB 只从本机 `StreamingAssets` 读（编辑器下直读），没有 `persistentDataPath` 覆盖路径、没有下载器与版本比对。
 
-**要接热更**：资源层对外只有 `IResPolicy` + `IResLoader` **两个接口**（在 `Runtime/RevResourceSystem/Interfaces/`，`ABLoader` 是同接口的现成范例），
+**要接热更**：资源层对外只有 `IRevResPolicy` + `IRevResLoader` **两个接口**（在 `Runtime/RevResourceSystem/Interfaces/`，`RevABLoader` 是同接口的现成范例），
 可以自己实现（接你已有的下载/CDN 体系），也可以整体换成 **YooAsset** 等第三方资源框架 —— **两条路都不需要改上层业务代码**。
 
 详细方案（含步骤、注意事项与"要不要上热更"的决策表）见仓库首页 README：

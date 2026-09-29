@@ -115,14 +115,14 @@ git clone https://github.com/Yokino337088/Revolution.git
 | **代码热更新**（HybridCLR / ILRuntime / xLua） | ❌ **没有** | 全仓库 0 处相关代码 |
 | 运行框架本体（15 个模块：资源 / UI / 序列 / 状态机 / 音效 / 计时器 / 日志 …） | ✅ 有 | 与热更**解耦**：热更接上之后这些模块照常工作，业务代码不用改 |
 
-> 源码里就是这么写的（`Runtime/RevResourceSystem/Implementation/ABLoader.cs` 头部注释原文）：
+> 源码里就是这么写的（`Runtime/RevResourceSystem/Implementation/RevABLoader.cs` 头部注释原文）：
 > 「① 从 `streamingAssetsPath` 加载 AB（**本框架不做热更新，没有 `persistentDataPath` 覆盖路径**）」。
 
 ### 为什么不做
 
 - 热更不是资源层的一行开关：它牵涉**版本清单 / 下载器 / 断点续传 / 差分 / CDN / 灰度 / 失败回滚**，每个项目的要求都不一样；
 - 框架的定位是"可读、可测、无魔法"：与其塞一套半成品 ✗，不如把**扩展点留干净** ——
-  资源层对外只有 `IResPolicy` / `IResLoader` **两个接口**，接什么资源后端由你决定 ✓；
+  资源层对外只有 `IRevResPolicy` / `IRevResLoader` **两个接口**，接什么资源后端由你决定 ✓；
 - 内核（路径 / 句柄 / 池 / 计时器 / 日志）刻意不依赖引擎，也**不关心"资源从哪来"** ——
   所以下面哪条路都不需要改上层业务代码 ✓。
 
@@ -132,9 +132,9 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 | 扩展点 | 位置 | 你要做的 |
 |---|---|---|
-| `IResPolicy` | `Runtime/RevResourceSystem/Interfaces/IResPolicy.cs` | `Match(standardPath)` 判断这条路径归你管 · `MapPath(...)` 把逻辑路径换成你体系里的真实位置 · `CreateLoader()` 返回你的加载器 · `AllowFallback` 决定要不要让框架兜底 |
-| `IResLoader` | `…/Interfaces/IResLoader.cs` | `Load(...)` / `LoadAsync(...)`：调你的下载/加载实现，把结果填进 `handle` —— **照抄 `ABLoader` 即可，它就是同接口的现成范例** |
-| 注册 | `ResManager.RegisterPolicy(policy)` | 或在 `Runtime/RevResourceSystem/Support/ResBootstrap.cs` 里替换掉 `ABResPolicy` 那一行 |
+| `IRevResPolicy` | `Runtime/RevResourceSystem/Interfaces/IRevResPolicy.cs` | `Match(standardPath)` 判断这条路径归你管 · `MapPath(...)` 把逻辑路径换成你体系里的真实位置 · `CreateLoader()` 返回你的加载器 · `AllowFallback` 决定要不要让框架兜底 |
+| `IRevResLoader` | `…/Interfaces/IRevResLoader.cs` | `Load(...)` / `LoadAsync(...)`：调你的下载/加载实现，把结果填进 `handle` —— **照抄 `RevABLoader` 即可，它就是同接口的现成范例** |
+| 注册 | `RevResManager.RegisterPolicy(policy)` | 或在 `Runtime/RevResourceSystem/Support/RevResBootstrap.cs` 里替换掉 `RevABResPolicy` 那一行 |
 
 配套要自己补的（框架不提供）：
 
@@ -144,7 +144,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 - **校验与回滚**：下完校验 hash，坏了能退回上一版；
 - 可选：差量（文件级 / bsdiff）、CDN 多域名、灰度开关。
 
-> 优点：上层（`ResManager` / 对象池 / UI / 表）**一行都不用改** ✓，LiteAB 打包工具继续用 ✓。
+> 优点：上层（`RevResManager` / 对象池 / UI / 表）**一行都不用改** ✓，LiteAB 打包工具继续用 ✓。
 > 代价：下载器与版本体系要自己写、自己维护 ✗（这部分最容易出线上事故 ✗）。
 
 ### 方案 B：接入 YooAsset 等第三方资源框架（要真上线的项目推荐）
@@ -153,10 +153,10 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 步骤（本质就是方案 A，只是"你的实现"变成"调用 YooAsset"）：
 
-1. 写 `YooAssetResPolicy : IResPolicy`：`Match` 认你的逻辑路径前缀；`MapPath` 转成 YooAsset 的 **location**（例如 `"ui/bag/icon_sword"`）；`CreateLoader` 返回 `YooAssetResLoader`；
-2. 写 `YooAssetResLoader : IResLoader`：`LoadAsync` 调 `package.LoadAssetAsync<T>(location)`，完成回调里填 `handle`；需要同步时用 `LoadAssetSync<T>`；
+1. 写 `YooAssetResPolicy : IRevResPolicy`：`Match` 认你的逻辑路径前缀；`MapPath` 转成 YooAsset 的 **location**（例如 `"ui/bag/icon_sword"`）；`CreateLoader` 返回 `YooAssetResLoader`；
+2. 写 `YooAssetResLoader : IRevResLoader`：`LoadAsync` 调 `package.LoadAssetAsync<T>(location)`，完成回调里填 `handle`；需要同步时用 `LoadAssetSync<T>`；
 3. 启动流程里初始化 YooAsset：初始化 package → 请求版本 → 更新清单 → 创建下载器 → 下载 → 清理无用缓存（这几步按 YooAsset 官方示例来即可）；
-4. `ResManager.RegisterPolicy(new YooAssetResPolicy(...))`（或在 `ResBootstrap` 里换掉 `ABResPolicy`）。
+4. `RevResManager.RegisterPolicy(new YooAssetResPolicy(...))`（或在 `RevResBootstrap` 里换掉 `RevABResPolicy`）。
 
 迁移时要注意的：
 
@@ -165,12 +165,12 @@ git clone https://github.com/Yokino337088/Revolution.git
 | LiteAB 打包工具 | 不再使用（YooAsset 有自己的收集器与构建器）；「分包 / 依赖 / 体积 / 漏标 / 布局快照」这些**查看能力**会一起失去 —— 想保留就把这些视图接到 YooAsset 的 collector 数据上 |
 | `ResMap.txt` | 不再需要（YooAsset 用 location + 收集器） |
 | `RevResPath.cs`（生成的路径常量） | 可以保留当业务侧常量表，但要自己维护一份和 location 命名规则一致的生成逻辑 |
-| 资源分组 `ResGroup` | 映射成 YooAsset 的**资源标签 / 收集器分组** |
+| 资源分组 `RevResGroup` | 映射成 YooAsset 的**资源标签 / 收集器分组** |
 | UI / 表 / 音效 / 对象池 | 都通过资源系统加载 → **不用改** ✓ |
 
 同类可选：**Addressables**（Unity 官方，功能最全，构建与调试成本更高）· **YooAsset**（轻、中文文档全、社区活跃）· **自研**（回到方案 A）。
 
-> 也可以**混用**：真机走 YooAsset 热更，编辑器里仍然走框架的 `EditorResPolicy` 直读（`Match` 按"编辑器 / 真机"分流即可），开发体验不变 ✓。
+> 也可以**混用**：真机走 YooAsset 热更，编辑器里仍然走框架的 `RevEditorResPolicy` 直读（`Match` 按"编辑器 / 真机"分流即可），开发体验不变 ✓。
 
 ### 方案 C：代码热更新（与 A / B 正交）
 
@@ -419,7 +419,7 @@ Revolution/
 框架里有一批**不引用 `UnityEngine`** 的文件，可以把它们链接进普通 .NET 控制台工程直接跑断言：
 
 ```text
-RevResourceSystem/Core/ResPathUtil.cs            路径拼接 + 缓存键（含"两段键 == 完整路径键"不变量）
+RevResourceSystem/Core/RevResPathUtil.cs            路径拼接 + 缓存键（含"两段键 == 完整路径键"不变量）
 RevTimer/Core/RevTimerTable.cs                   计时器槽位表（代际号 / 延迟复用 / 句柄校验）
 RevTimer/Core/RevServerClock.cs                  服务器时间（一次校准 + 本地 realtime 外推）
 RevSoundSystem/Core/RevSoundVoiceTable.cs        声音槽位表（代际号 / 同帧去重 / 上限淘汰）

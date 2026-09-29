@@ -1,13 +1,13 @@
 // ============================================================
 // RevSingleton.cs —— 单例基类（框架核心公共设施）
 // 【用法】什么都不用写，直接继承即可：
-//     public class ResBootstrap : RevSingleton<ResBootstrap>
+//     public class RevResBootstrap : RevSingleton<RevResBootstrap>
 //     {
 //     }
-//     ResBootstrap.Instance.Init();
+//     RevResBootstrap.Instance.Init();
 //
 //   若想防止外部 new 出第二个实例，可以自己补一个私有构造（可选、非必需）：
-//     private ResBootstrap() { }
+//     private RevResBootstrap() { }
 //
 // 【设计要点】
 //   ① 用 Lazy<T> 懒加载：首次访问 Instance 才创建；
@@ -22,7 +22,7 @@
 //         要"挂在物体上的单例"请用同目录的：
 //           · RevSingletonMono<T>      —— 自己摆一个（Inspector 配参数 / 需要 Unity 生命周期）
 //           · RevSingletonAutoMono<T>  —— 不摆也行，首次访问 Instance 自动建隐藏宿主
-//         资源系统里只有 ResBootstrap 需要它；ResManager / AsyncLoadPump 是静态类。
+//         资源系统里只有 RevResBootstrap 需要它；RevResManager / RevAsyncLoadPump 是静态类。
 // ============================================================
 using System;
 using System.Reflection;

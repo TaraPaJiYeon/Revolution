@@ -1,5 +1,5 @@
 // ============================================================
-// ResourcesLoader.cs —— Resources 加载器
+// RevResourcesLoader.cs —— Resources 加载器
 //
 // 位置：Runtime\资源加载\Sub\
 //
@@ -10,23 +10,23 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public class ResourcesLoader : IResLoader
+    public class RevResourcesLoader : IRevResLoader
     {
-        public object Load(ResHandle handle, out ResLoadErrorReason err)
+        public object Load(RevResHandle handle, out RevResLoadErrorReason err)
         {
             UnityEngine.Object obj = Resources.Load(handle.RealPath, handle.ContentType);
-            err = obj != null ? ResLoadErrorReason.None : ResLoadErrorReason.FileNotExist;
+            err = obj != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.FileNotExist;
             return obj;
         }
 
-        public void LoadAsync(ResHandle handle, Action<ResHandle> onFinished, RevCancellationToken token = null)
+        public void LoadAsync(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token = null)
         {
             ResourceRequest req = Resources.LoadAsync(handle.RealPath, handle.ContentType);
 
             req.completed += _ =>
             {
                 // 异步完成：写入内容并按契约回调
-                handle.ErrorReason = req.asset != null ? ResLoadErrorReason.None : ResLoadErrorReason.FileNotExist;
+                handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.FileNotExist;
                 handle.SetContent(req.asset);
                 onFinished?.Invoke(handle);
             };

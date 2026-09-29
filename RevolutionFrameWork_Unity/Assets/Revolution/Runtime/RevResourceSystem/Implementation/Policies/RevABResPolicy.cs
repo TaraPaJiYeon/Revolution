@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Revolution
 {
     // ============================================================
-    // ABResPolicy.cs —— AB 策略（主方案：正式资源一律走 AB）
+    // RevABResPolicy.cs —— AB 策略（主方案：正式资源一律走 AB）
     //
     //
     // 【匹配规则】除 "Res/" 前缀的特殊资源外，其余路径**全部归它管** ——
@@ -13,9 +13,9 @@ namespace Revolution
     //   从而精确实现"只有加载不到的资源才走 Resources"。
     //
     // 【映射表格式】逻辑名 → "包名|资源名"
-    //   由打包工具生成的 ResMap.txt 解析而来（见 ResBootstrap.LoadResMap）。
+    //   由打包工具生成的 ResMap.txt 解析而来（见 RevResBootstrap.LoadResMap）。
     // ============================================================
-    public class ABResPolicy : IResPolicy
+    public class RevABResPolicy : IRevResPolicy
     {
         /// <summary>
         ///逻辑名 → "包名|资源名"的映射字典
@@ -26,7 +26,7 @@ namespace Revolution
         private readonly Dictionary<string,string> _map;
 
         //对应的ab包加载器
-        private readonly ABLoader _loader;
+        private readonly RevABLoader _loader;
 
         /// <summary>映射表条目数（窗口/排查用）</summary>
         public int MapCount => _map.Count;
@@ -34,8 +34,8 @@ namespace Revolution
         /// <summary>
         /// 对外提供调用的ab包加载器属性
         /// </summary>
-        public ABLoader BundleLoader => _loader;
-        public ABResPolicy(Dictionary<string, string> map, ABLoader loader)
+        public RevABLoader BundleLoader => _loader;
+        public RevABResPolicy(Dictionary<string, string> map, RevABLoader loader)
         {
             _map = map ?? new Dictionary<string, string>();
             _loader = loader;
@@ -43,7 +43,7 @@ namespace Revolution
         // ★ AB 里没有 / 包坏了 → 允许继续用 Resources 兜底
         public bool AllowFallback => true;
 
-        public IResLoader CreateLoader()
+        public IRevResLoader CreateLoader()
         {
             return _loader;
         }
@@ -57,12 +57,12 @@ namespace Revolution
         // 除显式指定走 Resources 的资源外，全部由 AB 接管
         public bool Match(string standardPath)
         {
-            return !standardPath.StartsWith(ResourcesResPolicy.PREFIX);
+            return !standardPath.StartsWith(RevResourcesResPolicy.PREFIX);
         }
 
         /// <summary>
         /// 资源级引用归零 / 被强制移除时，把对应的 AB 包引用也还掉（包引用归零会自动 Unload）。
-        /// 调用方：ResManager 的 FlushUnused / UnloadGroup / ForceRemove / UnloadAll。
+        /// 调用方：RevResManager 的 FlushUnused / UnloadGroup / ForceRemove / UnloadAll。
         ///
         /// 【为什么要用逻辑路径反查】加载时走的是"包名|资源名"，而卸载时手上只有逻辑路径，
         /// 所以拿同一张映射表反查一次，再从值里切出包名。

@@ -1,12 +1,12 @@
 // ============================================================
-// ResPathUtil.cs —— 逻辑路径的拼接与键计算（纯 C#）
+// RevResPathUtil.cs —— 逻辑路径的拼接与键计算（纯 C#）
 //
-// 位置：Runtime\ResourceSystem\Core\
+// 位置：Runtime\RevResourceSystem\Core\
 //
 // 【背景：为什么 API 是两个参数，内部却是一条字符串】
 //   对外（业务）写法是"根目录 + 资源名"两段：
-//       ResManager.Load<Sprite>(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
-//   对内（映射表 ResMap、AB 包名、ResHandle.StandardPath）认的是一条完整逻辑路径
+//       RevResManager.Load<Sprite>(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
+//   对内（映射表 ResMap、AB 包名、RevResHandle.StandardPath）认的是一条完整逻辑路径
 //   "UI/Icon/Hero_1001"。这个文件负责把两段合成一条，以及——更重要的——
 //   **不合成字符串也能算出它的键**。
 //
@@ -27,7 +27,7 @@ using System;
 namespace Revolution
 {
     /// <summary>逻辑路径工具：拼接 + 键计算（FNV-1a，与资源系统的缓存键同源）。</summary>
-    public static class ResPathUtil
+    public static class RevResPathUtil
     {
         /// <summary>逻辑路径的分隔符（统一用正斜杠，跨平台一致）。</summary>
         public const char Separator = '/';

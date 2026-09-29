@@ -71,7 +71,7 @@ RevSoundPath.cs               ← 生成到 Runtime 程序集内部（RevSoundSy
 
 - 子目录名直接进 **同帧去重 / 上限淘汰 / 句柄** 的判定：`"UI/click"` 与 `"Battle/click"` 是两条不同的声音；
 - 手写习惯会被自动规范化：`Play("UI\\click")`（Windows 反斜杠）、`Play("/UI//click/")`（多余斜杠）都能正确加载
-  （规范化实现在资源系统的 `ResPathUtil.NormalizeResName` —— 纯 C#、可工程外单测，其它模块也能直接复用）；
+  （规范化实现在资源系统的 `RevResPathUtil.NormalizeResName` —— 纯 C#、可工程外单测，其它模块也能直接复用）；
 - ❌ **名字里不要再写根目录**：`Play("Audio/Sfx/UI/click")` 会拼成 `Audio/Sfx/Audio/Sfx/UI/click`（加载失败 → `Failed(LoadFailed)`）—— 名字永远相对"音效根目录"；
 - 打包窗口里「音效目录」下面会**列出当前已有的子目录**（含多级），照着抄即可；
 - （可选）这些子目录在 `RevResPath` 里也各有一条常量（如 `Audio_Sfx_UI`），前提是它们位于资源根目录之下。
@@ -79,7 +79,7 @@ RevSoundPath.cs               ← 生成到 Runtime 程序集内部（RevSoundSy
 - 窗口里改完**自动重新生成** `RevSoundPath.cs`；编辑器加载时也会自动对齐一次（新克隆的仓库不会缺这个文件）；
 - **为什么生成到 Runtime 里、而不是和 `RevResPath` 一起放 Generation**：`Revolution.Runtime.asmdef` 的 `references` 是空的，而 Generation 反过来引用了 Runtime —— 音效系统在 Runtime 里，反向引用会**成环**，所以这份常量只能生成在 Runtime 内部；
 - **业务侧也能直接用**（它在 Runtime 程序集里，任何业务程序集都读得到）：
-  `ResManager.LoadAsync<AudioClip>(RevSoundPath.Sfx, "ui_click", clip => { ... })`；
+  `RevResManager.LoadAsync<AudioClip>(RevSoundPath.Sfx, "ui_click", clip => { ... })`；
 - 这两个目录**故意不暴露成 `RevSound.Root` 之类的运行期字段**：目录是项目级事实，不该在运行时被随手改 —— 要换目录就去窗口改，改动自带编译期保护。
 
 ## 三、"我要做 X" 对照表
@@ -193,7 +193,7 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 平台宏分支爆炸（`#if SGAME_LITE / IS_CE / …` 交织） | 零 `#if` 分支：平台差异由 `RevResourceSystem` 的后端策略吸收 |
 | 业务要自己移除回调、自己判空 | 句柄自动失效；3D 目标销毁自动收声 |
 | 配置与代码人工同步（"新增 Lim 包记得补数组"） | 无需要人工维护的数组 |
-| 客户端混用同步/异步加载（同步命中"加载中"会拿到空内容） | **只走异步**（`ResManager.LoadAsync`），首次晚一点出声换取零竞态 |
+| 客户端混用同步/异步加载（同步命中"加载中"会拿到空内容） | **只走异步**（`RevResManager.LoadAsync`），首次晚一点出声换取零竞态 |
 
 ## 七、与你早期实现 `MusicMgr`（714 行）的对照
 
@@ -222,7 +222,7 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 4 | **`Unload` 之后正在播的会怎样** | 不会断 —— 播放器自己还持有 clip 引用；只是"不再常驻"，下次播放会重新加载 |
 | 5 | **`Mute` 与 `Enabled` 不是一回事** | `Mute` = 音量按 0（声音继续走，取消静音立刻接上）；`Enabled = false` = 后续播放直接不发生 |
 | 6 | **作用域不负责卸资源** | `RevSoundScope` 只停声音；资源由 `Preload / Unload / UnloadAll` 显式管理（两个作用域可能共用一个片段，谁也别替谁释放） |
-| 7 | **`ResGroup.Sound` 的归属只认第一次** | 音效片段第一次被谁加载就归哪一组（`RevResourceSystem` 的规定）；公共音效想要"永不参与分组卸载"就 `AddFlag(ResInstanceFlag.Resident)` |
+| 7 | **`RevResGroup.Sound` 的归属只认第一次** | 音效片段第一次被谁加载就归哪一组（`RevResourceSystem` 的规定）；公共音效想要"永不参与分组卸载"就 `AddFlag(RevResInstanceFlag.Resident)` |
 | 8 | **上限到了会丢音** | `MaxVoices`（默认 24）满了先淘汰最旧的一次性音效；如果全是循环音就会拒绝新播放并触发 `Failed(TooManyVoices)` —— 团战丢音请调大上限或加 `Policy` 提前裁剪 |
 
 | 9 | **想改音频目录怎么办** | 菜单 `Revolution.Tools/资源/LiteAB 打包工具` → ① 打包配置 → 音效目录（选完自动重生成 `RevSoundPath.cs`）。**不要**自己在 `RevSound.cs` 里加路径字段：目录是项目级事实，改这里会绕开工具与编译期保护 |
@@ -250,6 +250,6 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 对比旧实现 | `MusicMgr.cs` 714 行、只有 2 个音量 + 无句柄 + **无 2D/3D 区分** + 无作用域；本框架做到 2D/3D 显式区分（挂物体/挂坐标）+ 4 分类 + 池化 + 异步自动补播 + 作用域 + 双事件 |
 | 框架编译 | Debug **0 错 0 警**、Release 0 错 |
 | 纯 C# 内核行为验证 | **26 / 26 通过**（句柄代际、槽位复用不误停、轮转分配、同帧去重、上限淘汰、重复释放幂等、分类默认表） |
-| 路径 / 规范化 / 音效表验证 | **43 / 43 通过**（`ResPathUtil`：一层与多级子目录拼接、"两段键 == 完整路径键"不变量、名字规范化 12 项；`RevSoundCatalog`：登记/覆盖/注销/解析优先级）—— 与内核合计 **69 / 69** |
-| 名字规范化归属 | 已下沉到 `ResPathUtil.NormalizeResName`（纯 C#、可单测；资源/UI/池子等模块都能复用） |
+| 路径 / 规范化 / 音效表验证 | **43 / 43 通过**（`RevResPathUtil`：一层与多级子目录拼接、"两段键 == 完整路径键"不变量、名字规范化 12 项；`RevSoundCatalog`：登记/覆盖/注销/解析优先级）—— 与内核合计 **69 / 69** |
+| 名字规范化归属 | 已下沉到 `RevResPathUtil.NormalizeResName`（纯 C#、可单测；资源/UI/池子等模块都能复用） |
 | 依赖 | `RevResourceSystem`（音频片段）+ `RevObjectPool`（播放器池，公开的 `RevPoolCore<AudioSource>`，**不需要预制体**） |

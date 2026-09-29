@@ -1,19 +1,19 @@
 // ============================================================
-// ResManager.cs —— 资源管理器（统一门面，业务唯一入口）
+// RevResManager.cs —— 资源管理器（统一门面，业务唯一入口）
 //
 // 位置：Runtime\资源加载\
 //
 // 【它把多个旧 Manager 的职责收了回来】
-//   业务永远只写 ResManager.Load<T>(根目录, 资源名)，
+//   业务永远只写 RevResManager.Load<T>(根目录, 资源名)，
 //   "从哪加载"由策略自动决定，缓存与引用计数全局只有一套。
 //
 // 【两个参数：根目录 + 资源名】
-//     ResManager.Load<Sprite>(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
+//     RevResManager.Load<Sprite>(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
 //   · 根目录：资源所在的文件夹（用生成的 RevResPath 常量，如 "UI/Icon/"，带结尾斜杠）
 //   · 资源名：该文件夹下的资源名（不带扩展名）
 //   框架内部仍是**一条完整逻辑路径** "UI/Icon/Hero_1001"（映射表 ResMap / AB 包 / 句柄都认它），
-//   两段合成一条的逻辑与"不拼字符串直接算键"的等价性由 ResPathUtil 保证 ——
-//   所以缓存命中的路径上零字符串分配（详见 ResPathUtil 文件头）。
+//   两段合成一条的逻辑与"不拼字符串直接算键"的等价性由 RevResPathUtil 保证 ——
+//   所以缓存命中的路径上零字符串分配（详见 RevResPathUtil 文件头）。
 //
 // 【内部只有三张表】
 //   _policies —— 策略族（注册顺序即优先级）
@@ -29,31 +29,31 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public static class ResManager
+    public static class RevResManager
     {
         // ===== 策略族（注册顺序 = 优先级）=====
-        private static readonly List<IResPolicy> _policies = new List<IResPolicy>();
+        private static readonly List<IRevResPolicy> _policies = new List<IRevResPolicy>();
 
         // ===== 缓存：Key → 句柄 =====
-        private static readonly Dictionary<ulong, ResHandle> _cache = new Dictionary<ulong, ResHandle>();
+        private static readonly Dictionary<ulong, RevResHandle> _cache = new Dictionary<ulong, RevResHandle>();
 
         // ===== 未使用表：引用计数归零、等待延迟释放 =====
-        private static readonly Dictionary<ulong, ResHandle> _unused = new Dictionary<ulong, ResHandle>();
+        private static readonly Dictionary<ulong, RevResHandle> _unused = new Dictionary<ulong, RevResHandle>();
 
-        private static ABResPolicy _abPolicy;
+        private static RevABResPolicy _abPolicy;
 
-        public static IReadOnlyDictionary<ulong, ResHandle> CachedHandles => _cache;
+        public static IReadOnlyDictionary<ulong, RevResHandle> CachedHandles => _cache;
         public static int CachedCount => _cache.Count;
         public static int UnusedCount => _unused.Count;
 
         // ==================== 初始化 ====================
 
-        public static void RegisterPolicy(IResPolicy policy)
+        public static void RegisterPolicy(IRevResPolicy policy)
         {
             if (policy == null) return;
 
             _policies.Add(policy);
-            if (policy is ABResPolicy ab) _abPolicy = ab;
+            if (policy is RevABResPolicy ab) _abPolicy = ab;
         }
 
         public static void ClearAllPolicies()
@@ -73,17 +73,17 @@ namespace Revolution
         ///   · 当前是 Unknown 且传了  → 补上（覆盖 Unknown 是唯一的例外）
         ///
         /// 【为什么要允许"补齐 Unknown"？】
-        ///   预加载常常不传分组（ResPreloader.Preload 的 group 默认 Unknown），
+        ///   预加载常常不传分组（RevResPreloader.Preload 的 group 默认 Unknown），
         ///   等业务真正 Load 时再补上分组，句柄才能被整组卸载点名到。
         ///
         /// 【为什么不允许覆盖已有归属？】
-        ///   见 ResHandle.Group 的注释：覆盖会让先加载的分组 Shutdown 时点名不到它。
+        ///   见 RevResHandle.Group 的注释：覆盖会让先加载的分组 Shutdown 时点名不到它。
         /// </summary>
-        private static void AssignGroup(ResHandle handle, ResGroup group)
+        private static void AssignGroup(RevResHandle handle, RevResGroup group)
         {
             if (handle == null) return;
-            if (group == ResGroup.Unknown) return;                    // 没传 → 不动
-            if (handle.Group != ResGroup.Unknown) return;             // 已有归属 → 不动（关键）
+            if (group == RevResGroup.Unknown) return;                    // 没传 → 不动
+            if (handle.Group != RevResGroup.Unknown) return;             // 已有归属 → 不动（关键）
             handle.Group = group;                                     // 唯一允许的写入时机
         }
 
@@ -91,10 +91,10 @@ namespace Revolution
 
         /// <summary>
         /// 业务最常用的入口：直接拿资源对象。
-        /// 例：Sprite icon = ResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
-        /// 注意：失败时返回 null；要拿失败原因请用 LoadHandle&lt;T&gt;（或下面返回 ResHandle 的重载）。
+        /// 例：Sprite icon = RevResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
+        /// 注意：失败时返回 null；要拿失败原因请用 LoadHandle&lt;T&gt;（或下面返回 RevResHandle 的重载）。
         /// </summary>
-        public static T Load<T>(string rootPath, string resName, ResGroup group = ResGroup.Unknown)
+        public static T Load<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown)
             where T : UnityEngine.Object
         {
             return Load(rootPath, resName, typeof(T), group).Content as T;
@@ -103,10 +103,10 @@ namespace Revolution
         /// <summary>
         /// 同步加载并拿到完整句柄（泛型版）—— 和 Load&lt;T&gt; 一样不写 typeof，但能看失败原因：
         ///
-        ///     ResHandle h = ResManager.LoadHandle&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", ResGroup.UI);
+        ///     RevResHandle h = RevResManager.LoadHandle&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", RevResGroup.UI);
         ///     if (!h.IsLoaded) Debug.LogError($"失败：{h.ErrorReason}");
         /// </summary>
-        public static ResHandle LoadHandle<T>(string rootPath, string resName, ResGroup group = ResGroup.Unknown)
+        public static RevResHandle LoadHandle<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown)
             where T : UnityEngine.Object
             => Load(rootPath, resName, typeof(T), group);
 
@@ -114,25 +114,25 @@ namespace Revolution
         /// 同步加载（两个参数版，业务入口）。
         /// 缓存命中时**不拼字符串**：直接用两段算出的键查表（热路径零分配）。
         /// </summary>
-        public static ResHandle Load(string rootPath, string resName, Type contentType, ResGroup group = ResGroup.Unknown)
+        public static RevResHandle Load(string rootPath, string resName, Type contentType, RevResGroup group = RevResGroup.Unknown)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return ResHandle.Empty;
+            if (!RevResPathUtil.IsValidResName(resName)) return RevResHandle.Empty;
 
             // ① 缓存命中（零字符串分配）
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
-            if (TryHitCache(key, group, out ResHandle hit)) return hit;
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
+            if (TryHitCache(key, group, out RevResHandle hit)) return hit;
 
             // ② 未命中：这时才拼出完整逻辑路径（映射表 / 句柄 / 日志都要它，一次分配可接受）
-            return LoadByPath(ResPathUtil.Join(rootPath, resName), contentType, group);
+            return LoadByPath(RevResPathUtil.Join(rootPath, resName), contentType, group);
         }
 
         /// <summary>缓存命中处理：引用 +1、清未使用标记、刷新 LRU、补分组。命中返回 true。</summary>
-        private static bool TryHitCache(ulong key, ResGroup group, out ResHandle handle)
+        private static bool TryHitCache(ulong key, RevResGroup group, out RevResHandle handle)
         {
             if (_cache.TryGetValue(key, out handle))
             {
                 handle.RefCount++;
-                handle.RemoveFlag(ResInstanceFlag.MarkedUnused);
+                handle.RemoveFlag(RevResInstanceFlag.MarkedUnused);
                 handle.Touch();                      // ★ 刷新 LRU 时间戳（自动卸载排序用）
                 AssignGroup(handle, group);          // ★ 只补 Unknown，不覆盖已有归属（详见方法注释）
                 return true;
@@ -143,39 +143,39 @@ namespace Revolution
         }
 
         /// <summary>按完整逻辑路径加载（框架内部：两条对外入口最终都汇到这里）。</summary>
-        private static ResHandle LoadByPath(string standardPath, Type contentType, ResGroup group)
+        private static RevResHandle LoadByPath(string standardPath, Type contentType, RevResGroup group)
         {
-            if (string.IsNullOrEmpty(standardPath)) return ResHandle.Empty;
+            if (string.IsNullOrEmpty(standardPath)) return RevResHandle.Empty;
 
             ulong key = ComputeKey(standardPath);
 
             // ① 缓存命中：计数 +1，直接返回
-            if (TryHitCache(key, group, out ResHandle cached)) return cached;
+            if (TryHitCache(key, group, out RevResHandle cached)) return cached;
 
             // ② 按优先级依次尝试策略（责任链 + 兜底）
-            ResHandle handle = null;
+            RevResHandle handle = null;
 
             for (int i = 0; i < _policies.Count; i++)
             {
-                IResPolicy policy = _policies[i];
+                IRevResPolicy policy = _policies[i];
                 if (!policy.Match(standardPath)) continue;      // 不归它管 → 问下一条
 
                 // 首次命中才创建句柄（避免为失败的尝试白建对象）
                 if (handle == null)
                 {
-                    handle = new ResHandle
+                    handle = new RevResHandle
                     {
                         Key = key,
                         StandardPath = standardPath,
                         ContentType = contentType,
                         Group = group,
                         RefCount = 1,
-                        Flags = ResInstanceFlag.NeedCache
+                        Flags = RevResInstanceFlag.NeedCache
                     };
                     handle.Touch();                  // 记录首次使用时间
                 }
 
-                if (TryLoadWithPolicy(policy, handle, out ResLoadErrorReason err))
+                if (TryLoadWithPolicy(policy, handle, out RevResLoadErrorReason err))
                     break;                                      // 加载成功 → 结束
 
                 handle.ErrorReason = err;                       // 记下失败原因（以最后一次为准）
@@ -183,7 +183,7 @@ namespace Revolution
             }
 
             // ③ 没有任何策略匹配 → 空对象
-            if (handle == null) return ResHandle.Empty;
+            if (handle == null) return RevResHandle.Empty;
 
             // ④ 入缓存（失败也入，避免每帧重复尝试同一个坏资源）
             _cache[key] = handle;
@@ -191,11 +191,11 @@ namespace Revolution
         }
 
         /// <summary>用指定策略尝试加载一次；失败时通过 err 说明原因</summary>
-        private static bool TryLoadWithPolicy(IResPolicy policy, ResHandle handle, out ResLoadErrorReason err)
+        private static bool TryLoadWithPolicy(IRevResPolicy policy, RevResHandle handle, out RevResLoadErrorReason err)
         {
             // 1) 映射真实路径
             string realPath = policy.MapPath(handle.StandardPath, handle.ContentType);
-            if (string.IsNullOrEmpty(realPath)) { err = ResLoadErrorReason.PathNotMapped; return false; }
+            if (string.IsNullOrEmpty(realPath)) { err = RevResLoadErrorReason.PathNotMapped; return false; }
             handle.RealPath = realPath;
 
             // 2) 交给该策略的加载器真正加载
@@ -204,10 +204,10 @@ namespace Revolution
             if (content == null) return false;
 
             // 3) 成功
-            handle.ErrorReason = ResLoadErrorReason.None;
+            handle.ErrorReason = RevResLoadErrorReason.None;
             handle.SetContent(content);
 #if UNITY_EDITOR
-            if (policy is EditorResPolicy) handle.AddFlag(ResInstanceFlag.LoadFromEditor);
+            if (policy is RevEditorResPolicy) handle.AddFlag(RevResInstanceFlag.LoadFromEditor);
 #endif
             return true;
         }
@@ -218,23 +218,23 @@ namespace Revolution
         /// 异步加载（两个参数版，业务入口）。
         /// 缓存已就绪时立即回调，且**不拼字符串**。
         /// </summary>
-        public static ResHandle LoadAsync(string rootPath, string resName, Type contentType,
-            Action<ResHandle> onFinished, ResGroup group = ResGroup.Unknown,
-            ResLoadPriority priority = ResLoadPriority.Normal)
+        public static RevResHandle LoadAsync(string rootPath, string resName, Type contentType,
+            Action<RevResHandle> onFinished, RevResGroup group = RevResGroup.Unknown,
+            RevResLoadPriority priority = RevResLoadPriority.Normal)
         {
-            if (!ResPathUtil.IsValidResName(resName))
+            if (!RevResPathUtil.IsValidResName(resName))
             {
-                onFinished?.Invoke(ResHandle.Empty);
-                return ResHandle.Empty;
+                onFinished?.Invoke(RevResHandle.Empty);
+                return RevResHandle.Empty;
             }
 
-            ulong key = ResPathUtil.ComputeKey(rootPath, resName);
+            ulong key = RevResPathUtil.ComputeKey(rootPath, resName);
 
             // ① 缓存已就绪：立即回调（零字符串分配）
-            if (_cache.TryGetValue(key, out ResHandle ready) && ready.IsLoaded)
+            if (_cache.TryGetValue(key, out RevResHandle ready) && ready.IsLoaded)
             {
                 ready.RefCount++;
-                ready.RemoveFlag(ResInstanceFlag.MarkedUnused);
+                ready.RemoveFlag(RevResInstanceFlag.MarkedUnused);
                 ready.Touch();                       // 刷新 LRU 时间戳
                 AssignGroup(ready, group);           // ★ 与同步 Load 保持一致：只补 Unknown
                 onFinished?.Invoke(ready);
@@ -242,27 +242,27 @@ namespace Revolution
             }
 
             // ② 其余情况交给"路径版"（要登记句柄、要拼路径查映射表）
-            return LoadAsyncByPath(ResPathUtil.Join(rootPath, resName), contentType, onFinished, group, priority);
+            return LoadAsyncByPath(RevResPathUtil.Join(rootPath, resName), contentType, onFinished, group, priority);
         }
 
         /// <summary>按完整逻辑路径异步加载（框架内部）。</summary>
-        private static ResHandle LoadAsyncByPath(string standardPath, Type contentType,
-            Action<ResHandle> onFinished, ResGroup group,
-            ResLoadPriority priority)
+        private static RevResHandle LoadAsyncByPath(string standardPath, Type contentType,
+            Action<RevResHandle> onFinished, RevResGroup group,
+            RevResLoadPriority priority)
         {
             if (string.IsNullOrEmpty(standardPath))
             {
-                onFinished?.Invoke(ResHandle.Empty);
-                return ResHandle.Empty;
+                onFinished?.Invoke(RevResHandle.Empty);
+                return RevResHandle.Empty;
             }
 
             ulong key = ComputeKey(standardPath);
 
             // ① 缓存已就绪：直接回调
-            if (_cache.TryGetValue(key, out ResHandle cached) && cached.IsLoaded)
+            if (_cache.TryGetValue(key, out RevResHandle cached) && cached.IsLoaded)
             {
                 cached.RefCount++;
-                cached.RemoveFlag(ResInstanceFlag.MarkedUnused);
+                cached.RemoveFlag(RevResInstanceFlag.MarkedUnused);
                 cached.Touch();                      // 刷新 LRU 时间戳
                 AssignGroup(cached, group);          // ★ 与同步 Load 保持一致：只补 Unknown
                 onFinished?.Invoke(cached);
@@ -270,23 +270,23 @@ namespace Revolution
             }
 
             // ② 已有同 key 正在加载：把回调挂上去（合并重复请求）
-            if (_cache.TryGetValue(key, out ResHandle loading) && loading.IsLoading)
+            if (_cache.TryGetValue(key, out RevResHandle loading) && loading.IsLoading)
             {
                 loading.RefCount++;
                 AssignGroup(loading, group);         // ★ 同上，保证同步/异步归属规则一致
-                AsyncLoadPump.AddCallback(key, onFinished);
+                RevAsyncLoadPump.AddCallback(key, onFinished);
                 return loading;
             }
 
             // ③ 建实体并"先入缓存"——异步要先登记句柄，后续同 key 请求才能合并
-            var handle = new ResHandle
+            var handle = new RevResHandle
             {
                 Key = key,
                 StandardPath = standardPath,
                 ContentType = contentType,
                 Group = group,
                 RefCount = 1,
-                Flags = ResInstanceFlag.NeedCache | ResInstanceFlag.InAsyncLoading
+                Flags = RevResInstanceFlag.NeedCache | RevResInstanceFlag.InAsyncLoading
             };
             handle.MarkLoading();
             _cache[key] = handle;
@@ -299,18 +299,18 @@ namespace Revolution
         /// <summary>
         /// 异步加载（泛型版，推荐）—— 不必再手写 typeof(T)：
         ///
-        ///     ResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", sprite =&gt;
+        ///     RevResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", sprite =&gt;
         ///     {
         ///         if (sprite == null) return;      // 失败：回调收到的就是 null
         ///         image.sprite = sprite;
-        ///     }, ResGroup.UI);
+        ///     }, RevResGroup.UI);
         ///
-        /// 【失败怎么查原因】回调里拿到 null 时，用返回值那个句柄（或 ResManager.Get(rootPath, resName)）看 ErrorReason。
+        /// 【失败怎么查原因】回调里拿到 null 时，用返回值那个句柄（或 RevResManager.Get(rootPath, resName)）看 ErrorReason。
         /// 【和下面那个重载的区别】这个只把"内容"给你（最常见需求）；需要区分"加载中/失败/类型不符"
-        ///   这类细节时，用返回 ResHandle 的重载拿完整句柄。
+        ///   这类细节时，用返回 RevResHandle 的重载拿完整句柄。
         /// </summary>
-        public static ResHandle LoadAsync<T>(string rootPath, string resName, Action<T> onFinished,
-            ResGroup group = ResGroup.Unknown, ResLoadPriority priority = ResLoadPriority.Normal)
+        public static RevResHandle LoadAsync<T>(string rootPath, string resName, Action<T> onFinished,
+            RevResGroup group = RevResGroup.Unknown, RevResLoadPriority priority = RevResLoadPriority.Normal)
             where T : UnityEngine.Object
         {
             return LoadAsync(rootPath, resName, typeof(T),
@@ -321,12 +321,12 @@ namespace Revolution
         /// 异步版"责任链"：从 startIndex 开始找能处理 handle 的策略；
         /// 若该策略加载失败且 AllowFallback = true，就自动换下一条策略重试。
         /// </summary>
-        private static void TryLoadAsyncFrom(ResHandle handle, int startIndex,
-            Action<ResHandle> onFinished, ResLoadPriority priority)
+        private static void TryLoadAsyncFrom(RevResHandle handle, int startIndex,
+            Action<RevResHandle> onFinished, RevResLoadPriority priority)
         {
             for (int i = startIndex; i < _policies.Count; i++)
             {
-                IResPolicy policy = _policies[i];
+                IRevResPolicy policy = _policies[i];
                 if (!policy.Match(handle.StandardPath)) continue;
 
                 string realPath = policy.MapPath(handle.StandardPath, handle.ContentType);
@@ -334,7 +334,7 @@ namespace Revolution
                 {
                     if (policy.AllowFallback) continue;          // 映射失败也允许兜底 → 问下一条
 
-                    handle.ErrorReason = ResLoadErrorReason.PathNotMapped;
+                    handle.ErrorReason = RevResLoadErrorReason.PathNotMapped;
                     handle.MarkError();
                     onFinished?.Invoke(handle);
                     return;
@@ -342,7 +342,7 @@ namespace Revolution
                 handle.RealPath = realPath;
 
                 int next = i + 1;                                // 记下"下一条策略"的序号
-                AsyncLoadPump.Submit(handle, policy.CreateLoader(), h =>
+                RevAsyncLoadPump.Submit(handle, policy.CreateLoader(), h =>
                 {
                     if (h.IsLoaded || !policy.AllowFallback) { onFinished?.Invoke(h); return; }
                     TryLoadAsyncFrom(handle, next, onFinished, priority);   // 失败且允许兜底 → 换下一条
@@ -351,7 +351,7 @@ namespace Revolution
             }
 
             // 没有任何策略能处理
-            handle.ErrorReason = ResLoadErrorReason.PolicyNotFound;
+            handle.ErrorReason = RevResLoadErrorReason.PolicyNotFound;
             handle.MarkError();
             onFinished?.Invoke(handle);
         }
@@ -360,20 +360,20 @@ namespace Revolution
 
         public static void AddRef(ulong key)
         {
-            if (_cache.TryGetValue(key, out ResHandle h))
+            if (_cache.TryGetValue(key, out RevResHandle h))
             {
                 h.RefCount++;
-                h.RemoveFlag(ResInstanceFlag.MarkedUnused);
+                h.RemoveFlag(RevResInstanceFlag.MarkedUnused);
             }
         }
 
         public static void DecRef(ulong key, bool removeWhenZero = true)
         {
-            if (!_cache.TryGetValue(key, out ResHandle h)) return;
+            if (!_cache.TryGetValue(key, out RevResHandle h)) return;
 
             if (--h.RefCount <= 0 && removeWhenZero)
             {
-                h.AddFlag(ResInstanceFlag.MarkedUnused);
+                h.AddFlag(RevResInstanceFlag.MarkedUnused);
                 h.UnusedTime = Time.realtimeSinceStartup;   // 记录"归零时刻"，供冷却期判断
                 _unused[key] = h;               // 延迟释放：先进未使用表
             }
@@ -382,8 +382,8 @@ namespace Revolution
         /// <summary>按"根目录 + 资源名"释放（业务更常用）</summary>
         public static void Release(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return;
-            DecRef(ResPathUtil.ComputeKey(rootPath, resName));
+            if (!RevResPathUtil.IsValidResName(resName)) return;
+            DecRef(RevResPathUtil.ComputeKey(rootPath, resName));
         }
 
         /// <summary>
@@ -398,11 +398,11 @@ namespace Revolution
         {
             foreach (var kv in _unused)
             {
-                ResHandle h = kv.Value;
+                RevResHandle h = kv.Value;
                 if (h.RefCount > 0) continue;    // 等待期间又被引用 → 跳过
 
                 // AB 资源：把对应的 AB 包引用一起还掉（包引用归零会自动 Unload）
-                if (!h.HasFlag(ResInstanceFlag.LoadFromEditor) && _abPolicy != null)
+                if (!h.HasFlag(RevResInstanceFlag.LoadFromEditor) && _abPolicy != null)
                     _abPolicy.ReleaseBundleOf(h.StandardPath);
 
                 _cache.Remove(kv.Key);
@@ -417,7 +417,7 @@ namespace Revolution
         /// <summary>
         /// 按业务域批量卸载（切场景 / 退出战斗 / 关界面用）。
         ///
-        /// 【只认 ResHandle.Group 这一个字段】—— 与 AB 分包、与加载来源都无关。
+        /// 【只认 RevResHandle.Group 这一个字段】—— 与 AB 分包、与加载来源都无关。
         ///   所以别名背后有两条前提，缺一条就会"点名不到"：
         ///     ① 加载时传了分组（传 Unknown 的永远不在这里被释放）；
         ///     ② 归属是"首次确定"的（见 AssignGroup），不会被后来者覆盖。
@@ -430,15 +430,15 @@ namespace Revolution
         ///
         /// 【Resident 永远不参与分组卸载】连 force 也不行，只能靠 UnloadAll()。
         /// </summary>
-        public static void UnloadGroup(ResGroup group, bool force = false)
+        public static void UnloadGroup(RevResGroup group, bool force = false)
         {
             var toRemove = new List<ulong>();
 
             foreach (var kv in _cache)
             {
-                ResHandle h = kv.Value;
+                RevResHandle h = kv.Value;
                 if (h.Group != group) continue;                                // 不归本组 → 跳过
-                if (h.HasFlag(ResInstanceFlag.Resident)) continue;             // 常驻 → 永不参与分组卸载
+                if (h.HasFlag(RevResInstanceFlag.Resident)) continue;             // 常驻 → 永不参与分组卸载
                 if (h.RefCount > 0 && !force) continue;                        // 仍在使用 → 跳过（force 可越过）
 
                 if (_abPolicy != null) _abPolicy.ReleaseBundleOf(h.StandardPath);
@@ -456,33 +456,33 @@ namespace Revolution
 
         // ==================== 资源域 ====================
 
-        public static ResScope OpenScope() => new ResScope();
+        public static RevResScope OpenScope() => new RevResScope();
 
         // ==================== 查询 / 调试 ====================
 
         /// <summary>按"根目录 + 资源名"查句柄（没加载过返回 Empty）。</summary>
-        public static ResHandle Get(string rootPath, string resName)
+        public static RevResHandle Get(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return ResHandle.Empty;
-            return _cache.TryGetValue(ResPathUtil.ComputeKey(rootPath, resName), out ResHandle h) ? h : ResHandle.Empty;
+            if (!RevResPathUtil.IsValidResName(resName)) return RevResHandle.Empty;
+            return _cache.TryGetValue(RevResPathUtil.ComputeKey(rootPath, resName), out RevResHandle h) ? h : RevResHandle.Empty;
         }
 
         /// <summary>
         /// 按完整逻辑路径查句柄（框架内部用：手上本来就是一条拼好的路径时）。
         /// 业务请用两个参数的重载。
         /// </summary>
-        internal static ResHandle GetByPath(string standardPath)
-            => _cache.TryGetValue(ComputeKey(standardPath), out ResHandle h) ? h : ResHandle.Empty;
+        internal static RevResHandle GetByPath(string standardPath)
+            => _cache.TryGetValue(ComputeKey(standardPath), out RevResHandle h) ? h : RevResHandle.Empty;
 
         /// <summary>按"根目录 + 资源名"判断是否已缓存。</summary>
         public static bool Contains(string rootPath, string resName)
-            => ResPathUtil.IsValidResName(resName) && _cache.ContainsKey(ResPathUtil.ComputeKey(rootPath, resName));
+            => RevResPathUtil.IsValidResName(resName) && _cache.ContainsKey(RevResPathUtil.ComputeKey(rootPath, resName));
 
         /// <summary>按"根目录 + 资源名"取当前引用计数。</summary>
         public static int GetRefCount(string rootPath, string resName)
         {
-            if (!ResPathUtil.IsValidResName(resName)) return 0;
-            return _cache.TryGetValue(ResPathUtil.ComputeKey(rootPath, resName), out ResHandle h) ? h.RefCount : 0;
+            if (!RevResPathUtil.IsValidResName(resName)) return 0;
+            return _cache.TryGetValue(RevResPathUtil.ComputeKey(rootPath, resName), out RevResHandle h) ? h.RefCount : 0;
         }
 
         // ==================== 预加载持有 / 批量与强制卸载 ====================
@@ -492,14 +492,14 @@ namespace Revolution
         /// 预加载成功后调用；它有 RefCount（正常占一份引用），
         /// 另有 Preloaded 标志用于"批量释放"与"自动卸载默认保留"。
         /// </summary>
-        internal static void MarkPreloaded(ResHandle handle)
+        internal static void MarkPreloaded(RevResHandle handle)
         {
             if (handle == null || handle.Key == 0) return;
-            handle.AddFlag(ResInstanceFlag.Preloaded);
+            handle.AddFlag(RevResInstanceFlag.Preloaded);
         }
 
         /// <summary>释放指定分组下"预加载持有"的引用（不影响业务自己持有的引用）</summary>
-        public static int ReleasePreloaded(ResGroup group)
+        public static int ReleasePreloaded(RevResGroup group)
         {
             List<ulong> keys = CollectPreloaded(group);
             ReleasePreloadedKeys(keys);
@@ -514,13 +514,13 @@ namespace Revolution
             return keys.Count;
         }
 
-        private static List<ulong> CollectPreloaded(ResGroup? group)
+        private static List<ulong> CollectPreloaded(RevResGroup? group)
         {
             var keys = new List<ulong>();
             foreach (var kv in _cache)
             {
-                ResHandle h = kv.Value;
-                if (!h.HasFlag(ResInstanceFlag.Preloaded)) continue;
+                RevResHandle h = kv.Value;
+                if (!h.HasFlag(RevResInstanceFlag.Preloaded)) continue;
                 if (group.HasValue && h.Group != group.Value) continue;
                 keys.Add(kv.Key);
             }
@@ -531,9 +531,9 @@ namespace Revolution
         {
             foreach (ulong k in keys)
             {
-                if (!_cache.TryGetValue(k, out ResHandle h)) continue;
+                if (!_cache.TryGetValue(k, out RevResHandle h)) continue;
 
-                h.RemoveFlag(ResInstanceFlag.Preloaded);
+                h.RemoveFlag(RevResInstanceFlag.Preloaded);
                 DecRef(k);          // 还掉"预加载"那份引用（归零则进未使用表）
             }
         }
@@ -544,7 +544,7 @@ namespace Revolution
         /// </summary>
         public static void ForceRemove(ulong key)
         {
-            if (!_cache.TryGetValue(key, out ResHandle h)) return;
+            if (!_cache.TryGetValue(key, out RevResHandle h)) return;
 
             // 还掉 AB 包引用（包引用归零会自动 Unload）
             if (_abPolicy != null) _abPolicy.ReleaseBundleOf(h.StandardPath);
@@ -569,9 +569,9 @@ namespace Revolution
         }
 
         /// <summary>快照：所有缓存的句柄（自动卸载做 LRU 排序用；不要在遍历中改动它）</summary>
-        public static List<ResHandle> GetAllHandles()
+        public static List<RevResHandle> GetAllHandles()
         {
-            var list = new List<ResHandle>(_cache.Count);
+            var list = new List<RevResHandle>(_cache.Count);
             foreach (var kv in _cache) list.Add(kv.Value);
             return list;
         }
@@ -580,16 +580,16 @@ namespace Revolution
 
         /// <summary>
         /// 完整逻辑路径的键（FNV-1a 64 位）。
-        /// 实现搬到 <see cref="ResPathUtil"/> 了：那里同时提供"两段增量算键"的版本，
+        /// 实现搬到 <see cref="RevResPathUtil"/> 了：那里同时提供"两段增量算键"的版本，
         /// 两者严格等价，且有工程外断言把关 —— 所以本方法保持原样转发即可。
         /// </summary>
-        internal static ulong ComputeKey(string path) => ResPathUtil.ComputeKey(path);
+        internal static ulong ComputeKey(string path) => RevResPathUtil.ComputeKey(path);
 
         /// <summary>异步加载完成时由异步泵回调</summary>
-        internal static void OnAsyncLoaded(ulong key, ResHandle handle)
+        internal static void OnAsyncLoaded(ulong key, RevResHandle handle)
         {
-            handle.RemoveFlag(ResInstanceFlag.InAsyncLoading);
-            handle.AddFlag(ResInstanceFlag.UsedAccurate);
+            handle.RemoveFlag(RevResInstanceFlag.InAsyncLoading);
+            handle.AddFlag(RevResInstanceFlag.UsedAccurate);
         }
     }
 }

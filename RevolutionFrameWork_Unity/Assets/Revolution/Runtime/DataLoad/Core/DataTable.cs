@@ -49,7 +49,7 @@ namespace Revolution
         /// <param name="capacity">预估行数（避免字典/列表多次扩容）</param>
         /// <remarks>
         /// ★ 参数变过：以前是 (tableName, resourcePath, capacity)，现在把"路径"拆成
-        ///   (resourceRoot, resourceName) 两段，和 ResManager 的参数口径一致。
+        ///   (resourceRoot, resourceName) 两段，和 RevResManager 的参数口径一致。
         ///   生成器写 <c>base("Hero")</c> 仍然有效（默认 "Data/" + "Hero"）。
         /// </remarks>
         protected DataTable(string tableName, string resourceRoot = null, string resourceName = null, int capacity = 64)

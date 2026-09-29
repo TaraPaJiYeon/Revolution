@@ -1,7 +1,7 @@
 // ============================================================
-// ResAutoUnloader.cs —— 自动卸载门卫
+// RevResAutoUnloader.cs —— 自动卸载门卫
 //
-// 位置：Runtime\ResourceSystem\Support\
+// 位置：Runtime\RevResourceSystem\Support\
 //
 // 【它解决什么问题？】
 //   引用计数只能告诉你"这个资源现在没人用了"，但不能决定"什么时候真的把它卸掉"。
@@ -14,7 +14,7 @@
 //   ② 内存压力（lowMemory 事件）  —— 立即强清（跳过冷却期）
 //   ③ 缓存超阈值（MaxCachedHandles）—— 按 LRU 淘汰到水位线
 //   ④ 空闲判定（OnlyWhenIdle）    —— 只在没有在途加载时动手，避免和前台抢资源
-//   ⑤ 切场景（调用 ResBootstrap.Shutdown）—— 见 Support\ResBootstrap.cs
+//   ⑤ 切场景（调用 RevResBootstrap.Shutdown）—— 见 Support\RevResBootstrap.cs
 //
 // 【安全规则：什么样的资源绝不自动卸？】
 //   · RefCount > 0            （还有人用）
@@ -29,7 +29,7 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public sealed class ResAutoUnloader : MonoBehaviour
+    public sealed class RevResAutoUnloader : MonoBehaviour
     {
         // ==================== 策略配置（运行时可调） ====================
 
@@ -67,18 +67,18 @@ namespace Revolution
 
         // ==================== 运行时 ====================
 
-        private static ResAutoUnloader _instance;
+        private static RevResAutoUnloader _instance;
         private float _timer;
 
-        /// <summary>启动门卫（幂等；ResBootstrap.Init 会调它）</summary>
+        /// <summary>启动门卫（幂等；RevResBootstrap.Init 会调它）</summary>
         public static void EnsureRunning()
         {
             if (_instance != null) return;
 
-            var go = new GameObject("[ResAutoUnloader]");
+            var go = new GameObject("[RevResAutoUnloader]");
             DontDestroyOnLoad(go);
             go.hideFlags = HideFlags.HideAndDontSave;
-            _instance = go.AddComponent<ResAutoUnloader>();
+            _instance = go.AddComponent<RevResAutoUnloader>();
         }
 
         /// <summary>停止门卫（一般不用调；退出时 Unity 会自己销毁）</summary>
@@ -121,26 +121,26 @@ namespace Revolution
         {
             // ① 空闲判定：有在途加载就先不动手（避免和前台抢 IO / 抢内存）
             if (!force && OnlyWhenIdle &&
-                (AsyncLoadPump.WaitingCount > 0 || AsyncLoadPump.LoadingCount > 0))
+                (RevAsyncLoadPump.WaitingCount > 0 || RevAsyncLoadPump.LoadingCount > 0))
                 return;
 
-            List<ResHandle> all = ResManager.GetAllHandles();
+            List<RevResHandle> all = RevResManager.GetAllHandles();
             if (all.Count == 0) return;
 
             float now = Time.realtimeSinceStartup;
 
             // ② 挑"可淘汰候选"
-            var candidates = new List<ResHandle>();
-            foreach (ResHandle h in all)
+            var candidates = new List<RevResHandle>();
+            foreach (RevResHandle h in all)
             {
                 // 不在未使用表 → 说明还有人用 / 还没到释放时机，一律不动
-                if (!h.HasFlag(ResInstanceFlag.MarkedUnused)) continue;
+                if (!h.HasFlag(RevResInstanceFlag.MarkedUnused)) continue;
                 // 常驻资源永不自动卸
-                if (h.HasFlag(ResInstanceFlag.Resident)) continue;
+                if (h.HasFlag(RevResInstanceFlag.Resident)) continue;
                 // 正在加载的不动
-                if (h.State == ResState.Loading) continue;
+                if (h.State == RevResState.Loading) continue;
                 // 预加载持有：默认保留（它是"故意留着"的）；内存告急且允许时才放
-                if (h.HasFlag(ResInstanceFlag.Preloaded) && !(force && UnloadPreloadedOnLowMemory)) continue;
+                if (h.HasFlag(RevResInstanceFlag.Preloaded) && !(force && UnloadPreloadedOnLowMemory)) continue;
 
                 // 冷却期：刚归零不久，可能马上又被用（force 可跳过）
                 if (!force && now - h.UnusedTime < UnusedCooldown) continue;
@@ -180,15 +180,15 @@ namespace Revolution
             int removed = 0;
             for (int i = 0; i < removeCount && i < candidates.Count; i++)
             {
-                ResHandle h = candidates[i];
+                RevResHandle h = candidates[i];
 
-                h.RemoveFlag(ResInstanceFlag.MarkedUnused);
-                ResManager.ForceRemove(h.Key);     // 从缓存移除 + 归还 AB 包引用
+                h.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+                RevResManager.ForceRemove(h.Key);     // 从缓存移除 + 归还 AB 包引用
                 removed++;
             }
 
             // ⑤ 真正让 Unity 回收无引用对象（这一步开销较大，所以只在淘汰后调一次）
-            ResManager.FlushUnused();
+            RevResManager.FlushUnused();
 
             LastTrimCount = removed;
             TotalTrimCount += removed;

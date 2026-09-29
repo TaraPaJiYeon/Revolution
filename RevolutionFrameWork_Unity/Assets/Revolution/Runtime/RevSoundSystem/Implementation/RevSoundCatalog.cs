@@ -53,8 +53,8 @@ namespace Revolution
         /// </summary>
         internal bool Register(string name, string path, RevSoundKind kind, float volume, bool loop)
         {
-            name = ResPathUtil.NormalizeResName(name);
-            path = ResPathUtil.NormalizeResName(path);
+            name = RevResPathUtil.NormalizeResName(name);
+            path = RevResPathUtil.NormalizeResName(path);
 
             if (name.Length == 0 || path.Length == 0) return false;
 
@@ -70,10 +70,10 @@ namespace Revolution
         }
 
         /// <summary>注销一条音效（没登记过返回 false）。</summary>
-        internal bool Unregister(string name) => _map.Remove(ResPathUtil.NormalizeResName(name));
+        internal bool Unregister(string name) => _map.Remove(RevResPathUtil.NormalizeResName(name));
 
         /// <summary>这个名字登记过吗。</summary>
-        internal bool IsRegistered(string name) => _map.ContainsKey(ResPathUtil.NormalizeResName(name));
+        internal bool IsRegistered(string name) => _map.ContainsKey(RevResPathUtil.NormalizeResName(name));
 
         /// <summary>清空整张表。</summary>
         internal void Clear() => _map.Clear();
@@ -86,7 +86,7 @@ namespace Revolution
         /// </summary>
         internal string ResolvePath(string name, ref RevSoundKind? kind, ref float? volume, ref bool? loop)
         {
-            if (!_map.TryGetValue(ResPathUtil.NormalizeResName(name), out Entry entry)) return name;
+            if (!_map.TryGetValue(RevResPathUtil.NormalizeResName(name), out Entry entry)) return name;
 
             kind ??= entry.Kind;
             volume ??= entry.Volume;

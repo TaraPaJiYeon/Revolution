@@ -448,7 +448,7 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
     }
 }</pre>
     <div class="callout">
-      <b>数据文件的位置是怎么定的</b>：容器基类把"路径"拆成<b>两段</b>（和资源系统 <code>ResManager</code> 的参数口径完全一致）——
+      <b>数据文件的位置是怎么定的</b>：容器基类把"路径"拆成<b>两段</b>（和资源系统 <code>RevResManager</code> 的参数口径完全一致）——
       <code>ResourceRoot</code> 默认 <code>"Data/"</code>（也就是生成的 <code>RevResPath.Data</code>），
       <code>ResourceName</code> 默认 = 表名。所以 <code>base("Hero")</code> 等价于 <code>("Data/", "Hero")</code>。
       要把某张表放到别的目录就显式写：<code>public HeroTable() : base("Hero", "Data/Activity/", "Hero") { }</code>
@@ -540,10 +540,10 @@ DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span cl
     <p>数据文件是 <code>.txt</code>，而打包工具的排除后缀 <code>excludeExtensions</code> 默认只剩 <code>.cs / .meta</code> ——
       所以数据表<b>会正常进 <code>ResMap</code></b>，不需要任何额外设置。</p>
     <p>⚠️ 但反过来要注意：如果你手动把 <code>.txt</code> 加进排除列表，数据表就会被<b>静默踢出包</b>：</p>
-    <pre>不会进 ResMap → ABResPolicy 查不到 → <b>PathNotMapped</b></pre>
+    <pre>不会进 ResMap → RevABResPolicy 查不到 → <b>PathNotMapped</b></pre>
     <div class="callout">好在<b>校验器会直接告警</b>（<code>有 N 个资源被 excludeExtensions 排除，不会进包</code>），
       看到那条就去把 <code>.txt</code> 删掉。<br>
-      编辑器直读模式下不受影响（<code>EditorResPolicy</code> 是按路径直接读工程的）。</div>
+      编辑器直读模式下不受影响（<code>RevEditorResPolicy</code> 是按路径直接读工程的）。</div>
     <p>详见《资源加载系统架构解析》第四章「打包注意事项」。</p>
   </section>
 

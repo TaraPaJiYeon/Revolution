@@ -25,7 +25,7 @@
 //
 //     public override async RevTask PrepareEnterAsync(RevCancellationToken token)
 //     {
-//         await ResManager.LoadAsync<GameObject>("Boss", token);   // 加载完才允许交割
+//         await RevResManager.LoadAsync<GameObject>("Boss", token);   // 加载完才允许交割
 //     }
 //
 //   状态机 await 完双方才交割（详见 RevHeavyFsm 的文件头注释）；token 在本次切换被取代/取消时 Cancel。

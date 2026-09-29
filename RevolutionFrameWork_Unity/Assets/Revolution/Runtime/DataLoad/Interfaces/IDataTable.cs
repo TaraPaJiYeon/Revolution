@@ -21,7 +21,7 @@ namespace Revolution
 
         /// <summary>
         /// 数据文件所在的根目录（带结尾斜杠），如 "Data/"。
-        /// 与 <see cref="ResourceName"/> 一起交给资源系统（ResManager 的参数就是这两段）。
+        /// 与 <see cref="ResourceName"/> 一起交给资源系统（RevResManager 的参数就是这两段）。
         /// </summary>
         string ResourceRoot { get; }
 

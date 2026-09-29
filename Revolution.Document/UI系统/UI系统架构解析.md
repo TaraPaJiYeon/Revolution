@@ -225,7 +225,7 @@ public sealed class ConfirmPanel : RevUIPanel<ConfirmData> { ... }
 
 | 特性字段 | 默认 | 说明 |
 |---|---|---|
-| `Root`（第一个参数，必填） | — | 预制体所在的**资源根目录段**，和 `ResManager` 的 `rootPath` 同义；结尾带不带 `/`、用 `\` 还是 `/` 都会被规范化 |
+| `Root`（第一个参数，必填） | — | 预制体所在的**资源根目录段**，和 `RevResManager` 的 `rootPath` 同义；结尾带不带 `/`、用 `\` 还是 `/` 都会被规范化 |
 | `Layer`（第二个参数） | `Normal` | 挂哪一层 |
 | `Name`（第三个参数） | `null` → **类名** | 资源名（不带扩展名） |
 | `CacheMode` | `Unspecified` → 用 `RevUISetting.DefaultCacheMode` | `KeepAlive`（关闭进池复用）/ `DestroyOnClose` |
@@ -760,7 +760,7 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 | 按模板一键创建面板脚本 | 从选定目录生成"面板类 + 数据类 + 基础骨架"，省掉手写特性与钩子 |
 | MessageBox（按参考实现那份文档的结论做） | 队列 + 优先级 + 去重 + "按钮只转发事件"；它是标准 `Panel`（独立遮罩与层级），自定义内容用"空壳 + Content 插槽"的装饰器做法 |
 | 常用 Part | 无限滚动列表、页签组、通用奖励格（都是"写一次多处复用"的典型） |
-| 面板资源分组可配 | 现在面板预制体统一走 `ResGroup.UI`；将来可以按面板声明自己的资源分组 |
+| 面板资源分组可配 | 现在面板预制体统一走 `RevResGroup.UI`；将来可以按面板声明自己的资源分组 |
 | 打开优先级 | 现在打开是即时的；可以加 `RevUI.OpenAsync` 的优先级参数，让"读条期预加载"与"临时弹窗"排队更合理 |
 
 ---

@@ -1,12 +1,12 @@
 // ============================================================
-// ABLoader.cs —— AB 加载器
+// RevABLoader.cs —— AB 加载器
 // 承担三件事：
 //   ① 从 streamingAssetsPath 加载 AB（本框架不做热更新，没有 persistentDataPath 覆盖路径）
 //      · Android：包在 APK 内，File.Exists 不可用 → 直接 LoadFromFile
 //      · WebGL （含微信/QQ 小游戏）：不能阻塞 + 路径是 URL → 同步加载不可用，必须走 LoadAsync
 //   ② 主包 Manifest 依赖解析
 //   ③ 包级引用计数（归零卸载）
-// 资源级引用计数不在这里，由 ResManager 统一管。
+// 资源级引用计数不在这里，由 RevResManager 统一管。
 //
 // 异步统一用自研 RevTask（见 Runtime\RevTask），不依赖 UniTask、也不用协程。
 // ============================================================
@@ -18,14 +18,14 @@ using UnityEngine;
 namespace Revolution
 {
     
-    public class ABLoader : IResLoader
+    public class RevABLoader : IRevResLoader
     {
         /// <summary>
         /// 一个已加载 AB 包的登记记录（_bundles 的 value）。
         /// 把「包本体」和「引用计数」捆成一个对象 —— 两者永远同步，
         /// 不会出现拆成两个字典时"一边有值、一边没值"的不同步脏状态。
         /// </summary>
-        private class BundleEntry
+        private class RevBundleEntry
         {
             /// <summary>
             /// 包本体：加载资源、Unload 卸载都靠它
@@ -41,7 +41,7 @@ namespace Revolution
         /// <summary>
         ///已加载的包：包名 → (bundle, 引用计数)
         /// </summary>
-        private readonly Dictionary<string,BundleEntry> _bundles = new Dictionary<string,BundleEntry>();
+        private readonly Dictionary<string,RevBundleEntry> _bundles = new Dictionary<string,RevBundleEntry>();
 
         /// <summary>
         /// 正在加载中的包：同一个包被并发请求时复用同一个 RevTask，避免重复加载
@@ -144,7 +144,7 @@ namespace Revolution
         /// </summary>
         private AssetBundle AcquireSingle(string abName)
         {
-            if (_bundles.TryGetValue(abName, out BundleEntry e) && e.bundle != null)
+            if (_bundles.TryGetValue(abName, out RevBundleEntry e) && e.bundle != null)
             {
                 // 已有 → 复用，仅计数 +1
                 e.refCount++;
@@ -156,7 +156,7 @@ namespace Revolution
                 return null;
 
             // 首次加载 → 登记为 1
-            _bundles[abName] = new BundleEntry { bundle = bundle, refCount = 1 };
+            _bundles[abName] = new RevBundleEntry { bundle = bundle, refCount = 1 };
             return bundle;
         }
 
@@ -180,17 +180,17 @@ namespace Revolution
         ///
         /// ★ Unload(false) 的 false 是重点：「不销毁从该包里 Load 出来的资源对象」。
         ///   传 true 会连别人正在用的贴图 / 预制体一起销毁（表现为空白、空引用）；
-        ///   而资源实例的生命周期由 ResManager 统一管（它另有一套资源级引用计数），
+        ///   而资源实例的生命周期由 RevResManager 统一管（它另有一套资源级引用计数），
         ///   所以这里只卸"包"这一层：省的是包的内存，不碰资源的内存。
         /// </summary>
         private void ReleaseSingle(string abName)
         {
-            if (!_bundles.TryGetValue(abName, out BundleEntry e)) 
+            if (!_bundles.TryGetValue(abName, out RevBundleEntry e)) 
                 return;
 
             if (--e.refCount <= 0)
             {
-                // false：不销毁已加载对象（对象生命周期由 ResManager 管理）
+                // false：不销毁已加载对象（对象生命周期由 RevResManager 管理）
                 e.bundle.Unload(false);
                 //从缓存当中移除
                 _bundles.Remove(abName);
@@ -201,7 +201,7 @@ namespace Revolution
         public void ReleaseAll()
         {
             //遍历字典卸载ab包
-            foreach(BundleEntry e in _bundles.Values)
+            foreach(RevBundleEntry e in _bundles.Values)
                 if(e.bundle != null)
                     e.bundle.Unload(false);
 
@@ -223,38 +223,38 @@ namespace Revolution
         /// </summary>
         /// <param name="abName"></param>
         /// <returns></returns>
-        public int GetBundleRefCount(string abName) => _bundles.TryGetValue(abName, out BundleEntry e) ? e.refCount : 0;
+        public int GetBundleRefCount(string abName) => _bundles.TryGetValue(abName, out RevBundleEntry e) ? e.refCount : 0;
 
 
-        // ==================== IResLoader接口实现 ====================
+        // ==================== IRevResLoader接口实现 ====================
 
-        public object Load(ResHandle handle, out ResLoadErrorReason err)
+        public object Load(RevResHandle handle, out RevResLoadErrorReason err)
         {
             // RealPath 约定为 "包名|资源名"
             //   · 包名可能是"生效包名"，即带变体时形如 "ui_login.hd"（与构建出的文件名一致）
             //   · 资源名不含扩展名
             string[] parts = handle.RealPath.Split('|');
-            // 拆不出两段 → 句柄本不该进 ABLoader（映射表坏了 / 策略匹配漏了）
+            // 拆不出两段 → 句柄本不该进 RevABLoader（映射表坏了 / 策略匹配漏了）
             if (parts.Length != 2) 
             { 
-                err = ResLoadErrorReason.PathNotMapped; 
+                err = RevResLoadErrorReason.PathNotMapped; 
                 return null; 
             }
             //加载ab包
             AssetBundle bundle = AcquireBundle(parts[0]);
             if (bundle == null)
             {
-                err = ResLoadErrorReason.BundleLoadFail;
+                err = RevResLoadErrorReason.BundleLoadFail;
                 return null;
             }
             //加载ab包中的资源
             UnityEngine.Object asset = bundle.LoadAsset(parts[1], handle.ContentType);
-            err = asset != null ? ResLoadErrorReason.None : ResLoadErrorReason.AssetLoadFail;
+            err = asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
             return asset;
 
         }
 
-        public void LoadAsync(ResHandle handle, Action<ResHandle> onFinished, RevCancellationToken token = null)
+        public void LoadAsync(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token = null)
         {
             // 用 RevTask 串行加载；异常/取消都会被 catch + finally 兜住，
             // 保证 onFinished 一定被调用 —— 这是异步泵不死锁的前提。
@@ -281,17 +281,17 @@ namespace Revolution
         ///   唯一不能省的是 finally：无论成功 / 失败 / 取消，onFinished 必须被调用一次
         ///   —— 异步泵正是靠这个回调推进队列，漏一次就会整队卡死。
         /// </summary>
-        private async RevTask LoadAsyncInternal(ResHandle handle, Action<ResHandle> onFinished, RevCancellationToken token)
+        private async RevTask LoadAsyncInternal(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token)
         {
             try
             {
                 // RealPath 是策略查映射表后填的，约定为 "包名|资源名"（见同步版 Load 的说明）
                 // parts[0] → 包名：查依赖、加载主包；parts[1] → 资源名：从包里取资源
                 string[] parts = handle.RealPath.Split('|');
-                // 拆不出两段 → 句柄本不该进 ABLoader（映射表坏了 / 策略匹配漏了）
+                // 拆不出两段 → 句柄本不该进 RevABLoader（映射表坏了 / 策略匹配漏了）
                 if (parts.Length != 2)      
                 {
-                    handle.ErrorReason = ResLoadErrorReason.PathNotMapped;
+                    handle.ErrorReason = RevResLoadErrorReason.PathNotMapped;
                     handle.MarkError();
                     return;                                   // 交给 finally 回调
                 }
@@ -313,7 +313,7 @@ namespace Revolution
                 AssetBundle bundle = await AcquireSingleAsync(parts[0]);
                 if (bundle == null)
                 {
-                    handle.ErrorReason = ResLoadErrorReason.BundleLoadFail;
+                    handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                     handle.MarkError();
                     return;
                 }
@@ -321,18 +321,18 @@ namespace Revolution
                 AssetBundleRequest req = bundle.LoadAssetAsync(parts[1], handle.ContentType);
                 await req;
                 //设置句柄的资源
-                handle.ErrorReason = ResLoadErrorReason.None;
+                handle.ErrorReason = RevResLoadErrorReason.None;
                 handle.SetContent(req.asset);
             }
             catch (RevOperationCanceledException)
             {
-                handle.ErrorReason = ResLoadErrorReason.Cancelled;
+                handle.ErrorReason = RevResLoadErrorReason.Cancelled;
                 handle.MarkError();
             }
             catch (Exception)
             {
                 // 本方案统一不打日志：失败原因记在 handle.ErrorReason 上
-                handle.ErrorReason = ResLoadErrorReason.BundleLoadFail;
+                handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                 handle.MarkError();
             }
             finally
@@ -399,7 +399,7 @@ namespace Revolution
         private async RevTask<AssetBundle> AcquireSingleAsync(string abName)
         {
             // 已在内存 → 复用
-            if (_bundles.TryGetValue(abName, out BundleEntry e) && e.bundle != null)
+            if (_bundles.TryGetValue(abName, out RevBundleEntry e) && e.bundle != null)
             {
                 e.refCount++;                              
                 return e.bundle;
@@ -410,7 +410,7 @@ namespace Revolution
             {
                 AssetBundle existed = await task;
 
-                if (existed != null && _bundles.TryGetValue(abName, out BundleEntry entry))
+                if (existed != null && _bundles.TryGetValue(abName, out RevBundleEntry entry))
                     entry.refCount++; // 搭车也要占一份引用
 
                 return existed;
@@ -425,7 +425,7 @@ namespace Revolution
             _loading.Remove(abName);
 
             if (bundle != null)
-                _bundles[abName] = new BundleEntry { bundle = bundle, refCount = 1 };   // 发起者这份算 1
+                _bundles[abName] = new RevBundleEntry { bundle = bundle, refCount = 1 };   // 发起者这份算 1
 
             return bundle;
         }

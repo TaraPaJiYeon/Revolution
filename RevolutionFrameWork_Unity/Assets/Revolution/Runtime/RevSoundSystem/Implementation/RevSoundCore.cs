@@ -129,7 +129,7 @@ namespace Revolution
             if (!Enabled) return RevSoundHandle.Empty;
 
             // 音效名 = "相对音效根目录的资源路径"（可带子目录）：先统一写法（反斜杠 / 多余斜杠 / 空格）
-            string logicalName = ResPathUtil.NormalizeResName(name);
+            string logicalName = RevResPathUtil.NormalizeResName(name);
             if (logicalName.Length == 0) return RevSoundHandle.Empty;
 
             // 音效表：登记过就把"逻辑名"翻成真实路径，并补齐调用点没写的参数（显式传的永远优先）
