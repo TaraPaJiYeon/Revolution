@@ -25,9 +25,9 @@ namespace Revolution
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void OnSubsystemRegistration()
         {
-            // 按钮方法特性（[RevButtonClick] 等）的问题从统一日志出口出：
+            // 控件事件特性（[RevButtonClick] / [RevToggleChanged] / …）的问题从统一日志出口出：
             // 签名不支持 / 控件名写空都能在第一次装配时就看见（而不是"点了没反应"）
-            RevUIButtonEvents.OnException = (e, what) => RevUILog.Error($"{what}：{e.Message}");
+            RevUIWidgetEvents.OnException = (e, what) => RevUILog.Error($"{what}：{e.Message}");
 
             // 让管理器回到"没打开任何界面"的初始状态
             RevUIManager.Instance.ResetForNewSession();

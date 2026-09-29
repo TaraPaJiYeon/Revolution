@@ -205,7 +205,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 ### 🎨 UI 系统（RevUISystem）
 
 - ✅ **声明式配置**：`[RevUIPanel(root, layer)]` 一个特性搞定层级与根节点
-- ✅ **控件事件三种接法**：`[RevButtonClick("btnStart")]` 方法特性（最省事）/ 重写 `OnClick(节点名)`（集中处理）/ `[RevBind]` 字段 + 自己挂监听（最灵活）；长按与松下有 `[RevButtonLongPress]` / `[RevButtonLoosen]`，不用自己在 Update 里轮询
+- ✅ **控件事件三种接法**：九种事件（点击 / 长按 / 松开 / Toggle / Slider / 输入框 / 结束编辑 / Dropdown / 滚动）都能用**方法特性**一行接上（`[RevButtonClick("btnStart")]` · `[RevToggleChanged("tglSound")]` · `[RevScrollChanged("scrollList")]` …）；也可重写 `OnClick(节点名)` 这类回调集中处理，或 `[RevBind]` 字段 + 自己挂监听（最灵活）
 - ✅ **与对象池联动**：关闭即回收，重复打开不重建
 - ✅ **纯代码路径可用**：没有 `Resources` 时 Canvas 用代码建（降级不崩）
 
@@ -308,13 +308,13 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 164 个 `.cs` / 25,312 行）
+**运行期**（`Assets/Revolution/Runtime/`，16 个模块 / 164 个 `.cs` / 25,572 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|
 | `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
 | `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
-| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（方法特性 · 节点名分发 · 字段绑定）/ 与资源池联动 | 19 / 3,958 |
+| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ 与资源池联动 | 19 / 4,217 |
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
 | `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
 | `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |

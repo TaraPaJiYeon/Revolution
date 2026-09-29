@@ -141,20 +141,42 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
         </tbody>
       </table>
     </div>
-    <p>方法特性一共三个（标在面板 / Part 的<b>任意方法</b>上，签名支持 <code>void M()</code> 或 <code>void M(string nodeName)</code>）：</p>
+    <p>方法特性一共九个（标在面板 / Part 的<b>任意方法</b>上），覆盖全部控件事件：</p>
     <pre style="margin:10px 0 6px"><span class="c">// 控件名 = 节点名（区分大小写）；写多级路径时只取最后一段（"Top/btnStart" 等价于 "btnStart"）</span>
-[RevButtonClick(<span class="s">"btnStart"</span>)]     <span class="k">void</span> OnStart()     =&gt; StartGame();     <span class="c">// ① 点击</span>
-[RevButtonLongPress(<span class="s">"btnSkill"</span>)] <span class="k">void</span> OnSkillHold() =&gt; ShowSkillTip();  <span class="c">// ② 长按（按住 ≥ 0.5s 后松开）</span>
-[RevButtonLoosen(<span class="s">"btnMove"</span>)]     <span class="k">void</span> OnMoveUp()    =&gt; StopMove();      <span class="c">// ③ 松开（指针在控件上抬起）</span>
+[RevButtonClick(<span class="s">"btnStart"</span>)]       <span class="k">void</span> OnStart()      =&gt; StartGame();      <span class="c">// 点击</span>
+[RevButtonLongPress(<span class="s">"btnSkill"</span>)]   <span class="k">void</span> OnSkillHold()  =&gt; ShowSkillTip();   <span class="c">// 长按（按住 ≥ 0.5s 后松开）</span>
+[RevButtonLoosen(<span class="s">"btnMove"</span>)]       <span class="k">void</span> OnMoveUp()     =&gt; StopMove();       <span class="c">// 松开（指针在控件上抬起）</span>
+[RevToggleChanged(<span class="s">"tglSound"</span>)]     <span class="k">void</span> OnSound(<span class="k">bool</span> on)              =&gt; SetSound(on);
+[RevSliderChanged(<span class="s">"sldVolume"</span>)]    <span class="k">void</span> OnVolume(<span class="k">float</span> v)             =&gt; SetVolume(v);
+[RevInputChanged(<span class="s">"inpName"</span>)]       <span class="k">void</span> OnName(<span class="k">string</span> text)           =&gt; Preview(text);   <span class="c">// 单参数 = 文本</span>
+[RevInputEndEdit(<span class="s">"inpName"</span>)]       <span class="k">void</span> OnNameDone(<span class="k">string</span> text)       =&gt; Submit(text);
+[RevDropdownChanged(<span class="s">"ddlQuality"</span>)] <span class="k">void</span> OnQuality(<span class="k">int</span> index)          =&gt; SetQuality(index);
+[RevScrollChanged(<span class="s">"scrollList"</span>)]   <span class="k">void</span> OnScrolled(<span class="k">float</span> x, <span class="k">float</span> y)  =&gt; LoadMore(y);
 
-<span class="c">// 同一个控件可以挂多个方法（都会被调用）；带参数的那个能拿到节点名</span>
-[RevButtonClick(<span class="s">"btnBuy"</span>)]       <span class="k">void</span> OnBuy(<span class="k">string</span> nodeName) =&gt; Buy(nodeName);</pre>
+<span class="c">// 同一个控件可以挂多个方法（都会被调用）；想同时要"节点名 + 值"就用两参数 / 三参数的形状</span>
+[RevButtonClick(<span class="s">"btnBuy"</span>)]         <span class="k">void</span> OnBuy(<span class="k">string</span> nodeName)              =&gt; Buy(nodeName);
+[RevToggleChanged(<span class="s">"tglSound"</span>)]     <span class="k">void</span> OnSound2(<span class="k">string</span> nodeName, <span class="k">bool</span> on)  =&gt; Log(nodeName, on);</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>事件</th><th>可用的参数形状（<b>只支持这些</b>，其它在装配时报错）</th></tr></thead>
+        <tbody>
+          <tr><td>点击 / 长按 / 松开</td><td><code>()</code> · <code>(string nodeName)</code></td></tr>
+          <tr><td>Toggle 变化</td><td><code>()</code> · <code>(bool value)</code> · <code>(string nodeName, bool value)</code></td></tr>
+          <tr><td>Slider 变化</td><td><code>()</code> · <code>(float value)</code> · <code>(string nodeName, float value)</code></td></tr>
+          <tr><td>输入框文本变化 / 结束编辑</td><td><code>()</code> · <code>(string text)</code> · <code>(string nodeName, string text)</code></td></tr>
+          <tr><td>Dropdown 变化</td><td><code>()</code> · <code>(int index)</code> · <code>(string nodeName, int index)</code></td></tr>
+          <tr><td>ScrollRect 滚动</td><td><code>()</code> · <code>(float x, float y)</code> · <code>(string nodeName, float x, float y)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="callout warn">
-      <span class="t">四条要记住的</span>
+      <span class="t">六条要记住的</span>
       <p>· <b>长按的判定</b>：按住时长 ≥ <code>RevUISetting.ButtonLongPressSeconds</code>（默认 0.5 秒），<b>松开时</b>触发长按；同一次操作也会触发"松开"（不会和"点击"抢同一瞬间）。</p>
       <p>· <b>长按 / 松开只对 Button 生效</b>（UGUI 的 Button 本身不报这两个事件，框架给交互节点挂了一个小继电器）；自研控件用 <code>RevUI.RegisterAutoEvent&lt;T&gt;((d, c) =&gt; { … d.LongPress() … d.Loosen() })</code> 接进来。</p>
       <p>· <b>控件名写错会当场报错</b>：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。</p>
-      <p style="margin-bottom:0">· 同一次点击里，"重写的 <code>OnClick(节点名)</code>"和"方法特性"<b>两条路都会走到</b> —— 同一件事只放一处做。</p>
+      <p>· 同一次事件里，"重写的 <code>OnToggleChanged(节点名, 值)</code>"这类回调和"方法特性"<b>两条路都会走到</b> —— 同一件事只放一处做。</p>
+      <p>· <b>输入框那两个特性的单个 <code>string</code> 参数是"文本"</b>（不是节点名）—— 节点名靠特性声明，用不上；两个都要就写 <code>(string nodeName, string text)</code>。</p>
+      <p style="margin-bottom:0">· <b>高频事件建议用重写回调</b>：特性走反射调用（每次触发一次小分配）。按钮 / Toggle / Dropdown 这类低频事件完全无所谓；<b>ScrollRect 滚动</b>与<b>输入框每次敲键</b>较频繁，若在意 GC 就重写 <code>OnScrollChanged</code> / <code>OnInputChanged</code>（直调、零分配）—— 两种写法可以并存。</p>
     </div>
 
   <h2><span class="num">二</span>面板的生命周期（谁先谁后）</h2>

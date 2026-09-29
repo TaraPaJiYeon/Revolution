@@ -79,7 +79,7 @@ namespace Revolution
         /// <summary>
         /// 方法特性里有没有"长按 / 松开"（<c>[RevButtonLongPress]</c> / <c>[RevButtonLoosen]</c>）——
         /// 有就给交互节点挂指针继电器（UGUI 的 Button 本身不报这两个事件）。
-        /// 由 <see cref="RevUIButtonEvents"/> 算出来（纯 C#，可脱机断言）。
+        /// 由 <see cref="RevUIWidgetEvents"/> 算出来（纯 C#，可脱机断言）。
         /// </summary>
         public readonly bool WantsButtonPress;
 
@@ -118,22 +118,28 @@ namespace Revolution
             TargetType = targetType;
             Fields = CollectBindFields(targetType, baseType);
 
-            // "重写了没"判断：取到的方法如果**不是**基类声明的，就是业务重写的
-            // ★ 点击多一条：标了 [RevButtonClick] 也要接（方法特性那条路）
+            // "重写了没"判断：取到的方法如果**不是**基类声明的，就是业务重写的；
+            // 另外，**标了对应方法特性**的也要接 —— 两条路都通，这里是"要不要装监听"的判据。
             WantsClick = Overrides(targetType, baseType, "OnClick", typeof(string))
-                         || RevUIButtonEvents.Wants(targetType, RevUIButtonEventKind.Click);
-            WantsToggle = Overrides(targetType, baseType, "OnToggleChanged", typeof(string), typeof(bool));
-            WantsSlider = Overrides(targetType, baseType, "OnSliderChanged", typeof(string), typeof(float));
-            WantsInput = Overrides(targetType, baseType, "OnInputChanged", typeof(string), typeof(string));
-            WantsInputEndEdit = Overrides(targetType, baseType, "OnInputEndEdit", typeof(string), typeof(string));
-            WantsDropdown = Overrides(targetType, baseType, "OnDropdownChanged", typeof(string), typeof(int));
+                         || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.Click);
+            WantsToggle = Overrides(targetType, baseType, "OnToggleChanged", typeof(string), typeof(bool))
+                          || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.ToggleChanged);
+            WantsSlider = Overrides(targetType, baseType, "OnSliderChanged", typeof(string), typeof(float))
+                          || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.SliderChanged);
+            WantsInput = Overrides(targetType, baseType, "OnInputChanged", typeof(string), typeof(string))
+                         || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.InputChanged);
+            WantsInputEndEdit = Overrides(targetType, baseType, "OnInputEndEdit", typeof(string), typeof(string))
+                                || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.InputEndEdit);
+            WantsDropdown = Overrides(targetType, baseType, "OnDropdownChanged", typeof(string), typeof(int))
+                            || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.DropdownChanged);
 
             // 滑动用两个 float 而不是 Vector2：既让本文件保持"纯 C#"（Vector2 是 UnityEngine 类型），
             // 业务侧写起来也更直白（x/y 就是滚动位置）。
-            WantsScroll = Overrides(targetType, baseType, "OnScrollChanged", typeof(string), typeof(float), typeof(float));
+            WantsScroll = Overrides(targetType, baseType, "OnScrollChanged", typeof(string), typeof(float), typeof(float))
+                          || RevUIWidgetEvents.Wants(targetType, RevUIWidgetEventKind.ScrollChanged);
 
             // 长按 / 松开：UGUI 的 Button 不报这两个事件，标了特性就得给交互节点挂指针继电器
-            WantsButtonPress = RevUIButtonEvents.WantsPressEvents(targetType);
+            WantsButtonPress = RevUIWidgetEvents.WantsPressEvents(targetType);
         }
 
         /// <summary>

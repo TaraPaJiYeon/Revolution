@@ -261,26 +261,56 @@ namespace Revolution
         void IRevUIUserEvents.DispatchClick(string nodeName) => RevUILog.Guard($"OnClick({nodeName})", () =>
         {
             OnClick(nodeName);
-            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.Click);        // 方法特性那条路
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.Click);        // 方法特性那条路
         });
 
         void IRevUIUserEvents.DispatchLongPress(string nodeName) => RevUILog.Guard($"OnLongPress({nodeName})", () =>
         {
             OnLongPress(nodeName);
-            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.LongPress);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.LongPress);
         });
 
         void IRevUIUserEvents.DispatchLoosen(string nodeName) => RevUILog.Guard($"OnLoosen({nodeName})", () =>
         {
             OnLoosen(nodeName);
-            RevUIButtonEvents.Invoke(this, nodeName, RevUIButtonEventKind.Loosen);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.Loosen);
         });
-        void IRevUIUserEvents.DispatchToggleChanged(string nodeName, bool value) => RevUILog.Guard($"OnToggleChanged({nodeName})", () => OnToggleChanged(nodeName, value));
-        void IRevUIUserEvents.DispatchSliderChanged(string nodeName, float value) => RevUILog.Guard($"OnSliderChanged({nodeName})", () => OnSliderChanged(nodeName, value));
-        void IRevUIUserEvents.DispatchInputChanged(string nodeName, string value) => RevUILog.Guard($"OnInputChanged({nodeName})", () => OnInputChanged(nodeName, value));
-        void IRevUIUserEvents.DispatchInputEndEdit(string nodeName, string value) => RevUILog.Guard($"OnInputEndEdit({nodeName})", () => OnInputEndEdit(nodeName, value));
-        void IRevUIUserEvents.DispatchDropdownChanged(string nodeName, int index) => RevUILog.Guard($"OnDropdownChanged({nodeName})", () => OnDropdownChanged(nodeName, index));
-        void IRevUIUserEvents.DispatchScrollChanged(string nodeName, float x, float y) => RevUILog.Guard($"OnScrollChanged({nodeName})", () => OnScrollChanged(nodeName, x, y));
+
+        void IRevUIUserEvents.DispatchToggleChanged(string nodeName, bool value) => RevUILog.Guard($"OnToggleChanged({nodeName})", () =>
+        {
+            OnToggleChanged(nodeName, value);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.ToggleChanged, value);
+        });
+
+        void IRevUIUserEvents.DispatchSliderChanged(string nodeName, float value) => RevUILog.Guard($"OnSliderChanged({nodeName})", () =>
+        {
+            OnSliderChanged(nodeName, value);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.SliderChanged, value);
+        });
+
+        void IRevUIUserEvents.DispatchInputChanged(string nodeName, string value) => RevUILog.Guard($"OnInputChanged({nodeName})", () =>
+        {
+            OnInputChanged(nodeName, value);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.InputChanged, value);
+        });
+
+        void IRevUIUserEvents.DispatchInputEndEdit(string nodeName, string value) => RevUILog.Guard($"OnInputEndEdit({nodeName})", () =>
+        {
+            OnInputEndEdit(nodeName, value);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.InputEndEdit, value);
+        });
+
+        void IRevUIUserEvents.DispatchDropdownChanged(string nodeName, int index) => RevUILog.Guard($"OnDropdownChanged({nodeName})", () =>
+        {
+            OnDropdownChanged(nodeName, index);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.DropdownChanged, index);
+        });
+
+        void IRevUIUserEvents.DispatchScrollChanged(string nodeName, float x, float y) => RevUILog.Guard($"OnScrollChanged({nodeName})", () =>
+        {
+            OnScrollChanged(nodeName, x, y);
+            RevUIWidgetEvents.Invoke(this, nodeName, RevUIWidgetEventKind.ScrollChanged, x, y);
+        });
 
         // ============================================================
         // Unity 生命周期

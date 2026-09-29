@@ -119,24 +119,42 @@ RevUI.Close<BagPanel>();
 | ② **按节点名分发** | `protected override void OnClick(string nodeName) { … }` | 一个面板上按钮很多、想集中处理（`switch (nodeName)`） |
 | ③ **绑字段 + 自己挂监听**（最灵活） | `[RevBind] Button _btn;` → `_btn.onClick.AddListener(...)` | 要用 UGUI 的其它回调（拖拽 / 悬停…）或接第三方控件 |
 
-方法特性一共三个（标在面板 / Part 的**任意方法**上，签名支持 `void M()` 或 `void M(string nodeName)`）：
+方法特性一共九个（标在面板 / Part 的**任意方法**上），覆盖全部控件事件：
 
 ```csharp
 // 控件名 = 节点名（区分大小写）；写多级路径时只取最后一段（"Top/btnStart" 等价于 "btnStart"）
-[RevButtonClick("btnStart")]     void OnStart()     => StartGame();     // ① 点击
-[RevButtonLongPress("btnSkill")] void OnSkillHold() => ShowSkillTip();  // ② 长按（按住 ≥ 0.5s 后松开）
-[RevButtonLoosen("btnMove")]     void OnMoveUp()    => StopMove();      // ③ 松开（指针在控件上抬起）
+[RevButtonClick("btnStart")]       void OnStart()      => StartGame();      // 点击
+[RevButtonLongPress("btnSkill")]   void OnSkillHold()  => ShowSkillTip();   // 长按（按住 ≥ 0.5s 后松开）
+[RevButtonLoosen("btnMove")]       void OnMoveUp()     => StopMove();       // 松开（指针在控件上抬起）
+[RevToggleChanged("tglSound")]     void OnSound(bool on)              => SetSound(on);
+[RevSliderChanged("sldVolume")]    void OnVolume(float v)             => SetVolume(v);
+[RevInputChanged("inpName")]       void OnName(string text)           => Preview(text);   // 单参数 = 文本
+[RevInputEndEdit("inpName")]       void OnNameDone(string text)       => Submit(text);
+[RevDropdownChanged("ddlQuality")] void OnQuality(int index)          => SetQuality(index);
+[RevScrollChanged("scrollList")]   void OnScrolled(float x, float y)  => LoadMore(y);
 
-// 同一个控件可以挂多个方法（都会被调用）；带参数的那个能拿到节点名
-[RevButtonClick("btnBuy")]       void OnBuy(string nodeName) => Buy(nodeName);
+// 同一个控件可以挂多个方法（都会被调用）；想同时要"节点名 + 值"就用两参数 / 三参数的形状
+[RevButtonClick("btnBuy")]         void OnBuy(string nodeName)              => Buy(nodeName);
+[RevToggleChanged("tglSound")]     void OnSound2(string nodeName, bool on)  => Log(nodeName, on);
 ```
 
+| 事件 | 可用的参数形状（**只支持这些**，其它在装配时报错） |
+|---|---|
+| 点击 / 长按 / 松开 | `()` · `(string nodeName)` |
+| Toggle 变化 | `()` · `(bool value)` · `(string nodeName, bool value)` |
+| Slider 变化 | `()` · `(float value)` · `(string nodeName, float value)` |
+| 输入框文本变化 / 结束编辑 | `()` · `(string text)` · `(string nodeName, string text)` |
+| Dropdown 变化 | `()` · `(int index)` · `(string nodeName, int index)` |
+| ScrollRect 滚动 | `()` · `(float x, float y)` · `(string nodeName, float x, float y)` |
+
 > [!WARNING]
-> **四条要记住的**
+> **六条要记住的**
 > · **长按的判定**：按住时长 ≥ `RevUISetting.ButtonLongPressSeconds`（默认 0.5 秒），**松开时**触发长按；同一次操作也会触发"松开"（不会和"点击"抢同一瞬间）。
 > · **长按 / 松开只对 Button 生效**（UGUI 的 Button 本身不报这两个事件，框架给交互节点挂了一个小继电器）；自研控件用 `RevUI.RegisterAutoEvent<T>((d, c) => { … d.LongPress() … d.Loosen() })` 接进来。
 > · **控件名写错会当场报错**：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。
-> · 同一次点击里，"重写的 `OnClick(节点名)`"和"方法特性"**两条路都会走到** —— 同一件事只放一处做。
+> · 同一次事件里，"重写的 `OnToggleChanged(节点名, 值)`"这类回调和"方法特性"**两条路都会走到** —— 同一件事只放一处做。
+> · **输入框那两个特性的单个 `string` 参数是"文本"**（不是节点名）—— 节点名靠特性声明，用不上；两个都要就写 `(string nodeName, string text)`。
+> · **高频事件建议用重写回调**：特性走反射调用（每次触发一次小分配）。按钮 / Toggle / Dropdown 这类低频事件完全无所谓；**ScrollRect 滚动**与**输入框每次敲键**较频繁，若在意 GC 就重写 `OnScrollChanged` / `OnInputChanged`（直调、零分配）—— 两种写法可以并存。
 
 ## 二、面板的生命周期（谁先谁后）
 
