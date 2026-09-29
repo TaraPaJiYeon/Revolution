@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIWidgetFeedback.cs —— 控件"悬停 / 按下"反馈（Unity 侧）
 //
-// 位置：Runtime\RevUISystem\Support\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【它做什么】
 //   给一个可点控件（按钮 / 页签 / 图标）加上最常用的两档手感：

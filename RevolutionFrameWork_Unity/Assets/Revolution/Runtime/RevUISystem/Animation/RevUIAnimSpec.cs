@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIAnimSpec.cs —— UI 动画的"规格"与预设（纯 C#，不引用 UnityEngine）
 //
-// 位置：Runtime\RevUISystem\Core\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【什么是规格】
 //   一个动画 = 三个通道（透明度 / 缩放 / 位移）+ 时间参数（时长、延迟、曲线、循环）。

@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIAnimEngine.cs —— UI 动画引擎内核（纯 C#，不引用 UnityEngine）
 //
-// 位置：Runtime\RevUISystem\Core\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【它是什么】
 //   一颗**采样模型**的动画心跳（设计文档 02 篇哲学）：

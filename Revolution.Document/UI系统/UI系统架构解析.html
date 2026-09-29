@@ -606,19 +606,25 @@ RevUI.ShutdownAll();                     <span class="c">// 回登录界面 / �
       </table>
     </div>
 
-    <h3>4.7 转场动画（可插拔，框架不依赖任何缓动库）</h3>
+    <h3>4.7 转场与显示动画（<b>框架内置动画库</b>，不依赖任何缓动库）</h3>
+    <p>面板 / Part 的显示隐藏动画<b>一行预设</b>就能加（用法见《使用说明》的动画一节）：</p>
+    <pre><span class="k">protected override</span> RevUIAnimPreset ShowAnimation =&gt; RevUIAnimPreset.PopIn;    <span class="c">// 打开时自动播，播完才算"打开完成"</span>
+<span class="k">protected override</span> RevUIAnimPreset HideAnimation =&gt; RevUIAnimPreset.PopOut;   <span class="c">// 关闭时自动播，播完才真正关闭 / 回池</span></pre>
+    <p><b>想自己掌控</b>：转场钩子仍然可插拔（与预设并存，不重写预设时就在这里写）：</p>
     <pre><span class="k">protected override void</span> PlayOpenTransition(Action onDone)
 {
-    <span class="c">// 用你项目的动画库（DOTween / 自研都可以）；★ 结束时必须调 onDone</span>
-    transform.localScale = Vector3.one * <span class="n">0.9f</span>;
-    <span class="c">// 例如：transform.DOScale(1f, 0.15f).OnComplete(() =&gt; onDone());</span>
-    onDone();
+    RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top, <span class="n">0.25f</span>, onDone, owner: <span class="k">this</span>);   <span class="c">// ★ 结束时必须调 onDone</span>
 }
 
 <span class="k">protected override void</span> PlayCloseTransition(Action onDone) { onDone(); }</pre>
+    <ul>
+      <li>动画库在 <code>Runtime\RevUISystem\Animation\</code>：<code>RevUIEase</code> / <code>RevUIAnimSpec</code> / <code>RevUIAnimEngine</code>（<b>纯 C#</b>：采样模型 + 帧余量结转 + 循环往返 + 运行时池 + 版本号句柄）＋ <code>RevUIAnimTarget</code> / <code>RevUIAnimDriver</code> / <code>RevUIWidgetFeedback</code> ＋ 门面 <code>RevUIAnim</code>。</li>
+      <li>每帧推进<b>复用框架已有的 <code>RevMono</code></b>（不新起隐藏宿主）；时间口径 <code>unscaledDeltaTime</code>（暂停时 UI 动画照常播），全局倍速 <code>RevUIAnim.GlobalSpeed</code>。</li>
+      <li>要关动效：<code>RevUISetting.UIAnimationsEnabled = false</code> —— 预设直接写终态，业务代码一行不用改。</li>
+    </ul>
 
     <div class="callout warn">
-      默认实现是"无动画、立刻完成"。<b>注意</b>：<code>onDone</code> 不调 = 面板会一直停在 <code>Opening</code> / <code>Closing</code> 状态。
+      默认实现仍是"无动画、立刻完成"（不重写预设、不写转场 = 行为与没有动画库时完全一致）。<b>注意</b>：转场钩子里 <code>onDone</code> 不调 = 面板会一直停在 <code>Opening</code> / <code>Closing</code> 状态。
     </div>
 
     <h3>4.8 配置与诊断</h3>
@@ -967,6 +973,13 @@ RevUISetting.CanvasPlaneDistance = <span class="n">100f</span>;           <span 
           <tr><td><code>Runtime\RevUISystem\Support\RevUIBinder.cs</code></td><td>绑定器：按计划赋值控件、安装按节点名分发的监听、自定义控件扩展口</td></tr>
           <tr><td><code>Runtime\RevUISystem\Support\RevUISetting.cs</code></td><td>全局配置 + 统一日志出口（含异常隔离 <code>Guard</code>）</td></tr>
           <tr><td><code>Runtime\RevUISystem\Support\RevUIUnityHooks.cs</code></td><td>进 Play 前清索引（关掉"域重载"时也能正常反复运行）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIEase.cs</code></td><td>缓动曲线（<b>纯 C#</b>）：18 种，边界恒等 / 单调（可脱机断言）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIAnimSpec.cs</code></td><td>动画规格与预设（<b>纯 C#</b>）：三通道掩码（透明度 / 缩放 / 位移）+ 16 个预设（Fade · Pop · Scale · Slide×四方向）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIAnimEngine.cs</code></td><td><b>动画内核</b>（<b>纯 C#</b>）：采样模型 + 帧余量结转 + 循环往返 + 运行时对象池 + 版本号句柄</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIAnimTarget.cs</code></td><td>采样落点：CanvasGroup 自动补、基准值只取一次、透明度 / 缩放 / 位移写入</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIAnimDriver.cs</code></td><td>每帧推进（复用 <code>RevMono</code>；<code>unscaledDeltaTime</code> = 暂停也能播；全局倍速 <code>GlobalSpeed</code>）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIWidgetFeedback.cs</code></td><td>控件反馈：悬停放大 + 按下缩小（旧框架 <code>AddButtonAnimation</code> 的同款能力）</td></tr>
+          <tr><td><code>Runtime\RevUISystem\Animation\RevUIAnim.cs</code></td><td><b>动画门面</b>：FadeIn / PopIn / SlideIn / ScaleTo / Breathe / AddHoverFeedback / StopAllOf</td></tr>
           <tr><td><code>Resources\RevUIPrefab\RevUICanvas.prefab</code></td><td><b>相机模式</b>的根节点模板（Canvas + Scaler + Raycaster；<code>RevUISetting.CanvasPrefabPath</code> 用）</td></tr>
           <tr><td><code>Resources\RevUIPrefab\RevUICamera.prefab</code></td><td><b>相机模式</b>的 UI 相机模板（正交 / Depth clear / depth 100 / 只渲染 UI 层；<code>RevUISetting.UICameraPrefabPath</code> 用）</td></tr>
         </tbody>
@@ -994,7 +1007,7 @@ RevUISetting.CanvasPlaneDistance = <span class="n">100f</span>;           <span 
 </main>
 
 <footer>
-  对应代码版本：<code>Assets\Revolution\Runtime\RevUISystem\</code>（17 个文件）。
+  对应代码版本：<code>Assets\Revolution\Runtime\RevUISystem\</code>（26 个 <code>.cs</code> / 5,763 行；其中动画库 7 个在 <code>Animation\</code> 下）。
 </footer>
 
 </body>

@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIAnimDriver.cs —— UI 动画的每帧驱动（Unity 侧）
 //
-// 位置：Runtime\RevUISystem\Support\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【为什么不用新起一个隐藏宿主】
 //   框架里已经有"公共 Mono 驱动"（<c>RevMono.AddUpdate</c>）—— 它自己会建隐藏宿主、

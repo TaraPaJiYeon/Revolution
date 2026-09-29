@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIAnim.cs —— UI 动画门面（业务只用这一个类）
 //
-// 位置：Runtime\RevUISystem\Facade\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【一行搞定】
 //     protected override void OnOpen()  => RevUIAnim.PopIn(this);        // 面板弹出

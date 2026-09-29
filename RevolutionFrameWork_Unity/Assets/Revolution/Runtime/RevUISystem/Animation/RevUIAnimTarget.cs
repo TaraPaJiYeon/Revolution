@@ -1,7 +1,7 @@
 // ============================================================
 // RevUIAnimTarget.cs —— 动画"落点"：把采样结果写到控件上（Unity 侧）
 //
-// 位置：Runtime\RevUISystem\Support\（UI 动画库）
+// 位置：Runtime\RevUISystem\Animation\（UI 动画库）
 //
 // 【为什么要有它】
 //   引擎（Core）只算"系数 0→1"，落到控件上是 Unity 的事：
