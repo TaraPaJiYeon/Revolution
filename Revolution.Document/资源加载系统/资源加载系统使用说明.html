@@ -28,7 +28,7 @@
       <li><a href="#s3">三、路径怎么给（唯一需要记的约定）</a></li>
       <li><a href="#s4">四、什么时候该释放</a></li>
       <li><a href="#s5">五、两种加载模式（编辑器直读 / AB）</a></li>
-      <li><a href="#s6">六、新手最容易踩的 5 个坑</a></li>
+      <li><a href="#s6">六、新手最容易踩的 6 个坑</a></li>
       <li><a href="#s7">七、出问题怎么查 + 相关文档</a></li>
     </ol>
   </nav>
@@ -126,6 +126,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
           <tr><td>看缓存状况</td><td><code>RevResManager.CachedCount</code> / <code>RevResManager.UnusedCount</code> / <code>RevResManager.CachedHandles</code></td></tr>
           <tr><td>接自己的加载策略</td><td><code>RevResManager.RegisterPolicy(policy)</code>（进阶：实现 <code>IRevResPolicy</code>）</td></tr>
           <tr><td>自定义资源分组</td><td><code>RevResGroupUtil.Custom(0)</code>（传 0/1/2… 得到不同分组）</td></tr>
+          <tr><td>让资源从 Resources 文件夹加载</td><td><code>RevResManager.Load&lt;Sprite&gt;("Res/UI/Bag", "icon_sword")</code>（<code>Res/</code> 前缀走 Resources 通道，见第五节）</td></tr>
         </tbody>
       </table>
     </div>
@@ -216,10 +217,26 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
         </tbody>
       </table>
     </div>
+
+    <h3>Resources 兜底通道（资源直接放进 Resources 文件夹也能加载）</h3>
+    <p><b>支持</b> ✓ —— 把资源丢进<b>任意</b> <code>Resources</code> 文件夹就能通过框架加载 ✓。它是策略链的<b>最后一环</b>（<code>RevResourcesResPolicy</code>），接两类请求：</p>
+    <pre style="margin:10px 0 6px"><span class="c">// ① 显式指定：逻辑路径最前面加 "Res/"（前缀必须落在整条路径最开头）</span>
+<span class="c">//    文件：Assets/GameRes/Resources/UI/Bag/icon_sword.png</span>
+<span class="k">var</span> icon = RevResManager.Load&lt;Sprite&gt;(<span class="s">"Res/UI/Bag"</span>, <span class="s">"icon_sword"</span>);
+
+<span class="c">// ② AB 回落：普通逻辑路径，ResMap 查不到 / AB 加载失败时自动转到 Resources</span>
+<span class="k">var</span> icon2 = RevResManager.Load&lt;Sprite&gt;(<span class="s">"UI/Bag"</span>, <span class="s">"icon_sword"</span>);</pre>
+    <div class="callout warn">
+      <span class="t">四条要记住的</span>
+      <p>· <b>路径规则就是 <code>Resources.Load</code> 那一套</b>：相对任意 <code>Resources</code> 文件夹、<b>不带扩展名</b>、层级一致 —— 上面那份文件对应的逻辑路径是 <code>UI/Bag/icon_sword</code>。</p>
+      <p>· <b>编辑器“开发模式”下这条通道不注册</b>：默认只注册编辑器直读策略，AB 与 Resources 策略都不参与 → 编辑器里写 <code>Res/xxx</code> 反而会找不到 ✗。想在编辑器里验证：菜单 <code>Revolution.Tools / 资源 / AB 加载模式（编辑器）</code> 切到 AB 模式，或到真机验证 ✓。</p>
+      <p>· <b>代价</b>：<code>Resources</code> 下的东西会被 Unity <b>无条件打进包体、且无法按需卸载</b> ✗ —— 它是“兜底 + 极小必需资源”的定位，别把大资源丢进去（框架自己只往里放一张 <code>ResMap.txt</code>）。</p>
+      <p style="margin-bottom:0">· 仍然别手写 <code>Resources.Load</code> ✗ —— 经框架走（<code>RevResManager.Load / LoadAsync</code>）才拿得到引用计数、分组卸载与失败原因 ✓。</p>
+    </div>
   </section>
 
   <section id="s6">
-    <h2><span class="num">六</span>新手最容易踩的 5 个坑</h2>
+    <h2><span class="num">六</span>新手最容易踩的 6 个坑</h2>
 
     <div class="table-wrap">
       <table>
@@ -230,6 +247,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
           <tr><td>③ 在回调里假设"马上就到"</td><td>异步回调可能<b>下一帧甚至更晚</b>才来；回调里要判 <code>this</code> 是否已销毁（界面已关）</td></tr>
           <tr><td>④ 同一个资源 Release 两次</td><td>引用计数会变成负数（框架会告警但不背锅）→ 用作用域或配对管理</td></tr>
           <tr><td>⑤ 手写 <code>Resources.Load</code></td><td>绕过框架就享受不到引用计数/映射/打包管理 ✗ → 一律 <code>RevResManager</code></td></tr>
+          <tr><td>⑥ 在编辑器里用 <code>Res/</code> 前缀试 Resources 通道</td><td>编辑器“开发模式”只注册直读策略（AB / Resources 都不注册）→ 编辑器里测不通 ✗；切菜单「Revolution.Tools / 资源 / AB 加载模式（编辑器）」，或到真机上验证 ✓</td></tr>
         </tbody>
       </table>
     </div>
