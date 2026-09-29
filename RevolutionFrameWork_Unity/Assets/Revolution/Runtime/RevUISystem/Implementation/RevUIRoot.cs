@@ -88,9 +88,12 @@ namespace Revolution
                 }
                 else
                 {
+                    // ★ 兜底：预制体缺失（没入库 / 路径改了 / 被裁掉）也不能让整屏 UI 起不来 ——
+                    //   照常走下面的"代码建"，但把原因说清，免得业务怀疑"我配了预制体怎么没生效"。
                     RevUILog.Warning(
-                        $"Canvas 预制体载不到：Resources/{canvasPath} → 已改用代码建 Canvas" +
-                        $"（功能等价，只是少了你预制体里的自定义）。检查路径是否写对、文件是否真在某个 Resources 目录下。");
+                        $"Canvas 预制体载不到：Resources/{canvasPath}（缺失或路径不对）→ 已改为代码兜底创建" +
+                        "（功能等价，只是少了你预制体里的自定义）。检查路径是否写对、文件是否真在 Resources 下；" +
+                        "不想要预制体就把 RevUISetting.CanvasPrefabPath 置空。");
                 }
             }
 

@@ -314,7 +314,31 @@ RevUI.Get&lt;DetailPanel&gt;()?.SetData(<span class="k">new</span> DetailData { 
   </section>
 
   <section id="s6">
-    <h2><span class="num">六</span>新手最容易踩的 6 个坑</h2>
+      <h3>UI 根 Canvas 从哪来（默认：加载框架自带预制体）</h3>
+    <ul>
+      <li><b>默认渲染模式是 <code>ScreenSpaceOverlay</code></b> ✓（不需要相机、UI 永远最上层）—— 要改就设 <code>RevUISetting.CanvasMode</code>；</li>
+      <li>框架<b>默认加载</b> <code>Resources/RevUIPrefab/RevUICanvas.prefab</code> 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；</li>
+      <li><b>载不到就代码兜底</b> ✓：预制体缺失或路径写错时，框架自己建 Canvas + CanvasScaler + GraphicRaycaster，并打一条 Warning 说明原因 —— 不会出现"整屏 UI 起不来"；</li>
+      <li>想改用<b>相机模式</b>（UI 可被 3D 遮挡 / 能进 RenderTexture）：</li>
+    </ul>
+    <pre style="margin:10px 0 6px">RevUISetting.CanvasMode          = RevUICanvasMode.ScreenSpaceCamera;
+RevUISetting.UICameraPrefabPath  = <span class="s">"RevUIPrefab/RevUICamera"</span>;   <span class="c">// 默认就是这个；也可直接 RevUISetting.UICamera = cam</span>
+RevUISetting.CanvasPlaneDistance = 100f;</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>你想…</th><th>怎么设</th></tr></thead>
+        <tbody>
+          <tr><td>用框架自带的 Canvas（默认）</td><td>什么都不用做</td></tr>
+          <tr><td>用自己的 Canvas 预制体</td><td><code>RevUISetting.CanvasPrefabPath = "你的目录/你的Canvas"</code></td></tr>
+          <tr><td>完全用代码建（不依赖任何资源）</td><td><code>RevUISetting.CanvasPrefabPath = string.Empty</code></td></tr>
+          <tr><td>在预制体里自己调渲染模式</td><td><code>RevUISetting.CanvasMode = RevUICanvasMode.Auto</code>（Auto = 跟随预制体）</td></tr>
+          <tr><td>UI 要被 3D 挡住 / 进 RenderTexture</td><td>见上面那三行</td></tr>
+          <tr><td>六层挂点放哪</td><td>框架自己建（预制体里<b>不要</b>放六个层级节点）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  <h2><span class="num">六</span>新手最容易踩的 6 个坑</h2>
 
     <div class="table-wrap">
       <table>

@@ -298,6 +298,28 @@ true
 ---
 
 
+### UI 根 Canvas 从哪来（默认：加载框架自带预制体）
+
+- **默认渲染模式是 `ScreenSpaceOverlay`** ✓（不需要相机、UI 永远最上层）—— 要改就设 `RevUISetting.CanvasMode`；
+- 框架**默认加载** `Resources/RevUIPrefab/RevUICanvas.prefab` 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；
+- **载不到就代码兜底** ✓：预制体缺失或路径写错时，框架自己建 Canvas + CanvasScaler + GraphicRaycaster，并打一条 Warning 说明原因 —— 不会出现"整屏 UI 起不来"；
+- 想改用**相机模式**（UI 可被 3D 遮挡 / 能进 RenderTexture）：
+
+```csharp
+RevUISetting.CanvasMode          = RevUICanvasMode.ScreenSpaceCamera;
+RevUISetting.UICameraPrefabPath  = "RevUIPrefab/RevUICamera";   // 默认就是这个；也可直接 RevUISetting.UICamera = cam
+RevUISetting.CanvasPlaneDistance = 100f;
+```
+
+| 你想… | 怎么设 |
+|---|---|
+| 用框架自带的 Canvas（默认） | 什么都不用做 |
+| 用自己的 Canvas 预制体 | `RevUISetting.CanvasPrefabPath = "你的目录/你的Canvas"` |
+| 完全用代码建（不依赖任何资源） | `RevUISetting.CanvasPrefabPath = string.Empty` |
+| 在预制体里自己调渲染模式 | `RevUISetting.CanvasMode = RevUICanvasMode.Auto`（Auto = 跟随预制体） |
+| UI 要被 3D 挡住 / 进 RenderTexture | 见上面那三行 |
+| 六层挂点放哪 | 框架自己建（预制体里**不要**放六个层级节点） |
+
 ## 六、新手最容易踩的 6 个坑
 
 | 坑 | 正确做法 |

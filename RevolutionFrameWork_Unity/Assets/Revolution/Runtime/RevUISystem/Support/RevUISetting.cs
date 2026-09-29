@@ -63,24 +63,28 @@ namespace Revolution
         // ============================================================
 
         /// <summary>
-        /// UI 根 Canvas 的渲染模式（默认 <see cref="RevUICanvasMode.Auto"/>）。
+        /// UI 根 Canvas 的渲染模式（**默认 <see cref="RevUICanvasMode.ScreenSpaceOverlay"/>**：
+        /// 不需要相机、UI 永远最上层，绝大多数项目要的就是这个）。
         /// ★ 要在 UI 上摆 3D 模型 / 粒子、或要把 UI 渲进 RenderTexture，就设成 ScreenSpaceCamera
         ///   （配合下面的 CanvasPrefabPath / UICameraPrefabPath / UICamera）。
+        /// ★ Auto = 跟随 Canvas 预制体；想"在预制体里调渲染模式"就用 Auto。
         /// </summary>
-        public static RevUICanvasMode CanvasMode = RevUICanvasMode.Auto;
+        public static RevUICanvasMode CanvasMode = RevUICanvasMode.ScreenSpaceOverlay;
 
         /// <summary>
-        /// Canvas 预制体在 <c>Resources</c> 下的路径（空 = 框架代码建）。
-        /// 示例："RevUIPrefab/RevUICanvas"。
-        /// ★ 预制体里**不要**放六个层级节点（框架会自己建），放你自己的背景层之类的没问题。
+        /// Canvas 预制体在 <c>Resources</c> 下的路径（**默认 "RevUIPrefab/RevUICanvas"**，框架自带一份）。
+        /// ★ 默认就用它来渲染（Overlay 模式 / 1920×1080 / match 0.5 / sortingOrder 100）；
+        ///   载不到（缺失或路径不对）时会自动**代码兜底建一个**，并给一条 Warning —— 不会让整屏 UI 起不来。
+        /// ★ 置空 = 完全用代码建。预制体里**不要**放六个层级节点（框架会自己建），放你自己的背景层之类的没问题。
         /// </summary>
-        public static string CanvasPrefabPath = string.Empty;
+        public static string CanvasPrefabPath = "RevUIPrefab/RevUICanvas";
 
         /// <summary>
-        /// UI 相机预制体在 <c>Resources</c> 下的路径（空 = 不加载）。示例："RevUIPrefab/RevUICamera"。
-        /// ★ ScreenSpaceCamera 模式下如果这里和 <see cref="UICamera"/> 都为空，框架会按标准参数兜底建一台。
+        /// UI 相机预制体在 <c>Resources</c> 下的路径（**默认 "RevUIPrefab/RevUICamera"**，框架自带一份）。
+        /// ★ 只在 ScreenSpaceCamera 模式下才会被加载（Overlay 模式用不到相机，零开销）。
+        /// ★ 如果这里和 <see cref="UICamera"/> 都拿不到，框架会按标准参数兜底建一台。
         /// </summary>
-        public static string UICameraPrefabPath = string.Empty;
+        public static string UICameraPrefabPath = "RevUIPrefab/RevUICamera";
 
         /// <summary>显式指定的 UI 相机（优先级最高；ScreenSpaceCamera 模式下用）</summary>
         public static Camera UICamera;
