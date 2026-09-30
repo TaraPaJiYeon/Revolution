@@ -1,0 +1,46 @@
+name: 同步 demo 分支（示例工程）
+
+# 作用：把 RevolutionFrameWork_Unity/Assets/Revolution.Demo 的内容发布到 `demo` 分支的【仓库根】。
+# 与 package 分支（框架本体）配套使用 —— 两条命令把"框架 + 全套模块演示"放进自己工程：
+#
+#     git clone -b package https://github.com/Yokino337088/Revolution.git Assets/Revolution
+#     git clone -b demo    https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo
+#
+# 也可以当两个 git 子模块（或 UPM git URL：...#demo）使用。
+#
+# 说明：demo 是【生成分支】，每次整份重建（不保留历史），因此用 --force 推送是预期行为。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RevolutionFrameWork_Unity/Assets/Revolution.Demo/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 组装 demo 内容（示例工程 → 仓库根）
+        run: |
+          mkdir -p /tmp/demo
+          cp -r RevolutionFrameWork_Unity/Assets/Revolution.Demo/. /tmp/demo/
+          echo "文件数：$(find /tmp/demo -type f | wc -l)"
+
+      - name: 推送到 demo 分支
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/demo
+          git init -b demo
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "publish: 模块示例工程（源 ${GITHUB_SHA:0:7}）"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" demo
