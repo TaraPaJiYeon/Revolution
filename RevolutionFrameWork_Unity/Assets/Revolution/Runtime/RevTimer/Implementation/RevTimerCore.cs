@@ -75,6 +75,16 @@ namespace Revolution
         /// <summary>最近一次 Tick 收到的 realtime（给"剩余时间"读数用；最多差一帧）。</summary>
         internal double LastRealtime { get; private set; }
 
+        /// <summary>
+        /// 最新 realtime（★ 暂停时也更新）—— 给 <see cref="RevServerClock.Sync"/> 当锚点用。
+        /// ★ Bug 修复（2026-09-30）新增：不能直接用 <see cref="LastRealtime"/> 做这件事 ——
+        ///   全局暂停期间 Tick 不推进，LastRealtime 停在暂停前；若此刻校准服务器时间
+        ///   （暂停的面板里收到服务器时间推送是常态），锚点会"少算暂停的时长"，
+        ///   恢复后 Server 域整体快出暂停时长 → 所有 At(...) 计时器提前/延后触发。
+        ///   它只是"最近一次见到的 realtime"读数，更新它不破坏"暂停冻结时间"的语义。
+        /// </summary>
+        internal double LatestRealtime { get; private set; }
+
         internal readonly RevServerClock Clock = new RevServerClock();
 
         /// <summary>日志出口（默认标准错误；由 Support 层的 Unity 钩子接管成 Debug）。</summary>
@@ -196,6 +206,11 @@ namespace Revolution
         /// <summary>渲染帧驱动：推进 Scaled / Unscaled / Server 三个域（宿主每帧调）。</summary>
         internal void Tick(float scaledDelta, float unscaledDelta, double realtimeSinceStartup)
         {
+            // ★ Bug 修复（2026-09-30）：realtime 读数必须在暂停判断**之前**记录 ——
+            //   LatestRealtime 永远保持最新（暂停期间 SyncServerTime 的锚点靠它才不会陈旧）；
+            //   LastRealtime 只在未暂停时更新（保持"暂停冻结剩余时间读数"的原有语义不变）。
+            LatestRealtime = realtimeSinceStartup;
+
             if (Paused) return;                                  // 全局暂停：整块冻结（含 Server，见 README"暂停语义"）
 
             if (scaledDelta < 0f) scaledDelta = 0f;               // 防御：负 delta（时间被拨回/首帧）一律当 0
@@ -377,6 +392,13 @@ namespace Revolution
             entry.FiredCount = 0;
             entry.RepeatsLeft = entry.InitialRepeats;
             entry.Paused = false;
+
+            // ★ Bug 修复（2026-09-30）：必须撤销"本帧待回收"标记。
+            //   到期回调（Fire）执行时条目还没被回收（Alive 仍为 true，上面的 IsValid 能通过），
+            //   但 Schedule 早已把它标成 PendingFree —— 不撤销的话，本帧末尾的回收循环
+            //   会把它整个 FreeSlot：调用方明明想"重新计时"，结果计时器当场死亡、句柄随即失效。
+            //   典型触发：After(2s, () => { if(需要重试) handle.Restart(); })。
+            entry.PendingFree = false;
         }
 
         internal double LeftOf(int slot, int generation)
@@ -453,6 +475,7 @@ namespace Revolution
             GameTime = 0d;
             RealTime = 0d;
             LastRealtime = 0d;
+            LatestRealtime = 0d;                                 // ★ 与 LastRealtime 一同归零（2026-09-30 随 Bug 修复新增）
             Paused = false;
             ManualDriven = false;
         }

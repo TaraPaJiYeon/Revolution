@@ -156,8 +156,11 @@ namespace Revolution
         /// <summary>
         /// 校准服务器时间：把"此刻的服务器 UTC"记成锚点，之后用本地 realtime 外推。
         /// ★ 每次收到服务器时间都调一次是预期用法（抑制本地计时漂移）。
+        /// ★ Bug 修复（2026-09-30）：锚点改用 <c>LatestRealtime</c>（暂停时也更新）——
+        ///   旧实现用 <c>LastRealtime</c>，全局暂停期间它会停在暂停前，此刻校准会把
+        ///   "暂停的时长"整个丢掉，恢复后 Server 域凭空快出暂停时长（At 计时器全错位）。
         /// </summary>
-        public static void SyncServerTime(DateTime serverUtc) => Core.Clock.Sync(serverUtc, Core.LastRealtime);
+        public static void SyncServerTime(DateTime serverUtc) => Core.Clock.Sync(serverUtc, Core.LatestRealtime);
 
         /// <summary>校准服务器时间（显式给出本地 realtime 锚点，精度更高）。</summary>
         public static void SyncServerTime(DateTime serverUtc, double realtimeSinceStartup)
