@@ -105,7 +105,7 @@
   <div class="wrap">
     <span class="kicker">架构解析</span>
     <h1>事件系统 · 架构解析</h1>
-    <p>覆盖：<code>Assets\Revolution\Runtime\EventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
+    <p>覆盖：<code>Assets\Revolution\Runtime\RevEventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
     <p class="meta">目标：看完能独立完成"定义事件名 → 定义参数结构体 → 注册监听 → 派发 → 正确反注册"，并且知道它和早期版本的每一处差别、每处差别为什么这么改</p>
   </div>
 </header>
@@ -162,9 +162,9 @@
     <h3>2.1 总览</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:20%">维度</th><th style="width:40%">早期版本 <code>EventCenter.cs</code></th><th>新版 <code>Runtime\EventSystem\</code></th></tr></thead>
+        <thead><tr><th style="width:20%">维度</th><th style="width:40%">早期版本 <code>EventCenter.cs</code></th><th>新版 <code>Runtime\RevEventSystem\</code></th></tr></thead>
         <tbody>
-          <tr><td>代码规模</td><td><b>1906 行 / 单文件</b>，89 KB</td><td><b>936 行 / 5 文件</b>（其中约三成是注释）</td></tr>
+          <tr><td>代码规模</td><td><b>1906 行 / 单文件</b>，89 KB</td><td><b>1164 行 / 5 文件</b>（其中约三成是注释）</td></tr>
           <tr><td><code>public</code> 方法/重载</td><td><b>119 个</b></td><td><b>26 个</b>（业务真正要认的只有 3 族共 15 个）</td></tr>
           <tr><td>参数个数上限</td><td><code>EventInfo</code> 类定义到 <b>16 个参数</b>；<code>EventTrigger</code> 同步重载 <b>25 个</b>（写到 12 个参数）+ <code>EventTriggerAsync</code> <b>22 个</b></td><td><b>0 ~ 4</b>（超过就定义参数结构体）</td></tr>
           <tr><td>事件键</td><td>枚举 <code>E_EventType</code> 和 <code>string</code> <b>两套字典并存</b></td><td>只有 <code>string</code> 一套，业务自定义静态常量</td></tr>
@@ -192,7 +192,7 @@
       <b>这 18 个类其实什么都没多提供</b> —— 委托的参数类型本来就是"写在委托类型上"的，容器只需要存一个"委托"。
       新版只用一个节点类型：
     </div>
-    <pre><span class="c">// Runtime\EventSystem\Core\RevEventListener.cs</span>
+    <pre><span class="c">// Runtime\RevEventSystem\Core\RevEventListener.cs</span>
 <span class="k">public</span> Delegate Handler;          <span class="c">// 实际类型是 Action / Action&lt;T1&gt; / … / Action&lt;T1,T2,T3,T4&gt; 之一</span></pre>
     <p>一个 <code>Delegate</code> 字段替代 18 个类。派发时按当前事件需要的签名做一次类型检查：</p>
     <pre><span class="k">if</span> (!(node.Handler <span class="k">is</span> Action&lt;T1&gt; typed)) { <span class="c">/* 报签名不匹配 */</span> <span class="k">continue</span>; }</pre>
@@ -214,7 +214,7 @@
       因为<b>没有任何线索指向事件系统</b>。
     </div>
     <p>新版把这件事变成必然可见：</p>
-    <pre><span class="c">// Runtime\EventSystem\Core\RevEventCenter.cs（1 参数派发的循环体）</span>
+    <pre><span class="c">// Runtime\RevEventSystem\Core\RevEventCenter.cs（1 参数派发的循环体）</span>
 <span class="k">if</span> (!(node.Handler <span class="k">is</span> Action&lt;T1&gt; typed))
 {
     RevEvent.ReportSignatureMismatch(name, node.Handler, <span class="k">typeof</span>(Action&lt;T1&gt;));
@@ -332,7 +332,7 @@ RevEvent.DispatchEvent(GameEventId.HeroSkinAdd, <span class="k">new</span> HeroS
       深度计数保证<b>清理只在最外层结束时做一次</b> —— 否则内层一结束就把还在遍历的列表改了。</p>
     <p><b>② 派发范围在开始时锁定</b></p>
     <pre>List&lt;RevEventListener&gt; list = group.Listeners;
-<span class="k">int</span> count = list.Count;                  <span class="c">// ★ 本次派发的范围在开始时锁定</span>
+<span class="k">int</span> count = group.DispatchLimit;         <span class="c">// ★ 本次派发的范围在开始时锁定（= 最外层派发开始时的监听者数）</span>
 <span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; count; i++) { ... }</pre>
     <p>循环用 <code>count</code> 而不是每次重新读 <code>list.Count</code>。这一行的差别是：
       <b>派发中新增的监听者不会在本轮被"越派越多"地执行</b>，行为完全可预期。</p>
@@ -522,6 +522,13 @@ RevEvent.GetAllEventNames();                          <span class="c">// 还有�
 RevEvent.Clear(GameEventId.HeroSkinAdd);              <span class="c">// 清空单个事件</span>
 RevEvent.ClearAll();                                  <span class="c">// 清空全部（切账号 / 回登录 / 重开一局）</span></pre>
     <p>找泄漏的用法：在切界面前后各打一次 <code>GetAllEventNames()</code>，<b>多出来的那些就是没反注册干净的</b>。</p>
+
+    <div class="callout">
+      <span class="t">这三个诊断接口报的都是"活跃监听者"</span>
+      派发过程中被反注册的监听者只是打了删除标记、还留在列表里等收尾清理；
+      <code>GetListenerCount</code> / <code>HasListener</code> / <code>GetAllEventNames()</code> 都不会把它们算进来 ——
+      否则在回调里查订阅数会看到一个早就退订干净的监听者，判断"这个事件还该不该发"也会判断错。
+    </div>
   </section>
 
   <!-- ==================== 五 ==================== -->
@@ -603,7 +610,8 @@ RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
       <table>
         <thead><tr><th style="width:58%">验证项</th><th>结果</th></tr></thead>
         <tbody>
-          <tr><td>行为断言（0~4 参数、派发中增删、嵌套派发、异常隔离、签名不匹配、优先级、owner 批量移除、清理与诊断…）</td><td><b>50 项全部通过</b></td></tr>
+          <tr><td>行为断言（0~4 参数、派发中增删、嵌套派发、异常隔离、签名不匹配、优先级、owner 批量移除、清理与诊断…）</td><td><b>52 项全部通过</b></td></tr>
+          <tr><td>随机 fuzz（5 组种子 × 6000 步：增删 / 派发中增删 / 清空 / 嵌套派发 / ResetAll 交叉）</td><td><b>结构不变量零违例</b>（节点不重复、不双归还、派发深度归零、无残留删除标记）</td></tr>
           <tr><td>结构体载荷连续派发 10000 次</td><td><b>GC 分配 0 字节</b>（泛型委托没有装箱）</td></tr>
           <tr><td><code>AddEventListener</code> / <code>RemoveEventListener</code> 10000 轮</td><td><b>GC 分配 0 字节</b>（节点确实走的对象池）</td></tr>
           <tr><td><code>LangVersion 9.0</code>（对齐 Unity 2022.3）</td><td>编译通过</td></tr>
@@ -628,11 +636,11 @@ RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
       <table>
         <thead><tr><th style="width:52%">文件</th><th>职责</th></tr></thead>
         <tbody>
-          <tr><td><code>Runtime\EventSystem\Facade\RevEvent.cs</code></td><td><b>业务唯一入口</b>：<code>AddEventListener</code> / <code>DispatchEvent</code> / <code>RemoveEventListener</code> / 配置 / 诊断</td></tr>
-          <tr><td><code>Runtime\EventSystem\Core\RevEventCenter.cs</code></td><td>派发引擎：事件名 → 监听者集合的表 + 0~4 参数派发循环</td></tr>
-          <tr><td><code>Runtime\EventSystem\Core\RevEventHandlerGroup.cs</code></td><td>单个事件的监听者集合：派发中增删保护、优先级排序、清理</td></tr>
-          <tr><td><code>Runtime\EventSystem\Core\RevEventListener.cs</code></td><td>单个监听者节点 + 对象池</td></tr>
-          <tr><td><code>Runtime\EventSystem\Support\RevEventUnityHooks.cs</code></td><td>Unity 集成：日志出口 + 进 Play / 域重载重置</td></tr>
+          <tr><td><code>Runtime\RevEventSystem\Facade\RevEvent.cs</code></td><td><b>业务唯一入口</b>：<code>AddEventListener</code> / <code>DispatchEvent</code> / <code>RemoveEventListener</code> / 配置 / 诊断</td></tr>
+          <tr><td><code>Runtime\RevEventSystem\Core\RevEventCenter.cs</code></td><td>派发引擎：事件名 → 监听者集合的表 + 0~4 参数派发循环</td></tr>
+          <tr><td><code>Runtime\RevEventSystem\Core\RevEventHandlerGroup.cs</code></td><td>单个事件的监听者集合：派发中增删保护、优先级排序、清理</td></tr>
+          <tr><td><code>Runtime\RevEventSystem\Core\RevEventListener.cs</code></td><td>单个监听者节点 + 对象池</td></tr>
+          <tr><td><code>Runtime\RevEventSystem\Support\RevEventUnityHooks.cs</code></td><td>Unity 集成：日志出口 + 进 Play / 域重载重置</td></tr>
         </tbody>
       </table>
     </div>
@@ -663,7 +671,7 @@ RevEvent.RemoveAllByOwner(<span class="k">this</span>);</pre>
 </main>
 
 <footer>
-  对应代码版本：<code>Assets\Revolution\Runtime\EventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）。
+  对应代码版本：<code>Assets\Revolution\Runtime\RevEventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）。
 </footer>
 
 </body>

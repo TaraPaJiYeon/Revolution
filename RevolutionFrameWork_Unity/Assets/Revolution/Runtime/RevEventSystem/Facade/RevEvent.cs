@@ -1,7 +1,7 @@
 // ============================================================
 // RevEvent.cs —— 事件系统门面（业务唯一入口）
 //
-// 位置：Runtime\EventSystem\Facade\
+// 位置：Runtime\RevEventSystem\Facade\
 //
 // 【怎么用（推荐的 5 步）】
 //
@@ -194,11 +194,14 @@ namespace Revolution
 
         // ==================== 五、诊断 ====================
 
-        /// <summary>某个事件上有多少监听者。</summary>
+        /// <summary>某个事件上有多少监听者（只算活跃的）。</summary>
         public static int GetListenerCount(string name)
             => RevEventCenter.Instance.GetListenerCount(name);
 
-        /// <summary>某个事件上是否还有监听者。</summary>
+        /// <summary>
+        /// 某个事件上是否还有监听者（只算活跃的）。
+        /// ★ 派发过程中被反注册的监听者不算 —— 它们已经收不到任何后续派发了。
+        /// </summary>
         public static bool HasListener(string name)
             => RevEventCenter.Instance.HasListener(name);
 

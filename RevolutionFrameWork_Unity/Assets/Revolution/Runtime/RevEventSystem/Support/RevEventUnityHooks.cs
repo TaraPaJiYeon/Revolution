@@ -1,7 +1,7 @@
 // ============================================================
 // RevEventUnityHooks.cs —— 事件系统的 Unity 生命周期钩子
 //
-// 位置：Runtime\EventSystem\Support\
+// 位置：Runtime\RevEventSystem\Support\
 //
 // 【为什么需要这个文件】
 //   事件系统的核心（RevEvent / RevEventCenter / RevEventHandlerGroup / RevEventListener）

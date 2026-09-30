@@ -1,7 +1,7 @@
 // ============================================================
 // RevEventHandlerGroup.cs —— 一个事件名对应的"监听者集合"
 //
-// 位置：Runtime\EventSystem\Core\
+// 位置：Runtime\RevEventSystem\Core\
 //
 // 【它负责四件事】
 //   ① 装住这个事件的所有监听者（List，容量预留 1）；
@@ -46,8 +46,14 @@ namespace Revolution
         private bool _hasPriorities;       // 此事件曾注册过非零优先级，默认优先级新增也必须重新排序
         private bool _needSort;            // 优先级顺序可能变化 → 下次最外层派发前重排
 
-        /// <summary>监听者数量（派发过程中可能包含"已标记删除但尚未清理"的节点）。</summary>
-        public int Count => _listeners.Count;
+        // ★ 活跃监听者数（不含"派发中已标记删除、等收尾清理"的节点）。
+        //   为什么不能直接用 _listeners.Count：派发过程中删掉的节点只是打标记、还留在列表里，
+        //   用物理长度会让 Count / GetListenerCount / HasListener 虚报"还有人在听" ——
+        //   排查泄漏时会看到一个早就反注册干净的监听者，判断"这个事件还该不该发"也会判断错。
+        private int _liveCount;
+
+        /// <summary>活跃监听者数量（已反注册、只等收尾清理的节点不计入）。</summary>
+        public int Count => _liveCount;
 
         /// <summary>当前是否正在派发。</summary>
         public bool IsDispatching => _dispatchDepth > 0;
@@ -73,6 +79,7 @@ namespace Revolution
             node.Priority = priority;
             node.Seq = seq;
             _listeners.Add(node);
+            _liveCount++;                        // ★ 新节点一定是"活跃"的，与 Abandon 严格成对
 
             // 全部为默认优先级时不排序；已有优先级节点时，新增默认优先级也可能改变顺序。
             if (priority != 0) _hasPriorities = true;
@@ -129,7 +136,17 @@ namespace Revolution
             if (_dispatchDepth > 0)
             {
                 // 派发中：只能标记（列表正在被遍历）
-                for (int i = 0; i < _listeners.Count; i++) _listeners[i].Abandon();
+                for (int i = 0; i < _listeners.Count; i++)
+                {
+                    RevEventListener node = _listeners[i];
+
+                    // ★ 已经被标记过的节点不要再扣一次计数（否则多次 Clear 会把 _liveCount 扣成负数）
+                    if (node.IsAbandoned) continue;
+
+                    node.Abandon();
+                    _liveCount--;
+                }
+
                 _changedInDispatch = true;
                 return;
             }
@@ -173,12 +190,14 @@ namespace Revolution
             {
                 // ★ 派发中：只标记不摘除，否则会破坏正在进行的索引遍历
                 _listeners[index].Abandon();
+                _liveCount--;                    // 活跃数立刻减少：它不会收到任何后续派发
                 _changedInDispatch = true;
                 return;
             }
 
             RevEventListener.Return(_listeners[index]);
             _listeners.RemoveAt(index);
+            _liveCount--;
         }
 
         /// <summary>清理被标记删除的节点（派发结束后调用）。</summary>
@@ -188,6 +207,7 @@ namespace Revolution
             {
                 if (!_listeners[i].IsAbandoned) continue;
 
+                // 计数已经在 Abandon 的那一刻扣掉了，这里只做"真正摘除 + 还池"，不能再扣一次
                 RevEventListener.Return(_listeners[i]);
                 _listeners.RemoveAt(i);
             }
@@ -215,14 +235,21 @@ namespace Revolution
             for (int i = 0; i < _listeners.Count; i++) RevEventListener.Return(_listeners[i]);
 
             _listeners.Clear();
+            _liveCount = 0;
             _needSort = false;
             _changedInDispatch = false;
+
+            // ★ 连同 _hasPriorities 一起复位：
+            //   清空后这个事件上已经没有带优先级的监听者了，若不复位，之后每次 Add 都会标脏 _needSort，
+            //   于是"没用优先级"的事件也要在每次派发前排一次序（白付排序代价）。
+            _hasPriorities = false;
         }
 
         /// <summary>调试描述：日志里打印"这个事件上挂了哪些监听者"。</summary>
         public override string ToString()
         {
-            return $"监听者 {_listeners.Count} 个{(IsDispatching ? "（派发中）" : string.Empty)}";
+            // 报活跃数：派发中打印时，已标记删除的节点不该让排查的人以为还挂着监听者
+            return $"监听者 {_liveCount} 个{(IsDispatching ? "（派发中）" : string.Empty)}";
         }
     }
 }

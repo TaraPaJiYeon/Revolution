@@ -106,7 +106,8 @@ RevEvent.DispatchEvent(<span class="s">"EnterLobby"</span>);</pre>
 
     <div class="callout">
       <span class="t">就这样，没有初始化步骤</span>
-      不需要注册事件中心、不需要在场景里摆"EventSystem"物体。事件名就是字符串，<b>框架自带去重与数量上限保护</b>。
+      不需要注册事件中心、不需要在场景里摆"EventSystem"物体。事件名就是字符串；框架<b>不做去重、也不设订阅数量上限</b> ——
+      它保证的是"发出去没人收一定看得见"（<code>DispatchEvent</code> 的返回值 / <code>RevEvent.LogNoListener</code>）。
     </div>
 
     <div class="callout warn">
@@ -248,7 +249,7 @@ Debug.Log(<span class="k">string</span>.Join(<span class="s">", "</span>, RevEve
   <section id="s7">
     <h2><span class="num">七</span>相关文档</h2>
     <ul>
-      <li><a href="事件系统架构解析.md">《事件系统 · 架构解析》</a> —— 设计论证：内部结构（事件中心 / 监听组 / 侦听器）、派发中增删订阅的语义、异常隔离、上限保护</li>
+      <li><a href="事件系统架构解析.html">《事件系统 · 架构解析》</a> —— 设计论证：内部结构（事件中心 / 监听组 / 侦听器）、派发中增删订阅的语义、异常隔离、诊断接口</li>
       <li><a href="../UI系统/UI系统使用说明.html">《UI 系统 · 使用说明》</a> —— 界面上订阅事件的推荐位置（OnOpen/OnClose）</li>
       <li><a href="../日志系统/日志系统使用说明.html">《日志系统 · 使用说明》</a> —— 排查时配日志一起看</li>
       <li><a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a></li>

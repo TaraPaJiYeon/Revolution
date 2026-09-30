@@ -1,7 +1,7 @@
 // ============================================================
 // RevEventListener.cs —— 单个"监听者"节点（事件系统的最小单元）
 //
-// 位置：Runtime\EventSystem\Core\
+// 位置：Runtime\RevEventSystem\Core\
 //
 // 【它是什么】
 //   一条注册记录：谁在听（Handler）、属于谁（Owner）、多急（Priority）。

@@ -1,7 +1,7 @@
 // ============================================================
 // RevEventCenter.cs —— 事件派发引擎（真正干活的那个）
 //
-// 位置：Runtime\EventSystem\Core\
+// 位置：Runtime\RevEventSystem\Core\
 //
 // 【它是什么】
 //   一张"事件名 → 监听者集合"的表 + 派发循环。业务不直接用这个类，
@@ -102,10 +102,21 @@ namespace Revolution
         {
             // 逐个 Clear 而不是直接 _groups.Clear()：
             // 这样列表里的节点能还回对象池；而且此时若正处在派发中，Clear 只会打标记，不会破坏遍历
-            foreach (KeyValuePair<string, RevEventHandlerGroup> pair in _groups) pair.Value.Clear();
+            bool dispatching = false;
+            foreach (KeyValuePair<string, RevEventHandlerGroup> pair in _groups)
+            {
+                // ★ 必须在 Clear 之前问：Clear 结束后派发标记就被改掉了（且组会被移出字典）
+                if (pair.Value.IsDispatching) dispatching = true;
+                pair.Value.Clear();
+            }
 
             _groups.Clear();
-            _seq = 0;
+
+            // ★ 只有"当前没有任何事件正在派发"时才把发号器归零：
+            //   如果在某个回调里调 ClearAll（清场重开很常见），正在遍历的那批旧节点还在列表里没回收，
+            //   此时归零会让接下来新注册的节点和它们拿到相同 Seq，同优先级的"先注册先执行"就不再稳定。
+            //   归零本身只是为了不让 _seq 无界增长，派发中少归零一次没有任何损失。
+            if (!dispatching) _seq = 0;
         }
 
         /// <summary>清空数据并把对象池也一并清掉（Unity 进 Play / 域重载时调用）。</summary>
@@ -344,7 +355,7 @@ namespace Revolution
 
         // ==================== 诊断 ====================
 
-        /// <summary>某个事件上的监听者数量。</summary>
+        /// <summary>某个事件上的监听者数量（只算活跃的：派发中已反注册的节点不计入）。</summary>
         public int GetListenerCount(string name)
         {
             if (!RevEvent.IsValidName(name)) return 0;
