@@ -71,6 +71,9 @@
 | ② 子模块 | `git submodule add -b package https://github.com/Yokino337088/Revolution.git Assets/Revolution` | `Assets/Revolution` |
 | ③ Package Manager | Add package from git URL → `https://github.com/Yokino337088/Revolution.git?path=/RevolutionFrameWork_Unity/Assets/Revolution` | `Packages/` |
 
+  **示例工程（可选）**：17 个模块各配一个带详尽注释的 Demo 与可运行场景 ——
+  `git clone -b demo --depth 1 https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo`（落在 `Assets/Revolution.Demo`）。
+
 > **为什么推荐 ①/②**：Unity 的 `Resources.Load` 只保证加载**工程 `Assets` 下**的 `Resources` ——
 > 框架自带 `ResMap.txt` 与两个 UI 预制体；另外两个**生成物**（`RevResPath.cs`、`RevSoundPath.cs`）必须写在框架目录里（包缓存只读）。
 > 装在 `Packages/` 里也能跑（Canvas 用代码建、缺 ResMap 时编辑器直读），打包工具会**跳过生成并提示**。
@@ -92,14 +95,23 @@ RevLog.Info("登录成功", "Login");                            // 打日志（
 RevMono.AddUpdate(OnTick, owner: this);                     // 让纯 C# 类每帧跑一次
 ```
 
-### 直接跑示例（克隆整个仓库）
+### 直接跑示例
+
+**方式 A：只装示例**（配合上面已装的框架本体）：
+
+```bash
+git clone -b demo --depth 1 https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo
+```
+
+**方式 B：克隆整个仓库**：
 
 ```bash
 git clone https://github.com/Yokino337088/Revolution.git
 ```
 
-用 Unity 2022.3.15f1c1 打开 `RevolutionFrameWork_Unity/`（首次导入几分钟），Play `Assets/Scenes/SampleScene.unity`；
-示例代码在 `Assets/Revolution.Demo/`（动作序列 / GM 指令 / 状态机）。
+用 Unity 2022.3.15f1c1 打开 `RevolutionFrameWork_Unity/`（首次导入几分钟）。
+`Assets/Revolution.Demo/` 下 **17 个模块各有一个可运行场景**：打开场景点 Play，
+左侧按钮逐个点、右侧步骤日志讲清楚每一步（索引见 `Assets/Revolution.Demo/RevDemoSceneList.txt` 与该目录 README）。
 
 ---
 
@@ -191,6 +203,15 @@ git clone https://github.com/Yokino337088/Revolution.git
 | 还要改逻辑代码不发版 | **方案 C（HybridCLR）** ＋ A 或 B |
 
 ---
+
+## 🆕 最近更新（2026-09-30）
+
+- **稳定性大扫除**：计时器 / 服务定位器 / 公共 Mono / 场景 / 输入 / UI / 日志 七个模块合计 25+ 处缺陷修复，
+  每处都带复现断言与成因注释 —— 明细见 `Assets/Revolution/CHANGELOG.md` 的「未发布」段。
+- **导表工具新增「仅生成数据」导出模式**（编辑器版 + WPF 版）：只改数值不动表结构时只重写数据 txt，不再触发脚本编译。
+- **配置表装载改名 DataLoad → RevDataLoad**：目录与全部类型加 Rev 前缀，与框架命名风格统一（导表模板已同步，重新导出即可）。
+- **新增示例工程**：`Assets/Revolution.Demo/` —— 17 个模块各配一个带详尽注释的 Demo 与可运行场景，
+  由工作流自动发布到 demo 分支（与 package 分支同机制）。
 
 ## 🧩 核心模块
 
@@ -353,14 +374,13 @@ Revolution/
 │   │   ├── Generation/                         生成的路径常量（RevResPath.cs）
 │   │   ├── Resources/                          框架自带运行时资源（ResMap、UI 预制体）
 │   │   ├── package.json / README.md            包描述与包内说明（UPM 用）
-│   ├── Assets/Revolution.Demo/             示例（动作序列 / GM 指令 / 状态机）
+  │   ├── Assets/Revolution.Demo/             示例工程（17 个模块：Demo + 可运行场景，demo 分支的仓库根就是它）
 │   ├── Assets/Scenes/                      示例场景（SampleScene）
 │   ├── Assets/GameRes/                     资源根目录（放你的资源，RevAB 从这里扫）
 │   └── Packages/ · ProjectSettings/        Unity 工程配置
 ├── Revolution.Document/                  设计文档（每个模块：使用说明 + 架构解析）
-├── Revolution.Demo/                      示例数据与源码
 ├── Revolution.ExcelTool/                 导表工具（WPF：Excel → C# 类 + 数据文件）
-└── .github/workflows/                    CI（自动同步 package 分支）
+└── .github/workflows/                    CI（自动同步 package / demo 分支）
 ```
 
 > 仓库只收录**必要的代码与文档**：`Library/` `Temp/` `Logs/`、构建产物、IDE 工程文件（`*.csproj` `*.sln`）、
