@@ -169,9 +169,20 @@ namespace Revolution
 
             if (_parent == null && _scopes != null)
             {
-                for (int i = _scopes.Count - 1; i >= 0; i--) _scopes[i].Dispose();
+                // ★ Bug 修复（2026-09-30）：先把列表整个摘下来再逐个释放。
+                //   子作用域的 Dispose 会把自己从本列表移除（见下面"Bug 修复"注释）——
+                //   如果边倒序遍历边 Remove，列表左移会导致每隔一个漏放一个；先夺走列表则两边都安全。
+                List<RevServiceLocator> scopes = new List<RevServiceLocator>(_scopes);
                 _scopes.Clear();
+                for (int i = scopes.Count - 1; i >= 0; i--) scopes[i].Dispose();
             }
+
+            // ★ Bug 修复（2026-09-30）：把自己从父（根）容器的跟踪列表里摘掉。
+            //   原实现只加不减：每局 using (CreateScope()) 结束后，根的 _scopes 就永久多留一个
+            //   已释放的作用域对象（连同它的实例表空壳）—— 长跑游戏每局泄漏一份，越积越多；
+            //   根容器最后 Dispose 时还要白白遍历这一串死对象。
+            //   （根容器释放路径在上面已先把列表整个摘空，此处 Remove 找不到目标是安全的空操作。）
+            _parent?._scopes?.Remove(this);
 
             _own.DisposeAll();
         }
@@ -247,6 +258,18 @@ namespace Revolution
                 catch
                 {
                     registry.Remove(type, instance);        // 回滚：不留半初始化的坏实例
+
+                    // ★ Bug 修复（2026-09-30）：回滚时把实例本身也释放掉。
+                    //   原实现只把它从表里摘掉 —— 但工厂已经把对象造出来了，如果它实现了 IDisposable
+                    //   （文件句柄 / 网络连接 / 原生资源）， OnInit 一失败就再也没人管它 = 资源泄漏。
+                    //   只有"容器负责释放"（OwnsInstance）的才释放；业务自己传进来的实例仍归业务。
+                    //   Dispose 的异常要吞掉：回滚路径不能掩盖上面正在传播的 OnInit 原始异常。
+                    if (descriptor.OwnsInstance && instance is IDisposable rollback)
+                    {
+                        try { rollback.Dispose(); }
+                        catch { /* 回滚清理失败不能盖住 OnInit 的原始异常；容器已摘除该实例，不影响其余服务 */ }
+                    }
+
                     throw;
                 }
 

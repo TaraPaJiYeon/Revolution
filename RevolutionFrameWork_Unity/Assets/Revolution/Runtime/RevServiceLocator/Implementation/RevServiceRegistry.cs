@@ -27,13 +27,26 @@ namespace Revolution
         /// <summary>本容器已持有的实例数（调试用）</summary>
         internal int Count => _instances.Count;
 
-        /// <summary>建这个实例的是不是容器（false = 业务自己传进来的实例，容器不负责释放）</summary>
+        /// <summary>按类型取已持有的实例</summary>
         internal bool TryGet(Type type, out object instance) => _instances.TryGetValue(type, out instance);
 
         /// <summary>放入表里（只在"创建成功 + OnInit 成功"之后调用）</summary>
         internal void Add(Type type, object instance, bool ownsInstance)
         {
             _instances[type] = instance;
+
+            // ★ Bug 修复（2026-09-30）：同一实例注册到多个服务类型时（例如
+            //   AddSingleton<IAudio>(svc) 之后又 AddSingleton<IAudioEx>(svc)，都是合法用法），
+            //   创建序表与 Tick 列表只能挂一次 —— 原实现会重复追加，导致：
+            //   ① DisposeAll 对它 Dispose 两遍（双重释放）；② 每帧 OnTick 被驱动两遍，
+            //   直接违反 RevITickable 写明的承诺"同一个服务不会被驱动两次（避免一帧跑两次）"。
+            //   （Contains 是 O(n)，但 Add 只发生在创建期、每个服务类型一次，n = 服务数，可忽略。）
+            if (_creationOrder.Contains(instance))
+            {
+                if (!ownsInstance) _ownedFlags[instance] = false;   // 任一次声明"业务自己的"，容器就永不释放它
+                return;
+            }
+
             _creationOrder.Add(instance);
 
             // 能力探测：实现了 RevITickable 就自动进 Tick 列表
