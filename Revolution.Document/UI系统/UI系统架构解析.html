@@ -810,7 +810,8 @@ RevUISetting.CanvasMode          = RevUICanvasMode.ScreenSpaceCamera;
 RevUISetting.UICamera            = myUiCamera;     <span class="c">// 你场景里的相机</span>
 RevUISetting.CanvasPlaneDistance = <span class="n">100f</span>;           <span class="c">// 必须落在相机近/远裁剪面之间</span>
 
-<span class="c">// ③ 什么都不配 = Auto → Overlay（行为与升级前完全一致）</span></pre>
+<span class="c">// ③ 什么都不配 = ScreenSpaceOverlay（默认值；不需要相机、永远最上层）</span>
+<span class="c">//    （想跟随 Canvas 预制体里选的模式，要显式设 Auto）</span></pre>
 
     <p><b>相机的查找顺序</b>（找到即用）：
       <code>RevUISetting.UICamera</code> → <code>UICameraPrefabPath</code> 预制体 → 场景里名为 <code>UICamera</code> / <code>[RevUICamera]</code> 的相机 →

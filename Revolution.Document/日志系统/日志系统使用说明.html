@@ -378,7 +378,7 @@ RevLog.Clear();         <span class="c">// 清空历史（通道不动）</span>
         <thead><tr><th style="width:26%">特性</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>异步</td><td>主线程只入队（微秒级），<b>Lowest 优先级后台线程</b>格式化并写盘；连 <code>ToString</code> 的分配都不在主线程</td></tr>
-          <tr><td>双上限</td><td>单文件 4MB + 保留 10 份（文件名带毫秒时间戳，天然按时间排序）</td></tr>
+          <tr><td>双上限</td><td>单文件 4MB（按 UTF-8 字节统计，中文日志不会超）+ 保留 10 份（文件名带毫秒时间戳，天然按时间排序）</td></tr>
           <tr><td>目录不可写</td><td><b>禁用通道 + 明确报到 <code>RevLog.SinkErrors</code></b>（不是静默降级）</td></tr>
           <tr><td>退出前</td><td>Unity 退出时钩子自动 <code>Flush</code>；你也可以随时手动 <code>RevLog.Flush()</code>（≤1 秒排空，超时自己兜底写完）</td></tr>
         </tbody>

@@ -196,7 +196,7 @@
         <tbody>
           <tr><td>1</td><td>快照 <code>Reset()</code>（保留容量）</td><td><code>RevInputCore.Tick</code></td><td>定长掩码 + 复用数组 → <b>零分配</b></td></tr>
           <tr><td>2</td><td>设备 <code>Poll(snapshot)</code> 写原始输入</td><td><code>RevInputUnityDevice</code></td><td>设备坏了只隔离它自己（本帧按"无输入"处理）</td></tr>
-          <tr><td>3</td><td>判相位 + 算轴（<b>一次遍历算完所有动作</b>）</td><td><code>RevInputActionTable.Update</code></td><td>位运算命中判定；屏蔽期间仍记"按下时间"</td></tr>
+          <tr><td>3</td><td>判相位 + 算轴（<b>一次遍历算完所有动作</b>）</td><td><code>RevInputActionTable.Update</code></td><td>位运算命中判定；屏蔽期间动作相位与轴一并按"无输入"处理，但仍记"按下时间"（缓冲不丢）</td></tr>
           <tr><td>4</td><td>手势识别（指针采样 → 7 种手势）</td><td><code>RevGestureRecognizer.Update</code></td><td>屏蔽期间只跟踪不产出，且不秋后算账</td></tr>
           <tr><td>5</td><td>派发动作事件（按下/抬起）</td><td><code>RevInputCore</code></td><td>就地 <code>try/catch</code> 隔离；不用 lambda（零闭包分配）</td></tr>
           <tr><td>6</td><td>派发手势事件</td><td><code>RevInputCore</code></td><td>同上</td></tr>

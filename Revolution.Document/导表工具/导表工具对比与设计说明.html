@@ -372,6 +372,7 @@
           <tr><td class="c">24</td><td>空单元格</td><td>依赖 <code>DataRow</code> 默认值</td><td>明确取默认值 <code>0 / 0f / false / ""</code></td><td>行为可预期</td></tr>
           <tr><td class="c">25</td><td>格式契约</td><td>写端（Editor）与读端（Runtime）<b>各写一套</b></td><td><code>RevDataTextFormat.cs</code> <b>同一份源码</b>被两端引用</td><td>从根上不可能写读不一致</td></tr>
           <tr><td class="c">26</td><td>文件编码</td><td>—</td><td>代码 UTF-8 <b>带</b> BOM；数据 UTF-8 <b>不带</b> BOM</td><td>中文注释不乱码 / 注释行首字符正确</td></tr>
+          <tr><td class="c">27</td><td>导出粒度</td><td>每次全部重生成（代码 + 数据一锅端）</td><td><b>两种模式</b>：仅生成数据（只写 txt、不碰代码、不触发脚本编译）/ 全量生成（代码 + 数据）；另有"内容没变就不写"的增量判断</td><td>只改数值的日常高频导出不用再等一次脚本编译</td></tr>
         </tbody>
       </table>
     </div>

@@ -174,7 +174,7 @@ RevInput.OnGesture(OnAnyGesture, owner: <span class="k">this</span>);           
           <tr><td>查"按住"</td><td><code>RevInput.Held("Fire")</code></td></tr>
           <tr><td>查"本帧刚抬起"</td><td><code>RevInput.Released("Fire")</code></td></tr>
           <tr><td>查"最近 0.15 秒内按过"（手感补偿）</td><td><code>RevInput.PressedBuffered("Jump")</code> · 自定义窗口 <code>PressedBuffered("Jump", 0.25f)</code></td></tr>
-          <tr><td>查连发（按住自动重复）</td><td><code>RevInput.SetRepeat("Auto", 0.35f, 0.08f)</code> → <code>if (RevInput.Repeat("Auto"))</code></td></tr>
+          <tr><td>查连发（按住自动重复）</td><td><code>RevInput.SetRepeat("Auto", 0.35f, 0.08f)</code> → <code>if (RevInput.Repeat("Auto"))</code>；不要连发就 <code>SetRepeat("Auto", 0, 0)</code>（delay ≤ 0 = 关连发）</td></tr>
           <tr><td>查轴 / 查两个轴</td><td><code>RevInput.Axis("MoveX")</code> · <code>RevInput.Vector("Move")</code></td></tr>
           <tr><td>查按住多久 / 最近按下帧</td><td><code>RevInput.HeldSeconds("Fire")</code> · <code>RevInput.LastPressedFrame("Jump")</code></td></tr>
           <tr><td>鼠标位置 / 位移 / 滚轮</td><td><code>RevInput.MousePosition</code> · <code>RevInput.MouseDelta</code> · <code>RevInput.MouseScroll</code></td></tr>
@@ -196,7 +196,7 @@ RevInput.OnGesture(OnAnyGesture, owner: <span class="k">this</span>);           
           <tr><td>退订（一行）</td><td><code>RevInput.OffAllOf(this)</code>（事件 + 屏蔽一起清）</td></tr>
           <tr><td>手动复位（换场景/结算）</td><td><code>RevInput.ResetAll("换场景")</code></td></tr>
           <tr><td>改键后存档 / 读档</td><td><code>string text = RevInput.SaveBindings();</code> · <code>RevInput.LoadBindings(text)</code></td></tr>
-          <tr><td>改键后查冲突</td><td><code>RevInput.FindConflicts()</code>（同一个键绑了两个动作会列出来）</td></tr>
+          <tr><td>改键后查冲突</td><td><code>RevInput.FindConflicts()</code>（同一个键绑了两个动作会列出来；<code>BindAxis</code> 用的轴键也算输入源）</td></tr>
           <tr><td>解绑 / 删动作 / 清空</td><td><code>RevInput.Unbind("Jump")</code> · <code>RemoveAction("Jump")</code> · <code>ClearBindings()</code></td></tr>
           <tr><td>强制设备类型（测试用）</td><td><code>RevInput.ForceDeviceKind(RevInputDeviceKind.Touch)</code></td></tr>
           <tr><td>诊断</td><td><code>RevInput.VerboseLog = true;</code> · <code>Debug.Log(RevInput.Dump())</code> · <code>RevInput.FailedCount</code></td></tr>
@@ -313,6 +313,12 @@ RevInput.Block(RevInputBlockKind.All);</pre>
     </div>
 
     <div class="callout">
+      <span class="t">屏蔽 World 期间，轴读数一并归零</span>
+      动作相位（按下 / 按住 / 抬起）与<b>轴</b>都会被挡：弹窗里角色不会继续移动（轴属于世界输入）。<br>
+      屏蔽期间按下的时间<b>仍会记录</b> —— 解除后 <code>PressedBuffered</code> 的缓冲窗口依然有效（手感不丢）。
+    </div>
+
+    <div class="callout">
       <span class="t">"点在 UI 上"永远由你自己判</span>
       <code>RevInput.IsPointerOverUI(id)</code> 会问 UI 系统的 <code>EventSystem</code>（框架不去改 EventSystem）。<br>
       常见写法：<code>if (RevInput.Tap(out var t) &amp;&amp; !RevInput.IsPointerOverUI(t.PointerId)) { 处理世界点击 }</code>。<br>
@@ -327,7 +333,7 @@ RevInput.Block(RevInputBlockKind.All);</pre>
 
     <pre><span class="c"># RevInput 绑定表（动作 = 输入源, ...）</span>
 Jump  = Space, JoystickButton0
-Fire  = Mouse0
+Fire  = Mouse0, repeat:0.20/0.05
 MoveX = -A, +D
 MoveY = -S, +W
 LookX = axis:Mouse X</pre>
@@ -346,6 +352,7 @@ RevInput.LoadBindings(text);                <span class="c">// 载入（整体�
           <tr><td><code>-A</code> / <code>+D</code></td><td>键位轴（负向 / 正向）</td></tr>
           <tr><td><code>axis:名字</code></td><td>命名轴（<code>axis:Mouse X</code>；末尾加 <code>-</code> 表示取反）</td></tr>
           <tr><td><code>deadzone=0.2</code></td><td>可选：覆盖这个动作的死区</td></tr>
+          <tr><td><code>repeat:延迟/间隔</code></td><td>可选：连发节拍（秒）；<b>延迟 ≤ 0 = 关连发</b>。<code>SaveBindings</code> 会带上非默认的连发配置 —— 存档 ⇄ 读档无损往返</td></tr>
           <tr><td><b>解析失败</b></td><td>整体拒绝、旧绑定保留（不会出现"载入一半"的坏状态），原因走 <code>RevInput.Failed</code></td></tr>
         </tbody>
       </table>
