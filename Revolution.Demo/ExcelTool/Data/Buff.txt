@@ -1,7 +1,0 @@
-#Buff
-#ID	Name	Type	Duration	Stackable	Desc
-#状态ID(字符串主键)	状态名	类型	持续(秒)	可否叠加	状态描述
-BUFF_ATK_UP	攻击提升	1	5	false	攻击力提升 20%
-BUFF_DEF_DOWN	防御降低	2	8.5	true	物理防御降低 15%
-DEBUFF_STUN	眩晕	3	1.5	false	无法移动与释放技能
-BUFF_SHIELD	护盾	1	10	false	吸收 500 点伤害，护盾破碎后消失
