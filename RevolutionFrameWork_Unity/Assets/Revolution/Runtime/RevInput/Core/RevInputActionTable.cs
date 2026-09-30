@@ -208,13 +208,22 @@ namespace Revolution
                 }
 
                 // 轴：命名轴优先（手柄摇杆），否则用键位对算 ±1
-                s.Axis = ComputeAxis(b, snapshot, axisProvider);
+                // ★ Bug 修复（2026-09-30）：屏蔽 World 期间轴必须一并归零 ——
+                //   上面 down/held/up 都挡了，唯独轴漏挡：弹窗 / 过场里 MoveX 照样有值，
+                //   角色在"输入被屏蔽"时照样移动。轴是动作读数的组成部分，属于世界输入。
+                s.Axis = worldBlocked ? 0f : ComputeAxis(b, snapshot, axisProvider);
 
                 // 连发：首帧按下算一次，之后按 delay/interval 节拍（只有配了连发的动作会为真）
                 if (down)
                 {
-                    s.Repeat = b.RepeatDelay >= 0f;
-                    s.NextRepeatTime = realtime + b.RepeatDelay;
+                    // ★ Bug 修复（2026-09-30）：RepeatDelay == 0 表示"不连发"（RevInputBinding.RepeatDelay
+                    //   的注释如此承诺），原实现 >= 0 把 0 当"立即开始连发"：首帧 Repeat 就为真、
+                    //   NextRepeatTime = realtime，之后每 interval 连发不停 ——
+                    //   想关连发的业务（把 delay 设 0）反而得到最凶的连发。
+                    //   改为 > 0 才配连发；不连发时 NextRepeatTime 归 0，下面 held 分支的 > 0d 守卫会拦住。
+                    bool repeatEnabled = b.RepeatDelay > 0f;
+                    s.Repeat = repeatEnabled;                       // 首帧按下算一次（仅限配了连发的动作）
+                    s.NextRepeatTime = repeatEnabled ? realtime + b.RepeatDelay : 0d;
                 }
                 else if (held && s.NextRepeatTime > 0d && realtime >= s.NextRepeatTime)
                 {
@@ -298,12 +307,38 @@ namespace Revolution
                                 report = Append(report, "Mouse" + m + " 同时绑给了 " + a.Action + " 和 " + b.Action);
                         }
                     }
+
+                    // ★ Bug 修复（2026-09-30）：轴键也是输入源，原实现漏查 ——
+                    //   BindAxis("MoveX", A, D) 与 Bind("Skill", A) 这种典型改键冲突报不出来，
+                    //   "改键后必须查一次冲突"的承诺对轴形同虚设。轴键与对方的键位掩码 / 轴键互查。
+                    //   （两个方向都要查，不能短路：a 的轴撞 b、b 的轴撞 a 可能同时存在。）
+                    if (AxisKeyConflicts(a, b, out string axisReportA)) report = Append(report, axisReportA);
+                    if (AxisKeyConflicts(b, a, out string axisReportB)) report = Append(report, axisReportB);
                 }
             }
             return report;
         }
 
         private static string Append(string a, string b) => a == null ? b : a + "\n" + b;
+
+        /// <summary>
+        /// 查 <paramref name="check"/> 的轴键是否与 <paramref name="other"/> 的输入源冲突
+        /// （★ 随 2026-09-30 的冲突检测补全新增；有冲突返回 true 并给出可读文本）。
+        /// </summary>
+        private static bool AxisKeyConflicts(RevInputBinding check, RevInputBinding other, out string report)
+        {
+            report = Append(ConflictOne(check.AxisNegative, "-"), ConflictOne(check.AxisPositive, "+"));
+            return report != null;
+
+            string ConflictOne(RevKey axisKey, string sign)
+            {
+                if (axisKey == RevKey.None) return null;
+                if (other.KeyMask.Get((int)axisKey)
+                    || other.AxisNegative == axisKey || other.AxisPositive == axisKey)
+                    return axisKey + " 同时绑给了 " + check.Action + "（" + sign + "轴）和 " + other.Action;
+                return null;
+            }
+        }
 
         /// <summary>导出成文本（存档 / 给玩家改键）。</summary>
         public string SaveText()
@@ -370,7 +405,27 @@ namespace Revolution
                     string token = parts[p].Trim();
                     if (token.Length == 0) continue;
 
-                    if (token.StartsWith("axis:", System.StringComparison.OrdinalIgnoreCase))
+                    if (token.StartsWith("repeat:", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        // ★ Bug 修复（2026-09-30）：连发节拍必须随存档往返 —— 原实现不导出也不解析，
+                        //   SaveText ⇄ LoadText 一趟下来连发配置全部回默认值，违反本类铁律③
+                        //   "SaveText ⇄ LoadText 必须无损往返（改键存档靠它）"。
+                        //   格式：repeat:delay/interval（与 ToText 的导出格式对应）。
+                        string pair = token.Substring(7).Trim();
+                        int slash = pair.IndexOf('/');
+                        if (slash <= 0
+                            || !float.TryParse(pair.Substring(0, slash).Trim(), System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out float rd)
+                            || !float.TryParse(pair.Substring(slash + 1).Trim(), System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out float ri))
+                        {
+                            error = "第 " + (i + 1) + " 行连发配置不合法（应为 repeat:delay/interval）：" + token;
+                            return false;
+                        }
+                        binding.RepeatDelay = rd;
+                        binding.RepeatInterval = ri;
+                    }
+                    else if (token.StartsWith("axis:", System.StringComparison.OrdinalIgnoreCase))
                     {
                         string name = token.Substring(5).Trim();
                         bool invert = name.EndsWith("-");
@@ -418,17 +473,22 @@ namespace Revolution
                 parsed.Add(binding);
             }
 
+            // ★ Bug 修复（2026-09-30）：数量上限必须在替换**之前**检查 ——
+            //   原实现先 _map/_list/_states.Clear() 再在循环里查上限，超上限时 return false，
+            //   但原绑定已经被清光了："半成品不落地"的承诺被自己破坏（存档超限时绑定全丢）。
+            //   现在先查后换：失败时旧表完好无损。
+            if (parsed.Count > RevInputLimits.MaxActions)
+            {
+                error = "动作数量超过上限 " + RevInputLimits.MaxActions;
+                return false;
+            }
+
             // 全部解析成功才替换（半成品不落地：这是"存档坏了不炸游戏"的防线）
             _map.Clear();
             _list.Clear();
             _states.Clear();
             for (int i = 0; i < parsed.Count; i++)
             {
-                if (_list.Count >= RevInputLimits.MaxActions)
-                {
-                    error = "动作数量超过上限 " + RevInputLimits.MaxActions;
-                    return false;
-                }
                 _map[parsed[i].Action] = parsed[i];
                 _list.Add(parsed[i]);
                 _states[parsed[i].Action] = default;

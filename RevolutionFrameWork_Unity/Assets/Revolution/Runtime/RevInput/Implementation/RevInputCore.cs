@@ -287,7 +287,13 @@ namespace Revolution
 
         private void NotifyActionToListeners(string action, NotifyKind kind)
         {
-            for (int i = 0, n = _listeners.Count; i < n; i++)
+            // ★ Bug 修复（2026-09-30）：不能用循环外缓存的 Count（旧代码 `for (int i = 0, n = ...; i < n; i++)`）——
+            //   监听者回调里完全可能注销自己（如 OnInputPressed 里 RevInput.OffAllOf(this)，这是文档推荐的清理方式），
+            //   列表变短后下一轮 `_listeners[i]` 越界，而这个取元素在 try **之外**，
+            //   异常会直接冲出 Tick 炸到驱动的 Update 里。
+            //   改为倒序 + 实时 Count：回调里注销自己时，已通知的（尾部）不受影响、未通知的（头部）位置不变 ——
+            //   不越界、也不跳过任何人，与上面 DispatchActionEvents 委托版的倒序遍历行为一致。
+            for (int i = _listeners.Count - 1; i >= 0; i--)
             {
                 RevInputListener listener = _listeners[i].Listener;
                 if (listener == null) continue;
@@ -316,7 +322,9 @@ namespace Revolution
         private void NotifyGestureToListeners(in RevGestureEvent gesture)
         {
             if (_listeners.Count == 0) return;
-            for (int i = 0, n = _listeners.Count; i < n; i++)
+            // ★ Bug 修复（2026-09-30）：同 NotifyActionToListeners —— 倒序 + 实时 Count，
+            //   防止"回调里注销自己"导致的越界（旧代码缓存 Count 且取元素在 try 外）。
+            for (int i = _listeners.Count - 1; i >= 0; i--)
             {
                 RevInputListener listener = _listeners[i].Listener;
                 if (listener == null) continue;
@@ -394,7 +402,9 @@ namespace Revolution
                     }
                 }
 
-                for (int l = 0, n = _listeners.Count; l < n; l++)
+                // ★ Bug 修复（2026-09-30）：同 NotifyActionToListeners —— 倒序 + 实时 Count，
+                //   防止"轴回调里注销自己"导致的越界（旧代码缓存 Count 且取元素在 try 外）。
+                for (int l = _listeners.Count - 1; l >= 0; l--)
                 {
                     RevInputListener listener = _listeners[l].Listener;
                     if (listener == null) continue;
@@ -488,6 +498,15 @@ namespace Revolution
             _repeatHandlers.Clear();
             _axisLast.Clear();
             _nextBlockId = 1;
+
+            // ★ Bug 修复（2026-09-30）：Failed 事件的订阅必须一并放掉 —— 上面清了全部六类
+            //   事件/监听订阅，唯独漏了它。关闭 Domain Reload（项目常态）时本实例跨局存活，
+            //   上一局订阅 RevInput.Failed 的处理器（常是引用已销毁 UI 的闭包）在新一局
+            //   还会被调用（键位配错等失败报到死对象上）且闭包引用泄漏 ——
+            //   与 RevMono.ResetForNewSession 补 Failed 是同一个鬼故事的同一个口子。
+            //   业务在运行期初始化（晚于 InstallInPlayer）会重新订阅，不受影响。
+            Failed = null;
+
             ManualDriven = false;
             ForcedDeviceKind = RevInputDeviceKind.Unknown;
             TickCount = FramesWithInput = GestureTotal = BlockedFrames = FailedCount = 0;

@@ -164,8 +164,19 @@ namespace Revolution
             if (AxisPositive != RevKey.None) parts.Add("+" + AxisPositive);
             if (!string.IsNullOrEmpty(NamedAxis)) parts.Add("axis:" + NamedAxis + (NamedAxisInvert ? "-" : string.Empty));
 
+            // ★ Bug 修复（2026-09-30）：连发节拍必须随存档导出 —— 原实现只写 deadzone，
+            //   SaveText ⇄ LoadText 一趟下来连发配置全回默认值，违反"无损往返"铁律。
+            //   格式 repeat:delay/interval（LoadText 有对应的解析分支），非默认值才写。
+            if (RepeatDelay != RevInputLimits.DefaultRepeatDelay
+                || RepeatInterval != RevInputLimits.DefaultRepeatInterval)
+            {
+                parts.Add("repeat:" + RepeatDelay.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)
+                          + "/" + RepeatInterval.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+            }
+
             string text = Action + " = " + string.Join(", ", parts);
-            if (Deadzone != RevInputLimits.DefaultDeadzone) text += "  deadzone=" + Deadzone.ToString("F2");
+            if (Deadzone != RevInputLimits.DefaultDeadzone)
+                text += "  deadzone=" + Deadzone.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
             return text;
         }
 
