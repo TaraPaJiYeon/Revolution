@@ -71,37 +71,52 @@ namespace Revolution
             // ② 切之前清理 + 广播"要开始了"
             Prepare(label, minSeconds);
 
-            // ③ 发起异步加载（名字不在 Build Settings 时这里就是 null）
-            AsyncOperation op = useIndex
-                ? SceneManager.LoadSceneAsync(buildIndex, LoadSceneMode.Single)
-                : SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
-
-            if (op == null)
+            // ★ Bug 修复（2026-09-30）：发起/推进/收尾必须整体兜异常，否则模块会永久死锁。
+            //   Prepare 已把 IsLoading 置 true，而"发起加载"是会抛异常的 ——
+            //   典型：buildIndex 越界时 LoadSceneAsync 直接抛 ArgumentOutOfRangeException
+            //   （不像"场景名不存在"那样返回 null，那条路有处理、这条路原来没有）。
+            //   异常一冒，IsLoading 永久卡在 true，之后所有加载请求都被①的"拒绝并发"拦下，
+            //   表现为"换场景从此永远没反应"。这里转成统一失败收尾（State=Failed + OnLoadFailed），
+            //   与"场景不存在"走同一条路；不 rethrow —— 失败可由 State / OnLoadFailed 感知。
+            try
             {
-                Fail(label, "场景不存在，或没有加进 Build Settings（菜单 File / Build Settings 的 Scenes In Build）");
-                return;
+                // ③ 发起异步加载（名字不在 Build Settings 时这里就是 null）
+                AsyncOperation op = useIndex
+                    ? SceneManager.LoadSceneAsync(buildIndex, LoadSceneMode.Single)
+                    : SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
+
+                if (op == null)
+                {
+                    Fail(label, "场景不存在，或没有加进 Build Settings（菜单 File / Build Settings 的 Scenes In Build）");
+                    return;
+                }
+
+                op.allowSceneActivation = false;      // 先让进度条走完，再激活
+                RevSceneLog.Info("[RevScene] 开始异步切换 → " + label);
+
+                // ④ 每帧推进：换算进度 → 广播 → 到 100% 才放行激活
+                while (!op.isDone)
+                {
+                    float value = _tracker.Tick(op.progress, Time.unscaledDeltaTime);
+                    Report(value, onProgress);
+                    if (_tracker.CanActivate) op.allowSceneActivation = true;
+                    await RevTaskScheduler.NextFrame();
+                }
+
+                _tracker.Complete();
+                Report(1f, onProgress);
+
+                IsLoading = false;
+                State = RevSceneLoadState.Done;
+                string loaded = CurrentName;
+                RevSceneLog.Info("[RevScene] 已进入场景：" + loaded);
+                RevScene.RaiseLoaded(loaded);
             }
-
-            op.allowSceneActivation = false;      // 先让进度条走完，再激活
-            RevSceneLog.Info("[RevScene] 开始异步切换 → " + label);
-
-            // ④ 每帧推进：换算进度 → 广播 → 到 100% 才放行激活
-            while (!op.isDone)
+            catch (Exception e)
             {
-                float value = _tracker.Tick(op.progress, Time.unscaledDeltaTime);
-                Report(value, onProgress);
-                if (_tracker.CanActivate) op.allowSceneActivation = true;
-                await RevTaskScheduler.NextFrame();
+                // ★ 同上（Bug 修复 2026-09-30）：推进阶段抛的异常也走失败收尾，绝不留 IsLoading=true 的残局
+                Fail(label, "加载过程抛异常：" + e.Message);
             }
-
-            _tracker.Complete();
-            Report(1f, onProgress);
-
-            IsLoading = false;
-            State = RevSceneLoadState.Done;
-            string loaded = CurrentName;
-            RevSceneLog.Info("[RevScene] 已进入场景：" + loaded);
-            RevScene.RaiseLoaded(loaded);
         }
 
         // ==================== 同步（会卡帧）====================
@@ -122,14 +137,30 @@ namespace Revolution
             }
 
             Prepare(sceneName);
-            SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+
+            // ★ Bug 修复（2026-09-30）：同步版 LoadScene 是"帧末才真正切换"——发起后立刻
+            //   查 GetActiveScene() 拿到的还是旧场景名。原实现把 CurrentName（旧名）当
+            //   "已进入的新场景"广播（OnLoaded 事件与日志都是旧名），违反 OnLoaded 的契约
+            //   （参数 = 新场景名）：业务拿名字寻址 / 比较（OnLoaded(name) 里 if (name=="Battle")）
+            //   会全部错乱。直接广播目标名 —— 场景确定会在本帧末切换完成。
+            try
+            {
+                SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+            }
+            catch (Exception e)
+            {
+                // ★ Bug 修复（2026-09-30）：与异步路同款防护 —— 发起抛异常（如越界 index 的兄弟问题、
+                //   场景被禁用等）时不留 IsLoading=true 的残局，转统一失败收尾。
+                Fail(sceneName, "发起同步切换抛异常：" + e.Message);
+                return;
+            }
 
             Progress = 1f;
             IsLoading = false;
             State = RevSceneLoadState.Done;
             RevScene.RaiseProgress(1f);
-            RevSceneLog.Info("[RevScene] 已同步进入场景：" + CurrentName);
-            RevScene.RaiseLoaded(CurrentName);
+            RevSceneLog.Info("[RevScene] 已同步切换 → " + sceneName + "（帧末生效）");
+            RevScene.RaiseLoaded(sceneName);
         }
 
         // ==================== 公共步骤 ====================
@@ -179,6 +210,22 @@ namespace Revolution
             State = RevSceneLoadState.Failed;
             RevSceneLog.Error("[RevScene] 切换失败：" + label + " —— " + reason);
             RevScene.RaiseFailed(label + "：" + reason);
+        }
+
+        // ★ Bug 修复（2026-09-30）：进 Play 复位 —— Domain Reload 关闭（项目常态）时
+        //   static 运行状态会跨局存活：退出 Play 那一刻若正在异步加载，
+        //   IsLoading=true / State=Loading 就残留到下一次运行，之后所有加载请求
+        //   被"拒绝并发"拦下（表现为"换场景永远没反应"）且一条日志都没有 ——
+        //   连 Bug① 那样的失败日志都不会有，因为根本没走到发起那一步。
+        //   与 RevMonoUnityHooks 的"进 Play 复位"是同一款防线：进 Play 前把运行状态清零。
+        //   （AutoClearPool / DefaultMinSeconds / VerboseLog 是业务配置不是运行状态，故意保留。）
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetForNewSession()
+        {
+            IsLoading = false;
+            State = RevSceneLoadState.Idle;
+            Progress = 0f;
+            _tracker = null;
         }
     }
 }
