@@ -544,7 +544,10 @@ namespace Revolution.Editor
 
         private static bool IsHighRisk(string line)
         {
-            int space = line.IndexOf(' ');
+            // ★ 必须用与解析器/联想同一套分隔符（半角空格 / Tab / 中文全角空格）：
+            //   只认半角空格时，用 Tab 或全角空格把命令名与参数分开就能绕过二次确认 ——
+            //   高危命令被直接执行，而"高危"这道唯一的提醒形同虚设。
+            int space = line.IndexOfAny(ArgSeparators);
             string name = space < 0 ? line : line.Substring(0, space);
 
             IReadOnlyList<RevGMCommand> commands = RevGMEditorCatalog.Commands;

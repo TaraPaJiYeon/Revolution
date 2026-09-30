@@ -4,7 +4,7 @@
 > 读完你能做到：3 分钟写出第一条 GM 指令 · 会用面板边打边联想地执行 · 知道参数该怎么写 · 知道 8 个最容易白干的坑 · 知道怎么保证它不上线。
 
 配套代码：
-- 运行时：`Assets\Revolution\Runtime\RevGMCommand\`（11 个 `.cs` / 1023 行，**纯 C#、不引用 UnityEngine**）
+- 运行时：`Assets\Revolution\Runtime\RevGMCommand\`（12 个 `.cs` / 1077 行；其中 11 个**纯 C#、不引用 UnityEngine**，`Support\RevGMUnityHooks.cs` 是唯一的 Unity 钩子：进 Play 时把命令表清一次）
 - 编辑器面板：`Assets\Revolution\Editor\RevGMCommand\`（2 个 `.cs` / 820 行，**EditorWindow，不占运行时、不进包体**）
 - 开箱示例：`Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs`（9 条命令，可直接抄）
 
@@ -277,7 +277,7 @@ RevGM.Register("工具/会崩的命令", "演示异常", args => throw new Inval
 | 3 | **忘了调注册入口** | 面板一条命令都没有 | 启动流程里调一次；或给方法加 `[RevGMEntry]` 让编辑期也能看到 |
 | 4 | **编辑模式下点执行** | 失败：`还没进入 Play：编辑模式只能查看与联想` | 按 Play 再来（面板上的执行按钮也会置灰） |
 | 5 | **只写末段名但重名** | 失败：`「重置」匹配到 2 条命令（…）—— 请写完整名（含分组）` | 写完整名（或从面板联想里选） |
-| 6 | **参数说明与实际用法不一致** | 执行前被拦下（类型/必填/枚举不符） | 让 `RevGMArg` 列表与 `args.Int(0)` 一一对应 |
+| 6 | **参数说明与实际用法不一致** | 执行前被拦下（类型/必填/枚举不符） | 让 `RevGMArg` 列表与 `args.Int(0)` 一一对应；★ **默认值也是两处**：`RevGMArg.Int("数量", 1000)` 只管面板提示与校验，"不传时实际用多少"由 `args.Int(0, 1000)` 的第二个参数决定 —— 两处必须写同一个数，否则会"面板说 1000、实际变 0" |
 | 7 | **lambda 捕获了场景对象** | 对象不释放、或用的时候已被销毁 | 只捕获**服务接口 / 静态数据**，运行时再从定位器取真实对象（见第八章） |
 | 8 | **联想打拼音缩写（如 `jjb`）** | 没有匹配 | 联想是**字符级**的：中文打中文子串（`加金`）；英文名命令（`Battle/AddGoldInstant`）可用缩写 `agi` |
 
@@ -418,7 +418,7 @@ public static class GameCommands
 1. **联想是"字符级"匹配**：中文命令请打中文子串（`加金` → `经济/加金币`）；**拼音首字母缩写（如 `jjb`）不支持**（需要一张拼音表，不在轻量范围内）。英文名命令支持缩写（`agi` → `Battle/AddGoldInstant`）。
 2. **编辑模式不执行命令**：避免"命令体碰了运行时对象、在编辑器里直接崩"。
 3. **不做客户端权限伪造**：`HighRisk` = 提醒 + 二次确认，真权限留给服务端。
-4. **命令名不能有空格**（空格是命令与参数的分隔符），分组用 `/`。
+4. **命令名不能有空格**（空格是命令与参数的分隔符），分组用 `/`；也**不能只有分隔符**（`/`、`///` 会在注册时直接报错 —— 名字归一化后为空，注册进去会变成一条联想不到、也删不掉的空名命令）。
 5. **面板不记录跨会话历史**（只在当前编辑器会话内保留最近 50 条）。
 
 ---
@@ -432,5 +432,6 @@ public static class GameCommands
 | `Core\RevGMArg.cs` · `RevGMFlags.cs` · `RevGMResult.cs` · `RevGMUsageException.cs` | 小 | 用到再读（参数说明 / 标记 / 结果 / 用法错误） |
 | `Implementation\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎 | 不用读（注册表 / 记录 / 分词 / 匹配打分） |
 | `Core\RevGMEntryAttribute.cs` | 小 | 想让面板编辑期列命令时读 |
+| `Support\RevGMUnityHooks.cs` | 33 | 唯一的 Unity 依赖：进 Play 清一次命令表（关 Domain Reload 时防跨局残留） |
 | `Editor\RevGMCommand\RevGMWindow.cs` · `RevGMEditorCatalog.cs` | 820 | 想改面板时读 |
 | `Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs` | 72 | ★ 建议先读这个（9 条示例，直接抄） |

@@ -64,8 +64,7 @@ namespace Revolution
         public float Float(int index, float fallback = 0f)
         {
             if (!Has(index)) return fallback;
-            if (float.TryParse(_items[index], NumberStyles.Float, CultureInfo.InvariantCulture, out float value)) return value;
-            if (float.TryParse(_items[index], NumberStyles.Float, CultureInfo.CurrentCulture, out value)) return value;
+            if (TryParseFloat(_items[index], out float value)) return value;
             throw TypeError(index, "小数");
         }
 
@@ -127,7 +126,7 @@ namespace Revolution
                     return false;
 
                 case RevGMArgType.Float:
-                    if (float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) { reason = null; return true; }
+                    if (TryParseFloat(raw, out _)) { reason = null; return true; }
                     reason = $"应该是小数，实际收到 \"{raw}\"";
                     return false;
 
@@ -153,6 +152,18 @@ namespace Revolution
                     reason = null;
                     return true;
             }
+        }
+
+        /// <summary>
+        /// 小数解析：先按不变文化（"1.5" 永远认），再退回当前文化（"1,5" 这种逗号小数点也认）。
+        /// <para>★ 取值（<see cref="Float"/>）与执行前的预校验必须共用这一个函数 ——
+        /// 曾经出现两边各写一套：取值器能解析的 "1,5" 被预校验判成"应该是小数"，
+        /// 于是"参数没错却被拦下"（在逗号小数点的系统区域下必现）。</para>
+        /// </summary>
+        private static bool TryParseFloat(string raw, out float value)
+        {
+            if (float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return true;
+            return float.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
         }
 
         private static bool TryParseBool(string raw, out bool value)

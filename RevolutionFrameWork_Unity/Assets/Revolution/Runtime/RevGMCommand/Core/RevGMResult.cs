@@ -31,7 +31,9 @@ namespace Revolution
 
         /// <summary>失败（参数不对 / 业务拒绝 / 环境不满足……）</summary>
         public static RevGMResult Fail(string message, double elapsedMs = 0d)
-            => new RevGMResult(false, message, elapsedMs);
+            // ★ 与 Ok（为空时兜底成 done）对齐：消息为空时面板会显示一个空的红框，
+            //   使用者看不到任何原因 —— 等于把"永不静默失败"这条目标漏掉。
+            => new RevGMResult(false, string.IsNullOrEmpty(message) ? "执行失败（没有给出原因）" : message, elapsedMs);
 
         /// <summary>调试显示：例如 <c>[OK] done (1.2ms)</c></summary>
         public override string ToString()

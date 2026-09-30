@@ -27,18 +27,21 @@ namespace Revolution.Demo.GM
             RevGM.Register("经济/清空金币", "把金币清零", args => { _gold = 0; });
 
             // ② 一行注册：带参数说明 + 默认值（面板显示 <数量|整数(默认 1000)>，执行前自动校验）
+            //    注意 args.Int(0, 1000) 的第二个参数就是"不传时用多少"，要与 RevGMArg.Int("数量", 1000) 对齐
             RevGM.Register("经济/加金币", "给当前玩家加金币",
                            args => { _gold += args.Int(0, 1000); return $"金币 = {_gold}"; },
                            RevGMArg.Int("数量", 1000));
 
-            // ③ 必填参数（不传就会被拦下并告诉你缺什么）
+            // ③ 小数参数（不传 = 1）：★ 默认值是两处 —— 面板显示"(默认 1)"靠 RevGMArg，
+            //    "不传时实际用多少"靠 args.Float(0, 1f) 的第二个参数；写成 args.Float(0)（= 0）就会
+            //    "面板说 1、实际变 0"。（框架目前只有 IntRequired / Str("名字") 两种必填写法）
             RevGM.Register("战斗/缩放主角", "把主控英雄缩放成指定倍数",
-                           args => { _scale = args.Float(0); return $"缩放 = {_scale}"; },
+                           args => { _scale = args.Float(0, 1f); return $"缩放 = {_scale}"; },
                            RevGMArg.Float("倍率", 1f));
 
-            // ④ 开关参数（true/false、1/0、是/否、开/关 都认）
+            // ④ 开关参数（true/false、1/0、是/否、开/关 都认）：不传 = 声明里的默认值 true；关掉就打 "战斗/无敌 false"
             RevGM.Register("战斗/无敌", "开关无敌",
-                           args => { _godMode = args.Bool(0, !_godMode); return _godMode ? "无敌：开" : "无敌：关"; },
+                           args => { _godMode = args.Bool(0, true); return _godMode ? "无敌：开" : "无敌：关"; },
                            RevGMArg.Bool("开启", true));
 
             // ⑤ 枚举参数（面板会列出候选值，点一下自动填进输入框）

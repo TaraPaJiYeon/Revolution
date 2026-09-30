@@ -1,7 +1,7 @@
 # GM 指令框架（RevGMCommand）—— 3 分钟上手
 
 > **一句话**：一行代码注册一条 GM 指令，编辑器面板里边打边联想、回车执行，结果与耗时直接回显。
-> 运行时 9 个 `.cs`（纯 C#，不引用 UnityEngine），编辑器侧 2 个 `.cs`（EditorWindow，**不占用运行时、不进包体**）。
+> 运行时 12 个 `.cs`（11 个纯 C#、不引用 UnityEngine；`Support\RevGMUnityHooks.cs` 是唯一的 Unity 钩子），编辑器侧 2 个 `.cs`（EditorWindow，**不占用运行时、不进包体**）。
 
 ## 一、一行注册
 
@@ -46,6 +46,7 @@ public static class MyGameCommands
 | `Core\RevGMUsageException.cs` | 用法错误 | 业务抛它就等于"把这句话显示给测试同学" |
 | `Implementation\RevGMRegistry.cs` · `RevGMCommand.cs` · `RevGMParser.cs` · `RevGMMatcher.cs` | 引擎内部 | 注册表 / 命令记录 / 分词 / 模糊匹配打分 |
 | `Core\RevGMEntryAttribute.cs` | 可选 | 标记注册入口（让面板在不进 Play 时也能列出命令） |
+| `Support\RevGMUnityHooks.cs` | 可选 | Unity 钩子：进 Play 时清一次命令表，避免"关闭 Domain Reload 时第二次 Play 撞重名而整批注册中断" |
 
 编辑器侧：`Editor\RevGMCommand\RevGMWindow.cs`（面板）+ `RevGMEditorCatalog.cs`（命令目录：Play 读运行期、编辑期走 `[RevGMEntry]` 快照）。
 

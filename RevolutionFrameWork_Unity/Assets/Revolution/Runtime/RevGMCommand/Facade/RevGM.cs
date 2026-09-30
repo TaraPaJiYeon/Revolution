@@ -202,6 +202,14 @@ namespace Revolution
 
             string normalized = name.Trim().Trim('/');
 
+            // ★ 归一化之后必须再判一次空：
+            //   "/"、"///"、" / " 这类"只有分隔符"的名字会被 Trim('/') 削成空串，放过去就会注册出一条
+            //   空名命令（联想里看不到、也没法按名字注销）；更糟的是第二次再注册只会报"已经注册过了"，
+            //   把真正的原因（名字本身不合法）盖掉。
+            if (normalized.Length == 0)
+                throw new ArgumentException(
+                    $"GM 命令名不能只有分隔符：「{name}」—— 请写成 分组/名字，例如 经济/加金币", nameof(name));
+
             for (int i = 0; i < normalized.Length; i++)
                 if (char.IsWhiteSpace(normalized[i]))
                     throw new ArgumentException($"GM 命令名里不能有空格：「{name}」—— 命令名与参数是用空格分开的（分组请用 / ）", nameof(name));

@@ -502,7 +502,7 @@ args.Enum&lt;ChatChannel&gt;(0, ChatChannel.Lobby)   <span class="c">// 枚举</
           <tr><td class="c">3</td><td><b>忘了调注册入口</b></td><td>面板一条命令都没有</td><td>启动流程里调一次；或给方法加 <code>[RevGMEntry]</code></td></tr>
           <tr><td class="c">4</td><td><b>编辑模式下点执行</b></td><td><code>还没进入 Play：编辑模式只能查看与联想</code></td><td>按 Play 再来（执行按钮也会置灰）</td></tr>
           <tr><td class="c">5</td><td><b>只写末段名但重名</b></td><td><code>「重置」匹配到 2 条命令（…）—— 请写完整名（含分组）</code></td><td>写完整名，或从面板联想里选</td></tr>
-          <tr><td class="c">6</td><td><b>参数说明与实际用法不一致</b></td><td>执行前被拦下（类型 / 必填 / 枚举不符）</td><td>让 <code>RevGMArg</code> 列表与 <code>args.Int(0)</code> 一一对应</td></tr>
+          <tr><td class="c">6</td><td><b>参数说明与实际用法不一致</b></td><td>执行前被拦下（类型 / 必填 / 枚举不符）</td><td>让 <code>RevGMArg</code> 列表与 <code>args.Int(0)</code> 一一对应；★ <b>默认值也是两处</b>：<code>RevGMArg.Int("数量", 1000)</code> 只管面板提示与校验，"不传时实际用多少"由 <code>args.Int(0, 1000)</code> 的第二个参数决定 —— 两处必须写同一个数，否则会"面板说 1000、实际变 0"</td></tr>
           <tr><td class="c">7</td><td><b>lambda 捕获了场景对象</b></td><td>对象不释放、或用的时候已被销毁</td><td>只捕获<b>服务接口 / 静态数据</b>，运行时再从定位器取真实对象（见第八章）</td></tr>
           <tr><td class="c">8</td><td><b>联想打拼音缩写</b>（如 <code>jjb</code>）</td><td>没有匹配</td><td>联想是<b>字符级</b>的：中文打中文子串（<code>加金</code>）；英文名命令可用缩写 <code>agi</code></td></tr>
         </tbody>
@@ -678,7 +678,7 @@ MyGameCommands.Register();
       <li><b>联想是"字符级"匹配</b>：中文命令请打中文子串（<code>加金</code> → <code>经济/加金币</code>）；<b>拼音首字母缩写（如 <code>jjb</code>）不支持</b>（需要一张拼音表，不在轻量范围内）。英文名命令支持缩写（<code>agi</code> → <code>Battle/AddGoldInstant</code>）。</li>
       <li><b>编辑模式不执行命令</b>：避免"命令体碰了运行时对象、在编辑器里直接崩"。</li>
       <li><b>不做客户端权限伪造</b>：<code>HighRisk</code> = 提醒 + 二次确认，真权限留给服务端。</li>
-      <li><b>命令名不能有空格</b>（空格是命令与参数的分隔符），分组用 <code>/</code>。</li>
+      <li><b>命令名不能有空格</b>（空格是命令与参数的分隔符），分组用 <code>/</code>；也<b>不能只有分隔符</b>（<code>/</code>、<code>///</code> 会在注册时直接报错 —— 名字归一化后为空，放进去会变成一条联想不到、也删不掉的空名命令）。</li>
       <li><b>面板不记录跨会话历史</b>（只在当前编辑器会话内保留最近 50 条）。</li>
     </ul>
   </section>
@@ -697,6 +697,7 @@ MyGameCommands.Register();
           <tr><td><code>Core\RevGMArg.cs</code> · <code>RevGMFlags.cs</code> · <code>RevGMResult.cs</code> · <code>RevGMUsageException.cs</code></td><td>用到再读（参数说明 / 标记 / 结果 / 用法错误）</td></tr>
           <tr><td><code>Implementation\RevGMRegistry.cs</code> · <code>RevGMCommand.cs</code> · <code>RevGMParser.cs</code> · <code>RevGMMatcher.cs</code></td><td>不用读（注册表 / 记录 / 分词 / 匹配打分）</td></tr>
           <tr><td><code>Core\RevGMEntryAttribute.cs</code></td><td>想让面板编辑期列命令时读</td></tr>
+          <tr><td><code>Support\RevGMUnityHooks.cs</code></td><td>唯一的 Unity 依赖（33 行）：进 Play 清一次命令表，关 Domain Reload 时防跨局残留</td></tr>
           <tr><td><code>Editor\RevGMCommand\RevGMWindow.cs</code> · <code>RevGMEditorCatalog.cs</code></td><td>想改面板时读（共 820 行）</td></tr>
           <tr><td><code>Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs</code></td><td>★ 建议先读这个（9 条示例，直接抄）</td></tr>
         </tbody>
@@ -712,10 +713,10 @@ MyGameCommands.Register();
 </main>
 
 <footer>
-  对应代码版本：运行时 <code>Assets\Revolution\Runtime\RevGMCommand\</code>（11 个 <code>.cs</code> / 1023 行）·
+  对应代码版本：运行时 <code>Assets\Revolution\Runtime\RevGMCommand\</code>（12 个 <code>.cs</code> / 1077 行：11 个纯 C# + 1 个 Unity 钩子）·
   编辑器 <code>Assets\Revolution\Editor\RevGMCommand\</code>（2 个 <code>.cs</code> / 820 行）·
   示例 <code>Assets\Revolution.Demo\RevGMCommand.Demo\</code>（9 条命令）。<br>
-  验证情况：运行时内核行为验证 34 / 34 通过（含开箱示例）· lambda 注册形态 13 / 13 通过 · 编辑器程序集编译 0 错。<br>
+  验证情况：运行时内核行为验证 <b>112 / 112 通过</b>（含开箱示例；另有 20000 步随机注册 + 随机命令行的 fuzz，零异常泄漏）· 编辑器程序集编译 0 错。<br>
   本文档面向零基础；HTML 版含 1 段纯 CSS 动画（边打边联想），无外部依赖。
 </footer>
 
