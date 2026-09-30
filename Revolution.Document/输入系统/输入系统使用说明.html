@@ -4,7 +4,105 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>输入系统 · 使用说明（手把手教程）</title>
-<link rel="stylesheet" href="../assets/docs.css">
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  .lead{color:var(--text-sub);font-size:14px;margin-top:2px;}
+  .plain{background:var(--panel);border:1px dashed var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:14px;}
+  .plain .tag{display:inline-block;background:var(--accent-soft);color:var(--accent);
+    border:1px solid var(--accent);border-radius:999px;font-size:12px;padding:0 10px;margin-right:8px;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
 </head>
 <body>
 
@@ -15,7 +113,6 @@
     <p>这份文档只回答一个问题：<b>我该怎么用它？</b>（先绑动作名，再登记一个监听者 —— 输入由框架推给你，业务里不用写 Update）</p>
     <p class="meta">读完你能做到：3 分钟绑好跳跃与移动 · 分清"按下 / 按住 / 抬起" · 会用点击/滑动/长按/双指 · 知道弹窗怎么挡输入 · 出问题 3 分钟定位</p>
   </div>
-  <div class="deco"></div>
 </header>
 
 <main>
