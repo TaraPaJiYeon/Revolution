@@ -4,7 +4,7 @@
 // 位置：Runtime\RevUISystem\Core\
 //
 // 【为什么单独一个文件】
-//   层级 / 状态 / 缓存模式 / 遮罩模式 是"整个 UI 系统的公共词汇"：
+//   层级 / 状态 / 缓存模式 / 遮罩模式 / Canvas 架构与画布类型 是"整个 UI 系统的公共词汇"：
 //   面板基类、绑定器、管理器、业务侧都要用它们。散在各处的结果是
 //   "同一个概念两套名字"，改一次要全局搜索替换。
 //
@@ -126,6 +126,45 @@ namespace Revolution
     }
 
     /// <summary>
+    /// UI 根的 Canvas 架构（<c>RevUISetting.CanvasArchitecture</c>，在第一次打开面板前设一次）。
+    ///
+    /// 【为什么要有两种】UGUI 以 Canvas 为单位合批：Canvas 下**任何一个**控件变了（文字 / 颜色 / 位置 / 缩放…），
+    ///   整个 Canvas 的所有控件都要重新合批。
+    ///   · 界面少、几乎不动 → 单 Canvas 最省（Draw Call 最少、结构最简单）；
+    ///   · 主界面 / HUD 上常驻着倒计时、血条、飘字 → 它们每帧都在拖着整屏一起重算，这时拆成三个 Canvas。
+    /// </summary>
+    public enum RevUICanvasArchitecture
+    {
+        /// <summary>单 Canvas（默认）：所有面板都在根 Canvas 下（面板上声明的画布类型被忽略）</summary>
+        Single = 0,
+
+        /// <summary>
+        /// 三 Canvas 动静分离：常用 / 静态 / 动态 各一个 Canvas，谁变了只重算谁所在的那一个。
+        /// 从下到上：静态 → 动态 → 常用（常用画布在最上面：弹窗遮罩、引导、断线重连必须盖住一切）。
+        /// </summary>
+        Split = 1,
+    }
+
+    /// <summary>
+    /// 面板放进哪个画布（只在 <see cref="RevUICanvasArchitecture.Split"/> 下生效）。
+    ///
+    /// ★ 静态 / 动态画布整体排在常用画布**之下**，所以它们只接收 <see cref="RevUILayer.Scene"/> 层的面板
+    ///   （主界面、HUD 这类"常驻底层"的界面）；其它层声明了也会自动放回常用画布并告警 —— 否则一个动态的 Loading 条
+    ///   会被常用画布里的主界面盖住。
+    /// </summary>
+    public enum RevUICanvasType
+    {
+        /// <summary>常用画布（默认）：普通界面、弹窗、提示、引导、系统层 —— 所有层级都能放</summary>
+        Common = 0,
+
+        /// <summary>静态画布：打开后内容基本不变（主界面背景、固定框体、装饰）—— 只用于 Scene 层</summary>
+        Static = 1,
+
+        /// <summary>动态画布：内容每帧 / 每秒都在变（HUD 倒计时、血条、飘字、摇杆、跑马灯）—— 只用于 Scene 层</summary>
+        Dynamic = 2,
+    }
+
+    /// <summary>
     /// 层级相关的纯规则（不依赖 UnityEngine，可单独断言）。
     /// </summary>
     public static class RevUILayerUtil
@@ -150,5 +189,45 @@ namespace Revolution
 
         /// <summary>a 是否在 b 之上（同层不算"之上"）</summary>
         public static bool IsAbove(RevUILayer a, RevUILayer b) => (int)a > (int)b;
+
+        // ============================================================
+        // 三 Canvas：面板进哪个画布、画布谁盖谁
+        // ============================================================
+
+        /// <summary>画布从下到上的次序（管理器按它排"同一层里谁在上面"）</summary>
+        public static readonly RevUICanvasType[] CanvasTypesBottomUp =
+        {
+            RevUICanvasType.Static, RevUICanvasType.Dynamic, RevUICanvasType.Common,
+        };
+
+        /// <summary>
+        /// 面板最终进哪个画布：单 Canvas 架构 → 一律常用；三 Canvas 架构 → 静态 / 动态只收 Scene 层，其余放回常用。
+        /// </summary>
+        public static RevUICanvasType ResolveCanvasType(RevUICanvasArchitecture architecture, RevUICanvasType declared,
+            RevUILayer layer)
+        {
+            if (architecture != RevUICanvasArchitecture.Split) return RevUICanvasType.Common;
+            if (declared != RevUICanvasType.Static && declared != RevUICanvasType.Dynamic) return RevUICanvasType.Common;
+
+            return layer == RevUILayer.Scene ? declared : RevUICanvasType.Common;
+        }
+
+        /// <summary>声明了静态 / 动态，但因为层级不是 Scene 被放回常用画布（管理器据此告警一次）</summary>
+        public static bool IsCanvasTypeDemoted(RevUICanvasArchitecture architecture, RevUICanvasType declared,
+            RevUILayer layer)
+            => architecture == RevUICanvasArchitecture.Split
+               && (declared == RevUICanvasType.Static || declared == RevUICanvasType.Dynamic)
+               && layer != RevUILayer.Scene;
+
+        /// <summary>画布在"从下到上"里的序号：静态 0、动态 1、常用 2</summary>
+        public static int CanvasStackIndex(RevUICanvasType type)
+            => type == RevUICanvasType.Static ? 0 : type == RevUICanvasType.Dynamic ? 1 : 2;
+
+        /// <summary>
+        /// 画布的排序号：常用 = 根 Canvas 本身；动态 = 根 − 1；静态 = 根 − 2。
+        /// ★ 常用画布就是根 Canvas —— 单 Canvas 架构只是"少建了两个画布"，结构不变、行为不变。
+        /// </summary>
+        public static int CanvasSortingOrder(int rootOrder, RevUICanvasType type)
+            => rootOrder - (2 - CanvasStackIndex(type));
     }
 }

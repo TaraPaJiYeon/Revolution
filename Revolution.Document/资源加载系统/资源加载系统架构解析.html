@@ -130,8 +130,8 @@
   <section id="s0">
     <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
     <pre><span class="n">①</span> 资源放到      <b>「资源根目录」</b>下（先在打包窗口里指定，如 Assets/GameRes；目录随便分，嵌套多少级都行）
-<span class="n">②</span> 给文件夹设 AB 名（Inspector 右下角）→ 菜单 <b>Revolution.Tools/资源/LiteAB 打包工具</b>
-                →「检查」页签确认没有"漏标"资源 → 一键打包
+<span class="n">②</span> 给文件夹设 AB 名（Inspector 右下角）→ 菜单 <b>Revolution.Tools/资源/RevAB 打包工具</b>
+                →「检查」页签确认没有"漏标"资源 →「打包」页签点「打包」
 <span class="n">③</span> 加载          Sprite icon = RevResManager.Load&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_1001"</span>, RevResGroup.UI);</pre>
     <p>就这三步，剩下的都是这三步的细节。</p>
   </section>
@@ -382,20 +382,24 @@ Hero/1001|hero|1001</pre>
     <h2><span class="num">4</span>打包流程与注意事项</h2>
 
     <h3>4.1 流程（一键）</h3>
-    <p>菜单 <b><code>Revolution.Tools/资源/LiteAB 打包工具</code></b>：</p>
+    <p>菜单 <b><code>Revolution.Tools/资源/RevAB 打包工具</code></b>：</p>
+    <p>六个页签：<b>打包 · 分包 · 依赖 · 体积 · 检查 · 快照</b>（「检查」的标题上直接带问题数，不用点进去就知道现在能不能打包）。「打包」页签从上到下：</p>
     <ul class="steps">
-      <li><b>① 打包配置</b>　资源根目录（必填，可拖拽）+ 分包模式 + 压缩方式 + 是否拷到 StreamingAssets</li>
-      <li><b>② 操作</b>　收集并校验 / 扫描并生成映射 / 一键打包 / 生成路径常量 / 打开 RevResPath.cs</li>
-      <li><b>③ 校验结果</b>　红色 = 必须修（阻止打包），黄色 = 建议修
+      <li><b>顶部操作栏</b>　目标平台（默认跟随当前平台，可不切平台直接打别的平台）· 输出目录（「打开」直达）· 「打包」主按钮 ·「仅生成映射」·「仅校验」</li>
+      <li><b>资源目录</b>　资源根目录（必填，可拖拽）+ 音效目录 / BGM 目录</li>
+      <li><b>分包方式</b>　使用已有标记（推荐）/ 按目录自动分包（切过去会先确认：它会清空全部手动分包）+ 排除目录 / 后缀 + 漏标检查</li>
+      <li><b>打包选项</b>　压缩方式（LZ4 / LZMA / 不压缩）· 强制重打 · 打包前清空输出 · 拷到 StreamingAssets · 版本号</li>
+      <li><b>代码生成</b>　手动生成 / 打开 RevResPath.cs、RevSoundPath.cs（默认折叠：打包和生成映射都会顺带生成）</li>
+      <li><b>校验结果</b>　红色 = 必须修（阻止打包），黄色 = 建议修；过期会提示「重新校验」；一键跳到「检查」页签
         <br><b>★「漏标」</b>（资源没设 AB 名）也在红色里 —— 它会直接中止打包，见 4.4</li>
-      <li><b>④ 打包结果</b>　产物目录</li>
-      <li><b>⑤ 依赖报告</b>　直接依赖 / 共享资源 / 循环依赖</li>
-      <li>另有五个页签　<b>分包</b>（列表 + 新建/重命名/删除 + 拖拽）/ <b>依赖</b> / <b>体积</b> / <b>检查</b> / <b>快照</b></li>
+      <li><b>打包结果</b>　平台 · 包数 · 产物体积 · 用时；「打开输出目录」「复制路径」「看产物清单」；共享资源 / 循环依赖提示</li>
     </ul>
     <div class="callout">⭐ <b>第一次使用必须先设「资源根目录」</b>：代码里没有任何默认路径。
-      没设置时「一键打包」会弹框拦住你，「生成路径常量」会打警告并跳过 —— 都不会悄悄用猜出来的目录。</div>
-    <p><b>另一个页签：「分包浏览」</b>（也可以从菜单 <code>Revolution.Tools/资源/AB 分包浏览</code> 直接打开它）</p>
-    <p>左边是包列表、右边是选中包里的资源，分包可以在这里直接做完：</p>
+      没设置时「打包」按钮是灰的、顶部红字提示，「生成路径常量」会打警告并跳过 —— 都不会悄悄用猜出来的目录。<br>
+      「目标平台」是<b>本机偏好</b>（不写进共享配置、不影响别人）；CI 打包（<code>ABCIBuild</code>）永远用当前平台。
+      选了没装构建支持的平台，按钮会变灰并提示去 Unity Hub 装模块。</div>
+    <p><b>「分包」页签</b>（也可以从菜单 <code>Revolution.Tools/资源/RevAB 分包浏览</code> 直接打开；对标 Unity 官方 AssetBundle Browser 的 Configure 页）</p>
+    <p>左边是<b>包树</b>、右上是<b>资源表</b>、右下是<b>详情</b>，两条分隔条都能拖；列宽、排序、选中、展开都会记住：</p>
     <div class="callout good">
       <b>自动同步（默认开启）</b>：Project 里拖拽、Inspector 右下角的 AssetBundle 栏、脚本批量改标记 ——
       这个窗口都会<b>自动跟着更新</b>，不必手动点刷新；顶部有「自动同步」开关和"已同步 12:03:45"状态（悬停可看上次同步原因）。
@@ -406,34 +410,41 @@ Hero/1001|hero|1001</pre>
       <table>
         <thead><tr><th style="width:32%">操作</th><th>怎么做</th></tr></thead>
         <tbody>
-          <tr><td>看现在分了哪些包</td><td>打开页签即可（<b>只读扫描，不会动你的标记</b>）</td></tr>
-          <tr><td><b>把资源加入某个包</b></td><td>从 Project 窗口把资源（或文件夹）<b>拖到左侧的包上</b>；也可以拖到右侧底部投放区（加进当前选中的包）</td></tr>
-          <tr><td>新建包</td><td>底部「新建包」→ 起名 → 创建（空包先挂在列表里，拖进资源才算真正存在）</td></tr>
-          <tr><td>重命名 / 删除包</td><td>选中包后在底部操作（删除 = 清空属于它的标记，<b>不会删资源文件</b>）</td></tr>
-          <tr><td>单独移出某个资源</td><td>右侧资源行点「移出」；若显示「继承自文件夹标记」，说明它归文件夹管，要去清那个文件夹的标记</td></tr>
-          <tr><td>在 Project 里定位</td><td>右侧资源行点「定位」</td></tr>
+          <tr><td>看现在分了哪些包</td><td>打开页签即可（<b>只读扫描，不会动你的标记</b>）；包名里的 <code>/</code> 显示成层级，每行右侧是资源数 · 体积，有问题的包带警告图标</td></tr>
+          <tr><td><b>把资源加入某个包</b></td><td>从 Project 把资源（或文件夹）<b>拖到左侧的包上</b>；或拖到右侧资源表（加进当前选中的包）</td></tr>
+          <tr><td><b>拖资源新建包</b></td><td>把资源拖到左侧<b>空白处 / 文件夹节点</b>上 = 以资源名新建一个包并放进去</td></tr>
+          <tr><td>新建空包</td><td>工具栏「新建包」/ 右键「新建包」→ 直接原地起名（空包先挂在树里，拖进资源才算真正存在）</td></tr>
+          <tr><td>重命名</td><td>选中后 <b>F2</b> 或双击；改包"文件夹" = 连同下面所有包一起改名</td></tr>
+          <tr><td>调整层级</td><td>把包拖到另一个节点上 = 挪进它下面；拖到空白处 = 挪到最外层</td></tr>
+          <tr><td>删除</td><td>选中后 <b>Delete</b>（可多选；删文件夹 = 删它下面所有包）；只清标记，<b>不会删资源文件</b></td></tr>
+          <tr><td>资源换包</td><td>在资源表里选中几行，<b>拖到左侧别的包上</b>；或右键「移到 / 某个包」</td></tr>
+          <tr><td>移出资源</td><td>资源表选中后 <b>Delete</b> / 右键「移出包」；继承自文件夹的会询问"要不要清那个文件夹的标记"</td></tr>
+          <tr><td>定位</td><td>资源表<b>双击</b>，或右键「在 Project 里定位」；包右键「在 Project 里选中包内资源」</td></tr>
+          <tr><td>看为什么在这个包里</td><td>资源表「标记来源」一列：自己标记 / 继承自哪个文件夹；右下详情还有它依赖的其他包、会被一起打进来的未分包资源</td></tr>
+          <tr><td>清理残留包名</td><td>工具栏「清理未使用包名」（改名 / 删资源后留下的空包名）</td></tr>
         </tbody>
       </table>
     </div>
     <div class="callout"><b>为什么"新建包"要先挂在列表里？</b> Unity 里包不是实体，没有"创建包"这种 API ——
       分包就是"资源身上写着属于哪个包"。所以一个<b>没有任何资源</b>的包在 Unity 里根本不存在。<br>
-      同理：「删除包」= 清空标记，「重命名」= 批量改标记（<b>文件夹也一起改</b>），否则会出现"删了包、资源却还在包里"这种怪现象。</div>
+      同理：「删除包」= 清空标记，「重命名」= 批量改标记（<b>文件夹也一起改</b>），否则会出现"删了包、资源却还在包里"这种怪现象。
+      改名 / 删除 / 换包后会自动清掉变成"没人用"的旧包名；包名一律转小写（Unity 本身就会强制小写，提前转界面才对得上）。</div>
     <div class="callout">⚠️ 如果配置里的分包模式是「按目录自动分包」，手动改的标记会在下次打包时被覆盖 —— 页签顶部会给你警告。</div>
     <p><b>另外四个页签：「依赖」「体积」「检查」「快照」</b></p>
-    <p>它们和「分包」共用同一份扫描结果（改完分包会自动失效重算；也可能被 Inspector 等别处改过，所以每个页签都有自己的「刷新」）。</p>
+    <p>它们和「分包」共用同一份扫描结果（改完分包会自动失效重算；每个页签也都有「刷新」）。包名都能点：点了跳到「分包」页签并选中它。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:16%">页签</th><th style="width:42%">看什么</th><th>怎么用它</th></tr></thead>
         <tbody>
           <tr><td><b>依赖</b></td>
-              <td>① 包 → 它依赖的包（有<b>循环依赖</b>时红色告警）<br>② <b>被多个包引用、又没分包</b>的资源</td>
-              <td>第 ② 项是体积膨胀的元凶：把它们单独打成一个共享包，通常是最省体积的一步</td></tr>
+              <td>① 包 → 它依赖的包（有<b>循环依赖</b>时红色告警，可按包名过滤）<br>② <b>被多个包引用、又没分包</b>的资源</td>
+              <td>第 ② 项是体积膨胀的元凶：点「<b>全部移进共享包…</b>」输入包名，一步把它们单独打成共享包</td></tr>
           <tr><td><b>体积</b></td>
-              <td>每个包<b>自身</b>体积 + <b>含依赖</b>体积（条形对比，可按体积 / 名字排序）<br>+ 最大的 10 个资源</td>
+              <td>每个包<b>自身</b>体积 + <b>含依赖</b>体积（条形对比，可按体积 / 名字排序）<br>+ 最大的 20 个资源</td>
               <td>一眼看出"哪个包突然变大了"；条形深色 = 自身，浅色 = 含依赖</td></tr>
           <tr><td><b>检查</b></td>
-              <td>① 同一包内资源重名（<code>LoadAsset("名字")</code> 取到哪个不确定）<br>② 逻辑路径冲突（<code>1001.prefab</code> vs <code>1001.png</code>）<br>③ 内容被复制多份<br>④ <b>没有 AB 标记的资源（漏标）</b></td>
-              <td>每条都能「定位」到 Project 里的具体文件，直接改名、拆包或补标记；第 ④ 项见 4.4</td></tr>
+              <td>① <b>没有 AB 标记的资源（漏标）</b><br>② 同一包内资源重名<br>③ 逻辑路径冲突（<code>1001.prefab</code> vs <code>1001.png</code>）<br>④ 空包名<br>⑤ 内容被复制多份</td>
+              <td>漏标可「全部加入一个包…」或「在 Project 里全选」；空包「一键清理」；共享资源「全部移进共享包…」；其余每条都能「定位」。长列表先显示 20 条</td></tr>
           <tr><td><b>快照</b></td>
               <td>与「记录的基准」或「上次打包」<b>逐包、逐资源</b>对比：新增 / 删除的包、<b>改名</b>（内容一致、只有包名变了）、<b>资源换包</b>、每个包的资源增删与体积变化</td>
               <td>想确认"我这一通改到底动了什么"就看它：先点「记录当前布局」存基准 → 改完再点「与记录的布局对比」；「与上次打包对比」不用手动记录（生成映射 / 打包时会自动留底）</td></tr>
@@ -441,20 +452,20 @@ Hero/1001|hero|1001</pre>
       </table>
     </div>
     <div class="callout">「依赖」和「体积」里的依赖分析是<b>编辑器侧估算</b>（用 <code>AssetDatabase.GetDependencies</code> 反推每个资源引用了谁，再看它归哪个包）。
-      好处是改完分包立刻能看、不用先打一次包。<br>
-      而「打包」页签里的<b>依赖报告</b>读的是 Unity 真正算出来的 <code>AssetBundleManifest</code> —— 那份更权威。
+      好处是改完分包立刻能看、不用先打一次包。资源多时这一步要几秒：页签先显示"正在分析"，下一帧带<b>可取消的进度条</b>算完，不会卡死窗口。<br>
+      而「打包」页签里打包结果的依赖提示读的是 Unity 真正算出来的 <code>AssetBundleManifest</code> —— 那份更权威。
       两者互补：一个用来<b>提前</b>发现问题，一个用来<b>事后</b>复核。</div>
 
     <div class="callout good">
       <b>「快照」报告怎么读</b>：按"重要程度"排 —— ① 概览（包数 / 资源数 / 体积各涨跌多少）② <b>改名</b> ③ 新增 / 删除的包 ④ 资源换包 ⑤ 每个包的增删明细（体积动得大的排前面）。<br>
       <b>改名</b>单独列出来是有意的：不识别的话它会显示成"删一个包 + 加一个包"，看着像资源被大搬家了（改名包里的资源也不会误报成"换包"）。<br>
-      快照存在 <code>Library/Revolution/LiteAB/</code>（不进版本库、不污染工程）：<code>layout-baseline.json</code> = 手动记录的基准，<code>layout-last-build.json</code> = 每次生成映射 / 打包自动留底的那份。<br>
+      快照存在 <code>Library/Revolution/RevAB/</code>（不进版本库、不污染工程）：<code>layout-baseline.json</code> = 手动记录的基准，<code>layout-last-build.json</code> = 每次生成映射 / 打包自动留底的那份（更名前在 <code>Library/Revolution/LiteAB/</code>，第一次用到时自动搬过来）。<br>
       ⚠️ 快照里的体积取的是<b>源文件体积</b>，不是打包后的 AB 体积 —— 它不用先打一次包就能拿到，适合边改边比。
     </div>
 
-    <p>改完分包记得回「打包」页签点一次「扫描并生成映射」：映射表（<code>ResMap.txt</code>）和 <code>RevResPath</code> 才会跟着更新，同时会<b>自动留一份「上次打包」快照</b>给「快照」页签做对比。</p>
+    <p>改完分包记得回「打包」页签点一次「仅生成映射」：映射表（<code>ResMap.txt</code>）和 <code>RevResPath</code> 才会跟着更新，同时会<b>自动留一份「上次打包」快照</b>给「快照」页签做对比。</p>
 
-    <p>「一键打包」实际做了六步：</p>
+    <p>「打包」按钮实际做了六步：</p>
     <pre>收集 AB 标记 → 校验（有 error 就中止）→ BuildPipeline.BuildAssetBundles
 → 依赖分析 → 写 ResMap.txt + BuildManifest.json → 生成路径常量 →（可选）拷到 StreamingAssets</pre>
 
@@ -520,7 +531,7 @@ Assets/StreamingAssets/PC/                  <span class="c">← 拷进来的运�
       <li>走的是<b>反向扫描</b>：从资源根目录枚举所有资源，逐个查 <code>AssetDatabase.GetImplicitAssetBundleName</code>
         （用 <code>Implicit</code> 版本，所以"只给文件夹设了标记、子文件自动继承"的资源<b>不会被误报</b>）；</li>
       <li><code>.meta</code>、<code>excludeExtensions</code>、<code>excludeFolders</code> 里的一律跳过（它们本来就不该进包，报出来只会淹掉真问题）；</li>
-      <li>发现漏标 → <b>校验报错、中止打包</b>（CI 打包同样会因此失败退出），并在「检查」页签 <b>④</b> 列出完整清单，每条都能「定位」。</li>
+      <li>发现漏标 → <b>校验报错、中止打包</b>（CI 打包同样会因此失败退出），并在「检查」页签 <b>①</b> 列出完整清单，每条都能「定位」，也可以「全部加入一个包…」一步补上。</li>
     </ul>
     <div class="table-wrap">
       <table>
@@ -785,12 +796,26 @@ RevResBootstrap.Instance.ShutdownAll();           <span class="c">// 回登录�
           <tr><td><code>Runtime\RevResourceSystem\Support\RevResScope.cs</code></td><td>资源域（<code>using</code> 自动回收）</td></tr>
           <tr><td><code>Runtime\RevResourceSystem\Implementation\Policies\*</code></td><td>三条策略：编辑器直读 / AB / Resources 兜底</td></tr>
           <tr><td><code>Runtime\RevResourceSystem\Implementation\Loaders\RevABLoader.cs</code></td><td>AB 加载（多平台路径 / 包引用计数）</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABCollector.cs</code></td><td>扫描 AB 标记 → 生成"逻辑名 → 包名+资源名"映射（含只读的<b>漏标检测</b>）</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABValidator.cs</code></td><td>打包前校验（拦截坏包 + 漏标）</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABBuilderCore.cs</code></td><td>打包 + 拷到 StreamingAssets</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABResPathGenerator.cs</code></td><td>生成 <code>RevResPath.cs</code> 目录常量（扫描资源根目录下的文件夹）</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABCIBuild.cs</code></td><td>无头打包入口（CI / 批处理：<code>-executeMethod Revolution.Editor.ABCIBuild.Build</code>）</td></tr>
-          <tr><td><code>Editor\RevResourceSystem\ABTool\ABBuildWindow.cs</code></td><td>可视化窗口（<code>Revolution.Tools/资源/LiteAB 打包工具</code>）</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\Pipeline\ABCollector.cs</code></td><td>扫描 AB 标记 → 生成"逻辑名 → 包名+资源名"映射（含只读的<b>漏标检测</b>）</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\Pipeline\ABValidator.cs</code></td><td>打包前校验（拦截坏包 + 漏标）</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\Pipeline\ABBuilderCore.cs</code></td><td>打包 + 拷到 StreamingAssets</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\CodeGen\ABResPathGenerator.cs</code></td><td>生成 <code>RevResPath.cs</code> 目录常量（扫描资源根目录下的文件夹）</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\Pipeline\ABCIBuild.cs</code></td><td>无头打包入口（CI / 批处理：<code>-executeMethod Revolution.Editor.ABCIBuild.Build</code>）</td></tr>
+          <tr><td><code>Editor\RevResourceSystem\ABTool\Window\ABBuildWindow.cs</code></td><td>可视化窗口（<code>Revolution.Tools/资源/RevAB 打包工具</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>RevAB 打包工具的目录划分</b>（<code>Editor\RevResourceSystem\ABTool\</code>，原名 LiteAB）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:20%">子目录</th><th>放什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>Core\</code></td><td>配置资产 <code>ABBuildConfig</code>、技术路径与本机偏好 <code>ABBuildSetting</code>、日志出口 <code>RevABLog</code></td></tr>
+          <tr><td><code>Pipeline\</code></td><td>打包流水线：收集 / 校验 / 打包 / 依赖分析 / 写清单 / CI 入口；窗口共用缓存 <code>ABCollectCache</code>；改标记的全部操作 <code>ABBundleEditor</code></td></tr>
+          <tr><td><code>CodeGen\</code></td><td><code>RevResPath</code> / <code>RevSoundPath</code> 生成器与纯逻辑的命名规则 <code>ResPathNaming</code></td></tr>
+          <tr><td><code>Snapshot\</code></td><td>布局快照与差异算法（<code>ABLayoutSnapshot</code> 是纯 C#，可工程外断言）</td></tr>
+          <tr><td><code>Integration\</code></td><td>与 Unity 编辑器的接缝：标记变更监视（自动同步）、Project 窗口包名角标</td></tr>
+          <tr><td><code>Window\</code></td><td>界面：窗口 <code>ABBuildWindow</code>、包树 <code>ABBundleTreeView</code>、资源表 <code>ABAssetTreeView</code>、分包页 <code>ABBundleBrowserView</code>、依赖 / 体积 / 检查 / 快照页、公共小件 <code>ABGUI</code></td></tr>
         </tbody>
       </table>
     </div>

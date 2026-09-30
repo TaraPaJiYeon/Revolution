@@ -393,6 +393,7 @@ namespace Revolution
             _states.Clear();
             _history.Clear();
             _stateTime = 0f;
+            CurrentStateType = default;            // 与 HasCurrentState = false 保持一致，不残留旧枚举值
         }
 
         /// <summary>释放：清空 + 禁用 + 解除宿主引用（对应原框架的 Dispose）</summary>

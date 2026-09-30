@@ -25,9 +25,17 @@ namespace Revolution
 
             req.completed += _ =>
             {
-                // 异步完成：写入内容并按契约回调
-                handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.FileNotExist;
-                handle.SetContent(req.asset);
+                // ResourcesRequest 本身不可中断，但取消后不得把结果写回已卸载的句柄。
+                if (token != null && token.IsCancelled)
+                {
+                    handle.ErrorReason = RevResLoadErrorReason.Cancelled;
+                    handle.MarkError();
+                }
+                else
+                {
+                    handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.FileNotExist;
+                    handle.SetContent(req.asset);
+                }
                 onFinished?.Invoke(handle);
             };
         }

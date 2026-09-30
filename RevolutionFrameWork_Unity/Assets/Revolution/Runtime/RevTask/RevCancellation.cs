@@ -14,15 +14,17 @@ namespace Revolution
     /// <summary>取消源：谁想取消，就持有它</summary>
     public sealed class RevCancellationTokenSource
     {
-        private readonly RevCancellationToken _token = new RevCancellationToken();
+        private RevCancellationToken _token = new RevCancellationToken();
 
         public RevCancellationToken Token => _token;
 
         /// <summary>标记取消：所有已注册的回调立刻执行</summary>
         public void Cancel() => _token.Cancel();
 
-        /// <summary>复位（供下一个场景复用同一个源）</summary>
-        public void Reset() => _token.Reset();
+        /// <summary>
+        /// 复位为新一代令牌。旧任务保留旧令牌（仍为 Cancelled），不会因复位而"复活"。
+        /// </summary>
+        public void Reset() => _token = new RevCancellationToken();
     }
 
     /// <summary>取消令牌：加载流程在关键节点检查它</summary>
@@ -36,7 +38,12 @@ namespace Revolution
         public void Register(Action callback)
         {
             if (callback == null) return;
-            if (IsCancelled) { callback(); return; }
+            if (IsCancelled)
+            {
+                try { callback(); }
+                catch (Exception e) { RevLog.Exception(e, "取消回调异常", "RevTask"); }
+                return;
+            }
             _callbacks = (Action)Delegate.Combine(_callbacks, callback);
         }
 
@@ -51,9 +58,15 @@ namespace Revolution
             if (IsCancelled) return;
             IsCancelled = true;
 
-            Action c = _callbacks;
+            Action callbacks = _callbacks;
             _callbacks = null;
-            c?.Invoke();
+            if (callbacks == null) return;
+
+            foreach (Action callback in callbacks.GetInvocationList())
+            {
+                try { callback(); }
+                catch (Exception e) { RevLog.Exception(e, "取消回调异常", "RevTask"); }
+            }
         }
 
         internal void Reset()

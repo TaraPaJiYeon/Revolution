@@ -48,6 +48,12 @@ namespace Revolution
         public RevUIMaskMode Mask = RevUIMaskMode.Auto;
 
         /// <summary>
+        /// 放进哪个画布（默认 Common）。只在 <c>RevUISetting.CanvasArchitecture = Split</c> 时生效；
+        /// Static / Dynamic 只用于 Scene 层（主界面、HUD），别的层声明了会自动放回常用画布并告警。
+        /// </summary>
+        public RevUICanvasType CanvasType = RevUICanvasType.Common;
+
+        /// <summary>
         /// 互斥组名：同组面板"打开新的就自动关掉旧的"（如所有背包页签共用一个组）。
         /// 留空 = 不互斥。
         /// </summary>

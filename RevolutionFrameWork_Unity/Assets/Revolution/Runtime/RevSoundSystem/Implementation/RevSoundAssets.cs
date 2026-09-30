@@ -23,7 +23,7 @@ namespace Revolution
         // ============================================================
         // 音频放哪（上层 API 只认"名字"；目录由打包工具窗口配置，运行期读常量）
         //
-        //   ① 在「Revolution.Tools/资源/LiteAB 打包工具」窗口的①配置里选两个目录
+        //   ① 在「Revolution.Tools/资源/RevAB 打包工具」窗口的①配置里选两个目录
         //      （文件夹槽 / 选择… / 默认）→ 值存进 Assets/Editor/ABBuildConfig.asset（团队共享）；
         //   ② 窗口改完自动重新生成 RevSoundPath.cs（生成到 Runtime 程序集内部，见 Generated\）；
         //   ③ 本文件读 RevSoundPath 常量 → 零运行期 IO，目录写错编译不过。

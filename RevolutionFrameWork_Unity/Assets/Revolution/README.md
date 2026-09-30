@@ -25,7 +25,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 - 🧩 **模块化** - 16 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevInput` / `RevLog` …），可单独拿走、可整块删除
 - 🧪 **可脱离 Unity 验证** - 内核是纯 C#，链接进普通 .NET 工程就能跑断言（145 条，不打开 Unity）
 - 🛡 **防漏防崩** - 句柄代际校验、`owner` / 作用域一行清理、逐回调异常隔离、失败必带原因枚举
-- 📦 **编辑器工具齐** - LiteAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
+- 📦 **编辑器工具齐** - RevAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
 - 🔧 **无第三方依赖** - 只用 Unity 官方模块
 
 ## ⚠️ 不含热更新（用前必读）
@@ -66,7 +66,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 ## ✅ 装完后的三步
 
 1. 若工程里没有 `Assets/GameRes`，新建一个（框架的**资源根目录**约定）；
-2. 菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → ① 打包配置 → 把「资源根目录」设为 `Assets/GameRes`；
+2. 菜单 `Revolution.Tools / 资源 / RevAB 打包工具` → 「打包」页签 → 资源目录 → 把「资源根目录」设为 `Assets/GameRes`；
 3. 直接 `RevSound.Play("ui_click")` / `RevTimer.After(2f, ...)` 开始写业务。
 
 > 打包配置（`Assets/Editor/ABBuildConfig.asset`）属于**本机设置**，不在仓库里 —— 文件不存在时工具会自动生成一份默认的。
@@ -87,7 +87,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 ```text
 Revolution/
 ├── Runtime/          15 个运行期模块（RevResourceSystem / RevUISystem / RevSoundSystem / RevTimer / RevLog / …）
-├── Editor/           编辑器工具（LiteAB 打包窗口、GM 指令面板）
+├── Editor/           编辑器工具（RevAB 打包窗口、GM 指令面板）
 ├── Generation/       生成的路径常量（RevResPath.cs，勿手改）
 ├── Resources/        框架自带运行时资源（ResMap.txt、UI 预制体）
 ├── package.json      UPM 包描述（com.yokino.revolution，零依赖）

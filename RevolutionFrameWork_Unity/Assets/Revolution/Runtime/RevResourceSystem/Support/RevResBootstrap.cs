@@ -61,6 +61,13 @@ namespace Revolution
 
         public void Init()
         {
+            // Init 可能是编辑器 AB 开关触发的热切换，也可能在关闭 Domain Reload 后重复执行；
+            // 先终止旧请求并用旧策略释放缓存，再替换策略，避免缓存继续返回旧来源资源。
+            RevAsyncLoadPump.CancelAll();
+            RevResPreloader.ReleaseAll();
+            RevResManager.UnloadAll();
+            _abLoader?.ReleaseAll();
+            _abLoader = null;
             RevResManager.ClearAllPolicies();
 
             // 启动"自动卸载门卫"（开发模式 / AB 模式都需要，所以放在策略注册之前）
@@ -101,7 +108,7 @@ namespace Revolution
             //   所以这里写 "ResourceSystem/ResMap"。
             //   ★ 与 ABBuildSetting.MapAssetPath 是一对，改一个必须改另一个。
             TextAsset ta = Resources.Load<TextAsset>("ResourceSystem/ResMap");
-            // 没执行过一键打包（没有映射表）→ 返回空表：
+            // 没执行过打包 / 生成映射（没有映射表）→ 返回空表：
             //   RevABResPolicy 会因查不到映射而失败 → AllowFallback → 全部落到 Resources 兜底
             if (ta == null) return map;
 
@@ -122,7 +129,7 @@ namespace Revolution
         // ==================== 清理 ====================
 
         /// <summary>
-        /// 切场景 / 退出战斗：取消在途加载 → 归还该组预加载引用 → 按组卸载 → 清理未使用表 → 复位令牌。
+        /// 切场景 / 退出战斗：取消该组任务 → 归还该组预加载引用 → 按组卸载 → 清理未使用表（取消令牌按任务独立，不需要全局复位）。
         ///
         /// 【关于 force】（配合 RevResManager.UnloadGroup 的语义）
         ///   true（默认）：连"仍被引用的也一并清账" —— 适合"整个业务域一次性销毁"，
@@ -137,23 +144,19 @@ namespace Revolution
         /// <param name="force">是否解除"还有人在用"的保护（默认 true）</param>
         public void Shutdown(RevResGroup group, bool force = true)
         {
-            RevAsyncLoadPump.CancelAll();               // ① 中断在途加载（令牌置为已取消）
+            RevAsyncLoadPump.CancelGroup(group);       // ① 只中断该业务组的等待/在途加载
             RevResPreloader.Release(group);             // ② 归还该组的"预加载持有"引用
             RevResManager.UnloadGroup(group, force);    // ③ 按业务域批量卸载
             RevResManager.FlushUnused();                // ④ 真正释放未使用资源
-
-            RevAsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌，供下一个场景使用
         }
 
         /// <summary>全部释放（退出 / 回登录）</summary>
         public void ShutdownAll()
         {
-            RevAsyncLoadPump.CancelAll();               // ① 中断在途加载
+            RevAsyncLoadPump.CancelAll();               // ① 中断所有等待/在途加载
             RevResPreloader.ReleaseAll();               // ② 归还全部预加载引用
-            _abLoader?.ReleaseAll();                 // ③ 释放所有 AB 包
-            RevResManager.UnloadAll();                  // ④ 清空缓存 + 让 Unity 回收无引用对象
-
-            RevAsyncLoadPump.Cancellation.Reset();      // ⑤ 复位令牌
+            RevResManager.UnloadAll();                  // ③ 在旧策略仍有效时清缓存并释放包级引用
+            _abLoader?.ReleaseAll();                    // ④ 最后释放主包/Manifest 与剩余包
         }
     }
 }

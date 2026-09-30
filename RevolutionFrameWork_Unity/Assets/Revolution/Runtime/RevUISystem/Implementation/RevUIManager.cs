@@ -59,6 +59,9 @@ namespace Revolution
         /// <summary>层内排序用的复用缓冲（避免每次重排都分配一个 List）</summary>
         private readonly List<RevUIPanel> _layerBuffer = new List<RevUIPanel>();
 
+        /// <summary>已经告过"画布类型被放回常用"的面板类型（每类只告一次）</summary>
+        private readonly HashSet<Type> _canvasTypeWarned = new HashSet<Type>();
+
         private RevUIRoot _root;
         private bool _layoutDirty;
 
@@ -203,7 +206,9 @@ namespace Revolution
         private RevUIPanel InstantiatePanel(RevUIPanelMeta meta, object data, GameObject prefab,
             List<Action<RevUIPanel>> callbacks)
         {
-            GameObject go = UnityEngine.Object.Instantiate(prefab, _root.GetLayer(meta.Layer), false);
+            // ★ 挂到哪：单 Canvas → 对应层挂点；三 Canvas → 静态 / 动态画布（仅 Scene 层）或常用画布的层挂点
+            RevUICanvasType canvasType = ResolveCanvasType(meta);
+            GameObject go = UnityEngine.Object.Instantiate(prefab, _root.GetPanelParent(meta.Layer, canvasType), false);
             go.name = meta.Name;
 
             // ★ 统一 UI 图层：Camera 模式下相机的 Culling Mask 只认这个图层，漏了就是"面板开了但看不见"
@@ -221,12 +226,31 @@ namespace Revolution
                 return null;
             }
 
+            panel.CanvasType = canvasType;
             panel.InternalSetup(meta);
             Register(panel);
             if (data != null) panel.SetData(data);
 
             panel.InternalOpen(() => InvokeAll(callbacks, panel));
             return panel;
+        }
+
+        /// <summary>
+        /// 面板最终进哪个画布（规则见 <see cref="RevUILayerUtil.ResolveCanvasType"/>）。
+        /// 声明了静态 / 动态却不在 Scene 层 → 放回常用画布，并**每个面板类型只告警一次**（否则会被 Loading 条这类场景刷屏）。
+        /// </summary>
+        private RevUICanvasType ResolveCanvasType(RevUIPanelMeta meta)
+        {
+            RevUICanvasArchitecture architecture = _root.Architecture;
+
+            if (RevUILayerUtil.IsCanvasTypeDemoted(architecture, meta.CanvasType, meta.Layer) &&
+                _canvasTypeWarned.Add(meta.PanelType))
+                RevUILog.Warning(
+                    $"{meta.PanelType.Name} 声明了 CanvasType = {meta.CanvasType}，但它在 {meta.Layer} 层 → 已放进常用画布。\n" +
+                    "  静态 / 动态画布整体排在常用画布之下，只收 Scene 层（主界面、HUD）；" +
+                    "其它层放进去会被常用画布里的界面盖住。要么把层级改成 Scene，要么去掉 CanvasType。");
+
+            return RevUILayerUtil.ResolveCanvasType(architecture, meta.CanvasType, meta.Layer);
         }
 
         private void Register(RevUIPanel panel)
@@ -338,15 +362,20 @@ namespace Revolution
         /// <summary>关掉某层最上面那个"带遮罩的"面板（点遮罩时用）</summary>
         internal bool CloseTopOf(RevUILayer layer)
         {
+            // "最上面" = 视觉上最上面：先比画布（三 Canvas 下静态 < 动态 < 常用），再比打开顺序
+            RevUIPanel top = null;
+            int topCanvas = -1;
             for (int i = _openOrder.Count - 1; i >= 0; i--)
             {
                 RevUIPanel panel = _openOrder[i];
                 if (panel.Layer != layer) continue;
                 if (panel.Meta == null || panel.Meta.MaskResolved != RevUIMaskMode.ClickBlock) continue;
-                return Close(panel);
+
+                int canvas = RevUILayerUtil.CanvasStackIndex(panel.CanvasType);
+                if (canvas > topCanvas) { top = panel; topCanvas = canvas; }
             }
 
-            return false;
+            return top != null && Close(top);
         }
 
         private void Unregister(RevUIPanel panel)
@@ -441,6 +470,9 @@ namespace Revolution
         /// <summary>
         /// 重排：层内的兄弟顺序（决定谁在上面）、遮罩位置、以及"被盖住"通知。
         /// ★ 从上往下扫：高层只要有带遮罩的面板，下面所有层的面板都算被盖住。
+        /// ★ 三 Canvas 架构下，同一层（只可能是 Scene 层）的面板分在不同画布里：
+        ///   视觉上"静态画布 < 动态画布 < 常用画布"，画布内才按打开顺序 —— 所以先按画布、再按打开顺序排。
+        ///   单 Canvas 架构下所有面板都在常用画布，结果与"只按打开顺序"完全一致。
         /// </summary>
         private void ApplyLayerLayout()
         {
@@ -449,16 +481,20 @@ namespace Revolution
             for (int li = RevUILayerUtil.All.Length - 1; li >= 0; li--)
             {
                 RevUILayer layer = RevUILayerUtil.All[li];
-                RectTransform layerParent = _root.GetLayer(layer);
 
-                // ① 收集本层已打开的面板（顺序 = 打开顺序 = 从下到上）
+                // ① 收集本层已打开的面板，排成"视觉上从下到上"：先按画布（静态 → 动态 → 常用），画布内按打开顺序
                 _layerBuffer.Clear();
-                for (int i = 0; i < _openOrder.Count; i++)
-                    if (_openOrder[i].Layer == layer) _layerBuffer.Add(_openOrder[i]);
+                for (int ci = 0; ci < RevUILayerUtil.CanvasTypesBottomUp.Length; ci++)
+                {
+                    RevUICanvasType canvasType = RevUILayerUtil.CanvasTypesBottomUp[ci];
+                    for (int i = 0; i < _openOrder.Count; i++)
+                        if (_openOrder[i].Layer == layer && _openOrder[i].CanvasType == canvasType)
+                            _layerBuffer.Add(_openOrder[i]);
+                }
 
                 if (_layerBuffer.Count == 0)
                 {
-                    _root.Mask.Apply(layer, layerParent, null);        // 本层空了，遮罩收掉
+                    _root.Mask.Apply(layer, null);                     // 本层空了，遮罩收掉
                     continue;
                 }
 
@@ -470,11 +506,18 @@ namespace Revolution
                     if (meta != null && meta.MaskResolved == RevUIMaskMode.ClickBlock) { maskIndex = i; break; }
                 }
 
-                // ③ 排兄弟顺序：面板按打开顺序；遮罩插到"提供遮罩那个面板"的正下方
+                // ③ 排兄弟顺序：每个父节点（层挂点 / 静态画布 / 动态画布）里各自从 0 排起；
+                //    遮罩插到"提供遮罩那个面板"的正下方（遮罩会跟着它换父节点）
+                Transform currentParent = null;
+                int sibling = 0;
                 for (int i = 0; i < _layerBuffer.Count; i++)
-                    _layerBuffer[i].transform.SetSiblingIndex(i);
+                {
+                    Transform t = _layerBuffer[i].transform;
+                    if (t.parent != currentParent) { currentParent = t.parent; sibling = 0; }
+                    t.SetSiblingIndex(sibling++);
+                }
 
-                _root.Mask.Apply(layer, layerParent, maskIndex < 0 ? null : _layerBuffer[maskIndex]);
+                _root.Mask.Apply(layer, maskIndex < 0 ? null : _layerBuffer[maskIndex]);
 
                 // ④ 被盖住通知：本层里位于遮罩提供者之下的面板 + （更高层有遮罩时）本层全部
                 for (int i = 0; i < _layerBuffer.Count; i++)
@@ -568,7 +611,9 @@ namespace Revolution
         public string DumpStats()
         {
             var sb = new StringBuilder();
-            sb.Append("RevUI：打开中 ").Append(_opened.Count)
+            bool split = _root != null && _root.Architecture == RevUICanvasArchitecture.Split;
+
+            sb.Append("RevUI（").Append(split ? "三 Canvas 动静分离" : "单 Canvas").Append("）：打开中 ").Append(_opened.Count)
               .Append(" 个，加载中 ").Append(_loading.Count)
               .Append(" 个，池中 ").Append(_pool.Count).Append(" 个\n");
 
@@ -578,8 +623,9 @@ namespace Revolution
                 for (int i = 0; i < _openOrder.Count; i++)
                 {
                     RevUIPanel panel = _openOrder[i];
-                    sb.Append("  [").Append(panel.Layer).Append("] ").Append(panel.PanelKey)
-                      .Append("  ").Append(panel.State);
+                    sb.Append("  [").Append(panel.Layer);
+                    if (split) sb.Append('/').Append(panel.CanvasType);
+                    sb.Append("] ").Append(panel.PanelKey).Append("  ").Append(panel.State);
 
                     if (panel.IsCovered) sb.Append("（被上层遮罩盖住）");
                     if (panel.Meta != null && panel.Meta.ExclusiveGroup != null)

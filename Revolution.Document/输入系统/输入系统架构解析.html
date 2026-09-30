@@ -4,37 +4,140 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>输入系统 · 架构解析</title>
-<link rel="stylesheet" href="../assets/docs.css">
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  .steps{counter-reset:st;list-style:none;padding:0;margin:8px 0;}
+  .steps li{position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border);}
+  .steps li:last-child{border-bottom:0;}
+  .steps li::before{counter-increment:st;content:counter(st);position:absolute;left:0;top:11px;
+    width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
 </head>
 <body>
 
 <header class="hero">
   <div class="wrap">
-    <span class="kicker">架构解析 · 设计与实现论证</span>
+    <span class="kicker">架构解析</span>
     <h1>输入系统 · 架构解析</h1>
-    <p>这份文档回答"<b>为什么这么设计</b>"：分层怎么切、一帧到底做了什么、每个决定放弃了什么。</p>
-    <p class="meta">目标读者：要改这套输入的人、要做技术选型的人、要给同事讲清取舍的人。</p>
+    <p>覆盖：<code>Assets\Revolution\Runtime\RevInput\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Implementation\</code> + <code>Support\</code>）</p>
+    <p class="meta">目标：看完能说清"分层怎么切 → 一帧到底做了什么 → 每个决定放弃了什么"，适合要改这套输入、要做技术选型、要给同事讲清取舍的人</p>
   </div>
-  <div class="deco"></div>
 </header>
 
 <main>
 
   <nav class="toc">
     <ol>
+      <li><a href="#s0">〇、最短路径（三句话）</a></li>
       <li><a href="#s1">一、定位：通用输入系统，不是帧同步输入</a></li>
       <li><a href="#s2">二、分层与文件地图</a></li>
       <li><a href="#s3">三、一帧到底做了什么</a></li>
-      <li><a href="#s4">四、十个关键设计决策</a></li>
+      <li><a href="#s4">四、十一个关键设计决策</a></li>
       <li><a href="#s5">五、与参考实现的对照</a></li>
       <li><a href="#s6">六、验收（都是跑出来的）</a></li>
       <li><a href="#s7">七、本期没做的（可扩展）</a></li>
     </ol>
   </nav>
 
+  <!-- ==================== 〇 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <pre><span class="n">①</span> 绑定     RevInput.Bind(<span class="s">"Jump"</span>, RevKey.Space, RevKey.JoystickButton0);   <span class="c">// 业务只认动作名，不认键位</span>
+<span class="n">②</span> 订阅     RevInput.OnPressed(<span class="s">"Jump"</span>, Jump, owner: <span class="k">this</span>);               <span class="c">// 或 AddListener(this) 一次收全部</span>
+<span class="n">③</span> 退订     RevInput.OffAllOf(<span class="k">this</span>);                                    <span class="c">// 事件 + 屏蔽一起清</span></pre>
+    <p>就这三步。剩下的都是这三步背后的设计取舍。</p>
+  </section>
+
+  <!-- ==================== 一 ==================== -->
   <section id="s1">
-    <h2><span class="num">一</span>定位：通用输入系统，不是帧同步输入</h2>
-    <p class="lead">先说清边界，否则后面每条设计都会被问"为什么不按帧同步那套来"。</p>
+    <h2><span class="num">1</span>定位：通用输入系统，不是帧同步输入</h2>
+    <p>先说清边界，否则后面每条设计都会被问"为什么不按帧同步那套来"。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>维度</th><th>为<b>帧同步</b>设计的输入方案</th><th><b>本框架（通用）</b></th></tr></thead>
@@ -49,11 +152,16 @@
         </tbody>
       </table>
     </div>
-    <p>&gt; 结论：<b>可复用的是"机制"（设备抽象、来源仲裁、采集与判定分离、零分配、手感参数化），不可复用的是"为确定性付出的代价"</b>（帧命令、整数载荷、帧号节拍、可靠性通道）。本模块只搬前者。</p>
+    <div class="callout">
+      <span class="t">结论</span>
+      <b>可复用的是"机制"（设备抽象、来源仲裁、采集与判定分离、零分配、手感参数化），不可复用的是"为确定性付出的代价"</b>（帧命令、整数载荷、帧号节拍、可靠性通道）。本模块只搬前者。
+    </div>
   </section>
+
+  <!-- ==================== 二 ==================== -->
   <section id="s2">
-    <h2><span class="num">二</span>分层与文件地图</h2>
-    <pre style="margin:10px 0 6px">RevInput/
+    <h2><span class="num">2</span>分层与文件地图</h2>
+    <pre>RevInput/
 ├── Core/            纯 C#（零引擎依赖，可脱机断言）
 │   ├── RevInputDefines    词汇表：设备类型 / 相位 / 手势 / 屏蔽 / 错误码 / 全部默认值
 │   ├── RevInputCodes      键位码表（名字对齐 Unity KeyCode）+ RevKeyMask（零分配键位掩码）
@@ -72,11 +180,16 @@
     ├── RevInputUnityDevice   默认设备：键鼠 / 触屏 / 手柄 → 快照
     ├── RevInputUnityHooks    进 Play 复位 / 日志接线 / UI 命中判定
     └── RevInputScope         作用域：出块自动解除屏蔽 + 退订事件</pre>
-    <p><b>一句验收口径</b>：<code>Core/</code> 与 <code>Implementation/</code> 里<b>没有任何</b> <code>UnityEngine</code> / <code>KeyCode</code> / <code>Time.</code> / <code>Input.</code> / <code>#if UNITY_*</code> ——</p>
-    <p>所以能把这些文件直接链接进普通 .NET 工程跑断言（见第六节）。</p>
+    <div class="callout good">
+      <span class="t">一句验收口径</span>
+      <code>Core/</code> 与 <code>Implementation/</code> 里<b>没有任何</b> <code>UnityEngine</code> / <code>KeyCode</code> / <code>Time.</code> / <code>Input.</code> / <code>#if UNITY_*</code> ——
+      所以能把这些文件直接链接进普通 .NET 工程跑断言（见第 6 节）。
+    </div>
   </section>
+
+  <!-- ==================== 三 ==================== -->
   <section id="s3">
-    <h2><span class="num">三</span>一帧到底做了什么</h2>
+    <h2><span class="num">3</span>一帧到底做了什么</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>#</th><th>步骤</th><th>在哪</th><th>关键点</th></tr></thead>
@@ -101,8 +214,10 @@
       <li><b>事件驱动与轮询同帧同源</b>：监听者、<code>OnPressed</code> 这类委托、轮询 API 读的是同一份状态；而 ⑦⑧⑨ 在"没有订阅者 / 没有监听者"时<b>提前 return，零开销</b>（不影响逐帧性能）。</li>
     </ul>
   </section>
+
+  <!-- ==================== 四 ==================== -->
   <section id="s4">
-    <h2><span class="num">四</span>十个关键设计决策</h2>
+    <h2><span class="num">4</span>十一个关键设计决策</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>#</th><th>决定</th><th>为什么</th><th>代价</th></tr></thead>
@@ -122,10 +237,13 @@
       </table>
     </div>
   </section>
+
+  <!-- ==================== 五 ==================== -->
   <section id="s5">
-    <h2><span class="num">五</span>与参考实现的对照</h2>
-    <p class="lead">参考实现是一套为帧同步设计的输入体系（分层清晰、手感观测做得很扎实）。这里逐条说明"借鉴了什么 / 为什么没搬 / 补了什么"。</p>
-    <p><b>借鉴过来的机制</b></p>
+    <h2><span class="num">5</span>与参考实现的对照</h2>
+    <p>参考实现是一套为帧同步设计的输入体系（分层清晰、手感观测做得很扎实）。这里逐条说明"借鉴了什么 / 为什么没搬 / 补了什么"。</p>
+
+    <h3>5.1 借鉴过来的机制</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th>机制</th><th>在本框架里落成</th></tr></thead>
@@ -139,7 +257,8 @@
         </tbody>
       </table>
     </div>
-    <p><b>刻意没有搬过来的</b></p>
+
+    <h3>5.2 刻意没有搬过来的</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th>帧同步的做法</th><th>为什么不要</th></tr></thead>
@@ -153,7 +272,8 @@
         </tbody>
       </table>
     </div>
-    <p><b>参考实现缺、本模块补上的（这类最多）</b></p>
+
+    <h3>5.3 参考实现缺、本模块补上的（这类最多）</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th>补的东西</th><th>解决的问题</th></tr></thead>
@@ -170,8 +290,10 @@
       </table>
     </div>
   </section>
+
+  <!-- ==================== 六 ==================== -->
   <section id="s6">
-    <h2><span class="num">六</span>验收（都是跑出来的）</h2>
+    <h2><span class="num">6</span>验收（都是跑出来的）</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>项</th><th>结果</th></tr></thead>
@@ -186,8 +308,10 @@
       </table>
     </div>
   </section>
+
+  <!-- ==================== 七 ==================== -->
   <section id="s7">
-    <h2><span class="num">七</span>本期没做的（可扩展）</h2>
+    <h2><span class="num">7</span>本期没做的（可扩展）</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
@@ -204,7 +328,8 @@
 </main>
 
 <footer>
-  Revolution · 输入系统 &nbsp;|&nbsp; 本文是“设计论证”版；想学怎么用请看同目录的《使用说明》 &nbsp;|&nbsp; <a href=https://yokino337088.github.io/Revolution/>在线文档站</a>
+  Revolution · 输入系统　|　本文是"设计论证"版；想学怎么用请看同目录的《使用说明》　|　
+  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 
 </body>

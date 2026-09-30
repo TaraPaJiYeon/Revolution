@@ -1,6 +1,6 @@
-// RevWaitSteps.cs —— 三种等待步骤：等秒数 / 等帧数 / 等条件（可带超时保护）
+// RevWaitSteps.cs —— 等待步骤：等秒数 / 等帧数 / 等条件（可带超时保护）/ 补间（Tween）
 // 【机制】挂起的步骤由引擎每帧调一次 IsCompleted，返回 true 才放行。
-// 【为什么要超时】条件万一永不成立会永久卡住（原体系的典型事故）→ 超时 = 放行（静默放行，框架自身不打日志）。
+// 【为什么要超时】条件万一永不成立会永久卡住（原体系的典型事故）→ 超时 = 放行 + 打一条告警（写明哪条序列、哪一步）。
 
 using System;
 
@@ -21,6 +21,8 @@ namespace Revolution
 
         /// <inheritdoc/>
         public override string Name { get; }
+
+        internal override bool IsBlocking => _seconds > 0f;
 
         internal RevWaitSecondsStep(string name, float seconds)
         {
@@ -59,6 +61,8 @@ namespace Revolution
         /// <inheritdoc/>
         public override string Name { get; }
 
+        internal override bool IsBlocking => _frames > 0;
+
         internal RevWaitFramesStep(string name, int frames)
         {
             Name = name;
@@ -82,8 +86,8 @@ namespace Revolution
 
     /// <summary>
     /// 等条件成立（可选超时保护）——最通用的阻塞步骤。
-    /// <para>超时不是"失败"，而是"放行 + 告警"：宁可让流程继续，也不让一条序列永远卡住
-    /// （原体系里"序列执行一半停了"最常见的根因就是某个节点永远不返回 true，见 05 文档的常见错误表）。</para>
+    /// <para>超时不是"失败"，而是"放行 + 告警"：宁可让流程继续，也不让一条序列永远卡住。
+    /// 超时要做点别的（上报、切失败分支的标志位），就传 <c>onTimeout</c>。</para>
     /// </summary>
     internal sealed class RevWaitUntilStep : RevStepBase
     {
@@ -94,15 +98,20 @@ namespace Revolution
 
         private readonly Func<RevSequenceContext, bool> _predicate;
         private readonly float _timeoutSeconds;     // <= 0 表示不超时
+        private readonly Action<RevSequenceContext> _onTimeout;
 
         /// <inheritdoc/>
         public override string Name { get; }
 
-        internal RevWaitUntilStep(string name, Func<RevSequenceContext, bool> predicate, float timeoutSeconds)
+        internal override bool IsBlocking => true;
+
+        internal RevWaitUntilStep(string name, Func<RevSequenceContext, bool> predicate, float timeoutSeconds,
+                                  Action<RevSequenceContext> onTimeout = null)
         {
             Name = name;
-            _predicate = predicate ?? throw new ArgumentNullException(nameof(predicate));
+            _predicate = predicate ?? throw new ArgumentNullException(nameof(predicate), $"等待步骤「{name}」需要一个条件");
             _timeoutSeconds = timeoutSeconds;
+            _onTimeout = onTimeout;
         }
 
         /// <inheritdoc/>
@@ -119,10 +128,69 @@ namespace Revolution
 
             if (_timeoutSeconds <= 0f) return false;            // 没配超时：一直等
 
-            // 超时 = 放行（避免序列永久卡死）。框架自身不打日志：要感知"某步超时了"，
-            // 请在谓词里把业务自己的失败标志一起读出来，或用 .Do(...) 里自行上报。
             State state = GetState<State>(run);
-            return state != null && run.Elapsed - state.StartTime >= _timeoutSeconds;
+            if (state == null) return true;
+            if (run.Elapsed - state.StartTime < _timeoutSeconds) return false;
+
+            // 超时 = 放行（避免序列永久卡死），并告诉你是哪一步
+            if (_onTimeout != null) _onTimeout(context);
+            else RevLog.Warn($"[动作序列] {run.Where} 等了 {_timeoutSeconds:0.##}s 条件仍未成立 → 超时放行" +
+                             "（要自己处理超时请传 onTimeout）", RevSequenceRunner.LogTag);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 补间步骤：在 <c>duration</c> 秒内每帧回调一次进度 t（0 → 1，已按缓动曲线换算），最后一帧必然是 1。
+    /// <para>"随时间变化"的表现（移动、缩放、淡入淡出、镜头推拉、数字滚动）用它就够了，不用写自定义步骤。</para>
+    /// </summary>
+    internal sealed class RevTweenStep<TFrom> : RevStepBase
+    {
+        private sealed class State
+        {
+            public float StartTime;
+            public TFrom From;              // begin 返回的起始值（泛型字段 → 值类型也不装箱）
+        }
+
+        private readonly float _duration;
+        private readonly RevEase _ease;
+        private readonly Func<RevSequenceContext, TFrom> _begin;
+        private readonly Action<RevSequenceContext, TFrom, float> _update;
+
+        /// <inheritdoc/>
+        public override string Name { get; }
+
+        internal override bool IsBlocking => _duration > 0f;
+
+        internal RevTweenStep(string name, float duration, RevEase ease,
+                              Func<RevSequenceContext, TFrom> begin, Action<RevSequenceContext, TFrom, float> update)
+        {
+            Name = name;
+            _duration = duration;
+            _ease = ease;
+            _begin = begin;
+            _update = update ?? throw new ArgumentNullException(nameof(update), $"补间步骤「{name}」需要每帧的更新回调");
+        }
+
+        /// <inheritdoc/>
+        public override void Execute(RevSequenceRun run, RevSequenceContext context)
+        {
+            State state = GetOrCreateState<State>(run);
+            state.StartTime = run.Elapsed;
+            state.From = _begin != null ? _begin(context) : default;
+        }
+
+        /// <inheritdoc/>
+        public override bool IsCompleted(RevSequenceRun run, RevSequenceContext context)
+        {
+            State state = GetState<State>(run);
+            if (state == null) return true;
+
+            float linear = _duration <= 0f ? 1f : (run.Elapsed - state.StartTime) / _duration;
+            if (linear > 1f) linear = 1f;
+
+            _update(context, state.From, RevEasing.Evaluate(_ease, linear));
+            return linear >= 1f;
         }
     }
 }

@@ -75,7 +75,7 @@ namespace Revolution
         {
             RevPoolCore<T> pool = GetOrCreatePool<T>(variant);
             pool.Capacity = capacity;
-            pool.Trim(capacity);
+            if (capacity > 0) pool.Trim(capacity);           // 0 = 不限，不能按 0 裁剪（会把空闲清空）
         }
 
         /// <summary>统一设置所有池（含以后新建的池）的空闲上限。</summary>
@@ -86,7 +86,7 @@ namespace Revolution
             foreach (KeyValuePair<RevPoolKey, IRevPool> pair in _pools)
             {
                 pair.Value.Capacity = capacity;
-                pair.Value.Trim(capacity);
+                if (capacity > 0) pair.Value.Trim(capacity); // 0 = 不限，不能按 0 裁剪（会把空闲清空）
             }
         }
 

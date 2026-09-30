@@ -321,6 +321,11 @@ RevUI.Get&lt;DetailPanel&gt;()?.SetData(<span class="k">new</span> DetailData { 
 
   <section id="s6">
       <h3>UI 根 Canvas 从哪来（默认：加载框架自带预制体）</h3>
+    <div class="callout good">
+      <span class="t">架构建议：先使用单 Canvas。</span>
+      默认 <code>RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Single</code>，无需额外设置；即使面板里有动画、倒计时或滚动内容，只要在目标设备上满足帧预算，就继续使用单 Canvas。
+      只有定位到 Canvas 合批确实成为瓶颈，且常规优化后仍不达标，才按下文步骤评估三 Canvas。
+    </div>
     <ul>
       <li><b>默认渲染模式是 <code>ScreenSpaceOverlay</code></b> ✓（不需要相机、UI 永远最上层）—— 要改就设 <code>RevUISetting.CanvasMode</code>；</li>
       <li>框架<b>默认加载</b> <code>Resources/RevUIPrefab/RevUICanvas.prefab</code> 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；</li>
@@ -343,6 +348,31 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
         </tbody>
       </table>
     </div>
+
+    <h3>什么时候才切换到三 Canvas？</h3>
+    <div class="callout good"><span class="t">优先坚持默认的单 Canvas。</span>不要仅因为有倒计时、动画或多个面板就切换。</div>
+    <ol class="steps">
+      <li>在目标机型的典型场景中用 Profiler 测量 UI 合批（<code>Canvas.BuildBatch</code>）、重建 / 布局（<code>Canvas.SendWillRenderCanvases</code>）与总帧时间，记录帧率、Draw Call 和项目自己的帧预算。</li>
+      <li>若超预算，先解决无意义的逐帧文本 / 布局更新、过多的射线检测、持续运行的动画以及长列表没有虚拟化等问题，按<b>同一测试条件</b>复测。若达到目标，继续使用单 Canvas。</li>
+      <li>只有确定 <b>Canvas 合批仍是主要瓶颈</b>，且单 Canvas 优化后仍不达标，才在<b>第一次打开面板之前</b>启用三 Canvas：</li>
+    </ol>
+    <pre>RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split;
+
+[RevUIPanel(<span class="s">"UI/Main"</span>, RevUILayer.Scene, CanvasType = RevUICanvasType.Static)]
+<span class="k">public sealed class</span> MainBackgroundPanel : RevUIPanel
+{
+    <span class="k">protected override void</span> OnBindView() { }
+}
+
+[RevUIPanel(<span class="s">"UI/Main"</span>, RevUILayer.Scene, CanvasType = RevUICanvasType.Dynamic)]
+<span class="k">public sealed class</span> MainHudPanel : RevUIPanel
+{
+    <span class="k">protected override void</span> OnBindView() { }
+}</pre>
+    <p><code>Static</code> 放常驻且基本不变的 Scene 内容，<code>Dynamic</code> 放常驻且频繁变化的 Scene 内容；<code>Common</code>（默认）放其余所有面板。
+    现有混合静态/动态内容的预制体若要分到两个画布，需要拆成两个 Scene 面板，<b>只配置一个属性不会自动把面板内部控件分离</b>。
+    <code>Normal</code> / <code>Popup</code> / <code>Toast</code> / <code>Guide</code> / <code>Top</code> 声明成 <code>Static</code> 或 <code>Dynamic</code> 会被放回 <code>Common</code> 并告警，以保证弹窗和引导遮罩位于最上层。
+    切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见<a href="UI系统架构解析.html#s4-12">《架构解析》4.12</a>。</p>
 
     <h3>面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）</h3>
     <p>框架自带一套 <b>UI 专用</b>的轻量动画库（代码在 <code>Runtime\RevUISystem\Animation\</code>，入口 <code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。</p>

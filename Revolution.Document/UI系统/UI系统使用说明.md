@@ -306,6 +306,8 @@ true
 
 ### UI 根 Canvas 从哪来（默认：加载框架自带预制体）
 
+> **架构建议：先使用单 Canvas。** 默认 `RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Single`，无需额外设置；即使面板里有动画、倒计时或滚动内容，只要在目标设备上满足帧预算，就继续使用单 Canvas。只有定位到 Canvas 合批确实成为瓶颈，且常规优化后仍不达标，才按下文步骤评估三 Canvas。
+
 - **默认渲染模式是 `ScreenSpaceOverlay`** ✓（不需要相机、UI 永远最上层）—— 要改就设 `RevUISetting.CanvasMode`；
 - 框架**默认加载** `Resources/RevUIPrefab/RevUICanvas.prefab` 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；
 - **载不到就代码兜底** ✓：预制体缺失或路径写错时，框架自己建 Canvas + CanvasScaler + GraphicRaycaster，并打一条 Warning 说明原因 —— 不会出现"整屏 UI 起不来"；
@@ -325,6 +327,32 @@ RevUISetting.CanvasPlaneDistance = 100f;
 | 在预制体里自己调渲染模式 | `RevUISetting.CanvasMode = RevUICanvasMode.Auto`（Auto = 跟随预制体） |
 | UI 要被 3D 挡住 / 进 RenderTexture | 见上面那三行 |
 | 六层挂点放哪 | 框架自己建（预制体里**不要**放六个层级节点） |
+
+### 什么时候才切换到三 Canvas？
+
+**优先坚持默认的单 Canvas**，不要仅因为有倒计时、动画或多个面板就切换。按以下顺序决策：
+
+1. 在目标机型的典型场景中用 Profiler 测量 UI 合批（`Canvas.BuildBatch`）、重建 / 布局（`Canvas.SendWillRenderCanvases`）与总帧时间，记录帧率、Draw Call 和项目自己的帧预算。
+2. 若超预算，先解决无意义的逐帧文本 / 布局更新、过多的射线检测、持续运行的动画以及长列表没有虚拟化等问题，按**同一测试条件**复测。若达到目标，继续使用单 Canvas。
+3. 只有确定 **Canvas 合批仍是主要瓶颈**，且单 Canvas 优化后仍不达标，才在**第一次打开面板之前**启用三 Canvas：
+
+```csharp
+RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split;
+
+[RevUIPanel("UI/Main", RevUILayer.Scene, CanvasType = RevUICanvasType.Static)]
+public sealed class MainBackgroundPanel : RevUIPanel
+{
+    protected override void OnBindView() { }
+}
+
+[RevUIPanel("UI/Main", RevUILayer.Scene, CanvasType = RevUICanvasType.Dynamic)]
+public sealed class MainHudPanel : RevUIPanel
+{
+    protected override void OnBindView() { }
+}
+```
+
+`Static` 放常驻且基本不变的 Scene 内容，`Dynamic` 放常驻且频繁变化的 Scene 内容；`Common`（默认）放其余所有面板。现有混合静态/动态内容的预制体若要分到两个画布，需要拆成两个 Scene 面板，**只配置一个属性不会自动把面板内部控件分离**。`Normal` / `Popup` / `Toast` / `Guide` / `Top` 声明成 `Static` 或 `Dynamic` 会被放回 `Common` 并告警，以保证弹窗和引导遮罩位于最上层。切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见[《架构解析》4.12](UI系统架构解析.md)。
 
 ### 面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）
 

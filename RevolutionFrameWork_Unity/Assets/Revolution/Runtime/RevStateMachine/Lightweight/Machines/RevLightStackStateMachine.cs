@@ -28,9 +28,9 @@
 // 【注册（可选）—— 同单机：类型当键】
 //   启动时 Register(状态实例) 一次，之后可用 Push<TState>() / Change<TState>() 按类型操作：
 //     · 键用「类型」而不是枚举（要"枚举 + 条件判断"请用重量级 RevHeavyFsm）；
-//     · 注册的实例是复用的，但【同一个实例不能连着压两次】—— 栈里会出现同一个对象两份，
-//       Pop 时会对它先 OnExit 再 OnResume。框架直接拒绝这种压栈；
-//       确需连压两次，请用工厂注册：Register<TState>(() => new TState())；
+//     · 注册的实例是复用的，但【同一个实例不能同时出现在栈里两层】——
+//       无论栈顶还是更深层，Push 都会直接拒绝（Pop 时序会错乱）；
+//       确需压多层，请用工厂注册：Register<TState>(() => new TState())；
 //     · 未注册就按类型操作 → 立刻抛异常（编程错误不静默）；
 //     · 注册与直接传实例可以混用：Pop() 弹出的是实例本身，任何来源都一样。
 //
@@ -117,17 +117,19 @@ namespace Revolution
         /// 压栈：旧栈顶 OnSuspend → 新状态 OnEnter。
         /// </summary>
         /// <exception cref="InvalidOperationException">
-        /// 在状态回调里调用时抛出（防重入）；或压入的实例就是当前栈顶（栈里会出现同一个对象两份）
+        /// 在状态回调里调用时抛出（防重入）；或压入的实例已在栈中任意一层（栈里会出现同一个对象多份）
         /// </exception>
         public void Push(T state)
         {
             if (state == null) return;
 
-            if (ReferenceEquals(Current, state))
+            // ★ 整条栈查重（不只栈顶）：同一个实例同时出现在两层，
+            //   Pop 时会出现"对同一对象先 OnExit、再 OnResume/再 OnExit"的错乱时序。
+            if (ContainsInstance(state))
                 throw new InvalidOperationException(
-                    $"[RevLightStackStateMachine] {state.GetType().Name} 已经在栈顶，不能把同一个实例再压一次" +
-                    "（栈里会出现同一个对象两份，Pop 时会对它先 OnExit 再 OnResume）。" +
-                    "确需连压两次请用工厂注册：Register<TState>(() => new TState())。");
+                    $"[RevLightStackStateMachine] {state.GetType().Name} 已经在栈里（栈顶或更深层），不能把同一个实例再压一次" +
+                    "（栈里会出现同一个对象多份，Pop 时序会错乱）。" +
+                    "确需压多层请用工厂注册：Register<TState>(() => new TState())。");
 
             BeginTransition(nameof(Push));
             try
@@ -204,6 +206,11 @@ namespace Revolution
         public void Clear()
         {
             BeginTransition(nameof(Clear));
+
+            // 事件统一挪到交割结束后再触发（与 Push/Pop/Change 一致）：
+            // 否则监听器在 StatePopped 里操作栈会被防重入误伤。
+            List<T> popped = _stack.Count > 0 ? new List<T>(_stack.Count) : null;
+
             try
             {
                 while (_stack.Count > 0)
@@ -211,16 +218,20 @@ namespace Revolution
                     T top = _stack.Peek();
                     top.OnExit();                  // 先退出，再出栈（与 Pop 保持一致的时序）
                     _stack.Pop();
-                    StatePopped?.Invoke(top);
+                    popped?.Add(top);
                 }
                 _stateTime = 0f;
             }
             finally { EndTransition(); }
+
+            if (popped != null)
+                for (int i = 0; i < popped.Count; i++) StatePopped?.Invoke(popped[i]);
         }
 
         /// <summary>每帧驱动：<b>只驱动栈顶</b>（被压住的下层状态不更新 —— 栈语义，也省性能）</summary>
         public void Update(float deltaTime)
         {
+            if (_stack.Count == 0) return;         // 空栈时 StateTime 无意义，不累计
             _stateTime += deltaTime;
             Current?.OnUpdate(deltaTime);
         }
@@ -237,7 +248,7 @@ namespace Revolution
         /// <summary>
         /// 注册一个<b>状态实例</b>（同一个实例长期复用，压栈时零分配）。
         /// <code>sm.Register(new BagState());</code>
-        /// <para>注意：注册的实例是同一个对象，所以它<b>不能连着压两次</b>（Push 会拒绝）；
+        /// <para>注意：注册的实例是同一个对象，所以它<b>不能同时出现在栈里两层</b>（Push 会拒绝，含更深层）；
         /// 需要"同一个状态压多层"时请改用工厂重载。</para>
         /// </summary>
         /// <exception cref="ArgumentNullException">state 为 null</exception>
@@ -272,6 +283,14 @@ namespace Revolution
         /// <summary>按类型替换栈顶（等价于 <c>Change(注册的实例)</c>）</summary>
         /// <exception cref="InvalidOperationException">该类型未注册</exception>
         public void Change<TState>() where TState : T => Change(Resolve<TState>());
+
+        /// <summary>该实例是否已在栈中任意一层（struct 枚举器，零分配）。</summary>
+        private bool ContainsInstance(T state)
+        {
+            foreach (T layer in _stack)
+                if (ReferenceEquals(layer, state)) return true;
+            return false;
+        }
 
         private void RegisterCore(Type type, Func<T> getInstance)
         {

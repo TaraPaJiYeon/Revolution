@@ -41,8 +41,10 @@ namespace Revolution
         private readonly List<RevEventListener> _listeners = new List<RevEventListener>(1);
 
         private int _dispatchDepth;        // 派发深度：>0 表示"正在派发"（支持嵌套派发）
+        private int _dispatchLimit;        // 最外层派发开始时锁定；嵌套派发也不执行本轮新增监听者
         private bool _changedInDispatch;   // 派发过程中列表是否被改动过（决定收尾要不要清理）
-        private bool _needSort;            // 有"带优先级"的监听者加入 → 下次派发前重排一次
+        private bool _hasPriorities;       // 此事件曾注册过非零优先级，默认优先级新增也必须重新排序
+        private bool _needSort;            // 优先级顺序可能变化 → 下次最外层派发前重排
 
         /// <summary>监听者数量（派发过程中可能包含"已标记删除但尚未清理"的节点）。</summary>
         public int Count => _listeners.Count;
@@ -55,6 +57,9 @@ namespace Revolution
         /// 只给同程序集的派发引擎用。
         /// </summary>
         internal List<RevEventListener> Listeners => _listeners;
+
+        /// <summary>本轮有效监听范围。嵌套派发复用最外层开始时的边界。</summary>
+        internal int DispatchLimit => _dispatchLimit;
 
         // ==================== 注册 / 反注册 ====================
 
@@ -69,8 +74,9 @@ namespace Revolution
             node.Seq = seq;
             _listeners.Add(node);
 
-            // 只有真的用了优先级才付排序的代价（priority 全为 0 时永远不排）
-            if (priority != 0) _needSort = true;
+            // 全部为默认优先级时不排序；已有优先级节点时，新增默认优先级也可能改变顺序。
+            if (priority != 0) _hasPriorities = true;
+            if (_hasPriorities) _needSort = true;
 
             if (_dispatchDepth > 0) _changedInDispatch = true;
         }
@@ -133,11 +139,15 @@ namespace Revolution
 
         // ==================== 派发生命周期 ====================
 
-        /// <summary>派发开始：必要时先按优先级排好序，然后加深派发计数。</summary>
+        /// <summary>派发开始：外层锁定监听范围并按优先级排序，嵌套派发沿用该范围。</summary>
         internal void BeginDispatch()
         {
-            // 只在最外层（深度 0）排序：派发中途重排会打乱正在进行的遍历
-            if (_dispatchDepth == 0 && _needSort) SortByPriority();
+            if (_dispatchDepth == 0)
+            {
+                // 只在最外层排序：派发中途重排会打乱正在进行的索引遍历。
+                if (_needSort) SortByPriority();
+                _dispatchLimit = _listeners.Count;
+            }
 
             _dispatchDepth++;
         }

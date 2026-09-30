@@ -157,8 +157,9 @@ namespace Revolution.Demo.ActionSequence
             }
             catch (Exception e)
             {
-                // DEBUG 下步骤抛异常会直接抛到这里（Release 下会被隔离并记错误日志）
-                Debug.LogError($"[async] 序列抛异常：{e.Message}");
+                // 步骤抛异常不会到这里：引擎会记日志（带序列名与步骤）并按取消收尾，这里拿到 false。
+                // 能到这里的只有 await 之后你自己的代码抛的异常。
+                Debug.LogError($"[async] 异常：{e.Message}");
             }
         }
 

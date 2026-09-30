@@ -23,7 +23,7 @@ namespace Revolution
 {
     public class RevResScope : IDisposable
     {
-        private readonly List<ulong> _keys = new List<ulong>();
+        private readonly List<RevResHandle> _handles = new List<RevResHandle>();
         private bool _disposed;
 
         /// <summary>
@@ -32,15 +32,28 @@ namespace Revolution
         /// </summary>
         public T Load<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown) where T : UnityEngine.Object
         {
+            if (_disposed)
+            {
+                RevLog.Error("已释放的 RevResScope 不能继续 Load。", "Res");
+                return null;
+            }
+
             RevResHandle handle = RevResManager.Load(rootPath, resName, typeof(T), group);
-            if (handle != null && handle.Key != 0) _keys.Add(handle.Key);
+            if (handle != null && handle.Key != 0) _handles.Add(handle);
             return handle?.Content as T;
         }
 
         /// <summary>把外部已加载的句柄纳入本域管理</summary>
         public void Track(RevResHandle handle)
         {
-            if (handle != null && handle.Key != 0) _keys.Add(handle.Key);
+            if (handle == null || handle.Key == 0) return;
+            if (_disposed)
+            {
+                RevLog.Warn("已释放的 RevResScope 收到 Track；立即归还该句柄引用。", "Res");
+                RevResManager.DecRef(handle);
+                return;
+            }
+            _handles.Add(handle);
         }
 
         public void Dispose()
@@ -48,10 +61,10 @@ namespace Revolution
             if (_disposed) return;
             _disposed = true;
 
-            for (int i = 0; i < _keys.Count; i++)
-                RevResManager.DecRef(_keys[i]);
+            for (int i = 0; i < _handles.Count; i++)
+                RevResManager.DecRef(_handles[i]);
 
-            _keys.Clear();
+            _handles.Clear();
         }
     }
 }

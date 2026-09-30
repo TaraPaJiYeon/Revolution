@@ -27,6 +27,8 @@ namespace Revolution
             public RevResHandle handle;
             public IRevResLoader loader;
             public int priority;
+            public bool cancelRequested;
+            public readonly RevCancellationTokenSource cancellation = new RevCancellationTokenSource();
             public readonly List<Action<RevResHandle>> callbacks = new List<Action<RevResHandle>>();
         }
 
@@ -34,13 +36,15 @@ namespace Revolution
         private static readonly List<RevLoadJob> _loading = new List<RevLoadJob>();
         private static readonly Dictionary<ulong, RevLoadJob> _jobByKey = new Dictionary<ulong, RevLoadJob>();
 
-        /// <summary>最大并发加载数（可按设备性能调整）</summary>
-        public static int MaxConcurrent = 4;
+        /// <summary>最大并发加载数（最小为 1，避免设为 0 后等待队列永久停滞）</summary>
+        private static int _maxConcurrent = 4;
+        public static int MaxConcurrent
+        {
+            get => _maxConcurrent;
+            set => _maxConcurrent = value < 1 ? 1 : value;
+        }
 
         private static bool _pumping;
-
-        /// <summary>取消源：CancelAll() 时把"已取消"信号传给每个 loader，用于中断在途加载</summary>
-        public static readonly RevCancellationTokenSource Cancellation = new RevCancellationTokenSource();
 
         public static int WaitingCount => _waiting.Count;
         public static int LoadingCount => _loading.Count;
@@ -51,8 +55,9 @@ namespace Revolution
         {
             if (handle == null) { onFinished?.Invoke(RevResHandle.Empty); return; }
 
-            // 同资源已有任务：合并回调
-            if (_jobByKey.TryGetValue(handle.Key, out RevLoadJob exist))
+            // 同资源已有且未取消的任务：合并回调。已取消的旧任务不接收新请求，
+            // 否则 Shutdown 后立即重载会被合并进旧任务并收到 Cancelled。
+            if (_jobByKey.TryGetValue(handle.Key, out RevLoadJob exist) && !exist.cancelRequested)
             {
                 if (onFinished != null) exist.callbacks.Add(onFinished);
                 return;
@@ -86,63 +91,108 @@ namespace Revolution
 
         private static async RevTask PumpLoop()
         {
-            while (_waiting.Count > 0 || _loading.Count > 0)
+            try
             {
-                // ① 把等待队列按并发上限送进加载队列
-                while (_waiting.Count > 0 && _loading.Count < MaxConcurrent)
+                while (_waiting.Count > 0 || _loading.Count > 0)
                 {
-                    RevLoadJob job = _waiting[0];
-                    _waiting.RemoveAt(0);
-                    _loading.Add(job);
-                    RunJob(job).Forget();
-                }
+                    while (_waiting.Count > 0 && _loading.Count < MaxConcurrent)
+                    {
+                        RevLoadJob job = _waiting[0];
+                        _waiting.RemoveAt(0);
+                        _loading.Add(job);
+                        RunJob(job).Forget();
+                    }
 
-                // ② 零分配等一帧（不用协程，也不用 RevTask.Yield()）
-                await RevTaskScheduler.NextFrame();
+                    await RevTaskScheduler.NextFrame();
+                }
             }
-            _pumping = false;
+            finally
+            {
+                _pumping = false;
+                if (_waiting.Count > 0 || _loading.Count > 0) EnsurePumping();
+            }
         }
 
         private static async RevTask RunJob(RevLoadJob job)
         {
             bool done = false;
+            try
+            {
+                job.loader.LoadAsync(job.handle, h => done = true, job.cancellation.Token);
+                while (!done) await RevTaskScheduler.NextFrame();
+            }
+            catch (Exception e)
+            {
+                job.handle.ErrorReason = job.cancelRequested
+                    ? RevResLoadErrorReason.Cancelled
+                    : RevResLoadErrorReason.BundleLoadFail;
+                job.handle.MarkError();
+                if (!job.cancelRequested) RevLog.Exception(e, "异步资源加载器异常", "Res");
+            }
 
-            // 把取消令牌一并传给加载器：切场景时它能尽早中断
-            job.loader.LoadAsync(job.handle, h => done = true, Cancellation.Token);
+            if (job.cancelRequested)
+            {
+                job.handle.ErrorReason = RevResLoadErrorReason.Cancelled;
+                job.handle.MarkError();
+            }
 
-            // 兜底等待：即便某个 loader 违反约定没回调，也只影响这一个 job，不会污染全局
-            while (!done) await RevTaskScheduler.NextFrame();
-
-            // ★ 顺序很重要：先把自己从两个队列/表里摘掉，再通知回调。
-            //   否则"加载失败 → 回调里换下一条策略再 Submit(同一个 handle.Key)"
-            //   会被误判成"同 key 正在加载"而被合并掉，兜底就永远不会执行。
+            // 先摘掉自己；fallback 回调会立刻为同 key 提交下一条策略。
             _loading.Remove(job);
-            _jobByKey.Remove(job.handle.Key);
+            if (_jobByKey.TryGetValue(job.handle.Key, out RevLoadJob registered) && ReferenceEquals(registered, job))
+                _jobByKey.Remove(job.handle.Key);
 
-            RevResManager.OnAsyncLoaded(job.handle.Key, job.handle);
-            foreach (Action<RevResHandle> cb in job.callbacks) cb?.Invoke(job.handle);
+            for (int i = 0; i < job.callbacks.Count; i++)
+            {
+                try { job.callbacks[i]?.Invoke(job.handle); }
+                catch (Exception e) { RevLog.Exception(e, "异步资源加载回调异常", "Res"); }
+            }
         }
 
         // ==================== 清理 ====================
 
-        /// <summary>
-        /// 强制中断：切场景 / 退出时调用。
-        /// ① 通知所有在途 loader「已取消」（它们在关键节点会提前结束）
-        /// ② 清空排队任务
-        /// </summary>
-        public static void CancelAll()
+        /// <summary>取消指定业务分组的等待/在途任务；常驻资源不随分组场景卸载。</summary>
+        public static void CancelGroup(RevResGroup group)
+            => CancelWhere(job => job.handle.Group == group && !job.handle.HasFlag(RevResInstanceFlag.Resident));
+
+        /// <summary>取消全部等待/在途任务，并确保排队任务收到终态回调。</summary>
+        public static void CancelAll() => CancelWhere(_ => true);
+
+        private static void CancelWhere(Predicate<RevLoadJob> predicate)
         {
-            Cancellation.Cancel();
-            _waiting.Clear();
-            _jobByKey.Clear();
+            for (int i = _waiting.Count - 1; i >= 0; i--)
+            {
+                RevLoadJob job = _waiting[i];
+                if (!predicate(job)) continue;
+                _waiting.RemoveAt(i);
+                CancelJob(job, notifyNow: true);
+            }
+
+            for (int i = 0; i < _loading.Count; i++)
+            {
+                RevLoadJob job = _loading[i];
+                if (predicate(job)) CancelJob(job, notifyNow: false);
+            }
         }
 
-        /// <summary>清空队列（不改变取消状态）</summary>
-        public static void Clear()
+        private static void CancelJob(RevLoadJob job, bool notifyNow)
         {
-            _waiting.Clear();
-            _loading.Clear();
-            _jobByKey.Clear();
+            job.cancelRequested = true;
+            job.handle.ErrorReason = RevResLoadErrorReason.Cancelled;
+            job.handle.MarkError();
+            job.cancellation.Cancel();
+
+            if (_jobByKey.TryGetValue(job.handle.Key, out RevLoadJob registered) && ReferenceEquals(registered, job))
+                _jobByKey.Remove(job.handle.Key);
+
+            if (!notifyNow) return;
+            for (int i = 0; i < job.callbacks.Count; i++)
+            {
+                try { job.callbacks[i]?.Invoke(job.handle); }
+                catch (Exception e) { RevLog.Exception(e, "已取消资源加载回调异常", "Res"); }
+            }
         }
+
+        /// <summary>兼容清队列入口：按取消语义安全终止任务，不遗失句柄/回调。</summary>
+        public static void Clear() => CancelAll();
     }
 }

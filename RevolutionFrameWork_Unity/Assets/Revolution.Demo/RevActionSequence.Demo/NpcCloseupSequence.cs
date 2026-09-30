@@ -13,8 +13,8 @@
 // 【本框架怎么表达同一件事，以及关键差别】
 //   ① "等演出播完"用 WaitUntil + **超时保护** —— 原体系 MoveActorTo 的 MoveCompleted
 //      永不置真导致序列永久卡死（05 文档 113 行记录过这类事故），这里有兜底；
-//   ② "恢复现场"同时写在正常路径与 OnCancel 里 —— **取消必然走收尾**（框架契约，
-//      不是"靠节点自觉 OnDisable"），所以永远不会留下"镜头还推着、HUD 还藏着"的状态。
+//   ② "恢复现场"写在 .Finally 里 —— 正常跑完、被取消、步骤出错都会执行（框架契约，
+//      不是"靠节点自觉 OnDisable"），只写一遍，永远不会留下"镜头还推着、HUD 还藏着"的状态。
 // ============================================================
 namespace Revolution.Demo.ActionSequence
 {
@@ -35,16 +35,10 @@ namespace Revolution.Demo.ActionSequence
                 .WaitUntil("等玩家关闭对白（15s 超时保护）",
                            ctx => ctx.Get<IDemoInputService>()?.ConsumeClick() == true,
                            timeoutSeconds: 15f)
-                .Do("恢复镜头", ctx => Camera(ctx)?.Restore())
-                .Do("恢复 HUD 与玩家模型", ctx =>
-                {
-                    Scene(ctx)?.SetHudVisible(true);
-                    Scene(ctx)?.SetActorVisible(ctx.Source, true);
-                })
-                // ★ 取消（切场景 / 掉线 / 被打断）也必须把现场恢复回来
-                .OnCancel(finallySteps => finallySteps
-                    .Do("强制恢复镜头", ctx => Camera(ctx)?.Restore())
-                    .Do("强制恢复 HUD 与玩家模型", ctx =>
+                // ★ 跑完也好、被取消（切场景 / 掉线 / 被打断）也好，都要把现场恢复回来 —— 写一遍就够
+                .Finally(cleanup => cleanup
+                    .Do("恢复镜头", ctx => Camera(ctx)?.Restore())
+                    .Do("恢复 HUD 与玩家模型", ctx =>
                     {
                         Scene(ctx)?.SetHudVisible(true);
                         Scene(ctx)?.SetActorVisible(ctx.Source, true);

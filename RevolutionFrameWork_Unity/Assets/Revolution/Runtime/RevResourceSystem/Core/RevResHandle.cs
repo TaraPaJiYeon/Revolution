@@ -37,6 +37,11 @@ namespace Revolution
         //引用计数
         public int RefCount { get; internal set; }
 
+        // AB 资源成功取得了包级引用才置位；释放时仅归还这一次，并保留原 loader 所有权。
+        internal bool BundleAcquired { get; set; }
+        internal RevABLoader BundleLoader { get; set; }
+        internal string BundleName { get; set; }
+
         /// <summary>失败原因（不打日志的前提下，这是唯一的错误线索）</summary>
         public RevResLoadErrorReason ErrorReason { get; internal set; }
 

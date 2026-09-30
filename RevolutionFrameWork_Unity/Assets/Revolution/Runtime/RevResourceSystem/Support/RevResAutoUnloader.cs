@@ -119,6 +119,9 @@ namespace Revolution
 
         private static void Trim(bool force)
         {
+            if (force && UnloadPreloadedOnLowMemory)
+                RevResManager.ReleasePreloadedAll();
+
             // ① 空闲判定：有在途加载就先不动手（避免和前台抢 IO / 抢内存）
             if (!force && OnlyWhenIdle &&
                 (RevAsyncLoadPump.WaitingCount > 0 || RevAsyncLoadPump.LoadingCount > 0))
@@ -134,8 +137,8 @@ namespace Revolution
             foreach (RevResHandle h in all)
             {
                 // 不在未使用表 → 说明还有人用 / 还没到释放时机，一律不动
-                if (!h.HasFlag(RevResInstanceFlag.MarkedUnused)) continue;
-                // 常驻资源永不自动卸
+                if (!h.HasFlag(RevResInstanceFlag.MarkedUnused) || h.RefCount > 0) continue;
+                // 常驻资源永不自动卸（FlushUnused 同样遵守）
                 if (h.HasFlag(RevResInstanceFlag.Resident)) continue;
                 // 正在加载的不动
                 if (h.State == RevResState.Loading) continue;
@@ -158,8 +161,10 @@ namespace Revolution
             int removeCount;
             if (MaxCachedHandles > 0 && all.Count > MaxCachedHandles)
             {
-                // 超过上限 → 按 LRU 淘汰到水位线
-                int over = all.Count - TrimDownToCount;
+                // 超过上限 → 按 LRU 淘汰到有效水位线（配置超过当前条目数时至少淘汰一个）
+                int target = TrimDownToCount < 0 ? 0 : TrimDownToCount;
+                if (target >= MaxCachedHandles) target = MaxCachedHandles - 1;
+                int over = all.Count - target;
                 removeCount = over < candidates.Count ? over : candidates.Count;
             }
             else
@@ -187,8 +192,9 @@ namespace Revolution
                 removed++;
             }
 
-            // ⑤ 真正让 Unity 回收无引用对象（这一步开销较大，所以只在淘汰后调一次）
-            RevResManager.FlushUnused();
+            // ⑤ 请求 Unity 回收刚被强制摘除的对象。不能调用 FlushUnused：那会连冷却期内
+            //    及 LRU 本次未选中的条目一起清掉，也不能让 Resident 绕过保护。
+            Resources.UnloadUnusedAssets();
 
             LastTrimCount = removed;
             TotalTrimCount += removed;

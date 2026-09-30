@@ -77,6 +77,7 @@ namespace Revolution
 
         internal void ReportOne(bool success)
         {
+            if (IsDone) return;             // Cancel 后仍需清理引用，但不再回报进度
             Finished++;
             if (!success) Failed++;
             OnProgress?.Invoke(this);
@@ -175,10 +176,18 @@ namespace Revolution
                 // 而三种加载器都能用"基类类型"把资源取出来（后续按具体类型取用不受影响）。
                 RevResManager.LoadAsync(item.rootPath, item.resName, typeof(UnityEngine.Object), h =>
                 {
-                    bool ok = h != null && h.IsLoaded;
+                    bool ok = h != null && h.IsLoaded && RevResManager.IsCurrent(h);
 
-                    // 成功且未被取消 → 打上"预加载持有"标志
-                    if (ok && !task.IsCancelled) RevResManager.MarkPreloaded(h);
+                    // 每次 LoadAsync 都 +1。只保留一份全局预加载持有：失败、取消、
+                    // 或其它预加载任务已经持有该句柄时，都必须归还本次多拿的引用。
+                    if (ok && !task.IsCancelled && !h.HasFlag(RevResInstanceFlag.Preloaded))
+                    {
+                        RevResManager.MarkPreloaded(h);
+                    }
+                    else if (h != null && h.Key != 0)
+                    {
+                        RevResManager.DecRef(h);     // 必须按句柄身份释放，不能误扣同 key 的新一代缓存
+                    }
 
                     task.ReportOne(ok);
                     if (task.Finished >= task.Total) task.Complete();

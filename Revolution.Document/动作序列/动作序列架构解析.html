@@ -633,7 +633,7 @@ runner = <span class="k">new</span> RevSequenceRunner(RevDemoServiceHub.CreateSe
           <tr><td class="c">②</td><td><b>脱离场景/编辑器</b></td><td class="c" style="color:var(--good)">优秀</td><td>序列是代码：可 diff、可 Code Review、可 CI；不需要往场景里摆任何东西</td></tr>
           <tr><td class="c">③</td><td><b>表达能力</b></td><td class="c" style="color:var(--good)">优秀</td><td>原体系的<b>超集</b>：顺序 / 阻塞 / 秒·帧·条件·异步四种等待 / 并行 / 重复 / 嵌套 / 事件 / 取消 / 收尾</td></tr>
           <tr><td class="c">④</td><td><b>并发安全</b></td><td class="c" style="color:var(--good)">优秀</td><td>不可变定义 + 状态槽隔离 + 三种并发策略（修掉原体系的真实缺陷）</td></tr>
-          <tr><td class="c">⑤</td><td><b>可诊断</b></td><td class="c" style="color:var(--good)">良好</td><td>句柄查询 / <code>Progress01</code> / <code>CurrentStepName</code> / <code>IsSuspended</code> / 异常边界隔离 —— <b>框架刻意不打日志、也不提供查询</b>（要记什么业务自己在回调里记）</td></tr>
+          <tr><td class="c">⑤</td><td><b>可诊断</b></td><td class="c" style="color:var(--good)">良好</td><td>步骤异常 / 等待超时 / 异步任务失败 / 收尾异常都经 RevLog（tag = <code>ActionSequence</code>）输出，并写明「哪条序列、第几步、步骤名」；另有三个回调（<code>OnCompleted</code> / <code>OnCancelled</code> / <code>RunFinished</code>）+ <code>handle.IsValid</code> + <code>runner.ActiveCount</code></td></tr>
           <tr><td class="c">⑥</td><td><b>性能可控</b></td><td class="c" style="color:var(--good)">良好</td><td>只遍历活跃序列；运行实例与上下文池化 → <b>稳态 Tick 零分配</b>；无 LINQ、无装箱</td></tr>
         </tbody>
       </table>
@@ -871,7 +871,7 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
         <tbody>
           <tr><td>正常跑完</td><td>所有步骤放行</td><td>否（走 <code>OnCompleted</code>）</td></tr>
           <tr><td>被取消</td><td><code>handle.Stop()</code> / <code>StopAll()</code> / 宿主 <code>Dispose()</code></td><td><b>是</b>（走 <code>OnCancelled</code>）</td></tr>
-          <tr><td>步骤抛异常</td><td>DEBUG：直接抛出给调用方；Release：记错误 + 结束本序列</td><td>Release 下<b>是</b></td></tr>
+          <tr><td>步骤抛异常</td><td>记异常日志（带序列名与步骤）→ 跑 <code>OnCancel</code> / <code>Finally</code> 收尾 → 按"取消"结束（<code>PlayAsync</code> 得到 false）；调试包与正式包行为一致</td><td><b>是</b></td></tr>
         </tbody>
       </table>
     </div>

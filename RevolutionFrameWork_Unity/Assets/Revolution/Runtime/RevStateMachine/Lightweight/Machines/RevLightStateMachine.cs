@@ -165,8 +165,9 @@ namespace Revolution
         /// </summary>
         public void Update(float deltaTime)
         {
+            if (_current == null) return;          // 没有激活状态时 StateTime 无意义，不累计
             _stateTime += deltaTime;
-            _current?.OnUpdate(deltaTime);
+            _current.OnUpdate(deltaTime);
         }
 
         /// <summary>当前是否是某状态</summary>
