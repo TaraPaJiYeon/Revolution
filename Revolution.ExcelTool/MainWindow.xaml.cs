@@ -288,17 +288,31 @@ namespace Revolution.ExcelTool
 
         // ==================== 导出 ====================
 
-        private void OnExport(object sender, RoutedEventArgs e)
+        /// <summary>全量生成：代码（数据结构类 + 容器类）+ 数据 txt。表结构有改动（加字段 / 加表 / 改类型）时用。</summary>
+        private void OnExport(object sender, RoutedEventArgs e) => DoExport(ExportMode.Full);
+
+        /// <summary>
+        /// 仅生成数据：只写数据 txt，一个代码文件都不碰 —— Unity 那边不会触发脚本重编译。
+        /// 只改了 Excel 数值、没动表结构时用。
+        /// </summary>
+        private void OnExportDataOnly(object sender, RoutedEventArgs e) => DoExport(ExportMode.DataOnly);
+
+        private void DoExport(ExportMode mode)
         {
             if (_tables.Count == 0) { SetStatus("请先读取 Excel 数据", true); Log("[错误] 还没有读取任何表"); return; }
 
-            // 三个输出目录都不预填了（工具与 Unity 解耦），所以这里必须替使用者把关
-            if (string.IsNullOrWhiteSpace(TxtStructDir.Text) ||
-                string.IsNullOrWhiteSpace(TxtContainerDir.Text) ||
-                string.IsNullOrWhiteSpace(TxtDataDir.Text))
+            bool dataOnly = mode == ExportMode.DataOnly;
+
+            // 三个输出目录都不预填了（工具与 Unity 解耦），所以这里必须替使用者把关；
+            // 仅数据模式不写代码：结构类 / 容器类目录不参与，只要求 TXT 数据目录
+            if (string.IsNullOrWhiteSpace(TxtDataDir.Text) ||
+                (!dataOnly && (string.IsNullOrWhiteSpace(TxtStructDir.Text) ||
+                               string.IsNullOrWhiteSpace(TxtContainerDir.Text))))
             {
-                SetStatus("请先选择三个输出目录", true);
-                Log("[错误] 还有输出目录没选：数据结构类目录 / 容器类目录 / TXT 数据目录");
+                SetStatus(dataOnly ? "请先选择 TXT 数据目录" : "请先选择三个输出目录", true);
+                Log("[错误] " + (dataOnly
+                    ? "还没选 TXT 数据目录"
+                    : "还有输出目录没选：数据结构类目录 / 容器类目录 / TXT 数据目录"));
                 return;
             }
 
@@ -312,7 +326,7 @@ namespace Revolution.ExcelTool
             ExportResult result;
             try
             {
-                result = ExportService.Export(_tables, options);
+                result = ExportService.Export(_tables, options, mode);
             }
             catch (Exception ex)
             {
@@ -328,7 +342,9 @@ namespace Revolution.ExcelTool
             if (result.Success)
             {
                 Log($"导出成功：{result.TableCount} 张表，共 {result.RowCount} 条数据。");
-                SetStatus($"导出成功：{result.TableCount} 张表 / {result.RowCount} 条数据（回 Unity 会自动刷新编译）", false);
+                SetStatus(dataOnly
+                    ? $"数据文件已更新：{result.TableCount} 张表 / {result.RowCount} 条数据（未生成代码，不触发 Unity 重编译）"
+                    : $"全量导出成功：{result.TableCount} 张表 / {result.RowCount} 条数据（回 Unity 会自动刷新编译）", false);
             }
             else
             {

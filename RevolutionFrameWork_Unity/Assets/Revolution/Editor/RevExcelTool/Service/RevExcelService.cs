@@ -52,6 +52,9 @@ namespace Revolution.Editor.ExcelTool
         public int unchangedCount;
         public bool codeChanged;
 
+        /// <summary>本次是"仅生成数据"模式（没碰代码文件；结果面板用它标注说明）</summary>
+        public bool dataOnly;
+
         /// <summary>写了的文件（"新增 / 更新" + 路径）</summary>
         public List<string> written = new List<string>();
 
@@ -317,16 +320,26 @@ namespace Revolution.Editor.ExcelTool
         /// <param name="confirm">
         /// 危险情况（会删掉上次导出过的表的代码）时问一句；返回 false = 取消。null = 不问（CI）。
         /// </param>
-        public static RevExcelReport Export(IReadOnlyList<ExcelTable> tables, bool force, Func<ExcelExportPlan, bool> confirm)
+        /// <param name="mode">
+        /// <see cref="ExcelExportMode.DataOnly"/> = 只写数据 txt、完全不碰代码文件
+        /// （只改了 Excel 数值、没动表结构时用：不生成代码 = 不触发全量脚本编译）。
+        /// 此时跳过代码目录体检，也不会问"会删掉表的代码"（代码根本不参与）。
+        /// </param>
+        public static RevExcelReport Export(IReadOnlyList<ExcelTable> tables, bool force,
+            Func<ExcelExportPlan, bool> confirm, ExcelExportMode mode = ExcelExportMode.Full)
         {
-            var report = new RevExcelReport { time = DateTime.Now.ToString("HH:mm:ss") };
+            var report = new RevExcelReport { time = DateTime.Now.ToString("HH:mm:ss"), dataOnly = mode == ExcelExportMode.DataOnly };
             ExcelExportOptions options = Options();
 
             // ---------- ① 输出位置：会让生成物编译不过 / 运行时读不到的，先拦下 ----------
-            foreach (string dir in new[] { options.StructDir, options.ContainerDir })
+            // 仅数据模式不写代码：代码目录体检（程序集 / 引用 / Editor 专用）对它没有意义，跳过
+            if (mode == ExcelExportMode.Full)
             {
-                RevExcelCheck code = CheckCodeDir(dir);
-                if (code.IsError) report.errors.Add($"代码目录 {dir}：{code.Message}");
+                foreach (string dir in new[] { options.StructDir, options.ContainerDir })
+                {
+                    RevExcelCheck code = CheckCodeDir(dir);
+                    if (code.IsError) report.errors.Add($"代码目录 {dir}：{code.Message}");
+                }
             }
 
             RevExcelCheck data = CheckDataDir();
@@ -346,7 +359,8 @@ namespace Revolution.Editor.ExcelTool
                 return report;
             }
 
-            if (plan.RemovedTables.Count > 0)
+            // 仅数据模式不写代码：不存在"删掉表的代码"这回事，不确认也不警告
+            if (mode == ExcelExportMode.Full && plan.RemovedTables.Count > 0)
             {
                 if (confirm != null && !confirm(plan))
                 {
@@ -359,7 +373,7 @@ namespace Revolution.Editor.ExcelTool
             }
 
             // ---------- ③ 写 + 导入 ----------
-            List<ExcelPlannedFile> written = ExcelExportPlanner.Write(plan, force);
+            List<ExcelPlannedFile> written = ExcelExportPlanner.Write(plan, force, mode);
 
             report.tableCount = plan.Tables.Count;
             report.rowCount = plan.RowCount;
@@ -383,7 +397,8 @@ namespace Revolution.Editor.ExcelTool
                 GenerateMap(report, "导表后生成映射");
 
             report.success = true;
-            RevExcelLog.Info($"[RevExcel] 导出完成：{report.tableCount} 张表 / {report.rowCount} 条数据，" +
+            RevExcelLog.Info($"[RevExcel] 导出完成{(report.dataOnly ? "（仅数据，未生成代码）" : "")}：" +
+                             $"{report.tableCount} 张表 / {report.rowCount} 条数据，" +
                              $"写入 {written.Count} 个文件，{report.unchangedCount} 个未变" +
                              (report.codeChanged ? "（代码有变化，将重新编译）" : ""));
             return report;

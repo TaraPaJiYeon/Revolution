@@ -331,7 +331,7 @@ namespace Revolution.Editor.ExcelTool
         // 导出
         // ============================================================
 
-        private void DoExport(bool force)
+        private void DoExport(bool force, ExcelExportMode mode = ExcelExportMode.Full)
         {
             if (_read == null) return;
 
@@ -340,7 +340,7 @@ namespace Revolution.Editor.ExcelTool
             if (RevExcelService.Signature(RevExcelService.CollectFiles(user.sources, user.includeSubfolders)) != _read.Signature)
                 Reload("导出前发现 Excel 有变化，已重新读取");
 
-            RevExcelReport report = RevExcelService.Export(_read.Tables, force, ConfirmRemoval);
+            RevExcelReport report = RevExcelService.Export(_read.Tables, force, ConfirmRemoval, mode);
             if (report.cancelled)
             {
                 Log(0, "已取消导出");
@@ -366,7 +366,8 @@ namespace Revolution.Editor.ExcelTool
                 return;
             }
 
-            Log(3, $"导出完成：{report.tableCount} 张表 / {report.rowCount} 条数据，写入 {report.written.Count} 个文件，" +
+            Log(3, $"导出完成{(report.dataOnly ? "（仅数据，未生成代码）" : "")}：" +
+                   $"{report.tableCount} 张表 / {report.rowCount} 条数据，写入 {report.written.Count} 个文件，" +
                    $"{report.unchangedCount} 个未变" + (report.codeChanged ? "（代码有变化，Unity 会重新编译）" : ""));
 
             foreach (string w in report.warnings) Log(1, w);
@@ -628,7 +629,7 @@ namespace Revolution.Editor.ExcelTool
 
                 GUILayout.FlexibleSpace();
 
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(210)))
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(310)))
                 {
                     GUILayout.Space(5);
                     using (new EditorGUILayout.HorizontalScope())
@@ -636,8 +637,15 @@ namespace Revolution.Editor.ExcelTool
                         bool can = _plan != null && _plan.CanExport;
                         using (new EditorGUI.DisabledScope(!can))
                         {
-                            if (ABGUI.PrimaryButton(ExportButtonContent(), 32f, GUILayout.Width(180)))
+                            // 主按钮：全量导出（代码 + 数据，只写内容真的变了的文件）
+                            if (ABGUI.PrimaryButton(ExportButtonContent(), 32f, GUILayout.Width(150)))
                                 ABGUI.Defer(() => DoExport(false));
+
+                            // ★ 仅数据：只改了 Excel 数值、没动表结构时用 ——
+                            //   一个代码文件都不碰，导完不触发全量脚本编译（那要十几秒起步）
+                            if (GUILayout.Button(new GUIContent("仅数据", "只重新生成数据 txt，不生成代码。\n只改了数值、没动表结构时用它 —— 导完不会触发脚本编译"),
+                                    GUILayout.Width(64), GUILayout.Height(32)))
+                                ABGUI.Defer(() => DoExport(false, ExcelExportMode.DataOnly));
                         }
 
                         Rect more = GUILayoutUtility.GetRect(24, 32, GUILayout.Width(24), GUILayout.Height(32));
@@ -715,8 +723,13 @@ namespace Revolution.Editor.ExcelTool
             var menu = new GenericMenu();
             bool can = _plan != null && _plan.CanExport;
 
-            if (can) menu.AddItem(new GUIContent("强制全部重写（即使内容没变）"), false, () => ABGUI.Defer(() => DoExport(true)));
-            else menu.AddDisabledItem(new GUIContent("强制全部重写（即使内容没变）"));
+            // ★ 全量生成 = 代码（数据结构类 + 容器类）+ 数据文件全部重写，即使内容没变
+            if (can) menu.AddItem(new GUIContent("全量生成代码和数据（强制重写全部文件）"), false, () => ABGUI.Defer(() => DoExport(true)));
+            else menu.AddDisabledItem(new GUIContent("全量生成代码和数据（强制重写全部文件）"));
+
+            // ★ 仅数据（强制版）：连"内容没变"的数据 txt 也全部重写，代码仍然一个不碰
+            if (can) menu.AddItem(new GUIContent("仅生成数据文件（强制重写全部 txt，不碰代码）"), false, () => ABGUI.Defer(() => DoExport(true, ExcelExportMode.DataOnly)));
+            else menu.AddDisabledItem(new GUIContent("仅生成数据文件（强制重写全部 txt，不碰代码）"));
 
             menu.AddItem(new GUIContent("只生成资源映射（ResMap）"), false, () => ABGUI.Defer(() =>
             {

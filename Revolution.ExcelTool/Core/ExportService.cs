@@ -30,6 +30,18 @@ namespace Revolution.ExcelTool.Core
         public string ContainerFileName = "RevDataTables.cs";
     }
 
+    /// <summary>
+    /// 导出模式：
+    /// · <see cref="Full"/> —— 代码（数据结构类 + 容器类）+ 数据文件全都要（表结构有改动时用）；
+    /// · <see cref="DataOnly"/> —— 只写数据 txt，完全不动代码文件
+    ///   （只改了 Excel 里的数值、没动表结构时用：不生成代码，Unity 那边也就不会触发脚本重编译）。
+    /// </summary>
+    public enum ExportMode
+    {
+        Full,
+        DataOnly,
+    }
+
     /// <summary>导出结果</summary>
     public sealed class ExportResult
     {
@@ -45,7 +57,20 @@ namespace Revolution.ExcelTool.Core
 
     public static class ExportService
     {
+        /// <summary>全量导出：代码（数据结构类 + 容器类）+ 数据文件。</summary>
         public static ExportResult Export(IReadOnlyList<ExcelTable> allTables, ExportOptions options)
+            => Export(allTables, options, ExportMode.Full);
+
+        /// <summary>
+        /// 导出。
+        /// </summary>
+        /// <param name="mode">
+        /// <see cref="ExportMode.DataOnly"/> = 只写数据 txt、完全不碰代码文件
+        /// （只改了 Excel 数值、没动表结构时用：不生成代码，Unity 那边就不会触发脚本重编译）。
+        /// 此时数据结构类 / 容器类目录不参与（不校验、不创建、不写入）。
+        /// </param>
+        public static ExportResult Export(IReadOnlyList<ExcelTable> allTables, ExportOptions options,
+            ExportMode mode)
         {
             var result = new ExportResult();
 
@@ -77,23 +102,35 @@ namespace Revolution.ExcelTool.Core
 
             if (!result.Success) return result;
 
-            // ---------- ③ 目录准备 ----------
-            string structDir = PrepareDir(options.StructDir, "数据结构类目录", result);
-            string containerDir = PrepareDir(options.ContainerDir, "容器类目录", result);
+            // ---------- ③ 目录准备（仅数据模式不碰代码目录） ----------
+            string structDir = null, containerDir = null;
+            if (mode == ExportMode.Full)
+            {
+                structDir = PrepareDir(options.StructDir, "数据结构类目录", result);
+                containerDir = PrepareDir(options.ContainerDir, "容器类目录", result);
+            }
+
             string dataDir = PrepareDir(options.DataDir, "数据文件目录", result);
             if (!result.Success) return result;
 
-            // ---------- ④ 代码 ----------
-            var utf8Bom = new UTF8Encoding(true);
+            // ---------- ④ 代码（仅数据模式整段跳过：一个代码文件都不碰） ----------
+            if (mode == ExportMode.Full)
+            {
+                var utf8Bom = new UTF8Encoding(true);
 
-            string structPath = Path.Combine(structDir, options.StructFileName);
-            string containerPath = Path.Combine(containerDir, options.ContainerFileName);
+                string structPath = Path.Combine(structDir, options.StructFileName);
+                string containerPath = Path.Combine(containerDir, options.ContainerFileName);
 
-            File.WriteAllText(structPath, CodeGenerator.GenerateDataStructures(tables), utf8Bom);
-            File.WriteAllText(containerPath, CodeGenerator.GenerateContainers(tables), utf8Bom);
+                File.WriteAllText(structPath, CodeGenerator.GenerateDataStructures(tables), utf8Bom);
+                File.WriteAllText(containerPath, CodeGenerator.GenerateContainers(tables), utf8Bom);
 
-            result.Log.Add($"数据结构类 → {structPath}");
-            result.Log.Add($"容器类     → {containerPath}");
+                result.Log.Add($"数据结构类 → {structPath}");
+                result.Log.Add($"容器类     → {containerPath}");
+            }
+            else
+            {
+                result.Log.Add("（仅数据模式：未生成代码文件）");
+            }
 
             // ---------- ⑤ 数据 ----------
             var utf8NoBom = new UTF8Encoding(false);

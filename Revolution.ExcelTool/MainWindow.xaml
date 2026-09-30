@@ -210,12 +210,21 @@
         <Grid Grid.Row="3" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Button Grid.Column="0" Content="开始导出" Style="{StaticResource PrimaryButton}" Click="OnExport"/>
+            <!-- ★ 只改了 Excel 数值、没动表结构时用：不生成代码，Unity 那边不会触发脚本重编译 -->
+            <Button Grid.Column="0" Content="仅生成数据" Style="{StaticResource FlatButton}"
+                    ToolTip="只重新生成数据 txt，不生成代码。&#x0a;只改了数值、没动表结构时用它 —— 导完不会触发脚本重编译。"
+                    Margin="0,0,8,0" Click="OnExportDataOnly"/>
 
-            <TextBlock x:Name="TxtStatus" Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0"
+            <!-- ★ 表结构有改动（加字段 / 加表 / 改类型）时用：代码 + 数据一起重新生成 -->
+            <Button Grid.Column="1" Content="全量生成（代码+数据）" Style="{StaticResource PrimaryButton}"
+                    ToolTip="重新生成数据结构类、容器类与全部数据 txt。&#x0a;改了表结构（字段 / 类型 / 新增或删除表）时用这个。"
+                    Click="OnExport"/>
+
+            <TextBlock x:Name="TxtStatus" Grid.Column="2" VerticalAlignment="Center" Margin="14,0,0,0"
                        Style="{StaticResource Hint}" TextWrapping="Wrap"
                        Text="就绪"/>
         </Grid>

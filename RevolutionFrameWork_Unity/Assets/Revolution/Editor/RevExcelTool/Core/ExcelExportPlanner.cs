@@ -43,6 +43,14 @@ namespace Revolution.Editor.ExcelTool
 
     public enum ExcelFileChange { New, Changed, Unchanged }
 
+    /// <summary>
+    /// 导出模式：
+    /// · <see cref="Full"/> —— 代码（数据结构类 + 容器类）+ 数据文件全都要（表结构有改动时用）；
+    /// · <see cref="DataOnly"/> —— 只写数据 txt，完全不动代码文件
+    ///   （只改了 Excel 里的数值、没动表结构时用：不生成代码 = 不触发一次十几秒的全量脚本编译）。
+    /// </summary>
+    public enum ExcelExportMode { Full, DataOnly }
+
     /// <summary>计划要写的一个文件</summary>
     public sealed class ExcelPlannedFile
     {
@@ -312,16 +320,20 @@ namespace Revolution.Editor.ExcelTool
 
         /// <summary>
         /// 写文件：默认只写"新增 / 变了"的，force = true 时全部重写。返回实际写了的文件。
+        /// <paramref name="mode"/> = <see cref="ExcelExportMode.DataOnly"/> 时只写数据 txt，
+        /// 代码文件一个都不碰（表结构没改时用它：不碰代码 = 不触发全量脚本编译）。
         /// 编码与 WPF 版一致：代码 UTF-8 带 BOM（IDE 靠它认中文注释）；数据 UTF-8 不带 BOM
         /// （BOM 会让第一行的 "#" 不再是第一个字符，注释行失效）。
         /// </summary>
-        public static List<ExcelPlannedFile> Write(ExcelExportPlan plan, bool force)
+        public static List<ExcelPlannedFile> Write(ExcelExportPlan plan, bool force,
+            ExcelExportMode mode = ExcelExportMode.Full)
         {
             var written = new List<ExcelPlannedFile>();
             if (!plan.CanExport) return written;
 
             foreach (ExcelPlannedFile f in plan.Files)
             {
+                if (mode == ExcelExportMode.DataOnly && f.Kind != ExcelFileKind.Data) continue;
                 if (!force && f.Change == ExcelFileChange.Unchanged) continue;
 
                 string dir = Path.GetDirectoryName(f.Path);

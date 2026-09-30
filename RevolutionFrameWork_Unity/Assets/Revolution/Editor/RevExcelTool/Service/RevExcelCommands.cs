@@ -60,6 +60,48 @@ namespace Revolution.Editor.ExcelTool
             SceneView.lastActiveSceneView?.ShowNotification(new UnityEngine.GUIContent(summary));
             RevExcelLog.Info("[RevExcel] " + summary);
         }
+
+        /// <summary>
+        /// ★ 只生成数据文件（不生成代码）：策划只改了 Excel 里的数值、没动表结构时用 ——
+        ///   不写任何代码文件，导完不会触发一次十几秒的全量脚本编译。
+        /// </summary>
+        [MenuItem("Revolution.Tools/配置表/快速导出（仅数据，不生成代码）", false, 22)]
+        private static void RunDataOnly()
+        {
+            RevExcelUserSettings user = RevExcelUserSettings.instance;
+            if (user.sources.Count == 0)
+            {
+                if (EditorUtility.DisplayDialog("导表工具", "还没选过 Excel 源。先打开导表工具选一次？", "打开导表工具", "取消"))
+                    RevExcelToolWindow.Open();
+                return;
+            }
+
+            RevExcelReadResult read = RevExcelService.Read(user.sources, user.includeSubfolders, true);
+            int bad = read.Tables.Count(t => !t.Ignored && !t.IsValid) + read.FileErrors.Count;
+
+            if (read.Tables.Count == 0 || bad > 0)
+            {
+                RevExcelToolWindow.Open();          // 有问题：交给窗口展示
+                return;
+            }
+
+            // 仅数据模式不写代码：不存在"删掉表的代码"要确认的情况
+            RevExcelReport report = RevExcelService.Export(read.Tables, false, null, ExcelExportMode.DataOnly);
+            if (report.cancelled) return;
+
+            if (!report.success || report.unmarked.Count > 0 || report.mapFailed)
+            {
+                RevExcelToolWindow.Open().ShowReport(report);
+                return;
+            }
+
+            string summary = report.written.Count == 0
+                ? $"已是最新：{report.tableCount} 张表的数据都没有变化"
+                : $"仅数据导出完成：{report.tableCount} 张表 / {report.rowCount} 条数据，更新 {report.written.Count} 个数据文件（未生成代码）";
+
+            SceneView.lastActiveSceneView?.ShowNotification(new UnityEngine.GUIContent(summary));
+            RevExcelLog.Info("[RevExcel] " + summary);
+        }
     }
 
     /// <summary>CI / 批处理入口（-executeMethod Revolution.Editor.ExcelTool.RevExcelCI.Export）</summary>
