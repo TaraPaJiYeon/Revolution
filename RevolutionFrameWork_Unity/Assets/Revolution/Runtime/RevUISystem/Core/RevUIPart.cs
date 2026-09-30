@@ -157,13 +157,31 @@ namespace Revolution
             T exist = slot.GetComponentInChildren<T>(true);
             if (exist != null)
             {
-                exist.InternalRefresh();
+                // ★ Bug 修复（2026-09-30）：复用前必须检查它还开着没有 ——
+                //   ClosePart(false) 关掉的 Part 是"失活保留"（IsOpened=false + SetActive(false)），
+                //   原复用路径只调 InternalRefresh，而它对 !IsOpened 直接 return：
+                //   不会 SetActive(true)、不会触发 OnPartOpen —— 业务拿到的是一个失活的 Part，
+                //   表现为"第二次打开这个 Part 不出现"。
+                if (exist.IsOpened) exist.InternalRefresh();
+                else exist.InternalOpen();
+
                 onCreated?.Invoke(exist);
                 return;
             }
 
             RevResManager.LoadAsync<GameObject>(meta.Root, meta.Name, prefab =>
             {
+                // ★ Bug 修复（2026-09-30）：异步加载回来时宿主可能已经被关闭回池 / 销毁
+                //   （加载需要时间，这期间面板被关是常态）——此时 slot 已是假 null：
+                //   还往下走就会把 Part 实例化到已销毁的父节点上（抛异常）或场景根上（脱离宿主），
+                //   并且"Part 生命周期完全跟随宿主"的约定被破坏。失败时按约定回调 null。
+                if (slot == null)
+                {
+                    RevUILog.Warning($"创建 Part {typeof(T).Name} 中止：宿主在预制体加载完成前已被关闭/销毁。");
+                    onCreated?.Invoke(null);
+                    return;
+                }
+
                 if (prefab == null)
                 {
                     RevUILog.Error($"创建 Part {typeof(T).Name} 失败：加载不到预制体 {meta.Key}（可能是没打包 / 路径写错）。");

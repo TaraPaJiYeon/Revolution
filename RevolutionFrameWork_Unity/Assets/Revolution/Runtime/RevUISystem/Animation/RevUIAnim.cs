@@ -232,7 +232,14 @@ namespace Revolution
             RevUIAnimTarget t = target.GetComponent<RevUIAnimTarget>();
             if (t == null) return;
 
-            StopAllOf(t);
+            // ★ Bug 修复（2026-09-30）：原来 StopAllOf(t) 传的 owner 是 RevUIAnimTarget 组件本身 ——
+            //   但动画注册的 owner 是"播放方"（面板 this / RevUIWidgetFeedback 组件等），
+            //   永远不会是 RevUIAnimTarget → 这一句永远停不掉任何动画。
+            //   后果：RevUIWidgetFeedback.OnDisable → RestoreBase 后基准值虽被恢复，
+            //   但引擎下一帧仍在这个控件上覆写 scale（池化复用时旧动画还在写新主人的值）。
+            //   改用 StopTarget：这正是 PlaySpec"新动画顶掉旧动画"用的同一套机制（按句柄停）。
+            StopTarget(t);
+
             t.RestoreBase();
         }
 

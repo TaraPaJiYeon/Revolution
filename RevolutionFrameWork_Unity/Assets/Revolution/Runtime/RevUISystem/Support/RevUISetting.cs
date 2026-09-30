@@ -28,7 +28,11 @@ namespace Revolution
         /// <summary>UI Canvas 的排序基准（默认 100，避免和别的 Canvas 抢 0）</summary>
         public static int SortOrderBase = 100;
 
-        /// <summary>每个层级之间的排序间隔（默认 50）—— 相邻层之间还能塞下临时 Canvas</summary>
+        /// <summary>
+        /// （★ 预留参数，当前架构未接入）层与层的上下关系现在靠"画布内子节点顺序"决定，
+        /// 三 Canvas 的子画布排序用固定的根−1/根−2 —— 调整这个值不会有任何效果。
+        /// 接入前请勿依赖它。
+        /// </summary>
         public static int LayerStep = 50;
 
         /// <summary>面板没声明 CacheMode 时用的默认策略（默认 KeepAlive：关闭进池复用）</summary>

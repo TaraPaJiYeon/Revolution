@@ -54,6 +54,15 @@ namespace Revolution
         protected sealed override void OnDataChanged(object oldData, object newData)
             => OnDataChanged(As(oldData), As(newData));
 
+        /// <summary>
+        /// ★ Bug 修复（2026-09-30）：管理器走的是基类 SetData(object) 通道（本类的 SetData(TData)
+        ///   是方法隐藏不是重写，管理器调不到）—— 原实现这条通道只写了基类 DataObject，
+        ///   强类型 Data 永远是 null / 上一次的旧值，OnRefreshView"只画 Data"的契约被整体破坏。
+        ///   现在统一在这里把 object 同步成强类型 Data（弱类型 SetData(TData) 最终也汇到这条通道，行为一致）。
+        /// </summary>
+        protected sealed override void OnDataSet(object data)
+            => Data = data is TData typed ? typed : default;
+
         /// <summary>复用时连强类型数据一起清掉（否则会出现"上次的数据还在"这种最难查的 bug）</summary>
         internal override void InternalClearData()
         {

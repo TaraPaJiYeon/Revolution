@@ -104,7 +104,8 @@ namespace Revolution
     ///      这样升级到"可配置渲染模式"不会改变任何既有工程的行为。
     ///
     /// 【怎么选】
-    ///   · Auto（默认）—— 配了 Canvas 预制体就跟随预制体里选的模式；没配就 Overlay（永远最上层、不需要相机）；
+    ///   · Auto —— 配了 Canvas 预制体就跟随预制体里选的模式；没配就 Overlay（永远最上层、不需要相机）；
+    ///     （默认值是 ScreenSpaceOverlay，见 RevUISetting.CanvasMode —— 想跟随预制体请显式设 Auto）；
     ///   · ScreenSpaceOverlay —— 不需要相机，UI 永远盖在场景之上（大多数游戏界面用这个就够）；
     ///   · ScreenSpaceCamera —— **需要一台 UI 相机**：UI 可被 3D 物体遮挡、可进 RenderTexture、
     ///     可让 3D 模型 / 粒子渲染在 UI 之上（详见表内的四个必配项，文档 4.9 / 4.11）；

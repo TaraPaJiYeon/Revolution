@@ -153,11 +153,26 @@ namespace Revolution
             object oldData = DataObject;
             DataObject = data;
 
+            // ★ Bug 修复（2026-09-30）：必须给泛型面板一个同步强类型 Data 的出口。
+            //   原来管理器（OpenInternal / InstantiatePanel）持有的是基类声明，
+            //   调 SetData(data) 走的一定是这条 object 通道 —— 而泛型类的 SetData(TData)
+            //   是方法**隐藏**不是重写，永远轮不到执行 → RevUIPanel<TData>.Data 保持 null
+            //   （复用路径更糟：InternalReuse 先把 Data 清成 default，之后也没人写回）。
+            //   结果：OnRefreshView 契约是"只画 Data"，实际画出来的是 null / 上一次的旧数据。
+            //   现在统一从这条通道经 OnDataSet 发下去（泛型面板 override 它同步 Data）。
+            OnDataSet(data);
+
             RevUILog.Guard($"{GetType().Name}.OnDataChanged", () => OnDataChanged(oldData, data));
 
             // 还没显示出来就先不画：等 OnOpen 那次统一画，省一次无意义的刷新
             if (State == RevUIPanelState.Opened || State == RevUIPanelState.Opening) RefreshView();
         }
+
+        /// <summary>
+        /// 数据被设置（管理器的 object 通道与强类型入口最终都汇到这里）。
+        /// ★ 泛型面板 <see cref="RevUIPanel{TData}"/> override 它把 object 同步成强类型 <c>Data</c>。
+        /// </summary>
+        protected virtual void OnDataSet(object data) { }
 
         /// <summary>让界面按当前数据重画一次</summary>
         public void RefreshView() => RevUILog.Guard($"{GetType().Name}.OnRefreshView", OnRefreshView);
@@ -283,6 +298,13 @@ namespace Revolution
 
             RevUILog.Guard($"{GetType().Name}.打开转场", () => PlayOpenTransition(() =>
             {
+                // ★ Bug 修复（2026-09-30）：转场完成回调必须有状态守卫 ——
+                //   打开转场是异步的，途中面板可能已被 Close（管理器允许关 Opening 状态的面板：
+                //   Close 的防重入只拦 Closing/Closed）。没有守卫时，"打开完成"会在
+                //   正在关闭/已回池的面板上照常执行：State 被改回 Opened、OnOpen/OpenParts 被调、
+                //   业务的打开回调收到一个已经不在打开列表里的面板。
+                if (State != RevUIPanelState.Opening) return;
+
                 State = RevUIPanelState.Opened;
 
                 RevUILog.Guard($"{GetType().Name}.OnOpen", OnOpen);
@@ -290,7 +312,11 @@ namespace Revolution
                 OpenParts();
 
                 // ★ 显示动画：播完才算"打开完成"（重写 ShowAnimation 一行就给面板加动效）
-                PlayPanelAnimation(ShowAnimation, onOpened);
+                //   —— 动画期间同样可能被关闭，回调同样要守状态
+                PlayPanelAnimation(ShowAnimation, () =>
+                {
+                    if (State == RevUIPanelState.Opened) onOpened?.Invoke();
+                });
             }));
         }
 
@@ -308,6 +334,11 @@ namespace Revolution
 
             RevUILog.Guard($"{GetType().Name}.关闭转场", () => PlayCloseTransition(() =>
             {
+                // ★ Bug 修复（2026-09-30）：与打开对称的状态守卫 —— 关闭转场是异步的，
+                //   途中面板可能又被打开（State 变 Opening）。没有守卫时会在
+                //   "重新打开"的面板上执行 OnClose、摘掉全部事件、置 Closed 并触发回池。
+                if (State != RevUIPanelState.Closing) return;
+
                 RevUILog.Guard($"{GetType().Name}.OnClose", OnClose);
 
                 // ★ 一行防泄漏：本人（含老代码里手写的解绑清单）注册的事件全摘掉
@@ -316,6 +347,10 @@ namespace Revolution
                 // ★ 隐藏动画：播完才真正关闭 / 回池 —— 否则"一关就隐藏"会让动画看不到
                 PlayPanelAnimation(HideAnimation, () =>
                 {
+                    // 隐藏动画期间状态若又变了（防御：正常流程不会有路径重开本实例），
+                    // 不再置 Closed / 回池，避免把一个正被使用的实例还进池里
+                    if (State != RevUIPanelState.Closing) return;
+
                     RevUIAnim.StopAllOf(this);           // 兜底：万一同帧还挂着别的动画（如按钮反馈）
                     State = RevUIPanelState.Closed;
                     IsCovered = false;

@@ -181,8 +181,22 @@ namespace Revolution
                 RevUIAnimRuntime rt = Active[i];
                 if (!rt.Alive) { RemoveAt(i); continue; }
 
+                // ★ Bug 修复（2026-09-30）：记下推进前的版本号 —— Advance 末尾的 EmitSample
+                //   会执行业务的采样回调，回调里完全可能 Stop 掉这个动画自己
+                //   （如 OnCovered 里 StopAllOf(面板)）。Stop 已做过"移出列表 + 续接完成回调 +
+                //   回池"的完整收尾；此后绝不能再走一遍 RemoveAt/Finish/Recycle：
+                //   ① RemoveAt(i) 是 swap-remove，会错删此刻换到 i 位置的**别的动画**；
+                //   ② rt 已回池、可能已被同帧的新 Play 复用 —— 此时 rt.Alive 又变回 true
+                //      （是新动画的"活着"），Finish/Recycle 会把别人刚起的动画提前"完成"
+                //      再回收一次，跨动画状态污染。
+                //   所以收尾前必须双重确认：还活着、且**版本号没变**（对象没被复用）——
+                //   这正是铁律③"句柄带版本号防误停"想防的那类事故，补上引擎内部的最后一块。
+                int versionBefore = rt.Version;
+
                 if (Advance(rt, deltaTime))
                 {
+                    if (!rt.Alive || rt.Version != versionBefore) continue;
+
                     RemoveAt(i);
                     Finish(rt, out RevUIAnimRuntime done);
                     Recycle(done);

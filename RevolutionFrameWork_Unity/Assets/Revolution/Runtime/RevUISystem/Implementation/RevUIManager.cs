@@ -300,6 +300,17 @@ namespace Revolution
 
             panel.InternalClose(() =>
             {
+                // ★ Bug 修复（2026-09-30）：关闭是异步的（转场 + 隐藏动画），这个回调可能在
+                //   ShutdownAll / 场景卸载（根节点已销毁，_root 为假 null）之后才执行 ——
+                //   那时面板 GameObject 早已随根销毁：回池只会把死实例塞进刚清空的池
+                //   （下次打开取出来就是已销毁对象），AddPendingRelease 的 _root 也已是 null。
+                //   这种情况下唯一还该做的事是把占用的资源引用还掉。
+                if (_root == null)
+                {
+                    ReleaseResourceOf(panel);
+                    return;
+                }
+
                 if (canPool)
                 {
                     _pool.Put(panel);
@@ -307,7 +318,7 @@ namespace Revolution
                     return;
                 }
 
-                _root?.AddPendingRelease(panel);       // 延迟一帧销毁：避免在事件/遍历里删对象
+                _root.AddPendingRelease(panel);        // 延迟一帧销毁：避免在事件/遍历里删对象
             });
 
             return true;
@@ -422,10 +433,24 @@ namespace Revolution
         /// <summary>某层最上面那个面板（做"当前界面是哪个"的判断用）</summary>
         public RevUIPanel TopOf(RevUILayer layer)
         {
-            for (int i = _openOrder.Count - 1; i >= 0; i--)
-                if (_openOrder[i].Layer == layer) return _openOrder[i];
+            // ★ Bug 修复（2026-09-30）："最上面"必须与 CloseTopOf / ApplyLayerLayout 同一套规则
+            //   （先比画布：三 Canvas 下静态 < 动态 < 常用；再比打开顺序）——
+            //   原实现只按打开顺序取末尾，Split 架构下 Scene 层分三个画布：
+            //   常用画布里先开的面板视觉上仍高于静态画布里后开的面板，
+            //   TopOf 会返回一个"不在视觉最上面"的面板，"当前界面是哪个"的判断随之失准。
+            RevUIPanel top = null;
+            int topCanvas = -1;
 
-            return null;
+            for (int i = _openOrder.Count - 1; i >= 0; i--)
+            {
+                RevUIPanel panel = _openOrder[i];
+                if (panel.Layer != layer) continue;
+
+                int canvas = RevUILayerUtil.CanvasStackIndex(panel.CanvasType);
+                if (canvas > topCanvas) { top = panel; topCanvas = canvas; }   // 同画布取更晚打开的
+            }
+
+            return top;
         }
 
         /// <summary>当前所有已打开的面板（只读遍历用；外部不要改这个顺序）</summary>

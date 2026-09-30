@@ -11,7 +11,8 @@
 //      框架负责挂六层节点、按需应用渲染模式、并把 UI 相机接上。
 //
 // 【渲染模式可配（RevUISetting.CanvasMode）】
-//   Auto（默认）= 跟随 Canvas 预制体；没预制体就是 ScreenSpaceOverlay（不需要相机、永远最上层）。
+//   默认 ScreenSpaceOverlay（不需要相机、永远最上层，绝大多数项目要的就是它）；
+//   设 Auto = 跟随 Canvas 预制体里选的模式（没预制体也是 Overlay）。
 //   选 ScreenSpaceCamera 时需要一台 UI 相机 —— 优先级：
 //     RevUISetting.UICamera → UICameraPrefabPath 预制体 → 场景里叫 UICamera 的 → 代码兜底建一台。
 //   这条路换来的是"UI 可被 3D 遮挡 / 能进 RenderTexture / 3D 模型与粒子可渲染在 UI 之上"。
