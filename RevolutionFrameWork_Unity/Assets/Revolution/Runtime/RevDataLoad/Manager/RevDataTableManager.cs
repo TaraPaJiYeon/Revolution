@@ -59,6 +59,16 @@ namespace Revolution
         private static readonly Dictionary<System.Type, RevIDataTable> _tablesByType =
             new Dictionary<System.Type, RevIDataTable>();
 
+        /// <summary>
+        /// 加载中的容器类型 → 该次加载的完成源（★ Bug 修复 2026-09-30 新增）。
+        /// 【为什么必须有这张表】资源系统只会把"同一资源的并发 IO"合并成一次，但
+        /// <b>容器实例与引用计数不会自动合并</b> —— 没有它时，两个并发调用会各 new 一个容器、
+        /// 各占一次资源引用；最终只有一个实例被登记（另一个被覆盖、无人持有），
+        /// 引用计数却永远回不到零 → TextAsset 再也卸不掉（泄漏），且两个调用方拿到不同实例。
+        /// 有了它：同类型的并发请求共享同一份加载任务。
+        /// </summary>
+        private static readonly Dictionary<System.Type, object> _loading = new Dictionary<System.Type, object>();
+
         // ==================== 查询 ====================
 
         /// <summary>已装载的表数量</summary>
@@ -126,7 +136,15 @@ namespace Revolution
             var table = new T();
             RevResHandle handle = RevResManager.Load(table.ResourceRoot, table.ResourceName, typeof(TextAsset), group);
 
-            if (!ReadText(table, handle)) return null;
+            if (!ReadText(table, handle))
+            {
+                // ★ Bug 修复（2026-09-30）：失败必须把本次占用的资源引用还掉 ——
+                //   命中缓存但内容不符（比如同路径曾被按别的类型加载）时，这次 Load 已经把引用 +1，
+                //   不还会把 TextAsset 的引用计数顶高、永远卸不掉；彻底加载失败（对方返回 Empty 句柄）时，
+                //   Release 是安全的空操作（资源系统内部按 key 查不到会直接返回）。
+                RevResManager.Release(table.ResourceRoot, table.ResourceName);
+                return null;
+            }
 
             Register(table);
             return table;
@@ -146,13 +164,24 @@ namespace Revolution
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) return RevTask<T>.FromResult(cached);
 
+            // ★ Bug 修复（2026-09-30）：同一容器类型已在加载中 → 直接共享同一个任务。
+            //   否则并发调用会各建一个容器、各占一次引用，登记时互相覆盖（详见 _loading 的注释）。
+            if (_loading.TryGetValue(typeof(T), out object pending))
+                return ((RevTaskCompletionSource<T>)pending).Task;
+
             var table = new T();
             var source = RevTask<T>.CreateSource();
+            _loading[typeof(T)] = source;
 
             RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
             {
+                _loading.Remove(typeof(T));      // ★ 先摘"加载中"登记：成功 / 失败都要摘，别让后续请求挂在一份死任务上
+
                 if (!ReadText(table, handle))
                 {
+                    // ★ Bug 修复（2026-09-30）：失败同样要把本次占用的资源引用还掉（与同步版同理）
+                    RevResManager.Release(table.ResourceRoot, table.ResourceName);
+
                     source.SetException(new RevDataTableLoadException(
                         table.TableName, table.ResourceRoot, table.ResourceName,
                         handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason));
@@ -170,27 +199,37 @@ namespace Revolution
         /// 异步加载（回调式，不抛异常）：失败时 table 为 null，reason 说明原因。
         /// 适合不想在每个调用处写 try/catch 的场景。
         /// </summary>
+        /// <remarks>
+        /// ★ Bug 修复（2026-09-30）：实现改为"复用上面的 await 版 + 回调中继"—— 之前是独立的一份实现，
+        /// 既漏了并发合并（同表两次并发请求会各建一个容器、引用计数失衡），又漏了失败还引用。
+        /// 现在两种风格共享同一套加载逻辑，修一处两处都受益。
+        /// </remarks>
         public static void LoadAsync<T>(Action<T, RevResLoadErrorReason> onFinished,
             RevResGroup group = RevResGroup.Config, RevResLoadPriority priority = RevResLoadPriority.Normal)
             where T : class, RevIDataTable, new()
+            => RelayToCallback(LoadAsync<T>(group, priority), onFinished);
+
+        /// <summary>把"可 await 的加载任务"转成回调风格（失败给出原因码，不抛异常）</summary>
+        private static async void RelayToCallback<T>(RevTask<T> task, Action<T, RevResLoadErrorReason> onFinished)
+            where T : class, RevIDataTable
         {
-            T cached = Get<T>();
-            if (cached != null && cached.IsLoaded) { onFinished?.Invoke(cached, RevResLoadErrorReason.None); return; }
+            if (onFinished == null) return;
 
-            var table = new T();
-
-            RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
+            try
             {
-                if (!ReadText(table, handle))
-                {
-                    RevResLoadErrorReason reason = handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason;
-                    onFinished?.Invoke(null, reason);
-                    return;
-                }
-
-                Register(table);
-                onFinished?.Invoke(table, RevResLoadErrorReason.None);
-            }, group, priority);
+                T table = await task;
+                onFinished(table, RevResLoadErrorReason.None);
+            }
+            catch (RevDataTableLoadException e)
+            {
+                onFinished(null, e.Reason);          // 加载失败：带着细分原因回报（不抛）
+            }
+            catch (Exception e)
+            {
+                // 兜底：理论上不会走到（加载路径的异常都已包成 RevDataTableLoadException）
+                RevLog.Exception(e, "[RevDataTable] 回调式中继出现意外异常", "Data");
+                onFinished(null, RevResLoadErrorReason.PolicyNotFound);
+            }
         }
 
         // ==================== 卸载 ====================
@@ -246,7 +285,12 @@ namespace Revolution
             if (!(handle.Content is TextAsset text)) return false;
 
             table.LoadText(text.text, out _);
-            return true;
+
+            // ★ Bug 修复（2026-09-30）：把"空文本 = 损坏"也算失败 ——
+            //   原来无条件返回 true：一个空的 TextAsset 会登记一张"永远空"的表
+            //   （容器已进管理器、IsLoaded 却是 false），业务查到 Count=0 也不知道出了什么事。
+            //   非空文本哪怕全是注释行，LoadText 也会标记 IsLoaded=true，不受影响。
+            return table.IsLoaded;
         }
     }
 }
