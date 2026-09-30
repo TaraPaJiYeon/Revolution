@@ -17,6 +17,8 @@ namespace Revolution
         /// <inheritdoc/>
         public override string Name { get; }
 
+        internal override bool IsBlocking => _isCompleted != null;
+
         /// <summary>
         /// 构造一个委托步骤。
         /// </summary>
@@ -26,7 +28,7 @@ namespace Revolution
         internal RevDelegateStep(string name, Action<RevSequenceContext> body, Func<RevSequenceContext, bool> isCompleted = null)
         {
             Name = name;
-            _body = body ?? throw new ArgumentNullException(nameof(body));
+            _body = body ?? throw new ArgumentNullException(nameof(body), $"步骤「{name}」的执行体是 null");
             _isCompleted = isCompleted;
         }
 

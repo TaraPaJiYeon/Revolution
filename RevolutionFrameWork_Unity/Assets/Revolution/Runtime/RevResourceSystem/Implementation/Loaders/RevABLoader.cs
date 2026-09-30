@@ -48,10 +48,11 @@ namespace Revolution
         /// </summary>
         private readonly Dictionary<string, RevTask<AssetBundle>> _loading = new Dictionary<string, RevTask<AssetBundle>>();
 
-        //主包
+        // 主包 / Manifest：并发首次请求共享同一加载任务。
         private AssetBundle _mainBundle;
-        //配置文件
         private AssetBundleManifest _manifest;
+        private RevTaskCompletionSource<bool> _manifestSource;
+        private int _generation;
 
         // AB 的根目录：StreamingAssets/<平台名>/
         //   ★ 必须带平台子目录 —— 打包工具把产物拷到 Assets/StreamingAssets/<平台名>/（见 ABBuilderCore.CopyToStreamingAssets），
@@ -88,16 +89,23 @@ namespace Revolution
         /// <summary>确保主包 + Manifest 已加载</summary>
         private bool EnsureManifest()
         {
-            if (_manifest != null) 
-                return true;
-            //加载主包
-            _mainBundle = LoadBundle(MainName);
-            // 主包缺失（AB 未构建 / 未拷到 StreamingAssets）
-            if (_mainBundle == null) 
+            if (_manifest != null) return true;
+            // 同步请求不能和异步首次初始化并行再加载一个主包。
+            if (_manifestSource != null) return false;
+
+            AssetBundle mainBundle = LoadBundle(MainName);
+            if (mainBundle == null) return false;
+
+            AssetBundleManifest manifest = mainBundle.LoadAsset<AssetBundleManifest>("AssetBundleManifest");
+            if (manifest == null)
+            {
+                mainBundle.Unload(false);
                 return false;
-            //通过主包加载Manifest
-            _manifest = _mainBundle.LoadAsset<AssetBundleManifest>("AssetBundleManifest");
-            return _manifest != null;
+            }
+
+            _mainBundle = mainBundle;
+            _manifest = manifest;
+            return true;
         }
 
 
@@ -122,13 +130,24 @@ namespace Revolution
         /// <summary>加载包（含依赖），并给每个包 +1 引用</summary>
         private AssetBundle AcquireBundle(string abName)
         {
-            if (!EnsureManifest()) 
-                return null;
-            // 先加载依赖（依赖必须先于主包就绪）
-            foreach (var dep in _manifest.GetAllDependencies(abName))
-                AcquireSingle(dep);
+            if (!EnsureManifest()) return null;
 
-            return AcquireSingle(abName);
+            // 依赖加载是一个事务：任何依赖或目标包失败，都归还本次已经取得的依赖引用。
+            var acquiredDependencies = new List<string>();
+            foreach (string dep in _manifest.GetAllDependencies(abName))
+            {
+                if (AcquireSingle(dep) == null)
+                {
+                    for (int i = acquiredDependencies.Count - 1; i >= 0; i--) ReleaseSingle(acquiredDependencies[i]);
+                    return null;
+                }
+                acquiredDependencies.Add(dep);
+            }
+
+            AssetBundle target = AcquireSingle(abName);
+            if (target == null)
+                for (int i = acquiredDependencies.Count - 1; i >= 0; i--) ReleaseSingle(acquiredDependencies[i]);
+            return target;
         }
 
         /// <summary>
@@ -163,6 +182,7 @@ namespace Revolution
         /// <summary>释放包（引用归零则 Unload）</summary>
         public void ReleaseBundle(string abName)
         {
+            if (_bundles.Count == 0) return;              // ReleaseAll 已清账时，不能为一次迟到 Release 重载主包
             if (!EnsureManifest()) return;
             //先去释放这个包的依赖包
             foreach (string dep in _manifest.GetAllDependencies(abName))
@@ -200,16 +220,16 @@ namespace Revolution
         /// <summary>全部释放（切场景 / 退出时兜底）</summary>
         public void ReleaseAll()
         {
-            //遍历字典卸载ab包
-            foreach(RevBundleEntry e in _bundles.Values)
-                if(e.bundle != null)
-                    e.bundle.Unload(false);
+            // 递增代际：仍在等待 Unity 异步 IO 的旧任务完成后会自行卸载结果，不能再写回新缓存。
+            _generation++;
+            _manifestSource = null;
 
-            //清空缓存
+            foreach (RevBundleEntry e in _bundles.Values)
+                if (e.bundle != null) e.bundle.Unload(false);
+
             _bundles.Clear();
             _loading.Clear();
 
-            //卸载主包
             if (_mainBundle != null)
             {
                 _mainBundle.Unload(false);
@@ -247,6 +267,9 @@ namespace Revolution
                 err = RevResLoadErrorReason.BundleLoadFail;
                 return null;
             }
+            handle.BundleAcquired = true;
+            handle.BundleLoader = this;
+            handle.BundleName = parts[0];
             //加载ab包中的资源
             UnityEngine.Object asset = bundle.LoadAsset(parts[1], handle.ContentType);
             err = asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
@@ -283,74 +306,130 @@ namespace Revolution
         /// </summary>
         private async RevTask LoadAsyncInternal(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token)
         {
+            var acquiredDependencies = new List<string>();
             try
             {
-                // RealPath 是策略查映射表后填的，约定为 "包名|资源名"（见同步版 Load 的说明）
-                // parts[0] → 包名：查依赖、加载主包；parts[1] → 资源名：从包里取资源
                 string[] parts = handle.RealPath.Split('|');
-                // 拆不出两段 → 句柄本不该进 RevABLoader（映射表坏了 / 策略匹配漏了）
-                if (parts.Length != 2)      
+                if (parts.Length != 2)
                 {
                     handle.ErrorReason = RevResLoadErrorReason.PathNotMapped;
                     handle.MarkError();
-                    return;                                   // 交给 finally 回调
+                    return;
                 }
 
-                // 前置条件：Manifest（依赖查询表）必须先就绪，下面 GetAllDependencies 才用得上
-                // （懒加载：只有进程内首次会真去读主包，之后近乎零开销）
-                await EnsureManifestAsync();
-                // 取消检查点：上面这次 await 期间可能已被取消（切场景 / CancelAll）
-                // 取消会抛 RevOperationCanceledException → 跳到 catch 记为 Cancelled，不算异常逃逸
-                token?.ThrowIfCancelled();
-
-                // 依赖包：逐个串行加载（顺序重要：依赖必须先于目标包就绪）
-                foreach (string dep in _manifest.GetAllDependencies(parts[0]))
-                    await AcquireSingleAsync(dep);
-
-                token?.ThrowIfCancelled();
-
-                //加载目标包
-                AssetBundle bundle = await AcquireSingleAsync(parts[0]);
-                if (bundle == null)
+                if (!await EnsureManifestAsync())
                 {
                     handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                     handle.MarkError();
                     return;
                 }
-                // 从包里取资源（Unity 的异步操作可以直接 await）
+                token?.ThrowIfCancelled();
+
+                foreach (string dep in _manifest.GetAllDependencies(parts[0]))
+                {
+                    if (await AcquireSingleAsync(dep) == null)
+                    {
+                        ReleaseDependencies(acquiredDependencies);
+                        acquiredDependencies.Clear();
+                        handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
+                        handle.MarkError();
+                        return;
+                    }
+                    acquiredDependencies.Add(dep);
+                }
+
+                token?.ThrowIfCancelled();
+
+                AssetBundle bundle = await AcquireSingleAsync(parts[0]);
+                if (bundle == null)
+                {
+                    ReleaseDependencies(acquiredDependencies);
+                    acquiredDependencies.Clear();
+                    handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
+                    handle.MarkError();
+                    return;
+                }
+
+                handle.BundleAcquired = true;
+                handle.BundleLoader = this;
+                handle.BundleName = parts[0];
+                token?.ThrowIfCancelled();
+
                 AssetBundleRequest req = bundle.LoadAssetAsync(parts[1], handle.ContentType);
                 await req;
-                //设置句柄的资源
-                handle.ErrorReason = RevResLoadErrorReason.None;
+                token?.ThrowIfCancelled();
+                handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
                 handle.SetContent(req.asset);
             }
             catch (RevOperationCanceledException)
             {
+                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies);
                 handle.ErrorReason = RevResLoadErrorReason.Cancelled;
                 handle.MarkError();
             }
             catch (Exception)
             {
-                // 本方案统一不打日志：失败原因记在 handle.ErrorReason 上
+                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies);
                 handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                 handle.MarkError();
             }
             finally
             {
-                onFinished?.Invoke(handle);     // ★ 契约：成功 / 失败 / 取消，一律回调
+                onFinished?.Invoke(handle);
             }
+        }
+
+        private void ReleaseDependencies(List<string> dependencies)
+        {
+            for (int i = dependencies.Count - 1; i >= 0; i--) ReleaseSingle(dependencies[i]);
         }
 
         /// <summary>
         /// 确保主包 + AssetBundleManifest 就绪，异步版。
         /// </summary>
-        private async RevTask EnsureManifestAsync()
+        private async RevTask<bool> EnsureManifestAsync()
         {
-            if (_manifest != null) return;
+            if (_manifest != null) return true;
+            if (_manifestSource != null) return await _manifestSource.Task;
 
-            _mainBundle = await LoadBundleAsync(MainName);
-            if (_mainBundle != null)
-                _manifest = _mainBundle.LoadAsset<AssetBundleManifest>("AssetBundleManifest");
+            var source = new RevTaskCompletionSource<bool>();
+            _manifestSource = source;
+            int generation = _generation;
+            bool success = false;
+            AssetBundle mainBundle = null;
+
+            try
+            {
+                mainBundle = await LoadBundleAsync(MainName);
+                if (generation != _generation)
+                {
+                    if (mainBundle != null) mainBundle.Unload(false);
+                    return false;
+                }
+
+                if (mainBundle == null) return false;
+                AssetBundleManifest manifest = mainBundle.LoadAsset<AssetBundleManifest>("AssetBundleManifest");
+                if (manifest == null)
+                {
+                    mainBundle.Unload(false);
+                    return false;
+                }
+
+                _mainBundle = mainBundle;
+                _manifest = manifest;
+                success = true;
+                return true;
+            }
+            catch
+            {
+                if (mainBundle != null && !ReferenceEquals(_mainBundle, mainBundle)) mainBundle.Unload(false);
+                return false;
+            }
+            finally
+            {
+                source.SetResult(success);
+                if (ReferenceEquals(_manifestSource, source)) _manifestSource = null;
+            }
         }
 
         /// <summary>
@@ -398,36 +477,54 @@ namespace Revolution
         /// </summary>
         private async RevTask<AssetBundle> AcquireSingleAsync(string abName)
         {
-            // 已在内存 → 复用
+            int generation = _generation;
             if (_bundles.TryGetValue(abName, out RevBundleEntry e) && e.bundle != null)
             {
-                e.refCount++;                              
+                e.refCount++;
                 return e.bundle;
             }
 
-            // 有人正在加载同一个包 → 搭他的车，等同一个 RevTask，避免重复加载
             if (_loading.TryGetValue(abName, out RevTask<AssetBundle> task))
             {
-                AssetBundle existed = await task;
-
-                if (existed != null && _bundles.TryGetValue(abName, out RevBundleEntry entry))
-                    entry.refCount++; // 搭车也要占一份引用
-
-                return existed;
+                AssetBundle existing = await task;
+                if (generation != _generation || existing == null) return null;
+                if (_bundles.TryGetValue(abName, out RevBundleEntry entry) && ReferenceEquals(entry.bundle, existing))
+                {
+                    entry.refCount++;
+                    return existing;
+                }
+                return null;
             }
 
-            // 首个请求 → 自己发起；先把任务挂到 _loading，供后来的请求搭车
-            RevTask<AssetBundle> newTask = LoadBundleAsync(abName);
-            _loading[abName] = newTask;
+            var source = RevTask<AssetBundle>.CreateSource();
+            RevTask<AssetBundle> loadingTask = source.Task;
+            _loading[abName] = loadingTask;
+            CompleteAcquireSingleAsync(abName, generation, source, loadingTask).Forget();
+            return await loadingTask;
+        }
 
-            AssetBundle bundle = await newTask;
-            // 加载已结束（成功失败都撤掉搭车点）
-            _loading.Remove(abName);
+        private async RevTask CompleteAcquireSingleAsync(string abName, int generation,
+            RevTaskCompletionSource<AssetBundle> source, RevTask<AssetBundle> loadingTask)
+        {
+            AssetBundle bundle = null;
+            try { bundle = await LoadBundleAsync(abName); }
+            catch { bundle = null; }
 
-            if (bundle != null)
-                _bundles[abName] = new RevBundleEntry { bundle = bundle, refCount = 1 };   // 发起者这份算 1
+            if (generation != _generation)
+            {
+                if (bundle != null) bundle.Unload(false);
+                bundle = null;
+            }
+            else if (bundle != null)
+            {
+                _bundles[abName] = new RevBundleEntry { bundle = bundle, refCount = 1 };
+            }
 
-            return bundle;
+            if (_loading.TryGetValue(abName, out RevTask<AssetBundle> current)
+                && ReferenceEquals(current.Promise, loadingTask.Promise))
+                _loading.Remove(abName);
+
+            source.SetResult(bundle);
         }
     }
 }

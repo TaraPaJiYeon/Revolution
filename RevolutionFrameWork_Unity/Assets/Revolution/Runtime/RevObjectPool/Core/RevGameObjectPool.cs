@@ -24,6 +24,7 @@
 //   相对 Instantiate/Destroy 的开销可以忽略，换来的是层级干净、行为可预期。
 // ============================================================
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Revolution
 {
@@ -34,6 +35,7 @@ namespace Revolution
         private readonly string _nodeName;
 
         private Transform _root;
+        private Transform _takeParent;     // 本次取出的目标父节点（OnTake 里用；Get 返回后清空）
         private bool _disposed;
 
         internal RevGameObjectPool(int poolId, string rootPath, string resName, RevResGroup group,
@@ -110,12 +112,15 @@ namespace Revolution
                 return null;
             }
 
-            GameObject item = _core.Get();
-            if (item == null) return null;
-
-            // 取出后重新指定父节点（池节点只是"存放处"）
-            if (parent != null) item.transform.SetParent(parent, false);
-            return item;
+            _takeParent = parent;
+            try
+            {
+                return _core.Get();                // 挂父节点 / 激活在 OnTake 里做（激活前先挂好）
+            }
+            finally
+            {
+                _takeParent = null;
+            }
         }
 
         internal bool Recycle(GameObject item, int delayFrames)
@@ -147,6 +152,7 @@ namespace Revolution
         internal void Rebind(GameObject prefab, RevResHandle handle, string rootPath, string resName)
         {
             _core.ClearIdle();
+            ReleasePrefabHandle();                 // 旧句柄若还在资源缓存里，先还掉这份引用再换新
 
             Prefab = prefab;
             PrefabHandle = handle;
@@ -201,6 +207,21 @@ namespace Revolution
 
         private void OnTake(GameObject item)
         {
+            // ★ 先挂好父节点再激活：OnEnable / OnPoolGet 看到的层级才是对的。
+            Transform t = item.transform;
+            if (_takeParent != null)
+            {
+                t.SetParent(_takeParent, false);
+            }
+            else
+            {
+                // 不指定父节点 = 交给当前活动场景（池节点是 DontDestroyOnLoad 的，
+                // 留在它下面会导致"业务以为在场景里"的对象切场景不销毁、销毁池时被连带删掉）
+                t.SetParent(null, false);
+                Scene active = SceneManager.GetActiveScene();
+                if (active.IsValid() && item.scene != active) SceneManager.MoveGameObjectToScene(item, active);
+            }
+
             item.SetActive(true);
 
             RevPooledMember member = item.GetComponent<RevPooledMember>();

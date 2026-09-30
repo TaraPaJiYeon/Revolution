@@ -75,6 +75,11 @@ namespace Revolution
         /// <summary>面板根节点的 RectTransform（等价于 (RectTransform)transform，这里缓存下来省一次转换）</summary>
         public RectTransform ViewRect { get; private set; }
 
+        /// <summary>
+        /// 实际所在的画布（单 Canvas 架构下恒为 Common；三 Canvas 架构下由声明 + 层级决定，见 <see cref="RevUILayerUtil.ResolveCanvasType"/>）。
+        /// </summary>
+        public RevUICanvasType CanvasType { get; internal set; } = RevUICanvasType.Common;
+
         /// <summary>业务数据（非泛型视图；泛型面板请用 <c>RevUIPanel&lt;TData&gt;.Data</c>）</summary>
         public object DataObject { get; private set; }
 

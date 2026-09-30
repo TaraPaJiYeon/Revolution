@@ -243,7 +243,7 @@ RevSound.PlayBgm(<span class="s">"login"</span>, fadeSeconds: <span class="n">1f
     <p class="lead">三步：把音频放对地方 → 一行播放 → （可选）调音量。</p>
 
     <h3>① 音频放哪：在打包工具窗口里选（代码里不写死）</h3>
-    <p>菜单 <code>Revolution.Tools/资源/LiteAB 打包工具</code> → <b>① 打包配置 → 音效目录</b>：把文件夹拖进槽里，或点「选择…」，或点「默认」。</p>
+    <p>菜单 <code>Revolution.Tools/资源/RevAB 打包工具</code> → <b>「打包」页签 → 资源目录 → 音效目录</b>：把文件夹拖进槽里，或点「选择…」，或点「默认」。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>声音</th><th>默认目录（相对"资源根目录"）</th><th>运行时读的常量</th></tr></thead>
@@ -646,7 +646,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
           </tr>
           <tr>
             <td class="c">9</td><td>想改音频目录，却去改代码</td>
-            <td>去打包窗口改：<code>Revolution.Tools/资源/LiteAB 打包工具</code> → ① 打包配置 → 音效目录。改完自动重新生成常量，目录写错编译期就报错（运行期零 IO）。</td>
+            <td>去打包窗口改：<code>Revolution.Tools/资源/RevAB 打包工具</code> → 「打包」页签 → 资源目录 → 音效目录。改完自动重新生成常量，目录写错编译期就报错（运行期零 IO）。</td>
           </tr>
           <tr>
             <td class="c">10</td><td>名字里又写了一遍根目录</td>
@@ -745,7 +745,7 @@ RevSound.Policy = <b>new</b> BattleSoundPolicy();</pre>
 
     <h3>目录配置（不进代码）</h3>
     <div class="cheat">
-      <div><b>改音效 / BGM 目录</b>打包窗口 ① 打包配置 → 音效目录（拖拽 / 选择… / 默认）</div>
+      <div><b>改音效 / BGM 目录</b>打包窗口 「打包」页签 → 资源目录 → 音效目录（拖拽 / 选择… / 默认）</div>
       <div><b>查看生成结果</b><code>RevSoundSystem/Generated/RevSoundPath.cs</code>（工具生成，勿手改）</div>
       <div><b>默认值</b><code>Audio/Sfx/</code>、<code>Audio/Bgm/</code>（相对资源根目录）</div>
       <div><b>硬约束</b>目录必须在「资源根目录」之内（否则编辑器直读与真机行为会割裂）</div>

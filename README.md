@@ -32,7 +32,7 @@
 - 🛡 **防漏防崩** - 句柄代际校验（过期句柄不会误伤别人）、循环计时器 `owner` / 作用域一行清理、逐回调异常隔离
 - 📉 **性能有数字** - 1000 个计时器每帧 0.0139ms；10 万条日志 0 分配；对象池 10 万次创建 <4KB
 - 🔍 **失败必带原因** - 框架不吞错误：失败一律给**原因枚举**（外加统一日志系统，可静默可按模块关）
-- 📦 **编辑器工具齐** - LiteAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
+- 📦 **编辑器工具齐** - RevAB 打包窗口（对标 AssetBundle Browser：包树 + 资源表拖拽分包 / 目标平台可选 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具（Unity 编辑器版：拖入 Excel 一键导出，改表自动重读、只写有变化的文件；另有不依赖 Unity 的 WPF 版）
 - 🧭 **小白友好** - 每个模块一份《使用说明》（手把手）＋ 每个文件开头都写清"为什么这么写"
 
 ---
@@ -81,7 +81,7 @@
 ### 装完三步
 
 1. 工程里准备**资源根目录**：新建 `Assets/GameRes`（或你已有的目录）
-2. 菜单 `Revolution.Tools / 资源 / LiteAB 打包工具` → **① 打包配置** → 把「资源根目录」设为 `Assets/GameRes`
+2. 菜单 `Revolution.Tools / 资源 / RevAB 打包工具` → **「打包」页签 → 资源目录** → 把「资源根目录」设为 `Assets/GameRes`
 3. 开始写业务 👇
 
 ```csharp
@@ -109,7 +109,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 | 能力 | 有没有 | 说明 |
 |---|---|---|
-| 资源**打包**（AB） | ✅ 有 | LiteAB 打包工具：分包浏览（自动同步）/ Project 包名角标 / 依赖 / 体积 / 漏标检查 / 布局快照 |
+| 资源**打包**（AB） | ✅ 有 | RevAB 打包工具：分包浏览（自动同步）/ Project 包名角标 / 依赖 / 体积 / 漏标检查 / 布局快照 |
 | AB **本机**加载 | ✅ 有 | 从 `StreamingAssets` 读；编辑器直读 / AB 两条后端自动切换 |
 | AB **远程下载** + 版本管理 + 差量更新 | ❌ **没有** | 没有下载器、没有版本清单比对、没有 CDN 地址管理、没有 CRC/Hash 校验、没有 `persistentDataPath` 覆盖路径 |
 | **代码热更新**（HybridCLR / ILRuntime / xLua） | ❌ **没有** | 全仓库 0 处相关代码 |
@@ -144,7 +144,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 - **校验与回滚**：下完校验 hash，坏了能退回上一版；
 - 可选：差量（文件级 / bsdiff）、CDN 多域名、灰度开关。
 
-> 优点：上层（`RevResManager` / 对象池 / UI / 表）**一行都不用改** ✓，LiteAB 打包工具继续用 ✓。
+> 优点：上层（`RevResManager` / 对象池 / UI / 表）**一行都不用改** ✓，RevAB 打包工具继续用 ✓。
 > 代价：下载器与版本体系要自己写、自己维护 ✗（这部分最容易出线上事故 ✗）。
 
 ### 方案 B：接入 YooAsset 等第三方资源框架（要真上线的项目推荐）
@@ -162,7 +162,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 
 | 项 | 处理方式 |
 |---|---|
-| LiteAB 打包工具 | 不再使用（YooAsset 有自己的收集器与构建器）；「分包 / 依赖 / 体积 / 漏标 / 布局快照」这些**查看能力**会一起失去 —— 想保留就把这些视图接到 YooAsset 的 collector 数据上 |
+| RevAB 打包工具 | 不再使用（YooAsset 有自己的收集器与构建器）；「分包 / 依赖 / 体积 / 漏标 / 布局快照」这些**查看能力**会一起失去 —— 想保留就把这些视图接到 YooAsset 的 collector 数据上 |
 | `ResMap.txt` | 不再需要（YooAsset 用 location + 收集器） |
 | `RevResPath.cs`（生成的路径常量） | 可以保留当业务侧常量表，但要自己维护一份和 location 命名规则一致的生成逻辑 |
 | 资源分组 `RevResGroup` | 映射成 YooAsset 的**资源标签 / 收集器分组** |
@@ -207,6 +207,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 - ✅ **声明式配置**：`[RevUIPanel(root, layer)]` 一个特性搞定层级与根节点
 - ✅ **控件事件三种接法**：九种事件（点击 / 长按 / 松开 / Toggle / Slider / 输入框 / 结束编辑 / Dropdown / 滚动）都能用**方法特性**一行接上（`[RevButtonClick("btnStart")]` · `[RevToggleChanged("tglSound")]` · `[RevScrollChanged("scrollList")]` …）；也可重写 `OnClick(节点名)` 这类回调集中处理，或 `[RevBind]` 字段 + 自己挂监听（最灵活）
 - ✅ **内置 UI 动画库**（不依赖 DOTween）：面板 / Part 一行预设 `ShowAnimation => RevUIAnimPreset.PopIn`（显示隐藏动画**播完才回调**）；控件一行 `RevUIAnim.FadeIn / SlideIn / ScaleTo / Breathe / AddHoverFeedback`；引擎走采样模型 + 帧余量结转（掉帧不改变动画总时长），600 帧稳态零 GC
+- ✅ **Canvas 架构按需选择**：**主推单 Canvas（默认、零配置）**；只有目标设备的 Profiler 证明 UI 合批成为瓶颈、常规优化仍不达标，才启用常用 / 静态 / 动态三 Canvas。并非有动态 UI 就必须拆，详见 [架构解析 4.12](Revolution.Document/UI系统/UI系统架构解析.md)
 - ✅ **与对象池联动**：关闭即回收，重复打开不重建
 - ✅ **纯代码路径可用**：没有 `Resources` 时 Canvas 用代码建（降级不崩）
 
@@ -316,7 +317,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 | `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
 | `RevScene` | 场景加载：一行切换（await 或挂事件）、进度永远 0~1（不卡 90%）、最短展示时长、切前按约定清理（默认清对象池） | 5 / 494 |
 | `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
-| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **内置 UI 动画库**（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 5,763 |
+| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **优先单 Canvas、性能瓶颈时按需启用三 Canvas** / 内置 UI 动画库（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 约 6,000 |
 | `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
 | `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
 | `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |
@@ -331,11 +332,12 @@ git clone https://github.com/Yokino337088/Revolution.git
 | `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 639 |
 | `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |
 
-**编辑器**（`Assets/Revolution/Editor/`，2 套工具 / 22 个 `.cs` / 5,589 行）
+**编辑器**（`Assets/Revolution/Editor/`，3 套工具 / 41 个 `.cs` / 12,181 行）
 
 | 工具 | 一句话 | 规模 |
 |---|---|---|
-| `RevResourceSystem` | **LiteAB 打包工具**：分包浏览（自动同步）/ Project 窗口包名角标 / 依赖 / 体积 / 漏标检查 / 布局快照对比；生成 `ResMap.txt` 与路径常量 | 20 / 4,769 |
+| `RevResourceSystem` | **RevAB 打包工具**（原名 LiteAB，对标 AssetBundle Browser）：包树 + 资源表（拖拽建包 / 换包、F2 改名、Delete、右键）/ 目标平台可选 / Project 窗口包名角标 / 依赖 / 体积 / 漏标检查（一键处理）/ 布局快照对比；生成 `ResMap.txt` 与路径常量 | 27 / 7,039 |
+| `RevExcelTool` | **导表工具（编辑器版）**：拖入 Excel → 预览 / 逐行校验 → 一键导出代码 + 数据；Excel 开着也能读、改表自动重读、只写有变化的文件、新增表自动生成映射；生成物与 WPF 版逐字节一致；带 CI 入口 | 12 / 4,322 |
 | `RevGMCommand` | GM 指令的编辑器面板 | 2 / 820 |
 
 ---
@@ -347,13 +349,13 @@ Revolution/
 ├── RevolutionFrameWork_Unity/            Unity 工程
 │   ├── Assets/Revolution/                  ★ 框架本体（包分支的仓库根就是它）
 │   │   ├── Runtime/                            17 个运行期模块（RevScene / RevResourceSystem / RevUISystem / RevInput / …）
-│   │   ├── Editor/                             编辑器工具（LiteAB 打包 / GM 面板）
+│   │   ├── Editor/                             编辑器工具（RevAB 打包 / GM 面板）
 │   │   ├── Generation/                         生成的路径常量（RevResPath.cs）
 │   │   ├── Resources/                          框架自带运行时资源（ResMap、UI 预制体）
 │   │   ├── package.json / README.md            包描述与包内说明（UPM 用）
 │   ├── Assets/Revolution.Demo/             示例（动作序列 / GM 指令 / 状态机）
 │   ├── Assets/Scenes/                      示例场景（SampleScene）
-│   ├── Assets/GameRes/                     资源根目录（放你的资源，LiteAB 从这里扫）
+│   ├── Assets/GameRes/                     资源根目录（放你的资源，RevAB 从这里扫）
 │   └── Packages/ · ProjectSettings/        Unity 工程配置
 ├── Revolution.Document/                  设计文档（每个模块：使用说明 + 架构解析）
 ├── Revolution.Demo/                      示例数据与源码
@@ -428,7 +430,7 @@ RevObjectPool/Core/RevPoolCore.cs                池引擎（重复归还拦截�
 RevLog/Core/RevLogRing.cs                        日志环形缓冲（定长 / 零分配写入）
 RevLog/Implementation/RevLogCore.cs              日志内核（过滤 / 重复抑制 / 通道隔离）
 RevPublicMono/Implementation/RevMonoCore.cs      监听列表内核（去重 / 上限 / 快照派发 / 异常隔离）
-Editor/RevResourceSystem/ABTool/ABLayoutSnapshot.cs   AB 布局快照差异（改名 / 换包 / 增删识别）
+Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照差异（改名 / 换包 / 增删识别）
 ```
 
 已验证的部分（都是跑出来的数字，不是估算）：
@@ -463,7 +465,7 @@ Editor/RevResourceSystem/ABTool/ABLayoutSnapshot.cs   AB 布局快照差异（�
 ### 2. 敢改
 
 没有隐藏的反射魔法、没有第三方依赖、没有"只有作者知道"的约定；
-编辑器工具（LiteAB / 导表）源码都在仓库里，改起来没有黑盒。
+编辑器工具（RevAB / 导表）源码都在仓库里，改起来没有黑盒。
 
 ### 3. 有证据
 

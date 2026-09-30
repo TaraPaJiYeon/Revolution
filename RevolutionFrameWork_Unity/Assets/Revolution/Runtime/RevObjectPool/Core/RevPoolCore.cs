@@ -55,8 +55,9 @@ namespace Revolution
         private readonly List<T> _idle = new List<T>();
         // 空闲对象的"引用相等"集合：重复归还拦截（见文件头）
         private readonly HashSet<T> _idleSet = new HashSet<T>(ReferenceComparer.Instance);
-        // 延迟回收队列
+        // 延迟回收队列 + 对应的引用相等集合：延迟期间重复归还也要拦（否则同一实例会同时躺在延迟队列和空闲列表）
         private readonly List<DelayEntry> _delaying = new List<DelayEntry>();
+        private readonly HashSet<T> _delayingSet = new HashSet<T>(ReferenceComparer.Instance);
 
         // ===== 统计 =====
         // 账目类（不清零：ActiveCount 靠它们推导）
@@ -170,6 +171,17 @@ namespace Revolution
                 return false;
             }
 
+            // ★ 先判重（空闲 + 延迟回收中），再碰回调：
+            //   延迟归还后又立即归还，会让同一实例同时躺在延迟队列和空闲列表 ——
+            //   两次 Get 拿到同一个对象（双重所有权）；判重放在 _onPut 之前，
+            //   也不会把一个正在被使用的对象失活 / 挪回池节点。
+            if (_idleSet.Contains(item) || _delayingSet.Contains(item))
+            {
+                RevPoolLog.Error($"池 \"{Name}\"：这个对象已经在池里 / 延迟回收中，重复归还已忽略。" +
+                                 $"检查一下是不是取一次还了两次。");
+                return false;
+            }
+
             _onPut?.Invoke(item);              // 业务清理 / 失活 / 挂回池节点
 
             // 回调里可能把它销毁了（比如 OnPoolReturn 里 Destroy）→ 不能再入池
@@ -181,6 +193,7 @@ namespace Revolution
 
             if (delayFrames > 0)
             {
+                _delayingSet.Add(item);
                 _delaying.Add(new DelayEntry { Item = item, FramesLeft = delayFrames });
                 return true;
             }
@@ -206,6 +219,7 @@ namespace Revolution
                 }
 
                 _delaying.RemoveAt(i);
+                _delayingSet.Remove(entry.Item);
                 if (_isAlive(entry.Item)) Push(entry.Item);
                 else _lost++;
             }
@@ -236,6 +250,7 @@ namespace Revolution
             }
 
             _delaying.Clear();
+            _delayingSet.Clear();
             return removed;
         }
 

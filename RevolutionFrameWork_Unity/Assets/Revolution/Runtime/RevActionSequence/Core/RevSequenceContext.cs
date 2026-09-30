@@ -1,6 +1,9 @@
 // RevSequenceContext.cs —— 上下文（步骤与宿主之间的唯一通道）
 // 【职责】给步骤读 Source（谁触发的）/ Get<T>() 服务 / Events / Elapsed / DeltaTime。
 // 【要点】框架不认识任何业务类型 —— 业务能力全靠 ctx.Get<T>() 注入。
+// 【取服务】Get<T>() 取不到返回 null（可选服务）；Require<T>() 取不到直接报错（必需服务，推荐）。
+
+using System;
 
 namespace Revolution
 {
@@ -62,6 +65,27 @@ namespace Revolution
         /// <para>步骤里所有业务调用都应走这里 —— 这是"框架零业务依赖"的落点。</para>
         /// </summary>
         public T Get<T>() where T : class => Services != null ? Services.Get<T>() : null;
+
+        /// <summary>
+        /// 取业务服务；<b>没注册就抛异常</b>（异常信息告诉你该怎么注册）。
+        /// <para>这个服务"必须有"时用它：比 <c>Get&lt;T&gt;()?.X()</c> 静默跳过好查得多 ——
+        /// 抛出后引擎会打出"哪条序列、第几步"，并按取消走收尾。</para>
+        /// </summary>
+        public T Require<T>() where T : class
+        {
+            T service = Get<T>();
+            if (service != null) return service;
+
+            throw new InvalidOperationException(
+                $"没有注册服务 {typeof(T).Name}：请先 runner.Services.Add<{typeof(T).Name}>(实现)" +
+                "（用全局引擎就是 RevSequencePlayer.Default.Services.Add<…>(…)）");
+        }
+
+        /// <summary>
+        /// 把触发者转成指定类型（转不了返回 null）。
+        /// <code>ctx.SourceAs&lt;GameObject&gt;()?.SetActive(false)</code>
+        /// </summary>
+        public T SourceAs<T>() where T : class => Source as T;
 
         /// <summary>调试显示：触发者类型 + 当前步</summary>
         public override string ToString()

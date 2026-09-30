@@ -20,6 +20,8 @@ namespace Revolution
         /// <inheritdoc/>
         public override string Name { get; }
 
+        internal override bool IsBlocking => true;
+
         internal RevNestedStep(string name, RevSequenceDefinition nested)
         {
             Name = name;
@@ -31,11 +33,12 @@ namespace Revolution
         {
             State state = GetOrCreateState<State>(run);
 
-            // 把父序列的上下文原样传给子序列：触发者、服务容器、事件总线都是同一套
+            // 子序列沿用父序列的触发者、服务容器、事件总线（走 Play(definition, context) 重载 ——
+            // 以前误走了 Play(definition, object source)，子序列的 ctx.Source 变成了父序列的上下文对象）
             state.Handle = run.Runner.Play(_nested, context);
 
             // 启动成功 → 登记（父序列结束时连同子序列一起收掉）；
-            // 启动失败（被 RejectPerSource 拒绝 / 引擎已释放）→ 不登记，本步立即放行（见 IsCompleted）
+            // 启动失败（被 RejectPerSource 拒绝）→ 不登记，本步立即放行（见 IsCompleted）
             if (state.Handle.IsAssigned) run.AddChildHandle(state.Handle);
         }
 

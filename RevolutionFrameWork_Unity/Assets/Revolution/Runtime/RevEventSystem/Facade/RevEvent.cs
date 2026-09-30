@@ -256,21 +256,42 @@ namespace Revolution
             string message = $"[RevEvent] 事件 \"{name}\" 的监听者 {node} 抛出异常（已隔离，其余监听者不受影响）：{e}";
 
             Action<Exception, string> hook = OnException;
-            if (hook != null) hook(e, message);
-            else Write(message);
+            if (hook == null)
+            {
+                Write(message);
+                return;
+            }
+
+            try
+            {
+                hook(e, message);
+            }
+            catch (Exception reportException)
+            {
+                Write($"{message}\n[RevEvent] OnException 上报回调也抛出了异常：{reportException}");
+            }
         }
 
         /// <summary>统一的消息出口：没人接日志时走框架日志系统的纯 C# 兜底（它再退到标准错误），绝不静默。</summary>
         private static void Write(string message)
         {
-            Action<string> sink = Log;
-            if (sink != null)
+            try
             {
-                sink(message);
-                return;
-            }
+                Action<string> sink = Log;
+                if (sink != null)
+                {
+                    sink(message);
+                    return;
+                }
 
-            RevLog.Warn(message, "Event");
+                RevLog.Warn(message, "Event");
+            }
+            catch (Exception sinkException)
+            {
+                // 日志系统属于观测出口，不能反过来打断事件派发。
+                try { RevLog.Exception(sinkException, "事件系统日志出口异常", "Event"); }
+                catch { }
+            }
         }
 
         /// <summary>把类型名写成好读的形式（Action`2 → Action&lt;Int32, String&gt;），只用在出错路径上。</summary>

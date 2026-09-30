@@ -52,8 +52,10 @@ namespace Revolution
         /// </summary>
         private static void Install()
         {
-            RevEvent.Log = message => RevLog.Warn(message, "Event");
-            RevEvent.OnException = (e, message) => RevLog.Exception(e, message, "Event");
+            if (RevEvent.Log == null)
+                RevEvent.Log = message => RevLog.Warn(message, "Event");
+            if (RevEvent.OnException == null)
+                RevEvent.OnException = (e, message) => RevLog.Exception(e, message, "Event");
         }
     }
 }

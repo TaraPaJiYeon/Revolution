@@ -299,7 +299,7 @@ namespace Revolution
             for (int i = 0; i < pools.Count; i++)
             {
                 pools[i].Capacity = capacity;
-                pools[i].Trim(capacity);
+                if (capacity > 0) pools[i].Trim(capacity);   // 0 = 不限，不能按 0 裁剪（会把空闲清空）
             }
         }
 

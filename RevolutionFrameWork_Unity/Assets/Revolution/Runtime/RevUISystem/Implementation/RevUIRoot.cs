@@ -28,9 +28,20 @@
 //   层与层之间靠 Canvas 内部的渲染顺序（子节点顺序）决定，所以"上层一定盖住下层"是结构保证的，
 //   不需要每个面板自己去设 sortingOrder（这也是原框架最容易被改乱的地方）。
 //
+// 【两种 Canvas 架构（RevUISetting.CanvasArchitecture）】
+//   Single（默认）：就是上面那张图 —— 所有面板都在根 Canvas 里。
+//   Split（三 Canvas 动静分离）：根 Canvas 本身就是"常用画布"（六层挂点不变），再多建两个子画布：
+//     [RevUIRoot]            ← 常用画布（sortingOrder = 根）
+//       ├ [StaticCanvas]     ← 静态画布（override，根 − 2）：Scene 层里内容基本不变的面板
+//       ├ [DynamicCanvas]    ← 动态画布（override，根 − 1）：Scene 层里每帧 / 每秒在变的面板
+//       └ Scene / Normal / Popup / Toast / Guide / Top
+//   ★ 常用画布必须在最上面：弹窗遮罩、引导、断线重连要盖住（并挡住）一切，包括 HUD 上的摇杆。
+//   ★ 两个子画布各自带 GraphicRaycaster：UGUI 的 Graphic 只登记到离自己最近的 Canvas，没有它就点不到。
+//
 // 【每帧只做两件轻活】
-//   ① 把"关闭待销毁"的面板真正销毁（延迟一帧：避免在遍历/事件回调里销毁对象）；
-//   ② 让管理器处理"层内排序"脏标记（打开/关闭时只打标记，不立即重排 —— 王者文档里点过这条）。
+//   ① Update：把"关闭待销毁"的面板真正销毁（延迟一帧：避免在遍历/事件回调里销毁对象）；
+//   ② LateUpdate：让管理器处理"层内排序"脏标记（打开/关闭时只打标记，不立即重排 —— 王者文档里点过这条）。
+//      放在 LateUpdate：本帧 Update / 点击回调里开关的面板，都在**同一帧渲染前**排好。
 //   除此之外完全不做事（没有每帧遍历、没有每帧分配）。
 // ============================================================
 using System;
@@ -50,11 +61,22 @@ namespace Revolution
         private bool _fromPrefab;                       // Canvas 来自预制体？（决定要不要用 RevUISetting 的值覆盖它的配置）
         private Camera _uiCamera;                       // Camera 模式用的 UI 相机（Overlay / WorldSpace 时为 null）
         private readonly Dictionary<RevUILayer, RectTransform> _layers = new Dictionary<RevUILayer, RectTransform>();
+        private readonly Dictionary<RevUICanvasType, Canvas> _splitCanvases = new Dictionary<RevUICanvasType, Canvas>();
         private readonly List<RevUIPanel> _pendingRelease = new List<RevUIPanel>();
         private readonly RevUIPopupMask _mask = new RevUIPopupMask();
 
-        /// <summary>UI Canvas（业务要加自定义 Canvas 时可以用它当父节点）</summary>
+        /// <summary>UI Canvas（业务要加自定义 Canvas 时可以用它当父节点）；三 Canvas 架构下它就是"常用画布"</summary>
         public Canvas Canvas => _canvas;
+
+        /// <summary>这个根节点用的 Canvas 架构（创建时从 RevUISetting 读一次，之后不变）</summary>
+        public RevUICanvasArchitecture Architecture { get; private set; } = RevUICanvasArchitecture.Single;
+
+        /// <summary>取某个画布（常用 = 根 Canvas；静态 / 动态只在三 Canvas 架构下存在，否则返回 null）</summary>
+        public Canvas GetCanvas(RevUICanvasType type)
+        {
+            if (type == RevUICanvasType.Common) return _canvas;
+            return _splitCanvases.TryGetValue(type, out Canvas c) && c != null ? c : null;
+        }
 
         /// <summary>这个根节点用的是不是"预制体方案"（CanvasPrefabPath 载到并实例化了）</summary>
         public bool FromPrefab => _fromPrefab;
@@ -151,12 +173,56 @@ namespace Revolution
                 _layers[layer] = rt;
             }
 
-            // ⑤ 统一图层（含刚建好的六层节点）—— Camera 模式下这是"能不能被渲染出来"的前提
+            // ⑤ 三 Canvas 架构：再建静态 / 动态两个子画布（根 Canvas 自己就是常用画布）
+            Architecture = RevUISetting.CanvasArchitecture;
+            if (Architecture == RevUICanvasArchitecture.Split)
+            {
+                CreateSplitCanvas(RevUICanvasType.Static);
+                CreateSplitCanvas(RevUICanvasType.Dynamic);
+            }
+
+            // ⑥ 统一图层（含刚建好的六层节点与子画布）—— Camera 模式下这是"能不能被渲染出来"的前提
             ApplyUILayer(gameObject);
 
             EnsureEventSystem();
             RevUILog.Info($"UI 根节点已创建（{_canvas.renderMode}" +
-                          (_fromPrefab ? "，来自 Canvas 预制体" : "，代码建") + " + 六层挂点）");
+                          (_fromPrefab ? "，来自 Canvas 预制体" : "，代码建") +
+                          (Architecture == RevUICanvasArchitecture.Split ? "，三 Canvas 动静分离" : "，单 Canvas") +
+                          " + 六层挂点）");
+        }
+
+        /// <summary>
+        /// 建一个子画布（静态 / 动态）：override 排序（根 − 2 / 根 − 1，所以整体排在常用画布之下）+ 自己的 GraphicRaycaster。
+        /// ★ 先挂到根下再加 Canvas：嵌套 Canvas 的 overrideSorting 以"已有父 Canvas"为前提。
+        /// </summary>
+        private void CreateSplitCanvas(RevUICanvasType type)
+        {
+            var go = new GameObject($"[{type}Canvas]", typeof(RectTransform));
+            RectTransform rt = (RectTransform)go.transform;
+            rt.SetParent(transform, false);
+            rt.SetSiblingIndex(RevUILayerUtil.CanvasStackIndex(type));   // Hierarchy 里按"从下到上"排在六层挂点前面
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            Canvas canvas = go.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingLayerID = _canvas.sortingLayerID;
+            canvas.sortingOrder = RevUILayerUtil.CanvasSortingOrder(_canvas.sortingOrder, type);
+            canvas.additionalShaderChannels = _canvas.additionalShaderChannels;   // TMP 等要用的通道与根一致
+
+            go.AddComponent<GraphicRaycaster>();
+            _splitCanvases[type] = canvas;
+        }
+
+        /// <summary>
+        /// 面板挂在哪：静态 / 动态画布（三 Canvas 架构）或常用画布里对应层级的挂点。
+        /// </summary>
+        public Transform GetPanelParent(RevUILayer layer, RevUICanvasType type)
+        {
+            Canvas split = type == RevUICanvasType.Common ? null : GetCanvas(type);
+            return split != null ? split.transform : GetLayer(layer);
         }
 
         /// <summary>
@@ -474,11 +540,10 @@ namespace Revolution
         // 每帧
         // ============================================================
 
-        private void Update()
-        {
-            ProcessPendingRelease();
-            RevUIManager.Instance.OnRootTick();          // 层内排序等"逻辑性"工作（脏标记驱动，多半是空转）
-        }
+        private void Update() => ProcessPendingRelease();
+
+        // 层内排序 / 遮罩 / 被盖住通知（脏标记驱动，多半是空转）；LateUpdate = 本帧所有开关都已发生、渲染还没开始
+        private void LateUpdate() => RevUIManager.Instance.OnRootTick();
 
         /// <summary>整个根节点销毁（回登录 / 切大版本；管理器会调）</summary>
         public void DestroySelf()
@@ -486,6 +551,7 @@ namespace Revolution
             FlushPendingRelease();
             _mask.Clear();
             _layers.Clear();
+            _splitCanvases.Clear();
             DestroyObject(gameObject);
         }
     }

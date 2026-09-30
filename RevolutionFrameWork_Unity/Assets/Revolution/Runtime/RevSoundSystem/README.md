@@ -47,7 +47,7 @@ h.Stop();
 | 音效 | `<资源根目录>/Audio/Sfx/<名字>` | `RevSoundPath.Sfx` |
 | BGM | `<资源根目录>/Audio/Bgm/<名字>` | `RevSoundPath.Bgm` |
 
-**怎么改**：菜单 `Revolution.Tools/资源/LiteAB 打包工具` → ① 打包配置 → **音效目录**
+**怎么改**：菜单 `Revolution.Tools/资源/RevAB 打包工具` → 「打包」页签 → 资源目录 → **音效目录**
 （把文件夹拖进槽里 / 点「选择…」/ 点「默认」；目录必须在「资源根目录」之内）。
 
 ```text
@@ -225,7 +225,7 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 7 | **`RevResGroup.Sound` 的归属只认第一次** | 音效片段第一次被谁加载就归哪一组（`RevResourceSystem` 的规定）；公共音效想要"永不参与分组卸载"就 `AddFlag(RevResInstanceFlag.Resident)` |
 | 8 | **上限到了会丢音** | `MaxVoices`（默认 24）满了先淘汰最旧的一次性音效；如果全是循环音就会拒绝新播放并触发 `Failed(TooManyVoices)` —— 团战丢音请调大上限或加 `Policy` 提前裁剪 |
 
-| 9 | **想改音频目录怎么办** | 菜单 `Revolution.Tools/资源/LiteAB 打包工具` → ① 打包配置 → 音效目录（选完自动重生成 `RevSoundPath.cs`）。**不要**自己在 `RevSound.cs` 里加路径字段：目录是项目级事实，改这里会绕开工具与编译期保护 |
+| 9 | **想改音频目录怎么办** | 菜单 `Revolution.Tools/资源/RevAB 打包工具` → 「打包」页签 → 资源目录 → 音效目录（选完自动重生成 `RevSoundPath.cs`）。**不要**自己在 `RevSound.cs` 里加路径字段：目录是项目级事实，改这里会绕开工具与编译期保护 |
 
 | 10 | **名字里又写了一遍根目录** | `Play("Audio/Sfx/UI/click")` 会拼成 `Audio/Sfx/Audio/Sfx/UI/click` → `Failed(LoadFailed)`。名字永远**相对音效根目录**：子目录写进去（`"UI/click"`），根目录不写（根目录由打包窗口配置） |
 
@@ -246,7 +246,7 @@ RevSound.PreloadAll();                     // 表里所有音效一次性预加�
 | 项 | 结果 |
 |---|---|
 | 规模 | 10 个 `.cs` / 1640 行（注释 453 + 净代码 907 + 空行 280）；小白必读 1 个文件 296 行 |
-| 目录配置 | 在 `LiteAB 打包工具` 窗口里选（不进代码）：`ABBuildConfig`（+2 字段）→ `ABSoundPathGenerator`（新增 136 行）→ `RevSoundPath.cs`（生成物 27 行） |
+| 目录配置 | 在 `RevAB 打包工具` 窗口里选（不进代码）：`ABBuildConfig`（+2 字段）→ `ABSoundPathGenerator`（新增 136 行）→ `RevSoundPath.cs`（生成物 27 行） |
 | 对比旧实现 | `MusicMgr.cs` 714 行、只有 2 个音量 + 无句柄 + **无 2D/3D 区分** + 无作用域；本框架做到 2D/3D 显式区分（挂物体/挂坐标）+ 4 分类 + 池化 + 异步自动补播 + 作用域 + 双事件 |
 | 框架编译 | Debug **0 错 0 警**、Release 0 错 |
 | 纯 C# 内核行为验证 | **26 / 26 通过**（句柄代际、槽位复用不误停、轮转分配、同帧去重、上限淘汰、重复释放幂等、分类默认表） |

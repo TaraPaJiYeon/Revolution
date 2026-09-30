@@ -45,6 +45,9 @@ namespace Revolution
         /// <summary>遮罩策略（可能是 Auto，请用 <see cref="MaskResolved"/>）</summary>
         public readonly RevUIMaskMode Mask;
 
+        /// <summary>声明的画布类型（最终进哪个画布还要看架构与层级，见 <see cref="RevUILayerUtil.ResolveCanvasType"/>）</summary>
+        public readonly RevUICanvasType CanvasType;
+
         /// <summary>互斥组名（空 = 不互斥）</summary>
         public readonly string ExclusiveGroup;
 
@@ -69,6 +72,7 @@ namespace Revolution
             Layer = attr.Layer;
             CacheMode = attr.CacheMode;
             Mask = attr.Mask;
+            CanvasType = attr.CanvasType;
             ExclusiveGroup = string.IsNullOrEmpty(attr.ExclusiveGroup) ? null : attr.ExclusiveGroup.Trim();
             InBackStack = attr.InBackStack;
         }

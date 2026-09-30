@@ -37,6 +37,10 @@ namespace Revolution
         // ===== 缓存：Key → 句柄 =====
         private static readonly Dictionary<ulong, RevResHandle> _cache = new Dictionary<ulong, RevResHandle>();
 
+        // ===== 加载中的业务回调：一条策略链（含 fallback）只在最终结果时通知所有请求方 =====
+        private static readonly Dictionary<RevResHandle, List<Action<RevResHandle>>> _pendingAsyncCallbacks =
+            new Dictionary<RevResHandle, List<Action<RevResHandle>>>();
+
         // ===== 未使用表：引用计数归零、等待延迟释放 =====
         private static readonly Dictionary<ulong, RevResHandle> _unused = new Dictionary<ulong, RevResHandle>();
 
@@ -133,6 +137,7 @@ namespace Revolution
             {
                 handle.RefCount++;
                 handle.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+                _unused.Remove(key);                  // 命中后必须同时退出未使用表
                 handle.Touch();                      // ★ 刷新 LRU 时间戳（自动卸载排序用）
                 AssignGroup(handle, group);          // ★ 只补 Unknown，不覆盖已有归属（详见方法注释）
                 return true;
@@ -186,6 +191,7 @@ namespace Revolution
             if (handle == null) return RevResHandle.Empty;
 
             // ④ 入缓存（失败也入，避免每帧重复尝试同一个坏资源）
+            if (!handle.IsLoaded) handle.MarkError();
             _cache[key] = handle;
             return handle;
         }
@@ -224,7 +230,7 @@ namespace Revolution
         {
             if (!RevResPathUtil.IsValidResName(resName))
             {
-                onFinished?.Invoke(RevResHandle.Empty);
+                InvokeFinished(onFinished, RevResHandle.Empty);
                 return RevResHandle.Empty;
             }
 
@@ -235,9 +241,10 @@ namespace Revolution
             {
                 ready.RefCount++;
                 ready.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+                _unused.Remove(key);
                 ready.Touch();                       // 刷新 LRU 时间戳
                 AssignGroup(ready, group);           // ★ 与同步 Load 保持一致：只补 Unknown
-                onFinished?.Invoke(ready);
+                InvokeFinished(onFinished, ready);
                 return ready;
             }
 
@@ -252,33 +259,32 @@ namespace Revolution
         {
             if (string.IsNullOrEmpty(standardPath))
             {
-                onFinished?.Invoke(RevResHandle.Empty);
+                InvokeFinished(onFinished, RevResHandle.Empty);
                 return RevResHandle.Empty;
             }
 
             ulong key = ComputeKey(standardPath);
 
-            // ① 缓存已就绪：直接回调
-            if (_cache.TryGetValue(key, out RevResHandle cached) && cached.IsLoaded)
+            // ① 缓存命中（成功或已缓存失败）：保留原句柄与引用计数，不覆盖仍被外部持有的句柄。
+            if (_cache.TryGetValue(key, out RevResHandle cached))
             {
                 cached.RefCount++;
                 cached.RemoveFlag(RevResInstanceFlag.MarkedUnused);
-                cached.Touch();                      // 刷新 LRU 时间戳
-                AssignGroup(cached, group);          // ★ 与同步 Load 保持一致：只补 Unknown
-                onFinished?.Invoke(cached);
+                _unused.Remove(key);
+                cached.Touch();
+                AssignGroup(cached, group);
+
+                if (cached.IsLoaded || !cached.IsLoading)
+                {
+                    InvokeFinished(onFinished, cached);
+                    return cached;
+                }
+
+                AddPendingCallback(cached, onFinished);
                 return cached;
             }
 
-            // ② 已有同 key 正在加载：把回调挂上去（合并重复请求）
-            if (_cache.TryGetValue(key, out RevResHandle loading) && loading.IsLoading)
-            {
-                loading.RefCount++;
-                AssignGroup(loading, group);         // ★ 同上，保证同步/异步归属规则一致
-                RevAsyncLoadPump.AddCallback(key, onFinished);
-                return loading;
-            }
-
-            // ③ 建实体并"先入缓存"——异步要先登记句柄，后续同 key 请求才能合并
+            // ② 建实体并"先入缓存"——异步要先登记句柄，后续同 key 请求才能合并。
             var handle = new RevResHandle
             {
                 Key = key,
@@ -290,9 +296,10 @@ namespace Revolution
             };
             handle.MarkLoading();
             _cache[key] = handle;
+            AddPendingCallback(handle, onFinished);
 
-            // ④ 从第 0 条策略开始走"责任链"（失败会自动换下一条兜底）
-            TryLoadAsyncFrom(handle, 0, onFinished, priority);
+            // ③ 从第 0 条策略开始走"责任链"（失败会自动换下一条兜底）。
+            TryLoadAsyncFrom(handle, 0, priority);
             return handle;
         }
 
@@ -321,8 +328,7 @@ namespace Revolution
         /// 异步版"责任链"：从 startIndex 开始找能处理 handle 的策略；
         /// 若该策略加载失败且 AllowFallback = true，就自动换下一条策略重试。
         /// </summary>
-        private static void TryLoadAsyncFrom(RevResHandle handle, int startIndex,
-            Action<RevResHandle> onFinished, RevResLoadPriority priority)
+        private static void TryLoadAsyncFrom(RevResHandle handle, int startIndex, RevResLoadPriority priority)
         {
             for (int i = startIndex; i < _policies.Count; i++)
             {
@@ -332,28 +338,78 @@ namespace Revolution
                 string realPath = policy.MapPath(handle.StandardPath, handle.ContentType);
                 if (string.IsNullOrEmpty(realPath))
                 {
-                    if (policy.AllowFallback) continue;          // 映射失败也允许兜底 → 问下一条
-
                     handle.ErrorReason = RevResLoadErrorReason.PathNotMapped;
                     handle.MarkError();
-                    onFinished?.Invoke(handle);
+                    if (policy.AllowFallback) continue;
+                    CompleteAsync(handle);
                     return;
                 }
-                handle.RealPath = realPath;
 
-                int next = i + 1;                                // 记下"下一条策略"的序号
+                handle.RealPath = realPath;
+                handle.MarkLoading();
+                handle.ErrorReason = RevResLoadErrorReason.None;
+
+                int next = i + 1;
                 RevAsyncLoadPump.Submit(handle, policy.CreateLoader(), h =>
                 {
-                    if (h.IsLoaded || !policy.AllowFallback) { onFinished?.Invoke(h); return; }
-                    TryLoadAsyncFrom(handle, next, onFinished, priority);   // 失败且允许兜底 → 换下一条
+                    // 取消是终态，不能继续走 Resources fallback；非取消失败才走下一策略。
+                    if (h.ErrorReason == RevResLoadErrorReason.Cancelled)
+                    {
+                        CompleteAsync(h);
+                        return;
+                    }
+
+                    if (h.IsLoaded || !policy.AllowFallback)
+                    {
+                        CompleteAsync(h);
+                        return;
+                    }
+
+                    TryLoadAsyncFrom(handle, next, priority);
                 }, (int)priority);
                 return;
             }
 
-            // 没有任何策略能处理
             handle.ErrorReason = RevResLoadErrorReason.PolicyNotFound;
             handle.MarkError();
-            onFinished?.Invoke(handle);
+            CompleteAsync(handle);
+        }
+
+        private static void AddPendingCallback(RevResHandle handle, Action<RevResHandle> callback)
+        {
+            if (handle == null || callback == null) return;
+            if (!_pendingAsyncCallbacks.TryGetValue(handle, out List<Action<RevResHandle>> callbacks))
+                _pendingAsyncCallbacks[handle] = callbacks = new List<Action<RevResHandle>>(2);
+            callbacks.Add(callback);
+        }
+
+        private static void CompleteAsync(RevResHandle handle)
+        {
+            if (handle == null || handle.Key == 0) return;
+            OnAsyncLoaded(handle.Key, handle);
+
+            if (!_cache.TryGetValue(handle.Key, out RevResHandle current) || !ReferenceEquals(current, handle))
+            {
+                // Shutdown / 分组卸载已摘除此代句柄；若加载器在取消前取得了 AB 包，归还那份孤立引用。
+                ReleaseBundleOf(handle);
+            }
+            else if (handle.RefCount <= 0)
+            {
+                handle.AddFlag(RevResInstanceFlag.MarkedUnused);
+                handle.UnusedTime = Time.realtimeSinceStartup;
+                _unused[handle.Key] = handle;
+            }
+
+            if (!_pendingAsyncCallbacks.TryGetValue(handle, out List<Action<RevResHandle>> callbacks)) return;
+            _pendingAsyncCallbacks.Remove(handle);
+            for (int i = 0; i < callbacks.Count; i++) InvokeFinished(callbacks[i], handle);
+        }
+
+        private static void InvokeFinished(Action<RevResHandle> callback, RevResHandle handle)
+        {
+            if (callback == null) return;
+            try { callback(handle); }
+            catch (Exception e) { RevLog.Exception(e, "资源加载完成回调异常", "Res"); }
         }
 
         // ==================== 引用计数 ====================
@@ -364,12 +420,31 @@ namespace Revolution
             {
                 h.RefCount++;
                 h.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+                _unused.Remove(key);
+                h.Touch();
             }
+        }
+
+        internal static bool IsCurrent(RevResHandle handle)
+            => handle != null && handle.Key != 0
+               && _cache.TryGetValue(handle.Key, out RevResHandle current)
+               && ReferenceEquals(current, handle);
+
+        internal static bool DecRef(RevResHandle handle, bool removeWhenZero = true)
+        {
+            if (!IsCurrent(handle)) return false;
+            DecRef(handle.Key, removeWhenZero);
+            return true;
         }
 
         public static void DecRef(ulong key, bool removeWhenZero = true)
         {
             if (!_cache.TryGetValue(key, out RevResHandle h)) return;
+            if (h.RefCount <= 0)
+            {
+                RevLog.Warn($"资源句柄重复 Release：{h.StandardPath}（RefCount 已为 0）", "Res");
+                return;
+            }
 
             if (--h.RefCount <= 0 && removeWhenZero)
             {
@@ -396,18 +471,23 @@ namespace Revolution
         /// </summary>
         public static void FlushUnused()
         {
+            var removeUnused = new List<ulong>(_unused.Count);
             foreach (var kv in _unused)
             {
                 RevResHandle h = kv.Value;
-                if (h.RefCount > 0) continue;    // 等待期间又被引用 → 跳过
+                if (h.RefCount > 0 || h.HasFlag(RevResInstanceFlag.Resident))
+                {
+                    h.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+                    removeUnused.Add(kv.Key);
+                    continue;
+                }
+                if (h.IsLoading) continue;
 
-                // AB 资源：把对应的 AB 包引用一起还掉（包引用归零会自动 Unload）
-                if (!h.HasFlag(RevResInstanceFlag.LoadFromEditor) && _abPolicy != null)
-                    _abPolicy.ReleaseBundleOf(h.StandardPath);
-
+                ReleaseBundleOf(h);
                 _cache.Remove(kv.Key);
+                removeUnused.Add(kv.Key);
             }
-            _unused.Clear();
+            for (int i = 0; i < removeUnused.Count; i++) _unused.Remove(removeUnused[i]);
 
             Resources.UnloadUnusedAssets();
         }
@@ -439,9 +519,10 @@ namespace Revolution
                 RevResHandle h = kv.Value;
                 if (h.Group != group) continue;                                // 不归本组 → 跳过
                 if (h.HasFlag(RevResInstanceFlag.Resident)) continue;             // 常驻 → 永不参与分组卸载
+                if (h.IsLoading) continue;                                     // 在途加载必须由取消回调完成后再清
                 if (h.RefCount > 0 && !force) continue;                        // 仍在使用 → 跳过（force 可越过）
 
-                if (_abPolicy != null) _abPolicy.ReleaseBundleOf(h.StandardPath);
+                ReleaseBundleOf(h);
                 toRemove.Add(kv.Key);
             }
 
@@ -494,7 +575,7 @@ namespace Revolution
         /// </summary>
         internal static void MarkPreloaded(RevResHandle handle)
         {
-            if (handle == null || handle.Key == 0) return;
+            if (!IsCurrent(handle) || !handle.IsLoaded) return;
             handle.AddFlag(RevResInstanceFlag.Preloaded);
         }
 
@@ -545,12 +626,16 @@ namespace Revolution
         public static void ForceRemove(ulong key)
         {
             if (!_cache.TryGetValue(key, out RevResHandle h)) return;
+            if (h.RefCount > 0 || h.IsLoading || h.HasFlag(RevResInstanceFlag.Resident))
+            {
+                RevLog.Warn($"拒绝强制移除仍在使用/加载/常驻的资源：{h.StandardPath}", "Res");
+                return;
+            }
 
-            // 还掉 AB 包引用（包引用归零会自动 Unload）
-            if (_abPolicy != null) _abPolicy.ReleaseBundleOf(h.StandardPath);
-
+            ReleaseBundleOf(h);
             _cache.Remove(key);
             _unused.Remove(key);
+            h.RemoveFlag(RevResInstanceFlag.MarkedUnused);
         }
 
         /// <summary>
@@ -559,9 +644,7 @@ namespace Revolution
         /// </summary>
         public static void UnloadAll()
         {
-            if (_abPolicy != null)
-                foreach (var kv in _cache)
-                    _abPolicy.ReleaseBundleOf(kv.Value.StandardPath);
+            foreach (var kv in _cache) ReleaseBundleOf(kv.Value);
 
             _cache.Clear();
             _unused.Clear();
@@ -585,9 +668,22 @@ namespace Revolution
         /// </summary>
         internal static ulong ComputeKey(string path) => RevResPathUtil.ComputeKey(path);
 
-        /// <summary>异步加载完成时由异步泵回调</summary>
+        private static void ReleaseBundleOf(RevResHandle handle)
+        {
+            if (handle == null || !handle.BundleAcquired) return;
+            handle.BundleAcquired = false;
+            RevABLoader loader = handle.BundleLoader;
+            string bundleName = handle.BundleName;
+            handle.BundleLoader = null;
+            handle.BundleName = null;
+            if (loader != null && !handle.HasFlag(RevResInstanceFlag.LoadFromEditor) && !string.IsNullOrEmpty(bundleName))
+                loader.ReleaseBundle(bundleName);
+        }
+
+        /// <summary>异步加载完成时由异步泵回调。</summary>
         internal static void OnAsyncLoaded(ulong key, RevResHandle handle)
         {
+            if (handle == null) return;
             handle.RemoveFlag(RevResInstanceFlag.InAsyncLoading);
             handle.AddFlag(RevResInstanceFlag.UsedAccurate);
         }

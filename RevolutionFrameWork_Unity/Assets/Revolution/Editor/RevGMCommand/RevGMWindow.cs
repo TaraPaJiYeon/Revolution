@@ -2,11 +2,10 @@
 //
 // 【打开】菜单 Revolution.Tools/GM 指令面板（快捷键 Ctrl+Shift+G）
 //
-// 【怎么用（4 步）】
-//   ① 在搜索框里边打边看联想（支持 前缀 / 连续子串 / 字符级缩写 三种命中，命中字高亮）
-//   ② ↑/↓ 选联想项，Tab 用它补全（会自动补一个空格，接着打参数）
-//   ③ 回车执行（或点「执行」按钮）—— 结果与耗时会显示在下方；Ctrl+回车 = 跳过高危确认
-//   ④ 左边是分组树（命令名里的 `/` 自动长成树），点一条 → 右边看说明与参数；双击 = 填入输入框
+// 【怎么用（3 步，全程不用记键位）】
+//   ① 上面输入框：打关键词 → 左栏立刻出搜索结果（点一条 = 自动填入并带一个空格）
+//   ② 需要参数就在输入框里接着打；右侧同步显示说明，枚举参数点候选值即可
+//   ③ 点「执行」或回车 —— 结果与耗时显示在输入框下方；左栏也可以直接按分组浏览
 //
 // 【编辑模式 vs Play 模式】
 //   · 编辑模式：只查看与联想（命令清单来自 [RevGMEntry] 注册入口的快照）—— 不执行
@@ -29,21 +28,26 @@ namespace Revolution.Editor
         private const string SearchControl = "RevGMSearchField";
         private const int MaxSuggestions = 8;
         private const int MaxHistory = 50;
+        private const float PaneGap = 8f;
+        private static readonly char[] ArgSeparators = { ' ', '\t', '\u3000' };   // 命令名与参数的分隔（半角/Tab/全角空格）
 
         // ── 样式（首次 OnGUI 时创建） ────────────────────────────────
-        private static GUIStyle _richLabel;      // 支持富文本的标签（命中高亮）
+        private static GUIStyle _richLabel;
         private static GUIStyle _richMini;
         private static GUIStyle _iconLabel;
+        private static GUIStyle _commandRow;
 
         // ── 状态 ────────────────────────────────────────────────────
         private string _input = string.Empty;
         private string _suggestedFor;                                           // 上次算联想用的输入（变了才重算）
+        private bool _suggestedWhilePlaying;                                    // 上次算联想时的模式（进出 Play 时强制重算）
         private IReadOnlyList<RevGMCommand> _suggestions = Array.Empty<RevGMCommand>();
         private int _selectedIndex;
         private RevGMCommand _detail;                                           // 右侧详情
         private RevGMResult? _lastResult;
         private string _lastExecuted = string.Empty;
         private bool _showEntries;
+        private bool _showHistory;
         private bool _focusSearch = true;
         private Vector2 _treeScroll, _detailScroll, _historyScroll;
         private readonly List<HistoryItem> _history = new List<HistoryItem>(16);
@@ -66,7 +70,7 @@ namespace Revolution.Editor
         public static void Open()
         {
             RevGMWindow window = GetWindow<RevGMWindow>("GM 指令");
-            window.minSize = new Vector2(780f, 480f);
+            window.minSize = new Vector2(660f, 440f);
             window.Show();
         }
 
@@ -86,14 +90,12 @@ namespace Revolution.Editor
             HandleKeyboard();                       // ★ 先消费键盘事件，再画搜索框（否则方向键会被输入框吃掉）
 
             DrawToolbar();
+            EditorGUILayout.Space(10f);
             DrawSearchRow();
-            DrawSuggestions();
-
-            float bodyHeight = Mathf.Max(150f, position.height - 340f);
-            DrawBody(bodyHeight);
-
-            EditorGUILayout.Space(2f);
+            UpdateSuggestions();
             DrawResult();
+            EditorGUILayout.Space(6f);
+            DrawBody();
             DrawHistory();
         }
 
@@ -101,9 +103,15 @@ namespace Revolution.Editor
         {
             if (_richLabel != null) return;
 
-            _richLabel = new GUIStyle(EditorStyles.label) { richText = true };
+            _richLabel = new GUIStyle(EditorStyles.label) { richText = true, alignment = TextAnchor.MiddleLeft };
             _richMini = new GUIStyle(EditorStyles.miniLabel) { richText = true };
             _iconLabel = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter };
+            _commandRow = new GUIStyle(EditorStyles.label)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(10, 6, 3, 3),
+                fixedHeight = 24f
+            };
         }
 
         // ── 工具条 ──────────────────────────────────────────────────
@@ -114,16 +122,12 @@ namespace Revolution.Editor
 
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-            GUILayout.Label(playing ? "● Play 中（可执行）" : "○ 编辑模式（只查看 / 联想）",
-                            EditorStyles.miniLabel, GUILayout.Width(170f));
-            GUILayout.Label($"命令 {commands.Count} 条", EditorStyles.miniLabel, GUILayout.Width(90f));
-
-            if (!playing)
-                GUILayout.Label("想在编辑期看到命令清单：给注册方法加 [RevGMEntry]", EditorStyles.miniLabel);
-
+            GUILayout.Label(playing ? "● 运行中 · 可执行" : "○ 编辑模式 · 仅预览",
+                            EditorStyles.miniLabel, GUILayout.Width(135f));
+            GUILayout.Label($"{commands.Count} 条命令", EditorStyles.miniLabel, GUILayout.Width(75f));
             GUILayout.FlexibleSpace();
 
-            _showEntries = GUILayout.Toggle(_showEntries, "命令来源", EditorStyles.toolbarButton, GUILayout.Width(66f));
+            _showEntries = GUILayout.Toggle(_showEntries, "来源", EditorStyles.toolbarButton, GUILayout.Width(44f));
 
             if (GUILayout.Button("刷新", EditorStyles.toolbarButton, GUILayout.Width(46f)))
             {
@@ -164,22 +168,21 @@ namespace Revolution.Editor
             }
         }
 
-        // ── 搜索行 ──────────────────────────────────────────────────
+        // ── 输入：搜索与执行共用一行 ────────────────────────────────
         private void DrawSearchRow()
         {
+            EditorGUILayout.LabelField("搜索或输入命令", EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
 
-            GUILayout.Label("命令", GUILayout.Width(32f));
-
             GUI.SetNextControlName(SearchControl);
-
             EditorGUI.BeginChangeCheck();
-            string typed = EditorGUILayout.TextField(_input, GUILayout.Height(20f));
+            string typed = EditorGUILayout.TextField(_input, GUILayout.Height(26f));
             if (EditorGUI.EndChangeCheck())
             {
                 _input = typed;
                 _selectedIndex = 0;
                 _suggestedFor = null;
+                _treeScroll = Vector2.zero;
             }
 
             if (_focusSearch)
@@ -188,87 +191,108 @@ namespace Revolution.Editor
                 _focusSearch = false;
             }
 
-            if (GUILayout.Button("清空", EditorStyles.miniButton, GUILayout.Width(40f), GUILayout.Height(20f)))
+            using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_input)))
             {
-                _input = string.Empty;
-                _selectedIndex = 0;
-                _suggestedFor = null;
-                _focusSearch = true;
+                if (GUILayout.Button("清空", GUILayout.Width(48f), GUILayout.Height(26f)))
+                {
+                    _input = string.Empty;
+                    _selectedIndex = 0;
+                    _suggestedFor = null;
+                    _focusSearch = true;
+                }
             }
 
             bool playing = RevGMEditorCatalog.IsPlaying;
-            using (new EditorGUI.DisabledScope(!playing))
+            using (new EditorGUI.DisabledScope(!playing || string.IsNullOrWhiteSpace(_input)))
             {
-                if (GUILayout.Button(playing ? "执行 (Enter)" : "需 Play 才能执行", GUILayout.Width(120f), GUILayout.Height(20f)))
-                    ExecuteInput(false);
+                if (GUILayout.Button("执行", GUILayout.Width(72f), GUILayout.Height(26f))) ExecuteInput(false);
             }
-
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.LabelField(playing
+                ? "输入关键词查找，点选后可补参数；Enter 执行"
+                : "编辑模式可查找命令；进入 Play 后才能执行", EditorStyles.miniLabel);
         }
 
-        // ── 联想列表 ────────────────────────────────────────────────
+        private bool IsSearching => !string.IsNullOrWhiteSpace(_input) && _input.Trim().IndexOfAny(new[] { ' ', '\t', '\u3000' }) < 0;
+
+        private void UpdateSuggestions()
+        {
+            bool playing = RevGMEditorCatalog.IsPlaying;
+            if (_suggestedFor == _input && _suggestedWhilePlaying == playing) return;
+
+            _suggestions = IsSearching
+                ? RevGMEditorCatalog.Suggest(_input.Trim(), MaxSuggestions)
+                : Array.Empty<RevGMCommand>();
+            _suggestedFor = _input;
+            _suggestedWhilePlaying = playing;
+            if (_selectedIndex >= _suggestions.Count) _selectedIndex = 0;
+
+            // 直接输入完整命令名与参数时，仍同步显示该命令的说明。
+            string line = _input.TrimStart();
+            int end = line.IndexOfAny(ArgSeparators);
+            if (end > 0)
+            {
+                string name = line.Substring(0, end);
+                IReadOnlyList<RevGMCommand> commands = RevGMEditorCatalog.Commands;
+                for (int i = 0; i < commands.Count; i++)
+                    if (string.Equals(commands[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _detail = commands[i];
+                        break;
+                    }
+            }
+        }
+
         private void DrawSuggestions()
         {
-            if (_suggestedFor != _input)
-            {
-                _suggestions = RevGMEditorCatalog.Suggest(_input, MaxSuggestions);
-                _suggestedFor = _input;
-                if (_selectedIndex >= _suggestions.Count) _selectedIndex = 0;
-            }
-
             if (_suggestions.Count == 0)
             {
-                if (RevGMEditorCatalog.Commands.Count > 0 && _input.Trim().Length > 0)
-                    EditorGUILayout.LabelField("（没有匹配的命令 —— 换个词试试，或者点左边分组树看看）", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("没有匹配的命令，请换个关键词", EditorStyles.wordWrappedMiniLabel);
                 return;
             }
-
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             for (int i = 0; i < _suggestions.Count; i++)
             {
                 RevGMCommand command = _suggestions[i];
-                bool selected = i == _selectedIndex;
-
-                Rect row = EditorGUILayout.GetControlRect(false, 18f);
-
-                if (selected) EditorGUI.DrawRect(row, new Color(0.24f, 0.48f, 0.90f, 0.22f));
-
-                Rect nameRect = new Rect(row.x + 4f, row.y, row.width * 0.52f, row.height);
-                Rect hintRect = new Rect(row.x + row.width * 0.52f, row.y, row.width * 0.48f - 4f, row.height);
-
-                GUI.Label(nameRect, Highlight(command.Name, _input), _richLabel);
-                GUI.Label(hintRect, ArgsHint(command) + command.Description, _richMini);
+                Rect row = EditorGUILayout.GetControlRect(false, 40f);
+                if (i == _selectedIndex) EditorGUI.DrawRect(row, new Color(0.24f, 0.48f, 0.90f, 0.17f));
+                GUI.Label(new Rect(row.x + 8f, row.y + 2f, row.width - 16f, 19f),
+                    Highlight(command.Name, _input.Trim()), _richLabel);
+                string subtitle = ArgsHint(command) + command.Description;
+                if (command.IsHighRisk) subtitle = "高危 · " + subtitle;
+                GUI.Label(new Rect(row.x + 8f, row.y + 21f, row.width - 16f, 16f), subtitle, _richMini);
 
                 if (Event.current.type == EventType.MouseDown && row.Contains(Event.current.mousePosition))
                 {
-                    _selectedIndex = i;
                     _detail = command;
-
-                    if (Event.current.clickCount >= 2) FillInput(command.Name);      // 双击填入
-
+                    FillInput(command.Name + " ");
                     Event.current.Use();
-                    Repaint();
                 }
             }
-
-            EditorGUILayout.EndVertical();
         }
 
-        // ── 主体：左树 + 右详情 ─────────────────────────────────────
-        private void DrawBody(float height)
+        // ── 主体：左边查找 / 浏览，右边看说明 ────────────────────
+        private void DrawBody()
         {
-            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
+            float listWidth = Mathf.Clamp(position.width * 0.36f, 218f, 310f);
 
-            _treeScroll = EditorGUILayout.BeginScrollView(_treeScroll, EditorStyles.helpBox,
-                                                          GUILayout.Width(position.width * 0.46f), GUILayout.Height(height));
-            DrawTree();
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width(listWidth), GUILayout.ExpandHeight(true));
+            EditorGUILayout.LabelField(IsSearching ? "搜索结果" : "浏览命令", EditorStyles.boldLabel);
+            _treeScroll = EditorGUILayout.BeginScrollView(_treeScroll, GUILayout.MinHeight(160f), GUILayout.ExpandHeight(true));
+            if (IsSearching) DrawSuggestions();
+            else DrawTree();
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
 
-            _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll, EditorStyles.helpBox, GUILayout.Height(height));
+            GUILayout.Space(PaneGap);
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandHeight(true));
+            EditorGUILayout.LabelField("命令说明", EditorStyles.boldLabel);
+            _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll, GUILayout.MinHeight(160f), GUILayout.ExpandHeight(true));
             DrawDetail();
             EditorGUILayout.EndScrollView();
-
+            EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
         }
 
@@ -305,17 +329,15 @@ namespace Revolution.Editor
                 {
                     RevGMCommand command = list[j];
 
-                    EditorGUILayout.BeginHorizontal();
-
                     string mark = command.IsHighRisk ? "⚠ " : command.IsHidden ? "（隐藏）" : string.Empty;
-                    if (GUILayout.Button(mark + command.BaseName, EditorStyles.miniLabel))
+                    if (GUILayout.Button(new GUIContent(mark + command.BaseName, command.Description), _commandRow,
+                            GUILayout.ExpandWidth(true)))
                     {
                         _detail = command;
-                        if (Event.current.clickCount >= 2) FillInput(command.Name);
+                        FillInput(command.Name + " ");
                     }
-
-                    GUILayout.FlexibleSpace();
-                    EditorGUILayout.EndHorizontal();
+                    if (Event.current.type == EventType.Repaint && _detail != null && _detail.Name == command.Name)
+                        EditorGUI.DrawRect(GUILayoutUtility.GetLastRect(), new Color(0.24f, 0.48f, 0.90f, 0.13f));
                 }
 
                 EditorGUI.indentLevel--;
@@ -326,69 +348,47 @@ namespace Revolution.Editor
         {
             if (_detail == null)
             {
-                EditorGUILayout.LabelField("左边点一条命令 → 这里显示说明与参数", EditorStyles.wordWrappedMiniLabel);
-                EditorGUILayout.LabelField("提示：↑/↓ 选联想项，Tab 补全，回车执行，Ctrl+回车跳过高危确认", EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.Space(12f);
+                EditorGUILayout.LabelField("在左侧查找或选择一条命令", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("点选即可填入；输入参数后点「执行」", EditorStyles.wordWrappedMiniLabel);
                 return;
             }
 
             EditorGUILayout.LabelField(_detail.Name, EditorStyles.boldLabel);
-
-            if (_detail.IsHighRisk) EditorGUILayout.HelpBox("⚠ 高危命令：执行前会二次确认（Ctrl+回车可跳过）", MessageType.Warning);
-            if (_detail.IsHidden) EditorGUILayout.HelpBox("隐藏命令：不出现在联想列表里，但可以直接执行", MessageType.Info);
-
             if (!string.IsNullOrEmpty(_detail.Description))
                 EditorGUILayout.LabelField(_detail.Description, EditorStyles.wordWrappedLabel);
 
-            EditorGUILayout.Space(2f);
-            EditorGUILayout.LabelField("参数", EditorStyles.boldLabel);
+            if (_detail.IsHighRisk) EditorGUILayout.HelpBox("高危命令：执行前会再次确认", MessageType.Warning);
+            if (_detail.IsHidden) EditorGUILayout.LabelField("隐藏命令 · 不出现在搜索结果中", EditorStyles.miniLabel);
 
+            EditorGUILayout.Space(8f);
+            EditorGUILayout.LabelField("参数说明", EditorStyles.boldLabel);
             if (_detail.Args.Length == 0)
             {
-                EditorGUILayout.LabelField("（没有参数说明 —— 框架不做执行前校验）", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("无需参数，选中后直接执行", EditorStyles.miniLabel);
             }
             else
             {
                 for (int i = 0; i < _detail.Args.Length; i++)
                 {
                     RevGMArg arg = _detail.Args[i];
-                    EditorGUILayout.LabelField("· " + arg.Describe(), EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField((i + 1) + ". " + arg.Describe(), EditorStyles.wordWrappedLabel);
+                    if (arg.Candidates == null || arg.Candidates.Length == 0) continue;
 
-                    if (arg.Candidates != null && arg.Candidates.Length > 0)
-                    {
-                        EditorGUI.indentLevel++;
-                        EditorGUILayout.BeginHorizontal();
-                        for (int c = 0; c < arg.Candidates.Length; c++)
-                        {
-                            if (GUILayout.Button(arg.Candidates[c], EditorStyles.miniButton, GUILayout.Width(110f)))
-                                FillInput(_detail.Name + " " + arg.Candidates[c]);
-                        }
-
-                        EditorGUILayout.EndHorizontal();
-                        EditorGUI.indentLevel--;
-                    }
+                    int columns = Mathf.Max(1, Mathf.FloorToInt((position.width - Mathf.Clamp(position.width * 0.36f, 218f, 310f) - 60f) / 105f));
+                    int picked = GUILayout.SelectionGrid(-1, arg.Candidates, columns, EditorStyles.miniButton);
+                    if (picked >= 0) FillInput(_detail.Name + " " + arg.Candidates[picked] + " ");
                 }
             }
 
-            EditorGUILayout.Space(4f);
+            EditorGUILayout.Space(10f);
             EditorGUILayout.BeginHorizontal();
-
-            if (GUILayout.Button("填入输入框", GUILayout.Width(100f))) FillInput(_detail.Name);
-
-            if (GUILayout.Button("复制命令名", GUILayout.Width(100f)))
+            if (GUILayout.Button("填入命令", GUILayout.Width(90f))) FillInput(_detail.Name + " ");
+            if (GUILayout.Button("复制名称", GUILayout.Width(80f)))
             {
                 EditorGUIUtility.systemCopyBuffer = _detail.Name;
                 ShowNotification(new GUIContent("已复制：" + _detail.Name));
             }
-
-            using (new EditorGUI.DisabledScope(!RevGMEditorCatalog.IsPlaying))
-            {
-                if (GUILayout.Button("执行", GUILayout.Width(70f)))
-                {
-                    FillInput(_detail.Name);
-                    ExecuteInput(false);
-                }
-            }
-
             EditorGUILayout.EndHorizontal();
         }
 
@@ -399,24 +399,43 @@ namespace Revolution.Editor
 
             RevGMResult result = _lastResult.Value;
 
-            string title = result.Success ? "✔ 执行成功" : "✘ 执行失败";
-            string body = _lastExecuted + "\n" + title + $"（{result.ElapsedMs:F2} ms）\n{result.Message}";
-
-            EditorGUILayout.HelpBox(body, result.Success ? MessageType.Info : MessageType.Error);
+            string head = (result.Success ? "✔ 执行成功" : "✘ 执行失败") + $"（{result.ElapsedMs:F1} ms）· " + _lastExecuted;
+            EditorGUILayout.HelpBox(head + "\n" + result.Message, result.Success ? MessageType.Info : MessageType.Error);
         }
 
         private void DrawHistory()
         {
             if (_history.Count == 0) return;
 
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("历史（点一条重新填入）", EditorStyles.miniLabel, GUILayout.Width(150f));
+            HistoryItem latest = _history[0];
+            bool playing = RevGMEditorCatalog.IsPlaying;
 
-            if (GUILayout.Button("清空历史", EditorStyles.miniButton, GUILayout.Width(70f))) _history.Clear();
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+
+            _showHistory = GUILayout.Toggle(_showHistory, $"历史 {_history.Count}", EditorStyles.toolbarButton, GUILayout.Width(78f));
+
+            GUILayout.Label(new GUIContent((latest.Result.Success ? "✔ " : "✘ ") + latest.Text, "最近一次执行，点「重新执行」再来一次"),
+                            EditorStyles.miniLabel);
+
+            GUILayout.FlexibleSpace();
+
+            using (new EditorGUI.DisabledScope(!playing))
+            {
+                if (GUILayout.Button("重新执行", EditorStyles.toolbarButton, GUILayout.Width(62f)))
+                {
+                    _input = latest.Text;
+                    _suggestedFor = null;
+                    ExecuteInput(false);
+                }
+            }
+
+            if (GUILayout.Button("清空", EditorStyles.toolbarButton, GUILayout.Width(40f))) _history.Clear();
 
             EditorGUILayout.EndHorizontal();
 
-            _historyScroll = EditorGUILayout.BeginScrollView(_historyScroll, GUILayout.Height(70f));
+            if (!_showHistory) return;
+
+            _historyScroll = EditorGUILayout.BeginScrollView(_historyScroll, GUILayout.Height(96f));
 
             for (int i = 0; i < _history.Count; i++)
             {
@@ -462,7 +481,7 @@ namespace Revolution.Editor
                     if (_suggestions.Count > 0 && _selectedIndex < _suggestions.Count)
                     {
                         _detail = _suggestions[_selectedIndex];
-                        FillInput(_detail.Name);
+                        FillInput(_detail.Name + " ");
                     }
 
                     current.Use();
@@ -470,7 +489,18 @@ namespace Revolution.Editor
 
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter:
-                    ExecuteInput(current.control || current.command);
+                    // 正在搜索且还没选好命令时，第一次回车 = 补全（防止执行到半截命令）
+                    if (IsSearching && _selectedIndex < _suggestions.Count
+                        && !string.Equals(_suggestions[_selectedIndex].Name, _input.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        _detail = _suggestions[_selectedIndex];
+                        FillInput(_detail.Name + " ");
+                    }
+                    else
+                    {
+                        ExecuteInput(current.control || current.command);
+                    }
+
                     current.Use();
                     break;
 
@@ -613,11 +643,14 @@ namespace Revolution.Editor
         {
             EditorUtility.DisplayDialog(
                 "GM 指令面板 · 用法",
-                "① 搜索框里边打边看联想（前缀 / 连续子串 / 字符级缩写都能命中，命中字高亮）\n" +
-                "② ↑/↓ 选择联想项；Tab 用它补全（自动补一个空格，接着打参数）\n" +
-                "③ 回车执行；Ctrl+回车 跳过高危确认；Esc 清空输入\n" +
-                "④ 左树点命令看详情（双击 = 填入输入框）；右侧可直接执行 / 复制命令名\n" +
-                "⑤ 枚举参数会列出候选值，点一下就填进输入框\n\n" +
+                "三步用法：\n" +
+                "① 输入框打关键词（前缀 / 连续子串 / 字符缩写都能命中）→ 左栏出搜索结果，点一条自动填入\n" +
+                "② 需要参数就在输入框接着打；右侧同步显示说明，枚举参数点候选值即可\n" +
+                "③ 点「执行」或回车；结果与耗时显示在输入框下方\n\n" +
+                "更多：\n" +
+                "· 左栏也能按分组浏览（命令名里的 / 自动分组），点一条即填入\n" +
+                "· 高危命令执行前会二次确认（Ctrl+回车跳过）；Esc 清空输入\n" +
+                "· 底部「历史」可展开，点条目重新填入，「重新执行」一键重跑上一条\n\n" +
                 "编辑模式只查看与联想；进 Play 后才能真的执行（那时被测环境就是游戏本身）。",
                 "知道了");
         }

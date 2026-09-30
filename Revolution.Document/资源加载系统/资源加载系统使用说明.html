@@ -102,7 +102,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
 
     <div class="callout">
       <span class="t">就这样，没有初始化步骤</span>
-      第一次用到时框架会自己选加载后端（编辑器里直读、打包后用 AB）。<b>资源根目录</b>由打包工具配置（菜单 <code>Revolution.Tools / 资源 / LiteAB 打包工具</code> → ① 打包配置）。
+      第一次用到时框架会自己选加载后端（编辑器里直读、打包后用 AB）。<b>资源根目录</b>由打包工具配置（菜单 <code>Revolution.Tools / 资源 / RevAB 打包工具</code> → 「打包」页签 → 资源目录）。
     </div>
   </section>
 
@@ -171,7 +171,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
       <div><b>对象池里的实例</b>由池端着引用 —— 不要自己 Release，池销毁时会处理（见《对象池使用说明》）</div>
       <div><b>整块玩法结束</b>（一局战斗、一个活动）按分组 <code>UnloadGroup(group)</code> 一次收干净</div>
       <div><b>内存紧张</b>调一次 <code>FlushUnused()</code>：只清计数为 0 的，绝对安全</div>
-      <div><b>不确定有没有泄漏</b>看 <code>CachedCount</code> 涨不涨；配合 LiteAB 窗口的「体积」页签看谁大</div>
+      <div><b>不确定有没有泄漏</b>看 <code>CachedCount</code> 涨不涨；配合 RevAB 窗口的「体积」页签看谁大</div>
     </div>
 
     <div class="callout good">
@@ -198,12 +198,12 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
       <div class="yes">
         <div class="h">编辑器直读（开发期）</div>
         从 <code>Assets</code> 直接读文件：改动立刻生效、不用打包。<br>
-        <b>注意</b>：不走 AB，所以"包归属""依赖是否被复制"这类问题它<b>看不出来</b> —— 这类问题要用 LiteAB 窗口的「依赖 / 体积 / 检查」页签看。
+        <b>注意</b>：不走 AB，所以"包归属""依赖是否被复制"这类问题它<b>看不出来</b> —— 这类问题要用 RevAB 窗口的「依赖 / 体积 / 检查」页签看。
       </div>
       <div class="yes">
         <div class="h">AB 模式（打包后 / 真机）</div>
         按 <code>ResMap.txt</code>（逻辑路径 → AB 与真实路径）加载。<br>
-        <b>注意</b>：改了资源或分包后，必须先回「打包」页签点一次<b>「扫描并生成映射」</b>，否则新资源在真机上会报"没映射"。
+        <b>注意</b>：改了资源或分包后，必须先回「打包」页签点一次<b>「仅生成映射」</b>，否则新资源在真机上会报"没映射"。
       </div>
     </div>
 
@@ -211,7 +211,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
       <table>
         <thead><tr><th style="width:30%">现象</th><th>原因与处理</th></tr></thead>
         <tbody>
-          <tr><td>编辑器里好好的，真机说找不到</td><td>没生成映射（<code>ResMap.txt</code> 里没有这条路径）→ 点「扫描并生成映射」再打包</td></tr>
+          <tr><td>编辑器里好好的，真机说找不到</td><td>没生成映射（<code>ResMap.txt</code> 里没有这条路径）→ 点「仅生成映射」再打包</td></tr>
           <tr><td>路径对但类型不对（图拿成 Prefab）</td><td>泛型参数写错：<code>LoadAsync&lt;Sprite&gt;</code> 与文件真实类型要一致</td></tr>
           <tr><td>同一个资源在两个界面各加载一次</td><td>两段路径写法不一致（编辑器会当成两个资源）→ 统一约定（见第三节）</td></tr>
         </tbody>
@@ -260,7 +260,7 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
     <ol>
       <li><b>看缓存</b>：<code>RevResManager.CachedCount</code> 一直涨 → 有地方只拿不放（在界面关闭处找）；<code>UnusedCount</code> 一直不清 → 没人触发回收，调一次 <code>FlushUnused()</code> 看能不能清掉。</li>
       <li><b>看映射</b>：报"找不到"先在 <code>Assets/Revolution/Resources/ResourceSystem/ResMap.txt</code> 里搜这条逻辑路径；搜不到就是没生成映射。</li>
-      <li><b>看分包</b>：菜单 <code>Revolution.Tools / 资源 / LiteAB 打包工具</code> → 「分包」页签（带自动同步）：确认资源<b>有没有 AB 标记</b>、「检查」页签有没有漏标。</li>
+      <li><b>看分包</b>：菜单 <code>Revolution.Tools / 资源 / RevAB 打包工具</code> → 「分包」页签（带自动同步）：确认资源<b>有没有 AB 标记</b>、「检查」页签有没有漏标。</li>
       <li><b>看体积</b>：「体积」页签找"哪个包突然变大"；「依赖」页签看有没有资源被复制多份。</li>
     </ol>
 

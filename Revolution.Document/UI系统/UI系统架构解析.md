@@ -83,7 +83,7 @@ UI 是"最容易越写越乱"的一块：谁都能开界面、谁都能改界面
 
 ### 2.1 总览
 
-| 维度 | 早期版本（`BasePanel` 219 行 + `UIMgr` 335 行） | 新版（`RevUISystem\`，17 个文件） |
+| 维度 | 早期版本（`BasePanel` 219 行 + `UIMgr` 335 行） | 新版（`RevUISystem\`，26 个文件） |
 |---|---|---|
 | 面板基类 | `BasePanel`：`ShowMe` / `HideMe` 两个钩子 | `RevUIPanel`：**生命周期 8 个钩子 + 2 个必写钩子**（表现/数据分离） |
 | 管理器 | `UIMgr.ShowPanel<T>()`：加载 + 层级 + 隐藏复用 | `RevUIManager` + `RevUI` 门面：打开/关闭/层级/池/互斥/返回栈/遮罩/诊断 |
@@ -92,6 +92,7 @@ UI 是"最容易越写越乱"的一块：谁都能开界面、谁都能改界面
 | 输入框事件 | `onValueChanged` 里同时回调"输入中"和"结束编辑"（每敲一个字都触发一次结束编辑） | `onValueChanged` / `onEndEdit` **分开挂**，语义正确 |
 | 资源路径 | 靠"预制体名 = 面板类名"约定 + AB 名写死 `ui_panel` | 同样默认"预制体名 = 类名"，但**根目录段写在特性里**，支持多级嵌套目录，可用 `RevResPath` 常量 |
 | 层级 | `Bottom / Middle / Top / System` 四层（靠加载 `UI/Canvas` 预制体摆好） | `Scene / Normal / Popup / Toast / Guide / Top` 六层，**代码建 Canvas**（零资源依赖） |
+| Canvas 架构 | 只有单 Canvas | **单 Canvas（默认且主推）**；仅单 Canvas 的实测合批瓶颈经过常规优化仍不达标时，可选三 Canvas 动静分离（常用 / 静态 / 动态；见 4.12） |
 | 遮罩 / 点穿 | 无（要每个弹窗预制体自己记得摆遮罩） | 按层级**自动**给弹窗铺透明挡板，自动插到正确位置，点遮罩关最上面的弹窗 |
 | 复用 | "隐藏不销毁"（`SetActive(false)`），**没有清理契约** | 实例池 + **`OnReuse` 清理钩子**，框架还会替你清掉上一次的数据 |
 | 数据 | 没有数据这一层（数据在面板字段里，谁都能改） | `RevUIPanel<TData>` + 纯 C# 数据对象 + `OnDataChanged(增量)` + `OnRefreshView` |
@@ -131,7 +132,7 @@ protected override void OnClick(string nodeName) { /* 业务逻辑：改数据�
 | ③ **三层查找**：单例复用 → 池 → 新建 | 在途合并 → 已打开 → 实例池 → **资源缓存里同步实例化** → 异步加载新建（五级，见 4.4） |
 | ④ **绑定代替硬编码 `Find("Panel/Panel/Button")`**（文档里把硬编码 Find 列为反面教材） | `[RevBind]` 字段 + 绑定计划缓存；找不到时报错会**列出根节点下真实存在的节点名** |
 | ⑤ **按所有者批量注销事件**（防泄漏纪律，`RemoveEventHandlersByObserver(this)`） | 关闭面板/Part 时框架自动 `RevEvent.RemoveAllByOwner(this)` —— 机制保证，不靠纪律 |
-| ⑥ **遍历中删除要延迟**（`m_formsWaitingRecycle`）、**排序用脏标记延迟批量做** | 关闭的面板下帧才销毁；层内排序由根节点 `Update` 按脏标记一次做完 |
+| ⑥ **遍历中删除要延迟**（`m_formsWaitingRecycle`）、**排序用脏标记延迟批量做** | 关闭的面板下帧才销毁；层内排序由根节点 `LateUpdate` 按脏标记一次做完（本帧开关的面板在同一帧渲染前排好） |
 | ⑦ **互斥组 + 打开序号决定层级**（`m_group` / `m_formOpenOrder`） | `ExclusiveGroup`（开新的自动关同组旧的）；层内顺序 = 打开顺序 |
 | ⑧ **消息框结论**：队列 + 优先级 + 去重；按钮只转发事件不处理业务；内容/容器分离 | 结构上已备齐（`InBackStack`、`CloseGroup`、遮罩点击关顶层）；MessageBox 本身列为"本期没做"，见第九章 |
 | ⑨ **单向数据流**（UI 不改数据、系统不直接刷 UI、界面之间不直接通信） | `SetData → OnDataChanged → OnRefreshView` 是唯一数据入口；Part 与 Part 之间必须经宿主中转（`IRevUIPartHost.NotifyPartChanged`） |
@@ -230,6 +231,7 @@ public sealed class ConfirmPanel : RevUIPanel<ConfirmData> { ... }
 | `Name`（第三个参数） | `null` → **类名** | 资源名（不带扩展名） |
 | `CacheMode` | `Unspecified` → 用 `RevUISetting.DefaultCacheMode` | `KeepAlive`（关闭进池复用）/ `DestroyOnClose` |
 | `Mask` | `Auto` | 按层推断：Popup / Guide / Top 挡点击，其余不挡 |
+| `CanvasType` | `Common` | 进哪个画布：`Common` / `Static` / `Dynamic`；只在三 Canvas 架构下生效，静态 / 动态只收 Scene 层（见 4.12） |
 | `ExclusiveGroup` | 空 | 互斥组名 |
 | `InBackStack` | `true` | 是否参与 `RevUI.Back()` |
 
@@ -391,7 +393,7 @@ RevUI.ShutdownAll();                     // 回登录界面 / 切大版本：所
 | `Guide` | 新手引导遮罩、手指提示 | **是** |
 | `Top` | 断线重连、Loading、公告（对应早期版本 `System`） | **是** |
 
-**遮罩是自动的**：某层出现"要挡点击"的面板时，框架在该层铺一块**全屏透明挡板**（只挡点击、不遮画面；要半透明黑底就在面板预制体里自己画），并自动插到"最上面那个弹窗"的正下方。点它会关掉该层最上面的弹窗（`RevUISetting.ClickMaskClosesTop = false` 可关掉这个行为）。
+**遮罩是自动的**：某层出现"要挡点击"的面板时，框架在该层铺一块**全屏透明挡板**（只挡点击、不遮画面；要半透明黑底就在面板预制体里自己画），并自动插到"最上面那个弹窗"的正下方（挡板是**不生成顶点**的 Graphic：只挡射线、不进合批，没有全屏 overdraw）。点它会关掉该层最上面的弹窗（`RevUISetting.ClickMaskClosesTop = false` 可关掉这个行为）。
 
 **被盖住会通知你**：面板被上层遮罩盖住 / 恢复时会收到 `OnCovered(bool)` —— 用它可以暂停界面上的动画、音效、每帧逻辑。
 
@@ -491,6 +493,7 @@ protected override void PlayCloseTransition(Action onDone) { onDone(); }
 RevUISetting.ReferenceResolution = new Vector2(1920f, 1080f);   // 设计分辨率（框架自建 Canvas 时用）
 RevUISetting.MatchWidthOrHeight  = 0.5f;
 RevUISetting.SortOrderBase       = 100;                          // Canvas 排序基准
+RevUISetting.CanvasArchitecture  = RevUICanvasArchitecture.Single; // Single（默认）/ Split（三 Canvas 动静分离，见 4.12）
 RevUISetting.DefaultCacheMode    = RevUICacheMode.KeepAlive;     // 面板没声明时用哪个
 RevUISetting.MaxCachedPanels     = 1;                            // 同一面板最多缓存几个实例
 RevUISetting.ClickMaskClosesTop  = true;                         // 点遮罩关最上面的弹窗
@@ -500,7 +503,7 @@ RevUISetting.VerboseLog          = false;                        // 打开/关�
 
 ```csharp
 Debug.Log(RevUI.DumpStats());
-// RevUI：打开中 3 个，加载中 1 个，池中 2 个
+// RevUI（单 Canvas）：打开中 3 个，加载中 1 个，池中 2 个      ← 三 Canvas 下每行还会带画布，如 [Scene/Dynamic]
 // 打开顺序（从下到上）：
 //   [Scene] UI/Panel/MainPanel  Opened
 //   [Normal] UI/Panel/BagPanel  Opened（被上层遮罩盖住）
@@ -634,6 +637,112 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 > 这两份预制体放在 `Resources` 下，会被无条件打进包（都很小）且**不参与 AB 分包** —— 它们是框架自用的模板，
 > 打包工具里不需要做任何配置（也**不用**给它们设 AB 名，它们不走资源系统）。
 
+### 4.12 单 Canvas 优先，必要时才启用三 Canvas
+
+**一句话总结：优先使用单 Canvas；只有实际项目在目标设备上测出 UI 合批开销已成为性能瓶颈、常规优化仍无法满足帧预算时，才考虑切换到三 Canvas。**
+
+`RevUISetting.CanvasArchitecture` 默认是 `RevUICanvasArchitecture.Single`。这不只是兼容旧项目的默认值，也是**框架推荐的新项目起点**。框架提供 `Split` 作为有条件的性能优化选项，不要求每个项目都配置三 Canvas，更不是"有动态 UI 就必须拆"。
+
+**① 为什么可能需要拆：两笔账**
+
+| 开销 | 什么时候发生 | 波及范围 |
+|---|---|---|
+| 网格重建（Rebuild） | 控件自己变了：换文字 / 换图 / 改颜色 / 改尺寸 | 只重建变了的那个控件 —— 与 Canvas 怎么分**无关** |
+| **重新合批（Rebatch）** | Canvas 下**任意一个**控件的网格或位置 / 缩放变了 | 该 Canvas 的**全部**控件重新排序、合并网格 |
+
+单 Canvas 下，主界面 / HUD 上常驻的倒计时、血条、飘字、摇杆可能持续触发重新合批；**但可能不等于性能不达标**。如果目标设备上的耗时仍在预算内，拆 Canvas 只会增加管理和渲染成本，保持单 Canvas 即可。
+
+**② 先优化单 Canvas，达不到目标再考虑切换**
+
+1. **从单 Canvas 开始**：在目标设备、目标帧率和典型重负载场景（例如主界面常驻 HUD、弹窗出现、滚动列表）实测，记录 UI 相关 CPU 耗时、帧时间和 Draw Call。不要拿编辑器中的卡顿或"面板数量多"代替证据。
+2. **先定位并优化具体界面**：检查是否有不必要的每帧文本 / 布局刷新、循环动画、未虚拟化的长列表和过多的可射线检测控件；让不显示的界面停止更新，减少不必要的 UI 写入。优化后按同样场景复测。
+3. **只有确认 Canvas 重新合批仍是主要瓶颈，且实际帧时间超出项目预算时，才试用 `Split`**：把长期不变的 Scene 内容与常驻高频变化的 Scene 内容拆成不同面板，分别放到静态 / 动态画布，再测一次 CPU 与 Draw Call。如果收益不足或渲染成本反而上升，就继续用单 Canvas。
+
+> **没有统一的"几个面板 / 多少控件就必须切换"阈值**：目标机型、目标帧率、UI 复杂度不同，结论由该项目的性能预算和实际测量决定。不是只要有倒计时、血条，就应该切换。
+
+| | 单 Canvas（`Single`，推荐默认） | 三 Canvas（`Split`，性能瓶颈时按需开启） |
+|---|---|---|
+| 框架新建的 Canvas 数 | 1 | **3 个**（根/常用、静态、动态；不按面板增设） |
+| 合批与 Draw Call | 跨区域有机会合批；单个动态控件可能让整张画布重新合批 | 常驻动静内容互不拖累；画布边界会减少跨区域合批机会，Draw Call 变化须实测 |
+| 适合 | **绝大多数项目的起点；只要满足预算就继续使用** | 已定位到单 Canvas 合批开销超预算且常规优化无法解决的项目 |
+| 业务改动 | 无 | 一行配置 + 给需要分离的 Scene 层面板写 `CanvasType` |
+
+> 为什么三 Canvas 不按面板数量扩张：固定少量合批边界，使复杂度可控；但三 Canvas **不是性能保证**，同一画布内的动态内容仍会使该画布重新合批，是否值得拆必须用 Profiler 验证。预制体或业务自行添加 Canvas 时，场景 Canvas 总数可能超过框架新建的 3 个。
+
+**③ 结构长什么样**（常用画布就是根 Canvas 本身，单 Canvas 只是"少建了两个画布"）
+
+```text
+[RevUIRoot]            常用画布 = 根 Canvas（CanvasScaler 只在这里）         sortingOrder = 根（默认 100）
+  ├ [StaticCanvas]     静态画布：override 排序 + GraphicRaycaster          sortingOrder = 根 − 2
+  ├ [DynamicCanvas]    动态画布：override 排序 + GraphicRaycaster          sortingOrder = 根 − 1
+  └ Scene / Normal / Popup / Toast / Guide / Top     常用画布的六层挂点（与单 Canvas 完全一样）
+```
+
+- 两个子画布各自带 `GraphicRaycaster`：UGUI 的 Graphic 只登记到**离自己最近的 Canvas**，没有它里面的按钮就点不到；
+- 子画布的着色器通道、排序层都跟根 Canvas 对齐（TMP 等要用的通道不丢）；
+- 遮罩跟着"托着它的面板"所在的父节点走（必要时换父节点）。
+
+**④ 谁盖谁：常用画布在最上面（这是整个设计里最关键的一条）**
+
+```text
+静态画布（根 − 2）  <  动态画布（根 − 1）  <  常用画布（根）
+```
+
+- **为什么常用画布必须在最上面**：弹窗遮罩、新手引导、Loading、断线重连都在常用画布里，它们必须盖住并**挡住**一切。
+  如果动态画布排在最上面，弹窗打开时 HUD 的倒计时会压在弹窗上、摇杆还能被点到 —— 遮罩就形同虚设。
+- **代价**：静态 / 动态画布整体排在常用画布之下，所以它们**只收 Scene 层**（主界面、HUD 这类"常驻底层"的界面）。
+  其它层声明了会**自动放回常用画布，并按面板类型告警一次**。
+  例子：一个 Top 层的 Loading 进度条声明成动态，如果真放进动态画布，就会被常用画布里的主界面盖住 —— 所以框架不照做。
+- 同在 Scene 层时，视觉顺序是"静态 < 动态 < 常用"，同一个画布里才按打开顺序；"被盖住"通知、点遮罩关顶层都按这个顺序算。
+
+**⑤ 怎么用：先保持默认，确需切换时再设置**
+
+新项目**不用写任何 Canvas 架构配置**，`Single` 就是默认值；所有面板照常声明层级、打开和关闭。下面是**在第二步优化后仍不达标**的项目才需要的可选配置和画布划分：
+
+```csharp
+// 仅确认单 Canvas 的合批开销是瓶颈后，在第一次打开面板前设置；不设 = Single
+RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split;
+
+[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Scene, CanvasType = RevUICanvasType.Static)]
+public sealed class MainBgPanel : RevUIPanel { ... }        // 主界面背景、固定框体
+
+[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Scene, CanvasType = RevUICanvasType.Dynamic)]
+public sealed class BattleHudPanel : RevUIPanel { ... }     // 倒计时、血条、飘字、摇杆
+
+[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]        // 不写 CanvasType = 常用画布
+public sealed class BagPanel : RevUIPanel { ... }
+```
+
+| 画布 | 放什么 | 别放什么 |
+|---|---|---|
+| 静态（`Static`） | 主界面背景、固定框体、装饰、打开后不变的按钮区 | 带倒计时、跳动红点、循环动画的东西 |
+| 动态（`Dynamic`） | HUD 倒计时、血条、飘字、摇杆、跑马灯、循环动画 | 大块静态内容（会被动态内容拖着一起重算） |
+| 常用（`Common`，默认） | 其余全部：二级界面、弹窗、Toast、引导、Loading、系统层 | — |
+
+> 同一套面板代码两种架构都能跑：单 Canvas 下 `CanvasType` 直接忽略（不告警）。
+> 一个主界面里既有静态背景又有动态 HUD 时，把它拆成两个 Scene 层面板（一个 Static、一个 Dynamic）一起打开即可。
+
+**⑥ 代价与边界**
+
+| 项 | 说明 |
+|---|---|
+| 切换时机 | 根节点创建时读一次；运行中要换架构，先 `RevUI.ShutdownAll()` 再打开面板 |
+| 常用画布里的高频内容 | 弹窗里的倒计时、Toast、Loading 条仍会让常用画布重算 —— 这是"最多 3 个 Canvas"的取舍；它们多是短时出现，影响有限 |
+| 静态面板的开关动画 | 打开 / 关闭时的 `PopIn` 等动画同样会让静态画布重算，但只在那一瞬；静态画布里**别放常驻循环动画** |
+| 其它 Overlay Canvas | 框架占用 `[根 − 2, 根]`（默认 98 ~ 100）：项目里别的 Overlay Canvas（调试面板、SDK 弹窗）请避开这几个数 |
+| 验收方法 | Profiler 的 UI 模块看 `Canvas.BuildBatch`（合批）与 `Canvas.SendWillRenderCanvases`（重建 / 布局）切换前后的耗时，Frame Debugger 看 Draw Call 数 —— 别凭感觉 |
+
+**本节结论**
+
+| 问题 | 答案 |
+|---|---|
+| 默认推荐哪种架构？ | **单 Canvas**。动态 UI 或面板较多都不是切换的充分理由，满足目标设备的帧预算就保持单 Canvas |
+| 何时才切换？ | 先在目标设备实测并优化单 Canvas；若 `Canvas.BuildBatch` 仍是主要瓶颈且项目帧时间仍超预算，再设置 `RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split` 做对照测试 |
+| 三个 Canvas 分别放什么？ | 常用（默认，所有层级）/ 静态（Scene 层不变的内容）/ 动态（Scene 层高频变化的内容） |
+| 三个画布谁在上面？ | 静态 < 动态 < 常用 —— 常用画布在最上面，弹窗遮罩和系统层才能盖住并挡住一切 |
+| 为什么静态 / 动态只收 Scene 层？ | 它们整体排在常用画布之下；放别的层会被常用画布里的界面盖住，框架自动放回常用画布并告警 |
+| 业务代码要改多少？ | 一行配置 + 面板特性里一个 `CanvasType`；不写就是常用画布，两种架构同一份代码 |
+
 ---
 
 ## 五、必须知道的八个坑
@@ -665,7 +774,7 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 
 | 分类 | 成员 |
 |---|---|
-| 元数据 | `Meta`、`PanelKey`、`PrefabRoot`、`PrefabName`、`Layer`、`State`、`IsOpened`、`IsCovered` |
+| 元数据 | `Meta`、`PanelKey`、`PrefabRoot`、`PrefabName`、`Layer`、`CanvasType`、`State`、`IsOpened`、`IsCovered` |
 | 数据 | `DataObject`、`SetData(object)`；泛型版：`Data`、`SetData(TData)` |
 | 必写钩子 | `OnBindView()`；泛型版另加 `OnRefreshView()` |
 | 可选钩子 | `OnInit` / `OnOpen` / `OnReuse` / `OnDataChanged` / `OnCovered` / `OnClose` / `OnRelease` |
@@ -701,6 +810,10 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 | 工程外行为断言（路径解析 / 资源名默认 / 遮罩按层推断 / 字段名→节点名 / 显式路径 / 继承字段收集 / "只挂重写的回调" / 元数据与绑定计划缓存 / 忘了写特性的报错文案 …） | **65 项全部通过** |
 | 整个 `Revolution.Runtime` + `Revolution.Editor` 程序集（Unity 真实引用 + `UNITY_EDITOR`） | **0 错误 0 新增警告** |
 | `LangVersion 9.0`（对齐 Unity 2022.3） | 编译通过 |
+| 三 Canvas 改动：`Revolution.Runtime` 用 Unity 2022.3 引擎引用重编（玩家配置 + `UNITY_EDITOR` 两套） | **0 错误**，UI 模块 0 警告 |
+| 画布归属与排序规则工程外断言（单 Canvas 一律常用 / Scene 层静态动态生效 / 其它层放回常用并标记告警 / 未知枚举兜底 / 排序号 根−2 < 根−1 < 根 / 常用画布在最上） | **12 项全部通过** |
+
+> 三 Canvas 的**运行期收益**取决于具体界面，需要在 Unity 里按 4.12 第 ⑥ 条的方法用 Profiler 对比验收。
 
 **断言跑在"要提交的那份源码"上**（通过 csproj 直接链接真实文件，不是复制品），它验的都是"写的时候看不错、跑起来才知道"的规则：
 
@@ -723,7 +836,7 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 
 | 文件 | 职责 |
 |---|---|
-| `Runtime\RevUISystem\Core\RevUIDefine.cs` | 公共词汇：层级 / 状态 / 缓存模式 / 遮罩模式（**纯 C#**，遮罩按层推断的规则也在这） |
+| `Runtime\RevUISystem\Core\RevUIDefine.cs` | 公共词汇：层级 / 状态 / 缓存模式 / 遮罩模式 / Canvas 架构与画布类型（**纯 C#**，遮罩按层推断、面板进哪个画布、画布排序号的规则也在这） |
 | `Runtime\RevUISystem\Core\RevUIAttributes.cs` | 声明式特性：`[RevUIPanel]` / `[RevUIPart]` / `[RevBind]`（**纯 C#**） |
 | `Runtime\RevUISystem\Core\RevUIPanel.cs` | **面板基类**：生命周期、状态、绑定触发、数据入口、自动摘事件、转场钩子 |
 | `Runtime\RevUISystem\Core\RevUIPanel.Generic.cs` | `RevUIPanel<TData>`：强类型数据 + 强制实现 `OnRefreshView` |
@@ -731,7 +844,7 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 | `Runtime\RevUISystem\Interfaces\IRevUIPartHost.cs` | Part 的宿主契约（Part 因此能跨面板复用） |
 | `Runtime\RevUISystem\Interfaces\IRevUIUserEvents.cs` | 控件事件 → 宿主回调 的内部转发口 |
 | `Runtime\RevUISystem\Facade\RevUI.cs` | **业务唯一入口**：打开 / 关闭 / 查询 / 预热 / 扩展 / 诊断 |
-| `Runtime\RevUISystem\Implementation\RevUIManager.cs` | 管理器：五级查找、在途合并、层级排序、互斥组、返回栈、遮罩与"被盖住"、诊断 |
+| `Runtime\RevUISystem\Implementation\RevUIManager.cs` | 管理器：五级查找、在途合并、面板进哪个画布、层级排序（先按画布再按打开顺序）、互斥组、返回栈、遮罩与"被盖住"、诊断 |
 | `Runtime\RevUISystem\Implementation\RevUIPanelPool.cs` | **UI 专用实例池**（不套用通用对象池）+ 池快照 |
 | `Runtime\RevUISystem\Implementation\RevUIRoot.cs` | UI 根节点：代码建 Canvas/六层挂点/遮罩宿主 + 延迟销毁 + 每帧维护 |
 | `Runtime\RevUISystem\Implementation\RevUIPopupMask.cs` | 弹窗遮罩：按层自动铺透明挡板、自动摆位、点遮罩关顶层 |
@@ -765,4 +878,4 @@ RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远�
 
 ---
 
-*对应代码版本：`Assets\Revolution\Runtime\RevUISystem\`（26 个 `.cs` / 5,763 行；其中动画库 7 个在 `Animation\` 下）。*
+*对应代码版本：`Assets\Revolution\Runtime\RevUISystem\`（26 个 `.cs` / 5,992 行；其中动画库 7 个在 `Animation\` 下）。*

@@ -320,8 +320,8 @@
             .Do(<span class="s">"再说一句"</span>, ctx =&gt; Debug.Log(<span class="s">"1 秒过去了"</span>))
             .Build();
 
-        <span class="c">// ② 让它开始跑（不用你每帧喂时间，Default 会自动创建驱动者）</span>
-        RevSequencePlayer.Default.Play(flow);
+        <span class="c">// ② 让它开始跑（不用你每帧喂时间，框架会自动创建驱动者；传 gameObject 后它被销毁时序列自动取消）</span>
+        flow.Play(gameObject);
     }
 }</pre>
 
@@ -334,8 +334,8 @@
           <tr><td><code>.Do("名字", ctx =&gt; 做事())</code></td><td>加一步"马上做"的事。第一步的名字是"打个招呼"，将来排查问题时你会看到它</td></tr>
           <tr><td><code>.Wait(1f)</code></td><td>加一步"停 1 秒"。<b>注意：这 1 秒不会卡住游戏</b>，只是这一条流程暂停在这里，其它系统照常跑</td></tr>
           <tr><td><code>.Build()</code></td><td>清单定稿。<b>定稿之后不能再改</b>（所以要用变量/静态字段把它存起来复用）</td></tr>
-          <tr><td><code>RevSequencePlayer.Default</code></td><td>框架的"发动机"。第一次访问它会自动创建一个隐藏物体来每帧推进序列，<b>所以你在 Unity 里什么都不用配</b></td></tr>
-          <tr><td><code>.Play(flow)</code></td><td>开始跑。立刻返回一个"句柄"（钥匙），想取消时用它 —— 见第五章</td></tr>
+          <tr><td><code>flow.Play(gameObject)</code></td><td>开始跑（等价于 <code>RevSequencePlayer.Default.Play(flow, gameObject)</code>）。第一次播放会自动创建一个隐藏物体来每帧推进序列，<b>所以你在 Unity 里什么都不用配</b>；立刻返回一个"句柄"（钥匙），想取消时用它 —— 见第五章</td></tr>
+          <tr><td><code>gameObject</code>（触发者）</td><td>步骤里用 <code>ctx.Source</code> / <code>ctx.SourceGameObject()</code> 拿到它；<b>它被 Destroy 时序列自动取消</b>（不会再去碰已销毁的物体）</td></tr>
         </tbody>
       </table>
     </div>
@@ -349,7 +349,7 @@
         .Build();
 
 <span class="c">// 需要时随时播放（想播几次播几次，一份清单可以被多个玩家/多个对象同时使用）</span>
-RevSequencePlayer.Default.Play(Flow);</pre>
+Flow.Play(gameObject);</pre>
     <div class="plain">
       <span class="tag">人话</span>
       这就像"菜谱"和"做菜"的关系：<b>菜谱写一次贴在墙上（静态字段），谁都能照着做（Play）</b>。两个厨师同时照着同一张菜谱做菜，各做各的、不会串味 —— 这是它比"把状态写在脚本字段里"强的地方。
@@ -360,7 +360,7 @@ RevSequencePlayer.Default.Play(Flow);</pre>
       <table>
         <thead><tr><th style="width:26%">方式</th><th style="width:40%">怎么用</th><th>什么时候选它</th></tr></thead>
         <tbody>
-          <tr><td><b>① 全局默认</b>（最常用）</td><td><code>RevSequencePlayer.Default.Play(flow);</code></td><td>什么都不想配 —— Unity 里九成场景够用</td></tr>
+          <tr><td><b>① 全局默认</b>（最常用）</td><td><code>flow.Play(gameObject);</code></td><td>什么都不想配 —— Unity 里九成场景够用。暂停界面里的演出：<code>RevSequencePlayer.UseUnscaledTime = true</code></td></tr>
           <tr><td><b>② 场景级组件</b></td><td>把 <code>RevSequencePlayer</code> 挂到场景物体上，勾选"使用自己的引擎"</td><td>这条流程属于某个玩法场景，希望它随场景卸载一起收掉</td></tr>
           <tr><td><b>③ 自己 new + 自己喂时间</b></td><td><code>var r = new RevSequenceRunner(); r.Play(flow); r.Tick(dt);</code></td><td>单元测试、需要暂停/快进/慢放、或者你有自己的时间源</td></tr>
         </tbody>
@@ -380,22 +380,28 @@ RevSequencePlayer.Default.Play(Flow);</pre>
       <table>
         <thead><tr><th style="width:26%">我想要</th><th style="width:38%">这样写</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>立刻做一件事</td><td><code>.Do("播个音效", ctx =&gt; Sound.Play("Box_Open"))</code></td><td>不等待，执行完就下一步</td></tr>
+          <tr><td>立刻做一件事</td><td><code>.Do("播个音效", ctx =&gt; Sound.Play("Box_Open"))</code></td><td>不等待，执行完就下一步。名字可以省：<code>.Do(ctx =&gt; …)</code>（日志里显示"文件名:行号"）</td></tr>
           <tr><td>停一会儿</td><td><code>.Wait(0.5f)</code> / <code>.WaitFrames(6)</code></td><td>按秒 / 按帧。等待期间游戏不卡</td></tr>
-          <tr><td>等玩家点了再继续</td><td><code>.WaitUntil("等玩家点击", ctx =&gt; 点了, timeoutSeconds: 15f)</code></td><td>每帧问一次"好了吗"；<b>15 秒还没好就放弃并告警</b>，不会永远卡死</td></tr>
+          <tr><td>等玩家点了再继续</td><td><code>.WaitUntil("等玩家点击", ctx =&gt; 点了, timeoutSeconds: 15f)</code></td><td>每帧问一次"好了吗"；<b>15 秒还没好就放行并在 Console 告警</b>（写明哪条序列、哪一步），不会永远卡死；要自己处理超时就传 <code>onTimeout: ctx =&gt; …</code></td></tr>
           <tr><td>等资源 / 数据到位</td><td><code>.WaitUntil("等加载完", ctx =&gt; Res.IsDone)</code></td><td>同上，条件是"加载完了"</td></tr>
-          <tr><td>等一个异步任务</td><td><code>.WaitTask(ctx =&gt; 那个异步任务, "等服务器回包")</code></td><td>任务由 <code>ctx =&gt;</code> 工厂在<b>运行时</b>创建 → 清单可缓存、并发互不干扰</td></tr>
+          <tr><td>等一个异步任务</td><td><code>.WaitTask(ctx =&gt; 那个异步任务, "等服务器回包")</code></td><td>任务由 <code>ctx =&gt;</code> 工厂在<b>运行时</b>创建 → 清单可缓存、并发互不干扰；任务失败会打日志，<code>cancelOnFailure: true</code> 则取消整条序列</td></tr>
+          <tr><td>等异步任务并拿到结果</td><td><code>.WaitTask(ctx =&gt; LoadAsync(path), (ctx, prefab) =&gt; 用它(prefab))</code></td><td><code>RevTask&lt;T&gt;</code> 的结果交给第二个参数</td></tr>
+          <tr><td>移动 / 缩放 / 淡入淡出（Unity）</td><td><code>.MoveTo("飞向玩家", ctx =&gt; 玩家位置, 0.35f)</code> · <code>.ScaleTo("弹出", Vector3.one, 0.2f, RevEase.OutBack)</code> · <code>.FadeTo("淡出", 0f, 0.3f)</code></td><td>默认操作触发者（<code>source</code>）；别的物体用 <code>target:</code> 参数指定。目标点每帧重新取，追得上移动的玩家</td></tr>
+          <tr><td>任意"随时间变化"的表现</td><td><code>.Tween("数字滚动", 1f, (ctx, t) =&gt; label.text = ((int)(t * 100)).ToString())</code></td><td><code>t</code> 从 0 到 1（可选缓动 <code>RevEase</code>），最后一帧必然是 1。需要起始值用 <code>Tween("…", 秒, begin: ctx =&gt; 起点, update: (ctx, 起点, t) =&gt; …)</code> —— <b>不用再为此写自定义步骤</b></td></tr>
+          <tr><td>根据条件走不同流程</td><td><code>.If("低画质？", ctx =&gt; 条件, then: b =&gt; b.Do(…), otherwise: b =&gt; b.Do(…).Wait(1f))</code></td><td>进入这一步时判断一次；分支里可以有等待</td></tr>
+          <tr><td>打一条调试日志</td><td><code>.Log("走到开门这一步了")</code></td><td>进 RevLog（tag = ActionSequence）</td></tr>
           <tr><td>开始一个动作 + 每帧问它结束没</td><td><code>.DoBlocking("等移动完", ctx =&gt; 移动.Start(), ctx =&gt; 移动.Done)</code></td><td>适合"我做一次启动，然后盯着它结束"</td></tr>
           <tr><td>两件事同时做</td><td><code>.Parallel("音乐和动画一起", p =&gt; p.Do(...).Do(...))</code></td><td>组内全部完成，这一步才算结束</td></tr>
           <tr><td>重复几遍</td><td><code>.Repeat("闪三次", 3, r =&gt; r.Do("亮", ...).WaitFrames(6))</code></td><td>闪光、脉冲、轮播都用它</td></tr>
           <tr><td>跑完这条，接着跑另一条</td><td><code>.Sequence("先开箱", ChestOpen)</code></td><td>把常用演出做成积木，拼装复用</td></tr>
           <tr><td>通知别的序列 / 别的系统</td><td><code>.Publish(new ChestOpened(uid))</code></td><td>事件是强类型的，改名编译器会报错（不会悄悄断链）</td></tr>
-          <tr><td>取消时把东西收拾干净</td><td><code>.OnCancel(f =&gt; f.Do("回收", ctx =&gt; Pool.Recycle(go)))</code></td><td>第五章专门讲</td></tr>
+          <tr><td>跑完和取消都要做的收尾</td><td><code>.Finally(f =&gt; f.Do("恢复镜头", ctx =&gt; Cam.Restore()))</code></td><td><b>最常用的收尾写法</b>：只写一遍，跑完 / 取消 / 出错都执行。第五章专门讲</td></tr>
+          <tr><td>只在取消时才做的收尾</td><td><code>.OnCancel(f =&gt; f.Do("回收", ctx =&gt; Pool.Recycle(go)))</code></td><td>例如"正常跑完物件已经交给玩家了，只有中途取消才要回收"</td></tr>
           <tr><td>跑完/被取消时通知我</td><td><code>.OnCompleted(run =&gt; ...)</code> / <code>.OnCancelled(run =&gt; ...)</code></td><td>接埋点、刷 UI、记日志</td></tr>
           <tr><td>每走一步都记一下（埋点）</td><td><code>.Do("埋点", ctx =&gt; YourLog.Step())</code></td><td>框架不内建埋点：在步骤里自己打点即可</td></tr>
           <tr><td>取消它 / 问它还在不在</td><td><code>handle.Stop()</code> / <code>handle.IsValid</code></td><td><code>Play</code> 的返回值就是句柄</td></tr>
-          <tr><td>在步骤里拿业务系统</td><td><code>ctx.Get&lt;ISoundService&gt;()</code></td><td>框架不认识你的系统，全靠这样注入（见第七章）</td></tr>
-          <tr><td>在步骤里知道"谁触发的"</td><td><code>ctx.Source</code></td><td>例如"是哪个玩家开的这个箱子"</td></tr>
+          <tr><td>在步骤里拿业务系统</td><td><code>ctx.Require&lt;ISoundService&gt;()</code>（必须有）/ <code>ctx.Get&lt;ISoundService&gt;()</code>（可以没有）</td><td>框架不认识你的系统，全靠这样注入（见第七章）。<code>Require</code> 取不到会直接报错并告诉你怎么注册，比 <code>Get()?.X()</code> 静默跳过好查得多</td></tr>
+          <tr><td>在步骤里知道"谁触发的"</td><td><code>ctx.Source</code> / <code>ctx.SourceAs&lt;T&gt;()</code> / <code>ctx.SourceGameObject()</code></td><td>例如"是哪个玩家开的这个箱子"</td></tr>
         </tbody>
       </table>
     </div>
@@ -477,15 +483,16 @@ RevSequencePlayer.Default.Play(Flow);</pre>
     </div>
 
     <div class="card">
-      <div class="h">⑤ <code>.OnCancel(f =&gt; f.Do(...))</code> —— 取消时收拾现场</div>
-      <div class="when">什么时候用：这条流程里"产生了东西"（生成的特效、加载的资源、推近的镜头、注册的监听）—— 只要产生了，就得写。</div>
-      <pre>.OnCancel(finallySteps =&gt; finallySteps
-    .Do(<span class="s">"回收特效"</span>, ctx =&gt; ctx.Get&lt;IEffectService&gt;()?.Recycle(spawned))
-    .Do(<span class="s">"恢复镜头"</span>, ctx =&gt; ctx.Get&lt;ICameraService&gt;()?.Restore()))</pre>
+      <div class="h">⑤ <code>.Finally(f =&gt; f.Do(...))</code> —— 收拾现场（跑完、取消都执行）</div>
+      <div class="when">什么时候用：这条流程里"改了东西 / 产生了东西"（推近的镜头、隐藏的 HUD、生成的特效、注册的监听）—— 只要有，就得写。</div>
+      <pre>.Finally(f =&gt; f
+    .Do(<span class="s">"恢复镜头"</span>, ctx =&gt; ctx.Require&lt;ICameraService&gt;().Restore())
+    .Do(<span class="s">"回收特效"</span>, ctx =&gt; ctx.Require&lt;IEffectService&gt;().RecycleAll(ctx.Source)))</pre>
       <div class="note">
-        ✅ 玩家中途退出、切场景、掉线、被别的流程顶替 —— 这些都会触发它。<br>
-        ✅ 里面只能写"立刻做完"的步骤（不能等），所以它是"回收/反注册/恢复"的专属位置。<br>
-        ✅ <b>判断标准很简单：这条序列"占用了什么"，就在 OnCancel 里还回去。</b>
+        ✅ 正常跑完、玩家中途退出、切场景、掉线、被别的流程顶替、步骤报错 —— 都会走到这里，<b>只写一遍</b>。<br>
+        ✅ 只有"中途打断才需要做"的事，改用 <code>.OnCancel(f =&gt; …)</code>（取消时它排在 Finally 前面执行）。<br>
+        ✅ 里面只能写"立刻做完"的步骤（不能等）—— 写了 <code>Wait</code> 之类的，<code>Build()</code> 会直接报错。<br>
+        ✅ <b>判断标准很简单：这条序列"占用了什么"，就在 Finally 里还回去。</b>
       </div>
     </div>
 
@@ -514,8 +521,8 @@ RevSequencePlayer.Default.Play(Flow);</pre>
 
     <h3>方式一：手动启动（最直接，够用一半场景）</h3>
     <pre><span class="c">// 点按钮、流程里走到某一步 —— 直接 Play 就行</span>
-RevSequencePlayer.Default.Play(ChestOpen, source: gameObject);
-<span class="c">//                                     ↑ source = "是谁触发的"（第 4.4 节会讲它为什么重要）</span></pre>
+ChestOpen.Play(gameObject);
+<span class="c">//             ↑ source = "是谁触发的"（第 4.4 节会讲它为什么重要；它被销毁时序列自动取消）</span></pre>
     <div class="plain">
       <span class="tag">人话</span>
       "谁触发的"这个概念有两个用处：① 判断重复触发时"是不是同一个玩家"；② 步骤里能让你知道"这次是给谁播的"（<code>ctx.Source</code>）。
@@ -607,14 +614,15 @@ RevSequencePlayer.Default.BindEvents&lt;ChestOpenedEvent&gt;(
     <h3>5.1 什么时候会被取消（大多数时候不是你主动取消）</h3>
     <ul>
       <li>玩家点了关闭 / 中途退出；</li>
-      <li>切场景、断线重连 —— 拥有这条序列的对象被销毁；</li>
+      <li>切场景、断线重连 —— <b>触发者（Play 时传的 <code>source</code>）被 Destroy，框架会自动取消它的序列</b>；</li>
       <li>被"同源顶替"策略挤掉（第 4.4 节）；</li>
-      <li>你自己调了 <code>Stop</code>（比如玩家点了"取消加载"）。</li>
+      <li>某一步的代码抛了异常（框架打日志后按取消处理）；</li>
+      <li>你自己调了 <code>Stop</code>（比如玩家点了"取消加载"）—— 在步骤里 Stop 自己也行，后面的步骤不会再执行。</li>
     </ul>
 
     <h3>5.2 两个 API</h3>
     <pre><span class="c">// ① 存下句柄（Play 的返回值），想取消时用它</span>
-RevSequenceHandle handle = RevSequencePlayer.Default.Play(LoadingFlow, source: player);
+RevSequenceHandle handle = LoadingFlow.Play(player);
 
 <span class="k">if</span> (玩家点了取消) handle.Stop();                          <span class="c">// 取消这一条（走它的收尾）</span>
 <span class="k">if</span> (切场景)        RevSequencePlayer.Default.StopAll();    <span class="c">// 全部取消（每条都走各自的收尾）</span>
@@ -630,28 +638,45 @@ RevSequenceHandle handle = RevSequencePlayer.Default.Play(LoadingFlow, source: p
       这是故意的：正在执行的步骤不会被打断（避免"做一半被砍"的脏状态），序列会在下一步之前停下来，然后走收尾。
     </div>
 
-    <h3>5.3 收尾：<code>.OnCancel(...)</code></h3>
-    <pre>.OnCancel(finallySteps =&gt; finallySteps
-    .Do(<span class="s">"回收生成的特效"</span>, ctx =&gt; ctx.Get&lt;IEffectService&gt;()?.Recycle(spawned))
-    .Do(<span class="s">"恢复镜头与 HUD"</span>, ctx =&gt; ctx.Get&lt;ICameraService&gt;()?.Restore())
-    .Do(<span class="s">"反注册事件"</span>, ctx =&gt; _subscription?.Dispose()))</pre>
+    <h3>5.3 收尾：<code>.Finally(...)</code> 与 <code>.OnCancel(...)</code></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">写法</th><th style="width:36%">什么时候执行</th><th>用来做什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>.Finally(f =&gt; …)</code></td><td><b>跑完、被取消、出错都执行</b>（最常用）</td><td>恢复镜头 / HUD、反注册监听 —— "进来时改了什么，出去时改回来"</td></tr>
+          <tr><td><code>.OnCancel(f =&gt; …)</code></td><td><b>只在被取消 / 出错时执行</b>（排在 Finally 前面）</td><td>正常跑完不需要、只有中途打断才要做的事，例如回收"飞到一半"的物件</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre>.Do(<span class="s">"推近镜头"</span>, ctx =&gt; ctx.Require&lt;ICameraService&gt;().PushIn())
+.WaitUntil(<span class="s">"等对白结束"</span>, ctx =&gt; …, <span class="n">15f</span>)
+.OnCancel(f =&gt; f
+    .Do(<span class="s">"回收生成的特效"</span>, ctx =&gt; ctx.Require&lt;IEffectService&gt;().RecycleAll(ctx.Source)))
+.Finally(f =&gt; f
+    .Do(<span class="s">"恢复镜头与 HUD"</span>, ctx =&gt; ctx.Require&lt;ICameraService&gt;().Restore()))</pre>
+    <div class="callout">
+      <span class="t">收尾里只能放立即步骤</span>
+      <code>Do</code>、<code>SetActive</code>、<code>Log</code>，以及由它们组成的 <code>Parallel</code> / <code>If</code>：收尾只同步执行一次、不会等待。
+      放了 <code>Wait</code> / <code>WaitUntil</code> / <code>Tween</code> / 嵌套序列，<code>Build()</code> 时会直接报错告诉你是哪一步。
+      收尾里某一步抛异常只会跳过那一步（打日志），其余收尾照常执行。
+    </div>
 
     <div class="anim" id="demo-cancel">
       <div class="t"><span class="tag">动图</span>两条路都通向"收尾"—— 一条是跑完，一条是被取消</div>
       <div class="paths">
         <div class="path ok">
           <div class="ph">✅ 正常跑完</div>
-          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✓ 完成回调（OnCompleted）</span></div>
-          <div class="row" style="color:var(--text-sub);font-size:12px">收尾步骤<b>不</b>执行（没有被打断，没什么要收拾的）</div>
+          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✓ 收尾（Finally）→ 完成回调（OnCompleted）</span></div>
+          <div class="row" style="color:var(--text-sub);font-size:12px"><code>Finally</code> 执行；<code>OnCancel</code> 不执行（没有被打断）</div>
         </div>
         <div class="path bad">
           <div class="ph">⚠ 跑到一半被取消（退出 / 切场景 / 顶替）</div>
-          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✗ 中途停住</span><span class="b r3">✓ 收尾（OnCancel）</span></div>
+          <div class="row"><span class="b r1">→ 播音效</span><span class="b r2">✗ 中途停住</span><span class="b r3">✓ 收尾（OnCancel → Finally）</span></div>
           <div class="row" style="color:var(--text-sub);font-size:12px">不写收尾的话：特效留在场上、镜头还推着、事件还被监听</div>
         </div>
       </div>
       <div class="hint">
-        <b>判断标准一句话：这条序列"占用了什么"，就在 OnCancel 里还回去。</b>
+        <b>判断标准一句话：这条序列"占用了什么"，就在 Finally 里还回去。</b>
         生成的物件、加载的资源、推近的镜头、注册的监听 —— 四样东西，对应四行收尾。
       </div>
     </div>
@@ -664,24 +689,25 @@ RevSequenceHandle handle = RevSequencePlayer.Default.Play(LoadingFlow, source: p
 <span class="c">// 玩家中途退出 → 回收那一步永远走不到 → 特效留在场上</span></pre>
       </div>
       <div class="yes">
-        <div class="h">✅ 正确：把"还回去"放进收尾</div>
-        <pre>.Do(<span class="s">"生成特效"</span>, ctx =&gt; spawned = Effect.Spawn(<span class="s">"Fx_Open"</span>))
-.Do(<span class="s">"回收特效"</span>, ctx =&gt; Effect.Recycle(spawned))   <span class="c">// 正常路径</span>
-.OnCancel(f =&gt; f.Do(<span class="s">"回收特效"</span>, ctx =&gt; Effect.Recycle(spawned)))  <span class="c">// 取消路径</span></pre>
+        <div class="h">✅ 正确：把"还回去"放进 Finally（只写一遍，两条路都会走到）</div>
+        <pre>.Do(<span class="s">"生成特效"</span>, ctx =&gt; ctx.Require&lt;IEffectService&gt;().Spawn(<span class="s">"Fx_Open"</span>, ctx.Source))
+.Wait(<span class="n">1f</span>)
+.Finally(f =&gt; f.Do(<span class="s">"回收特效"</span>, ctx =&gt; ctx.Require&lt;IEffectService&gt;().RecycleAll(ctx.Source)))</pre>
       </div>
     </div>
 
     <h3>5.4 三种结束方式（对照表）</h3>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:24%">结束方式</th><th style="width:44%">怎么发生的</th><th>收尾会执行吗</th></tr></thead>
+        <thead><tr><th style="width:16%">结束方式</th><th style="width:34%">怎么发生的</th><th>.OnCancel</th><th>.Finally</th><th>回调</th></tr></thead>
         <tbody>
-          <tr><td>正常跑完</td><td>所有步骤都放行了</td><td>不会（走 <code>OnCompleted</code> 回调）</td></tr>
-          <tr><td>被取消</td><td><code>handle.Stop()</code> / <code>StopAll()</code> / 宿主销毁 / 被顶替</td><td><b>会</b>（走 <code>OnCancelled</code> 回调）</td></tr>
-          <tr><td>步骤抛异常</td><td>某个步骤的代码报错</td><td>调试期直接报错给你；正式包记录错误并走收尾</td></tr>
+          <tr><td>正常跑完</td><td>所有步骤都放行了</td><td>不执行</td><td><b>执行</b></td><td><code>OnCompleted</code></td></tr>
+          <tr><td>被取消</td><td><code>handle.Stop()</code> / <code>StopAll()</code> / 触发者被销毁 / 被顶替</td><td><b>执行</b></td><td><b>执行</b></td><td><code>OnCancelled</code></td></tr>
+          <tr><td>步骤抛异常</td><td>某个步骤的代码报错</td><td><b>执行</b></td><td><b>执行</b></td><td><code>OnCancelled</code>（Console 里有一条带序列名和步骤的异常日志）</td></tr>
         </tbody>
       </table>
     </div>
+    <p><code>handle.Stop(runFinally: false)</code> / <code>StopAll(runFinally: false)</code> 会显式跳过两种收尾。</p>
   </section>
   <!-- ==================== 六 ==================== -->
   <section id="s6">
@@ -699,7 +725,7 @@ RevSequenceHandle handle = RevSequencePlayer.Default.Play(LoadingFlow, source: p
       <div class="cmp">
         <div class="no"><div class="h">❌ 忘了 Tick</div><pre><span class="k">var</span> r = <span class="k">new</span> RevSequenceRunner();
 r.Play(Flow);   <span class="c">// 就没了 → 永远不动</span></pre></div>
-        <div class="yes"><div class="h">✅ 用 Default，或自己 Tick</div><pre>RevSequencePlayer.Default.Play(Flow);
+        <div class="yes"><div class="h">✅ 用 Default，或自己 Tick</div><pre>Flow.Play(gameObject);
 <span class="c">// 或</span>
 r.Play(Flow);  r.Tick(Time.deltaTime);</pre></div>
       </div>
@@ -896,39 +922,43 @@ _runner.Play(ChestOpen, gameObject);                  <span class="c">// 反复�
     <h2><span class="num">8</span>怎么确认它真的在跑 / 出问题怎么查</h2>
     <p class="lead">好消息：不用你自己加日志，框架已经打好了。</p>
 
-    <h3>8.1 框架不打日志、也不提供查询：排障靠回调</h3>
-    <p>框架<b>自身没有任何日志，也没有「现在几条在跑」「卡在哪一步」这类查询 API</b>（等框架日志系统统一接入后再接）—— 观察只有两个口子：</p>
-    <pre><span class="c">// ① 回调：想知道什么就在这里记什么（框架唯一主动给你的观察点）</span>
+    <h3>8.1 先看 Console：出问题框架会主动告诉你</h3>
+    <p>框架的日志走 RevLog（tag = <code>ActionSequence</code>，要静音就 <code>RevLog.MuteTag("ActionSequence")</code>），每条都写明<b>哪条序列、第几步、步骤名</b>：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:52%">Console 里看到</th><th>意思</th></tr></thead>
+        <tbody>
+          <tr><td><code>「宝箱开启」第 2/4 步「等玩家点击」抛异常 → 已按取消处理</code></td><td>这一步的代码报错了；整条序列按取消收尾（OnCancel / Finally 照常执行），其它序列不受影响</td></tr>
+          <tr><td><code>「宝箱开启」第 2/4 步「等玩家点击」等了 15s 条件仍未成立 → 超时放行</code></td><td>等待超时了，流程继续往下走</td></tr>
+          <tr><td><code>…等待的异步任务失败了</code></td><td><code>WaitTask</code> 等的任务抛了异常</td></tr>
+          <tr><td><code>…收尾步骤「xxx」抛异常（已跳过，继续执行其余收尾）</code></td><td>收尾里某一步报错</td></tr>
+          <tr><td><code>…的并发策略是 RejectPerSource，但 Play 时没传触发者</code></td><td>忘了传 <code>source</code>，策略变成了"同时只能有一条"（每条序列只提醒一次）</td></tr>
+          <tr><td><code>没有注册服务 IXxx：请先 runner.Services.Add&lt;IXxx&gt;(实现)</code></td><td>用了 <code>ctx.Require&lt;IXxx&gt;()</code>，但服务没注册</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>另外两个观察口子：</p>
+    <pre><span class="c">// 回调：想统计什么就在这里记（订阅者抛异常会被记日志，不影响收尾）</span>
 runner.RunFinished += run =&gt; Debug.Log($"[序列] {run} 结束（{run.Status}，{run.Elapsed:F2}s）");
 
-<span class="c">// ② 句柄：只回答「还在不在跑」这一个问题</span>
-if (handle.IsValid) <span class="c">// 还在跑（已结束 / 被取消 / 残留句柄都是 false）</span></pre>
+<span class="c">// 句柄与引擎：还在不在跑 / 现在有几条在跑</span>
+if (handle.IsValid) …
+Debug.Log(RevSequencePlayer.Default.ActiveCount);</pre>
     <ul>
-      <li><b>要「每步流水」</b>：在步骤里自己打 —— <code>.Do("日志", ctx =&gt; Debug.Log("[序列] 现在 xxx"))</code>；
-    <ul>
-      <li><b>步骤名就是你的路标</b> —— 所以第 3 章一直强调名字要认真写；
-      <li>要"每步流水"日志：在步骤里自己打 —— <code>.Do("日志", ctx =&gt; Debug.Log("[序列] 现在 xxx"))</code>；
-      <li>框架不自带日志，所以也不存在"正式包里的日志开销"这回事。
+      <li><b>要「每步流水」</b>：<code>.Log("走到开门这一步了")</code>；<b>步骤名就是你的路标</b>（省略名字时日志里显示"文件名:行号"）。</li>
     </ul>
 
     <h3>8.2 三种典型问题，先看哪里</h3>
-    <h3>8.3 三种典型问题，先看哪里</h3>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:26%">现象</th><th style="width:30%">先看什么</th><th>通常是</th></tr></thead>
         <tbody>
-          <tr><td>完全没反应</td><td>有没有人在喂时间 / <code>Play</code> 的返回值</td><td>"没 Tick"（坑 1）；被并发策略拦了（4.4，<code>Play</code> 返回空句柄）；忘了 <code>.Build()</code> 或传 null 会直接抛异常</td></tr>
-          <tr><td>停在半路不动</td><td>看看你回调里记下的「最后一步」</td><td>那一步的等待条件没满足：等点击但没收到输入 / 等加载但加载没触发。<b>带超时的等待最终会放行</b>（框架不打日志，要感知超时请在谓词里带上业务自己的失败标志）</td></tr>
+          <tr><td>完全没反应</td><td><code>Play</code> 的返回值 / Console</td><td>被并发策略拦了（4.4，<code>Play</code> 返回空句柄）；自己 new 的引擎没 Tick（坑 1）；忘了 <code>.Build()</code> 或传 null 会直接抛异常</td></tr>
+          <tr><td>停在半路不动</td><td>Console 里的超时 / 异常日志</td><td>那一步的等待条件没满足（没配超时就会一直等）；或触发者被销毁、序列已被自动取消</td></tr>
           <tr><td>表现乱了 / 两个玩家互相影响</td><td>这条序列的触发者是谁</td><td>坑 3（在清单里用了外面的变量）或 <code>source</code> 传错（4.4）</td></tr>
         </tbody>
       </table>
     </div>
-
-    <h3>8.3 想要"每步流水"日志怎么办</h3>
-    <p style="margin-bottom:0">框架刻意不自带日志门面 —— 等框架日志系统出来后，在步骤与回调里统一调用它即可：</p>
-    <pre>.Do("打日志", ctx =&gt; Debug.Log($"[序列] 现在：xxx"))        <span class="c">// 正式包也生效（走你自己的日志系统）</span>
-.OnCompleted(run =&gt; YourLog.Info($"做完 {run.Definition.Name}，用时 {run.Elapsed:F2}s"))
-.OnCancelled(run =&gt; YourLog.Warn($"被打断 {run.Definition.Name}"))</pre>
   </section>
 
   <!-- ==================== 九 ==================== -->
@@ -939,37 +969,42 @@ if (handle.IsValid) <span class="c">// 还在跑（已结束 / 被取消 / 残�
     <h3>写清单（Builder）</h3>
     <div class="cheat">
       <div><b>开一张清单</b><code>RevSequence.Create("名字", 策略)</code></div>
-      <div><b>立刻做一件事</b><code>.Do("名字", ctx =&gt; …)</code></div>
+      <div><b>立刻做一件事</b><code>.Do("名字", ctx =&gt; …)</code> / <code>.Do(ctx =&gt; …)</code></div>
       <div><b>停一会儿</b><code>.Wait(1f)</code> / <code>.WaitFrames(6)</code></div>
       <div><b>等条件成立（建议带超时）</b><code>.WaitUntil("名字", ctx =&gt; 条件, 15f)</code></div>
-      <div><b>等异步任务</b><code>.WaitTask(ctx =&gt; 任务)</code>（任务运行时才创建，清单可缓存）</div>
+      <div><b>随时间变化</b><code>.Tween("名字", 秒, (ctx, t) =&gt; …)</code>；Unity：<code>.MoveTo</code> / <code>.ScaleTo</code> / <code>.FadeTo</code> / <code>.SetActive</code></div>
+      <div><b>二选一</b><code>.If("名字", ctx =&gt; 条件, then: b =&gt; …, otherwise: b =&gt; …)</code></div>
+      <div><b>等异步任务</b><code>.WaitTask(ctx =&gt; 任务)</code>；要结果：<code>.WaitTask(ctx =&gt; 任务, (ctx, 结果) =&gt; …)</code></div>
       <div><b>启动一个动作 + 盯它结束</b><code>.DoBlocking("名字", 启动, 判断结束)</code></div>
       <div><b>两件事同时做</b><code>.Parallel("名字", p =&gt; p.Do(…).Do(…))</code></div>
       <div><b>重复几遍</b><code>.Repeat("名字", 3, r =&gt; …)</code></div>
       <div><b>嵌套另一条清单</b><code>.Sequence("名字", 别的清单)</code></div>
-      <div><b>发事件（通知别人）</b><code>.Publish(new 我的事件(…))</code></div>
-      <div><b>取消时收拾现场</b><code>.OnCancel(f =&gt; f.Do("回收", …))</code></div>
+      <div><b>发事件（通知别人）</b><code>.Publish(new 我的事件(…))</code> / <code>.Publish(ctx =&gt; new 我的事件(ctx.Source))</code></div>
+      <div><b>收尾（跑完 / 取消都执行）</b><code>.Finally(f =&gt; f.Do("恢复", …))</code></div>
+      <div><b>只在取消时收尾</b><code>.OnCancel(f =&gt; f.Do("回收", …))</code></div>
       <div><b>跑完 / 被取消 回调</b><code>.OnCompleted / .OnCancelled</code></div>
+      <div><b>打调试日志</b><code>.Log("…")</code></div>
       <div><b>定稿（只能一次，结果存静态字段）</b><code>.Build()</code></div>
-      <div><b>来自定义步骤（要跨帧私有状态时）</b><code>.Step(new MyStep())</code></div>
+      <div><b>自定义步骤（上面都满足不了时）</b><code>.Step(new MyStep())</code>（每处 new 一个）</div>
     </div>
 
     <h3>跑起来 / 停掉</h3>
     <div class="cheat">
-      <div><b>最省事地播放（Unity）</b><code>RevSequencePlayer.Default.Play(清单, source)</code></div>
-      <div><b>想 await 它跑完</b><code>await runner.PlayAsync(清单, source)</code></div>
+      <div><b>最省事地播放（Unity）</b><code>清单.Play(gameObject)</code>（物体销毁时自动取消）</div>
+      <div><b>想 await 它跑完</b><code>await 清单.PlayAsync(gameObject)</code></div>
       <div><b>自己 new + 自己喂时间</b><code>new RevSequenceRunner(); r.Tick(dt)</code></div>
-      <div><b>取消一条 / 全部</b><code>handle.Stop()</code> / <code>runner.StopAll()</code></div>
-      <div><b>它还活着吗</b><code>handle.IsValid</code></div>
-      <div><b>想知道进度 / 卡在哪一步</b><code>在 .OnCompleted / RunFinished 里自己记</code></div>
+      <div><b>取消一条 / 全部</b><code>handle.Stop()</code> / <code>RevSequencePlayer.Default.StopAll()</code></div>
+      <div><b>它还活着吗 / 现在几条在跑</b><code>handle.IsValid</code> / <code>runner.ActiveCount</code></div>
+      <div><b>暂停时也要跑</b><code>RevSequencePlayer.UseUnscaledTime = true</code></div>
     </div>
 
     <h3>触发 / 依赖注入</h3>
     <div class="cheat">
       <div><b>区域等触发源 → 清单</b><code>runner.Bind(触发源, 清单)</code></div>
       <div><b>事件 → 清单（一行）</b><code>runner.BindEvents&lt;事件&gt;(bus, 清单, e =&gt; e.Owner)</code></div>
-      <div><b>注册业务服务</b><code>runner.Services.Add&lt;IXxxService&gt;(实现)</code></div>
-      <div><b>步骤里取服务 / 取触发者</b><code>ctx.Get&lt;IXxxService&gt;()</code> / <code>ctx.Source</code></div>
+      <div><b>注册业务服务</b><code>RevSequencePlayer.Default.Services.Add&lt;IXxxService&gt;(实现)</code>（写成具体类型也能按接口取到）</div>
+      <div><b>步骤里取服务</b><code>ctx.Require&lt;IXxxService&gt;()</code>（必须有）/ <code>ctx.Get&lt;IXxxService&gt;()</code>（可以没有）</div>
+      <div><b>步骤里取触发者</b><code>ctx.Source</code> / <code>ctx.SourceAs&lt;T&gt;()</code> / <code>ctx.SourceGameObject()</code></div>
       <div><b>步骤里的时间</b><code>ctx.Elapsed</code> / <code>ctx.DeltaTime</code>（别读 Time.time）</div>
     </div>
 
@@ -977,7 +1012,7 @@ if (handle.IsValid) <span class="c">// 还在跑（已结束 / 被取消 / 残�
     <div class="callout warn">
       <p>① <b>清单只构建一次</b>（<code>static readonly</code>）—— 否则每次触发都付构建成本，而且"_同源顶替/拒绝"策略会失效。</p>
       <p>② <b>用了后两种并发策略就要传 <code>source</code></b> —— 不传的话"同一个触发者"判断不出来，策略会变成"全场唯一"。</p>
-      <p>③ <b>这条序列占用了什么，就在 <code>.OnCancel</code> 里还回去</b> —— 生成的特效、加载的资源、推近的镜头、注册的监听。</p>
+      <p>③ <b>这条序列占用了什么，就在 <code>.Finally</code>（只在取消时才需要的放 <code>.OnCancel</code>）里还回去</b> —— 生成的特效、加载的资源、推近的镜头、注册的监听。</p>
     </div>
 
     <div class="callout good">

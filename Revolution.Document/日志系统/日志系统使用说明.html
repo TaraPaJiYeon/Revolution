@@ -329,7 +329,7 @@ RevLog.Debug(<span class="s">"坐标 = "</span> + Heavy().ToString());      <spa
       <span class="t">推荐的 tag 命名</span>
       用<b>模块名</b>（<code>"Network"</code>、<code>"Battle"</code>、<code>"UI"</code>、<code>"Config"</code>）而不是具体类名 ——
       静音时的粒度才刚好。框架自己的标签：<code>Event</code> / <code>Pool</code> / <code>Timer</code> / <code>UI</code> /
-      <code>StateMachine</code> / <code>LiteAB</code>。
+      <code>StateMachine</code> / <code>RevAB</code>。
     </div>
   </section>
 
@@ -452,7 +452,7 @@ RevLog.AddSink(<span class="k">new</span> MySink());</pre>
           <tr><td>UI 系统</td><td><code>UI</code></td><td><code>RevUILog.Error / Warning / Info</code> 默认实现 → RevLog</td></tr>
           <tr><td>状态机</td><td><code>StateMachine</code></td><td><code>RevHeavyFsmLog</code> 默认出口 → RevLog</td></tr>
           <tr><td>宿主适配层</td><td><code>Timer</code> / <code>ActionSequence</code> / <code>Res</code></td><td>计时器驱动、动作序列驱动、编辑器直读策略的裸 <code>Debug.Log*</code> → RevLog</td></tr>
-          <tr><td><b>LiteAB 打包工具（Editor）</b></td><td><code>LiteAB</code></td><td>工具自己的出口类 <code>RevABLog</code> → RevLog（28 处调用统一）</td></tr>
+          <tr><td><b>RevAB 打包工具（Editor）</b></td><td><code>RevAB</code></td><td>工具自己的出口类 <code>RevABLog</code> → RevLog（28 处调用统一）</td></tr>
           <tr><td>音效 / 资源加载</td><td>—</td><td><b>不接</b>：它们的契约是"失败带原因码 + <code>Failed</code> 事件 / <code>handle.ErrorReason</code>"，业务订阅即可</td></tr>
         </tbody>
       </table>

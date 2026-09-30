@@ -2,7 +2,7 @@
 // RevSoundPath.cs —— 音效 / BGM 的资源目录常量
 //
 // ★ 本文件由 ABSoundPathGenerator 自动生成，请勿手改（重新生成会整份覆盖）。
-//   改目录：菜单 Revolution.Tools/资源/LiteAB 打包工具 → ① 打包配置 → 音效目录
+//   改目录：菜单 Revolution.Tools/资源/RevAB 打包工具 →「打包」页签 → 资源目录 → 音效目录
 //   （值存在 Assets/Editor/ABBuildConfig.asset 里，团队成员共享同一份）
 //
 // 【值是「相对资源根目录」的逻辑目录段（带结尾 /）】

@@ -78,6 +78,15 @@ namespace Revolution
         public static RevUICanvasMode CanvasMode = RevUICanvasMode.ScreenSpaceOverlay;
 
         /// <summary>
+        /// Canvas 架构（默认且推荐 <see cref="RevUICanvasArchitecture.Single"/>：所有面板一个 Canvas）。
+        /// ★ 先在目标设备上用 Profiler 确认 UI 合批已成为瓶颈、常规优化仍不达标，才考虑启用 Split；
+        ///   不要仅因为有动态 UI 就提前切换。Split = 三 Canvas 动静分离：常用（根 Canvas，所有层级）/ 静态（根 − 2）/ 动态（根 − 1），
+        ///   面板用 <c>[RevUIPanel(..., CanvasType = RevUICanvasType.Dynamic)]</c> 选画布（静态 / 动态只收 Scene 层）。
+        /// ★ 在**第一次打开面板之前**设（根节点创建时读一次）；运行中要换，先 <c>RevUI.ShutdownAll()</c> 再开。
+        /// </summary>
+        public static RevUICanvasArchitecture CanvasArchitecture = RevUICanvasArchitecture.Single;
+
+        /// <summary>
         /// Canvas 预制体在 <c>Resources</c> 下的路径（**默认 "RevUIPrefab/RevUICanvas"**，框架自带一份）。
         /// ★ 默认就用它来渲染（Overlay 模式 / 1920×1080 / match 0.5 / sortingOrder 100）；
         ///   载不到（缺失或路径不对）时会自动**代码兜底建一个**，并给一条 Warning —— 不会让整屏 UI 起不来。

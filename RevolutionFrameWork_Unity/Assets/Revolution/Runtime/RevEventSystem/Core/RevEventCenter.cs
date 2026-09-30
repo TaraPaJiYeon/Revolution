@@ -137,7 +137,7 @@ namespace Revolution
             try
             {
                 List<RevEventListener> list = group.Listeners;
-                int count = list.Count;                  // ★ 本次派发的范围在开始时锁定：派发中新增的监听者下一轮才生效
+                int count = group.DispatchLimit;                  // ★ 本次派发的范围在开始时锁定：派发中新增的监听者下一轮才生效
 
                 for (int i = 0; i < count; i++)
                 {
@@ -180,7 +180,7 @@ namespace Revolution
             try
             {
                 List<RevEventListener> list = group.Listeners;
-                int count = list.Count;
+                int count = group.DispatchLimit;
 
                 for (int i = 0; i < count; i++)
                 {
@@ -223,7 +223,7 @@ namespace Revolution
             try
             {
                 List<RevEventListener> list = group.Listeners;
-                int count = list.Count;
+                int count = group.DispatchLimit;
 
                 for (int i = 0; i < count; i++)
                 {
@@ -266,7 +266,7 @@ namespace Revolution
             try
             {
                 List<RevEventListener> list = group.Listeners;
-                int count = list.Count;
+                int count = group.DispatchLimit;
 
                 for (int i = 0; i < count; i++)
                 {
@@ -309,7 +309,7 @@ namespace Revolution
             try
             {
                 List<RevEventListener> list = group.Listeners;
-                int count = list.Count;
+                int count = group.DispatchLimit;
 
                 for (int i = 0; i < count; i++)
                 {

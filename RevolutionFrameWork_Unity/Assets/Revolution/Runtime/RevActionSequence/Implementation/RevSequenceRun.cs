@@ -19,7 +19,8 @@ namespace Revolution
 
         internal object[] StepStates;       // 每个步骤一个状态槽（按槽位号索引）
         internal bool StepExecuted;         // 当前步骤是否已经 Execute 过（防止重复执行）
-        internal bool SkipFinally;          // Stop(runFinally:false) 时置 true：取消时不跑收尾步骤
+        internal bool SkipFinally;          // Stop(runFinally:false) 时置 true：结束时不跑收尾步骤
+        internal bool Finalizing;           // 正在收尾（防止收尾过程中被重入收尾第二次）
 
         /// <summary>本运行实例的唯一编号（单调递增、永不复用；句柄靠它识别自己）</summary>
         internal long Id;
@@ -146,6 +147,7 @@ namespace Revolution
             StepIndex = 0;
             StepExecuted = false;
             SkipFinally = false;
+            Finalizing = false;
             Elapsed = 0f;
             DeltaTime = 0f;
             IsCancellationRequested = false;
@@ -169,11 +171,17 @@ namespace Revolution
             StepIndex = 0;
             StepExecuted = false;
             SkipFinally = false;
+            Finalizing = false;
             Elapsed = 0f;
             DeltaTime = 0f;
             IsCancellationRequested = false;
             Status = RevSequenceStatus.Idle;
         }
+
+        /// <summary>日志用的位置描述：<c>「宝箱开启」第 2 步「等玩家点击」</c></summary>
+        internal string Where => Definition == null
+            ? "（已结束的序列）"
+            : $"「{Definition.Name}」第 {StepIndex + 1}/{StepCount} 步「{CurrentStepName}」";
 
         /// <summary>状态数组只增不减（池化实例会被不同槽数的定义复用）</summary>
         private void EnsureStateCapacity(int slotCount)

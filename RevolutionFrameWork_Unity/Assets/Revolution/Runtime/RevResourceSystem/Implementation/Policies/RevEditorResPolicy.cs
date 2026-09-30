@@ -26,7 +26,7 @@ namespace Revolution
         /// 编辑器资源根目录（带结尾 "/"）。
         ///
         /// ★ 这里**故意没有默认值**：资源根目录由使用者决定，在编辑器工具里指定
-        ///   （Tools/资源/LiteAB 打包工具 → 资源根目录），再由编辑器侧同步进来
+        ///   （Revolution.Tools/资源/RevAB 打包工具 → 资源根目录），再由编辑器侧同步进来
         ///   （见 ABBuildConfig.ApplyToRuntime）。
         ///   代码里预置 "Assets/GameRes/" 只会让人以为框架写死了这个目录，
         ///   还会把"没配置"掩盖成"文件找不到"，把排查方向带偏。
@@ -97,7 +97,7 @@ namespace Revolution
 
             RevLog.Error(
                 "[RevEditorResPolicy] 未配置「资源根目录」，编辑器直读（不打包直接跑）无法工作。" +
-                "请在菜单 Tools/资源/LiteAB 打包工具 里设置「资源根目录」。", "Res");
+                "请在菜单 Revolution.Tools/资源/RevAB 打包工具 里设置「资源根目录」。", "Res");
         }
 
         private string Cache(string key, string realPath)
