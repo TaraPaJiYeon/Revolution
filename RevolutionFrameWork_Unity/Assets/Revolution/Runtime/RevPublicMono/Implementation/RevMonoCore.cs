@@ -105,16 +105,26 @@ namespace Revolution
             for (int p = 0; p < _lists.Length; p++)
             {
                 List<RevMonoListener> list = _lists[p];
+                int removedInPhase = 0;                               // ★ 本相位自己的计数（脏标记只看它）
 
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
                     if (!ReferenceEquals(list[i].Owner, owner)) continue;
 
                     list.RemoveAt(i);
-                    removed++;
+                    removedInPhase++;
                 }
 
-                if (removed > 0) _dirty[p] = true;
+                // ★ Bug 修复（2026-09-30）：脏标记必须按"本相位是否真的移除了"判断 ——
+                //   原实现拿跨相位累计的 removed 判断：只要 Update 相位移除过 ≥1 个，
+                //   一个都没动的 LateUpdate / FixedUpdate 也会被误标成脏，
+                //   下一次 Tick 就白白重建那两个相位的快照数组（分配 + 整表复制），
+                //   破坏了快照"脏了才重建、稳态零分配"的承诺（见 Snapshot 的注释）。
+                if (removedInPhase > 0)
+                {
+                    removed += removedInPhase;
+                    _dirty[p] = true;
+                }
             }
 
             return removed;
@@ -182,6 +192,16 @@ namespace Revolution
         internal void ResetForNewSession()
         {
             Clear();
+
+            // ★ Bug 修复（2026-09-30）：Failed 事件的订阅必须一并放掉。
+            //   关闭 Domain Reload（项目常态）时静态字段跨局存活 —— 上一局订阅 Failed 的处理器
+            //   （往往是引用已销毁 UI / 面板对象的闭包）在新一局仍会被调用：
+            //   超上限 / 回调抛异常时报到死对象上（MissingReferenceException 或静默污染新逻辑），
+            //   闭包引用还一直泄漏。这与上面 Clear() 防的是同一个"上一局残留"鬼故事，补上漏掉的口子。
+            //   业务在运行期初始化（晚于 InstallInPlayer 的 SubsystemRegistration 时机）会重新订阅，不受影响。
+            //   （OnException 是全局出口属性而非事件订阅，Install 的守卫本来就是"非空不覆盖"，保留不动。）
+            Failed = null;
+
             DriverReady = false;
         }
     }
