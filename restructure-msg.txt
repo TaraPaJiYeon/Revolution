@@ -1,8 +1,0 @@
-仓库结构整理：根目录新增 Revolution/（UPM 包形态框架副本）与 Revolution.Demo/（示例工程副本），移除旧版根目录示例
-
-- 新增 Revolution/：框架本体副本（573 个文件，含 package.json / CHANGELOG / Runtime / Editor / Generation / Resources 及全部 meta —— 与 package 分支同布局的 UPM 包形态）
-- 新增 Revolution.Demo/：模块示例工程副本（与 RevolutionFrameWork_Unity/Assets/Revolution.Demo 逐字节一致，113 个文件：17 个模块 Demo + 可运行场景 + 场景索引 + README）
-- 移除旧版仓库根 Revolution.Demo 的 ExcelTool / Unity 两类旧示例（其内容由上面的新示例工程取代）
-- pages.yml：按需精简头部注释（移除私有仓库 Pages 可用性说明段）
-
-⚠️ 维护提醒（提交后须知）：Revolution/ 与 RevolutionFrameWork_Unity/Assets/Revolution、Revolution.Demo/ 与 RevolutionFrameWork_Unity/Assets/Revolution.Demo 目前是两份相同内容 —— 后续改动需要同步两处，或明确其中一份为唯一源后再调整工作流路径（sync-package-branch / sync-demo-branch 目前仍以 Unity 工程内路径为源）
