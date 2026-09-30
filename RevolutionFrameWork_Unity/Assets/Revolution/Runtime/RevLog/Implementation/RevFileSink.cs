@@ -38,6 +38,14 @@ namespace Revolution
         private List<RevLogEntry> _pending = new List<RevLogEntry>(256);
         private List<RevLogEntry> _writing = new List<RevLogEntry>(256);
 
+        // ★ Bug 修复（2026-09-30）新增：写段的互斥锁。
+        //   双缓冲只保证"批次不重叠"，但 Flush（等 1 秒超时后主线程自己 Drain 兜底）、
+        //   Dispose（Join 超时后主线程接管）都可能让**主线程**与后台线程同时进入写段 ——
+        //   StreamWriter / FileStream 非线程安全：并发写会导致输出交错、抛异常丢日志
+        //   （还被误计成通道故障）。写段（开文件/写行/刷缓冲/关文件）必须整段串行；
+        //   锁内是毫秒级磁盘操作，主线程只在 Flush/Dispose 兜底时才会撞上，可接受。
+        private readonly object _ioGate = new object();
+
         private readonly AutoResetEvent _signal = new AutoResetEvent(false);
         private readonly Thread _thread;
         private volatile bool _running = true;
@@ -94,8 +102,11 @@ namespace Revolution
             var watch = Stopwatch.StartNew();
             while (PendingCount() > 0 && watch.ElapsedMilliseconds < 1000) Thread.Sleep(1);
 
+            // ★ Bug 修复（2026-09-30）：Drain 的写段（锁内）本来就是"写完即刷"，
+            //   原来这里又裸调了一次 _writer?.Flush() —— 无锁、无 try：
+            //   与后台线程正在进行的写/关并发时会炸出 ObjectDisposedException /
+            //   NullReferenceException（业务直接拿 sink Flush 时没人兜）。删掉这行冗余调用。
             Drain();
-            _writer?.Flush();
         }
 
         /// <summary>停线程 + 排空 + 关句柄（幂等）。</summary>
@@ -137,11 +148,18 @@ namespace Revolution
 
             try
             {
-                if (_writing.Count > 0) EnsureWriter();
+                // ★ Bug 修复（2026-09-30）：写段整体进 _ioGate —— 主线程 Flush/Dispose 的
+                //   兜底 Drain 可能与后台线程的 Drain 并发到这里，没有这把锁两边会同时
+                //   操作同一个 StreamWriter（交错/异常丢日志）。批次内容不受影响：
+                //   双缓冲已保证两个线程拿到的是不同批次，这里只是把"落盘动作"串行。
+                lock (_ioGate)
+                {
+                    if (_writing.Count > 0) EnsureWriter();
 
-                for (int i = 0; i < _writing.Count; i++) WriteLine(_writing[i].ToString());
+                    for (int i = 0; i < _writing.Count; i++) WriteLine(_writing[i].ToString());
 
-                _writer?.Flush();                                // 提示级刷新：崩溃时尽量少丢
+                    _writer?.Flush();                            // 提示级刷新：崩溃时尽量少丢
+                }
             }
             catch (Exception e)
             {
@@ -161,7 +179,11 @@ namespace Revolution
             if (_written >= _sizeLimit) Rotate();
 
             _writer.WriteLine(text);
-            _written += text.Length + 2;
+
+            // ★ Bug 修复（2026-09-30）：必须按 UTF-8 字节数累计 —— 原来用 text.Length（UTF-16
+            //   字符数）近似字节数，中文每字要写 3 字节，中文日志为主时实际文件能涨到上限的
+            //   ~3 倍才轮转，"单文件上限"的承诺严重失真。写盘线程不在乎这点统计成本。
+            _written += System.Text.Encoding.UTF8.GetByteCount(text) + 2;
         }
 
         private void EnsureWriter()
@@ -190,18 +212,23 @@ namespace Revolution
         {
             if (_writer == null) return;
 
-            try
+            // ★ Bug 修复（2026-09-30）：关文件也必须进 _ioGate —— Dispose 超时接管路径上，
+            //   主线程关句柄的同时后台线程可能正在写（同 Bug：StreamWriter 非线程安全）
+            lock (_ioGate)
             {
-                _writer.Flush();
-                _writer.Dispose();
-            }
-            catch
-            {
-                // 关文件失败没什么可做的（句柄会随进程退出释放），绝不往上报链里再抛
-            }
-            finally
-            {
-                _writer = null;
+                try
+                {
+                    _writer.Flush();
+                    _writer.Dispose();
+                }
+                catch
+                {
+                    // 关文件失败没什么可做的（句柄会随进程退出释放），绝不往上报链里再抛
+                }
+                finally
+                {
+                    _writer = null;
+                }
             }
         }
 
