@@ -9,8 +9,8 @@
 //   #英雄ID	英雄名	品质          ← 字段描述（注释行）
 //   1001	亚瑟	3                  ← 数据（一行一条）
 //
-// 【拼接与转义交给 DataTextFormat】
-//   它就是运行时读数据用的那一份实现（Runtime\DataLoad\Core\DataTextFormat.cs）——
+// 【拼接与转义交给 RevDataTextFormat】
+//   它就是运行时读数据用的那一份实现（Runtime\RevDataLoad\Core\RevDataTextFormat.cs）——
 //   编辑器程序集直接引用运行时程序集，"写出来的东西运行时一定读得懂"。
 // ============================================================
 using System.Collections.Generic;
@@ -25,7 +25,7 @@ namespace Revolution.Editor.ExcelTool
             var sb = new StringBuilder();
 
             // ① 表名
-            sb.Append(DataTextFormat.Comment(table.Name)).Append(DataTextFormat.LineSeparator);
+            sb.Append(RevDataTextFormat.Comment(table.Name)).Append(RevDataTextFormat.LineSeparator);
 
             // ② 字段名 / 描述（原始名，方便和 Excel 对照）
             var names = new List<string>(table.Fields.Count);
@@ -37,13 +37,13 @@ namespace Revolution.Editor.ExcelTool
                 descs.Add(field.Desc);
             }
 
-            string separator = DataTextFormat.FieldSeparator.ToString();
-            sb.Append(DataTextFormat.Comment(string.Join(separator, names))).Append(DataTextFormat.LineSeparator);
-            sb.Append(DataTextFormat.Comment(string.Join(separator, descs))).Append(DataTextFormat.LineSeparator);
+            string separator = RevDataTextFormat.FieldSeparator.ToString();
+            sb.Append(RevDataTextFormat.Comment(string.Join(separator, names))).Append(RevDataTextFormat.LineSeparator);
+            sb.Append(RevDataTextFormat.Comment(string.Join(separator, descs))).Append(RevDataTextFormat.LineSeparator);
 
             // ③ 数据行（顺序 = Fields 顺序，与生成的 ParseRow 一一对应）
             foreach (ExcelRow row in table.Rows)
-                sb.Append(DataTextFormat.JoinFields(row.Cells)).Append(DataTextFormat.LineSeparator);
+                sb.Append(RevDataTextFormat.JoinFields(row.Cells)).Append(RevDataTextFormat.LineSeparator);
 
             return sb.ToString();
         }
@@ -56,14 +56,14 @@ namespace Revolution.Editor.ExcelTool
         {
             if (string.IsNullOrEmpty(text)) return false;
 
-            string[] lines = text.Split(DataTextFormat.LineSeparator);
+            string[] lines = text.Split(RevDataTextFormat.LineSeparator);
             if (lines.Length < 3) return false;
 
             for (int i = 0; i < 3; i++)
-                if (!DataTextFormat.TrimLineEnd(lines[i]).StartsWith(DataTextFormat.CommentPrefix.ToString())) return false;
+                if (!RevDataTextFormat.TrimLineEnd(lines[i]).StartsWith(RevDataTextFormat.CommentPrefix.ToString())) return false;
 
             // 文件名 = 表名首字母大写，所以只比较"忽略大小写"
-            string title = DataTextFormat.TrimLineEnd(lines[0]).Substring(1).Trim();
+            string title = RevDataTextFormat.TrimLineEnd(lines[0]).Substring(1).Trim();
             return string.Equals(title, fileNameWithoutExtension, System.StringComparison.OrdinalIgnoreCase);
         }
     }

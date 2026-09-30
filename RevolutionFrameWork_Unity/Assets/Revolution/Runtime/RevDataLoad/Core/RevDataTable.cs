@@ -1,7 +1,7 @@
 // ============================================================
-// DataTable.cs —— 数据表容器基类（字典存储 + 顺序遍历）
+// RevDataTable.cs —— 数据表容器基类（字典存储 + 顺序遍历）
 //
-// 位置：Runtime\DataLoad\Core\
+// 位置：Runtime\RevDataLoad\Core\
 //
 // 【它是什么】
 //   一行数据（TData）→ 按主键收进字典。生成器只为每张表实现两个方法，
@@ -29,7 +29,7 @@ namespace Revolution
     /// <summary>
     /// 数据表容器基类。TKey = 主键类型，TData = 数据结构（struct）。
     /// </summary>
-    public abstract class DataTable<TKey, TData> : IDataTable where TData : struct
+    public abstract class RevDataTable<TKey, TData> : RevIDataTable where TData : struct
     {
         /// <summary>主键 → 数据（按主键查 O(1)）</summary>
         private readonly Dictionary<TKey, TData> _map;
@@ -52,7 +52,7 @@ namespace Revolution
         ///   (resourceRoot, resourceName) 两段，和 RevResManager 的参数口径一致。
         ///   生成器写 <c>base("Hero")</c> 仍然有效（默认 "Data/" + "Hero"）。
         /// </remarks>
-        protected DataTable(string tableName, string resourceRoot = null, string resourceName = null, int capacity = 64)
+        protected RevDataTable(string tableName, string resourceRoot = null, string resourceName = null, int capacity = 64)
         {
             TableName = tableName;
             ResourceRoot = string.IsNullOrEmpty(resourceRoot) ? DefaultResourceRoot : resourceRoot;
@@ -62,7 +62,7 @@ namespace Revolution
             _list = new List<TData>(capacity);
         }
 
-        // ==================== IDataTable ====================
+        // ==================== RevIDataTable ====================
 
         public string TableName { get; }
         public string ResourceRoot { get; }
@@ -123,7 +123,7 @@ namespace Revolution
         }
 
         /// <summary>
-        /// 解析数据文本并装载。由 DataTableManager 在拿到 TextAsset 后调用。
+        /// 解析数据文本并装载。由 RevDataTableManager 在拿到 TextAsset 后调用。
         ///
         /// 【单行出错不中断整张表】某一行类型写错（如 int 列填了"无"）只让那一行作废、
         /// 计入 errorCount，其余行照常装载 —— 一张表的笔误不该让整个游戏起不来。
@@ -135,14 +135,14 @@ namespace Revolution
             errorCount = 0;
             if (string.IsNullOrEmpty(text)) return 0;
 
-            string[] lines = text.Split(DataTextFormat.LineSeparator);
+            string[] lines = text.Split(RevDataTextFormat.LineSeparator);
 
             for (int i = 0; i < lines.Length; i++)
             {
-                string line = DataTextFormat.TrimLineEnd(lines[i]);
-                if (DataTextFormat.IsSkippable(line)) continue;          // 空行 / "#" 注释行
+                string line = RevDataTextFormat.TrimLineEnd(lines[i]);
+                if (RevDataTextFormat.IsSkippable(line)) continue;          // 空行 / "#" 注释行
 
-                string[] cells = DataTextFormat.SplitFields(line);
+                string[] cells = RevDataTextFormat.SplitFields(line);
 
                 if (!ParseRow(cells, out TData data)) { errorCount++; continue; }
 

@@ -48,7 +48,7 @@
 <span class="c">② Unity 菜单 Revolution.Tools / 配置表 / 导表工具 → 把 Excel 拖进窗口 → [导出]</span>
 
 <span class="c">③ 业务就这么读：</span>
-<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+<span class="k">await</span> RevDataTableManager.LoadAsync&lt;HeroTable&gt;();
 HeroTable.Instance.FindByKey(1001, <span class="k">out  var</span> hero);   <span class="c">// 拿到 1001 这行</span></pre>
       <p style="margin-bottom:0">
         没有第 4 步。表的读写都走<b>资源系统</b>（表就是资源），所以打包、热更、分包与其它资源一套规则。
@@ -155,7 +155,7 @@ HeroTable.Instance.FindByKey(1001, <span class="k">out  var</span> hero);   <spa
           <tr><td>只有数据变了</td><td>只写那几个 txt，<b>不触发脚本编译</b></td></tr>
           <tr><td>上次导出过的表这次不在来源里</td><td>先弹框确认：继续导出会从代码里删掉它们（业务还在引用就会编译不过）</td></tr>
           <tr><td>数据目录里有表已经不存在的旧 txt</td><td>导出结果里列出，可一键删除</td></tr>
-          <tr><td>两张表类名冲突、表名与框架类型重名（如 <code>DataTable</code>）、数据文件名只差大小写</td><td>报错，不写任何文件</td></tr>
+          <tr><td>两张表类名冲突、表名与框架类型重名（如 <code>RevDataTable</code>）、数据文件名只差大小写</td><td>报错，不写任何文件</td></tr>
           <tr><td>字段 <code>hp</code> 和 <code>HP</code>（生成的 C# 名相同）、字段名与表名相同</td><td>这张表报错（生成出来会编译不过）</td></tr>
         </tbody>
       </table>
@@ -277,19 +277,19 @@ HeroTable.Instance.FindByKey(1001, <span class="k">out  var</span> hero);   <spa
 
   <section id="s5">
     <h2><span class="num">五</span>业务侧：一行读表（运行时 API）</h2>
-    <p class="lead">入口是 <code>DataTableManager</code>；生成的 <code>XxxTable.Instance</code> 就是它的快捷方式。</p>
+    <p class="lead">入口是 <code>RevDataTableManager</code>；生成的 <code>XxxTable.Instance</code> 就是它的快捷方式。</p>
 
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:40%">我想…</th><th>这么写</th></tr></thead>
         <tbody>
-          <tr><td>加载一张表（异步，推荐）</td><td><code>await DataTableManager.LoadAsync&lt;HeroTable&gt;()</code></td></tr>
-          <tr><td>加载（同步）</td><td><code>HeroTable t = DataTableManager.Load&lt;HeroTable&gt;()</code></td></tr>
-          <tr><td>拿已加载的表</td><td><code>DataTableManager.Get&lt;HeroTable&gt;()</code></td></tr>
-          <tr><td>拿不到就算了</td><td><code>DataTableManager.TryGet&lt;HeroTable&gt;(out var t)</code></td></tr>
-          <tr><td>判断是否已加载</td><td><code>DataTableManager.IsLoaded&lt;HeroTable&gt;()</code></td></tr>
-          <tr><td>卸载 / 全部卸载</td><td><code>DataTableManager.Unload&lt;HeroTable&gt;()</code> · <code>UnloadAll()</code></td></tr>
-          <tr><td>看加载了哪些</td><td><code>DataTableManager.Tables</code> · <code>DataTableManager.LoadedCount</code></td></tr>
+          <tr><td>加载一张表（异步，推荐）</td><td><code>await RevDataTableManager.LoadAsync&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>加载（同步）</td><td><code>HeroTable t = RevDataTableManager.Load&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>拿已加载的表</td><td><code>RevDataTableManager.Get&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>拿不到就算了</td><td><code>RevDataTableManager.TryGet&lt;HeroTable&gt;(out var t)</code></td></tr>
+          <tr><td>判断是否已加载</td><td><code>RevDataTableManager.IsLoaded&lt;HeroTable&gt;()</code></td></tr>
+          <tr><td>卸载 / 全部卸载</td><td><code>RevDataTableManager.Unload&lt;HeroTable&gt;()</code> · <code>UnloadAll()</code></td></tr>
+          <tr><td>看加载了哪些</td><td><code>RevDataTableManager.Tables</code> · <code>RevDataTableManager.LoadedCount</code></td></tr>
           <tr><td>按主键查一行</td><td><code>HeroTable.Instance.FindByKey(1001, out var hero)</code></td></tr>
         </tbody>
       </table>

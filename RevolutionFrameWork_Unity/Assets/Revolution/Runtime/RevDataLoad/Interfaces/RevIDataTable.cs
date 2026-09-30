@@ -1,10 +1,10 @@
 // ============================================================
-// IDataTable.cs —— 数据表容器的统一契约
+// RevIDataTable.cs —— 数据表容器的统一契约
 //
-// 位置：Runtime\DataLoad\Interfaces\
+// 位置：Runtime\RevDataLoad\Interfaces\
 //
 // 【为什么需要这个接口？】
-//   DataTableManager 要能"动态加载 / 卸载任意一张表"，就必须能把所有表
+//   RevDataTableManager 要能"动态加载 / 卸载任意一张表"，就必须能把所有表
 //   一视同仁地存进同一本字典（键是表名，值是容器）。
 //   若没有统一契约，管理器就只能针对每张表写一份代码 —— 表是生成出来的，
 //   数量不定，这条路走不通。
@@ -14,7 +14,7 @@
 namespace Revolution
 {
     /// <summary>数据表容器的统一契约（由生成器生成的 XxxTable 实现）</summary>
-    public interface IDataTable
+    public interface RevIDataTable
     {
         /// <summary>表名（= 容器类去掉 Table 后缀，如 HeroSkinTable → HeroSkin）</summary>
         string TableName { get; }
@@ -35,7 +35,7 @@ namespace Revolution
         bool IsLoaded { get; }
 
         /// <summary>
-        /// 用一段数据文本装载本表（由 DataTableManager 拿到 TextAsset 后调用）。
+        /// 用一段数据文本装载本表（由 RevDataTableManager 拿到 TextAsset 后调用）。
         /// 返回成功解析的行数；errorCount 是解析失败/主键重复的行数。
         /// </summary>
         int LoadText(string text, out int errorCount);

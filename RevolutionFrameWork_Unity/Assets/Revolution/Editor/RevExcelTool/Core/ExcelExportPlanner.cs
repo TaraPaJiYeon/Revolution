@@ -17,7 +17,7 @@
 //   · 结构体名撞上别的表的容器名（表 Hero 与表 HeroTable）；
 //   · 名字经过"非法字符换下划线"后撞在一起（Hero Skin 与 Hero_Skin）；
 //   · 数据文件名只差大小写（Windows / macOS 的文件系统不区分大小写，会互相覆盖）；
-//   · 表名占用了生成代码要用到的运行时类型名（DataTable、DataFieldParser、Serializable…）。
+//   · 表名占用了生成代码要用到的运行时类型名（RevDataTable、RevDataFieldParser、Serializable…）。
 //
 // 本文件只用 System.IO，不依赖 Unity：落盘之后的"导入 / 编译 / 标记"由编辑器层负责。
 // ============================================================
@@ -115,13 +115,16 @@ namespace Revolution.Editor.ExcelTool
         /// <summary>生成代码里会用到的运行时类型名：表不能叫这些（否则在 namespace Revolution 里把它们遮住，编译不过）</summary>
         private static readonly HashSet<string> Reserved = new HashSet<string>(StringComparer.Ordinal)
         {
-            "DataTable", "DataTableManager", "DataFieldParser", "DataTextFormat", "IDataTable",
-            "DataTableLoadException", "Serializable", "SerializableAttribute", "System",
+            "RevDataTable", "RevDataTableManager", "RevDataFieldParser", "RevDataTextFormat", "RevIDataTable",
+            "RevDataTableLoadException", "Serializable", "SerializableAttribute", "System",
             "RevResManager", "RevTask", "RevResGroup",
         };
 
+        // ★ (?:Rev)? 兼容过渡期：容器基类从 DataTable 改名为 RevDataTable 后，
+        //   还没重新导出的旧容器文件里写的仍是 ": DataTable<" —— 两种都要能识别，
+        //   否则"上次导出过的表这次没了"的删除提示会漏（FindRemovedTables 读的正是这个文件）。
         private static readonly Regex ContainerPattern =
-            new Regex(@"public\s+sealed\s+class\s+(\S+)\s*:\s*DataTable<", RegexOptions.Compiled);
+            new Regex(@"public\s+sealed\s+class\s+(\S+)\s*:\s*(?:Rev)?DataTable<", RegexOptions.Compiled);
 
         private static readonly UTF8Encoding Utf8Bom = new UTF8Encoding(true);
         private static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);

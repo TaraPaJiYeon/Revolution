@@ -1212,7 +1212,7 @@ namespace Revolution.Editor.ExcelTool
                 string row = ExcelCodeGenerator.Identifier(t.StructName());
                 EditorGUILayout.LabelField("业务里这么读：", EditorStyles.miniBoldLabel);
                 EditorGUILayout.SelectableLabel(
-                    $"await DataTableManager.LoadAsync<{container}>();\n" +
+                    $"await RevDataTableManager.LoadAsync<{container}>();\n" +
                     $"if ({container}.Instance.FindByKey({(key.Type == FieldType.String ? "\"key\"" : "1001")}, out {row} row)) {{ … }}",
                     EditorStyles.textArea, GUILayout.Height(36));
             }
@@ -1435,7 +1435,7 @@ namespace Revolution.Editor.ExcelTool
                 "第 1 行 字段名 · 第 2 行 类型（int / float / string / bool）· 第 3 行 描述 · 第 4 行起 数据\n" +
                 "第一个字段是主键（必填、不重复）· 以 # 开头的列 / 行 / 工作表是备注，会被忽略\n\n" +
                 "导出后：代码进 " + RevExcelProjectSettings.DefaultCodeDir + "，数据进 <资源根目录>/Data，业务直接\n" +
-                "await DataTableManager.LoadAsync<HeroTable>() 读表。",
+                "await RevDataTableManager.LoadAsync<HeroTable>() 读表。",
                 EditorStyles.wordWrappedMiniLabel);
 
             EditorGUILayout.EndScrollView();

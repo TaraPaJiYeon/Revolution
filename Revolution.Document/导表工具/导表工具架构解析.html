@@ -140,7 +140,7 @@
 <span class="n">②</span> 启动工具 → 选 Excel → 读取 → 选三个输出目录 → 开始导出
 <span class="n">③</span> 把 Code\ 拷到 <b>Assets/Revolution/Generation\</b>，把 Data\ 拷到 <b>「资源根目录」\Data\</b>（如 Assets/GameRes/Data）
 <span class="n">④</span> 业务代码：
-     <span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+     <span class="k">await</span> RevDataTableManager.LoadAsync&lt;HeroTable&gt;();
      HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out var</span> h);</pre>
   </section>
 
@@ -264,10 +264,10 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
       <table>
         <thead><tr><th style="width:22%">Excel 里写</th><th style="width:26%">生成的 C# 类型</th><th>运行时解析器</th></tr></thead>
         <tbody>
-          <tr><td><code>int</code></td><td><code>int</code></td><td><code>DataFieldParser.ToInt</code></td></tr>
-          <tr><td><code>float</code></td><td><code>float</code></td><td><code>DataFieldParser.ToFloat</code></td></tr>
-          <tr><td><code>string</code></td><td><code>string</code></td><td><code>DataFieldParser.ToStr</code></td></tr>
-          <tr><td><code>bool</code></td><td><code>bool</code></td><td><code>DataFieldParser.ToBool</code></td></tr>
+          <tr><td><code>int</code></td><td><code>int</code></td><td><code>RevDataFieldParser.ToInt</code></td></tr>
+          <tr><td><code>float</code></td><td><code>float</code></td><td><code>RevDataFieldParser.ToFloat</code></td></tr>
+          <tr><td><code>string</code></td><td><code>string</code></td><td><code>RevDataFieldParser.ToStr</code></td></tr>
+          <tr><td><code>bool</code></td><td><code>bool</code></td><td><code>RevDataFieldParser.ToBool</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -308,7 +308,7 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
         <thead><tr><th style="width:20%">规则</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>谁是主键</td><td><b>第一个字段</b>（第一列），不需要额外标记</td></tr>
-          <tr><td>类型</td><td><code>int</code> / <code>string</code> 都行 → 分别生成 <code>DataTable&lt;int, T&gt;</code> / <code>DataTable&lt;string, T&gt;</code></td></tr>
+          <tr><td>类型</td><td><code>int</code> / <code>string</code> 都行 → 分别生成 <code>RevDataTable&lt;int, T&gt;</code> / <code>RevDataTable&lt;string, T&gt;</code></td></tr>
           <tr><td>必填</td><td>主键列为空 → 报错</td></tr>
           <tr><td>唯一</td><td>主键重复 → 报错（导出期就拦截，不留到运行时）</td></tr>
           <tr><td>类型体检</td><td>用 <code>float</code> 或 <code>bool</code> 做主键会<b>给出警告</b>（浮点精度会导致"表里明明有却查不到"；bool 最多两行数据）</td></tr>
@@ -378,7 +378,7 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
             <thead><tr><th style="width:24%">输出</th><th style="width:44%">建议位置</th><th>说明</th></tr></thead>
             <tbody>
               <tr><td>数据结构类目录</td><td><code>Assets\Revolution\Generation\DataStructures</code></td><td>生成 <code>RevDataStructures.cs</code></td></tr>
-              <tr><td>容器类目录</td><td><code>Assets\Revolution\Generation\DataTables</code></td><td>生成 <code>RevDataTables.cs</code></td></tr>
+              <tr><td>容器类目录</td><td><code>Assets\Revolution\Generation\RevDataTables</code></td><td>生成 <code>RevDataTables.cs</code></td></tr>
               <tr><td>TXT 数据文件目录</td><td><code>&lt;资源根目录&gt;\Data</code>（如 <code>Assets\GameRes\Data</code>）</td><td>每张表一个 <code>&lt;表名&gt;.txt</code></td></tr>
             </tbody>
           </table>
@@ -426,10 +426,10 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
     <pre><span class="k">namespace</span> Revolution
 {
     <span class="c">/// &lt;summary&gt;Hero 表的容器（主键：ID，9 个字段，5 条数据）&lt;/summary&gt;</span>
-    <span class="k">public sealed class</span> HeroTable : DataTable&lt;<span class="k">int</span>, Hero&gt;
+    <span class="k">public sealed class</span> HeroTable : RevDataTable&lt;<span class="k">int</span>, Hero&gt;
     {
-        <span class="c">/// &lt;summary&gt;便捷访问；未加载时为 null（先 DataTableManager.LoadAsync&lt;HeroTable&gt;()）&lt;/summary&gt;</span>
-        <span class="k">public static</span> HeroTable Instance =&gt; DataTableManager.Get&lt;HeroTable&gt;();
+        <span class="c">/// &lt;summary&gt;便捷访问；未加载时为 null（先 RevDataTableManager.LoadAsync&lt;HeroTable&gt;()）&lt;/summary&gt;</span>
+        <span class="k">public static</span> HeroTable Instance =&gt; RevDataTableManager.Get&lt;HeroTable&gt;();
 
         <span class="k">public</span> HeroTable() : <span class="k">base</span>(<span class="s">"Hero"</span>) { }
 
@@ -440,8 +440,8 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
             data = <span class="k">default</span>;
             <span class="k">if</span> (cells.Length &lt; 9) <span class="k">return false</span>;      <span class="c">// 列数不够 → 数据文件与结构不匹配</span>
 
-            data.Id = DataFieldParser.ToInt(cells[<span class="n">0</span>]);      <span class="c">// 英雄ID</span>
-            data.Name = DataFieldParser.ToStr(cells[<span class="n">1</span>]);    <span class="c">// 英雄名</span>
+            data.Id = RevDataFieldParser.ToInt(cells[<span class="n">0</span>]);      <span class="c">// 英雄ID</span>
+            data.Name = RevDataFieldParser.ToStr(cells[<span class="n">1</span>]);    <span class="c">// 英雄名</span>
             <span class="c">// ...</span>
             <span class="k">return true</span>;
         }
@@ -453,7 +453,7 @@ Revolution.ExcelTool\bin\Debug\net8.0-windows\Revolution.ExcelTool.exe</pre>
       <code>ResourceName</code> 默认 = 表名。所以 <code>base("Hero")</code> 等价于 <code>("Data/", "Hero")</code>。
       要把某张表放到别的目录就显式写：<code>public HeroTable() : base("Hero", "Data/Activity/", "Hero") { }</code>
     </div>
-    <p><b>每张表只生成两个方法</b>（<code>GetKey</code> / <code>ParseRow</code>），查询能力全部继承自运行时基类 <code>DataTable&lt;TKey, TData&gt;</code>：</p>
+    <p><b>每张表只生成两个方法</b>（<code>GetKey</code> / <code>ParseRow</code>），查询能力全部继承自运行时基类 <code>RevDataTable&lt;TKey, TData&gt;</code>：</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th style="width:22%">能力</th><th>用法</th></tr></thead>
@@ -516,25 +516,25 @@ DEBUFF_STUN	眩晕	3	1.5	false	无法移动与释放技能</pre>
     <pre>Revolution.Demo\ExcelTool\Code\   →   <b>Assets\Revolution\Generation\</b>   <span class="c">← 生成代码（asmdef 已引用 Revolution.Runtime）</span>
 Revolution.Demo\ExcelTool\Data\   →   <b>Assets\GameRes\Data\</b>             <span class="c">← 数据文件（逻辑路径正好是 Data\&lt;表名&gt;）</span></pre>
     <ul>
-      <li><code>Assets\Revolution\Generation\</code> 下的 <code>Revolution.Generation.asmdef</code> 已引用 <code>Revolution.Runtime</code>，所以生成出来的容器类能直接继承 <code>DataTable&lt;,&gt;</code>。</li>
+      <li><code>Assets\Revolution\Generation\</code> 下的 <code>Revolution.Generation.asmdef</code> 已引用 <code>Revolution.Runtime</code>，所以生成出来的容器类能直接继承 <code>RevDataTable&lt;,&gt;</code>。</li>
       <li><code>Assets\GameRes\</code> 只是<b>示例</b>：资源根目录由你在打包工具窗口里配置（代码里没有默认值），放在根目录下的文件逻辑路径 = 相对路径去掉扩展名，所以 <code>&lt;资源根目录&gt;/Data/Hero.txt</code> 的逻辑路径就是 <b><code>Data/Hero</code></b> —— 正好等于生成代码里 <code>base("Hero")</code> 推出的默认路径。</li>
     </ul>
     <p>导出后回 Unity，会自动刷新并编译（日志里也会提示）。</p>
 
     <h3>8.2 运行时加载（三行）</h3>
     <pre><span class="c">// ① 加载（走资源系统：编辑器直读工程、真机走 AB）</span>
-<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+<span class="k">await</span> RevDataTableManager.LoadAsync&lt;HeroTable&gt;();
 
 <span class="c">// ② 查询</span>
 <span class="k">if</span> (HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out</span> Hero hero))
     Debug.Log($<span class="s">"{hero.Name} 攻击力 {hero.Attack} 是否远程 {hero.IsRanged}"</span>);
 
 <span class="c">// ③ 用完卸载（归还资源引用）</span>
-DataTableManager.Unload&lt;HeroTable&gt;();</pre>
+RevDataTableManager.Unload&lt;HeroTable&gt;();</pre>
     <p>字符串主键 / 字符串表名同样支持：</p>
     <pre>BuffTable.Instance.FindByKey(<span class="s">"BUFF_ATK_UP"</span>, <span class="k">out</span> Buff buff);   <span class="c">// 字符串主键</span>
-DataTableManager.Get(<span class="s">"Buff"</span>);                                  <span class="c">// 按表名取表</span>
-DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl);  <span class="c">// 按表名取具体容器</span></pre>
+RevDataTableManager.Get(<span class="s">"Buff"</span>);                                  <span class="c">// 按表名取表</span>
+RevDataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl);  <span class="c">// 按表名取具体容器</span></pre>
 
     <h3>8.3 走 AB 模式：数据表直接就能进包</h3>
     <p>数据文件是 <code>.txt</code>，而打包工具的排除后缀 <code>excludeExtensions</code> 默认只剩 <code>.cs / .meta</code> ——
@@ -603,10 +603,10 @@ DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span cl
           <tr><td><code>Revolution.ExcelTool\Core\DataTextWriter.cs</code></td><td>生成 TXT 数据文件</td></tr>
           <tr><td><code>Revolution.ExcelTool\Core\ExportService.cs</code></td><td>导出编排（过滤 / 重名检查 / 编码 / 落盘）</td></tr>
           <tr><td><code>Revolution.ExcelTool\MainWindow.xaml(.cs)</code></td><td>界面</td></tr>
-          <tr><td><code>Runtime\DataLoad\Core\DataTable.cs</code></td><td>容器基类（字典 + 顺序表 + 查询 API）</td></tr>
-          <tr><td><code>Runtime\DataLoad\Core\DataTextFormat.cs</code></td><td>TXT 格式（<b>★ 与工具共用同一份源码</b>）</td></tr>
-          <tr><td><code>Runtime\DataLoad\Core\DataFieldParser.cs</code></td><td>字段取值（容错 + InvariantCulture）</td></tr>
-          <tr><td><code>Runtime\DataLoad\Manager\DataTableManager.cs</code></td><td>运行时入口（加载 / 查询 / 卸载）</td></tr>
+          <tr><td><code>Runtime\RevDataLoad\Core\RevDataTable.cs</code></td><td>容器基类（字典 + 顺序表 + 查询 API）</td></tr>
+          <tr><td><code>Runtime\RevDataLoad\Core\RevDataTextFormat.cs</code></td><td>TXT 格式（<b>★ 与工具共用同一份源码</b>）</td></tr>
+          <tr><td><code>Runtime\RevDataLoad\Core\RevDataFieldParser.cs</code></td><td>字段取值（容错 + InvariantCulture）</td></tr>
+          <tr><td><code>Runtime\RevDataLoad\Manager\RevDataTableManager.cs</code></td><td>运行时入口（加载 / 查询 / 卸载）</td></tr>
           <tr><td><code>Revolution.Demo\ExcelTool\</code></td><td>可直接使用的样例（Excel + 生成产物）</td></tr>
         </tbody>
       </table>
@@ -616,7 +616,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span cl
 </main>
 
 <footer>
-  对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\DataLoad</code>。
+  对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\RevDataLoad</code>。
 </footer>
 
 </body>

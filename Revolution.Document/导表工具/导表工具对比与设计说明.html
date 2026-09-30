@@ -225,7 +225,7 @@
   <div class="wrap">
     <span class="kicker">设计说明 · 对比报告</span>
     <h1>Revolution 导表工具 对比与设计说明</h1>
-       新：RevolutionFramework <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Revolution.ExcelTool</code>（WPF）+ <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Runtime\DataLoad</code></p>
+       新：RevolutionFramework <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Revolution.ExcelTool</code>（WPF）+ <code style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">Runtime\RevDataLoad</code></p>
     <p class="meta">阅读对象：接手本框架的人、需要讲清"为什么重写"的人</p>
   </div>
 </header>
@@ -309,7 +309,7 @@
   │
   ├─ 生成两个文件
   │      RevDataStructures.cs   namespace Revolution { [Serializable] public struct Hero {...} }
-  │      RevDataTables.cs       public sealed class HeroTable : DataTable&lt;int, Hero&gt;
+  │      RevDataTables.cs       public sealed class HeroTable : RevDataTable&lt;int, Hero&gt;
   │                                  { GetKey() + ParseRow() }      ← 只有两个方法
   │
   └─ 写 TXT
@@ -318,7 +318,7 @@
          1001  亚瑟  3         ...
               │
               ▼
-     运行时 DataTableManager
+     运行时 RevDataTableManager
          └─ RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset))    ← 走资源系统
            两段默认就是 ("Data/", "Hero")，也就是 RevResPath.Data 与表名这两段
          └─ 容器 LoadText() → 生成代码直接赋值 → Dictionary 索引</div>
@@ -352,8 +352,8 @@
           <tr><td class="c">4</td><td>依赖总数</td><td>Excel 解析库 + Newtonsoft</td><td><b>0</b></td><td>升级不受第三方库绑架</td></tr>
           <tr><td class="c">5</td><td>数据结构</td><td><code>public class</code>（引用类型）</td><td><code>public struct</code>（值类型）</td><td>上万行表：省掉全部托管堆分配</td></tr>
           <tr><td class="c">6</td><td>命名空间</td><td>无</td><td><code>namespace Revolution</code></td><td>不会和其他库的 <code>Hero</code> 撞名</td></tr>
-          <tr><td class="c">7</td><td>容器形态</td><td><code>public class</code> + <code>Dictionary</code> 字段</td><td><code>sealed class : DataTable&lt;TKey,TData&gt;</code></td><td>查询能力继承自基类，不用重复生成</td></tr>
-          <tr><td class="c">8</td><td>填数据方式</td><td>运行时反射（<code>Activator</code>/<code>GetField</code>/<code>SetValue</code>）</td><td>生成期写死 <code>data.Id = DataFieldParser.ToInt(cells[0]);</code></td><td><b>零装箱、零反射</b></td></tr>
+          <tr><td class="c">7</td><td>容器形态</td><td><code>public class</code> + <code>Dictionary</code> 字段</td><td><code>sealed class : RevDataTable&lt;TKey,TData&gt;</code></td><td>查询能力继承自基类，不用重复生成</td></tr>
+          <tr><td class="c">8</td><td>填数据方式</td><td>运行时反射（<code>Activator</code>/<code>GetField</code>/<code>SetValue</code>）</td><td>生成期写死 <code>data.Id = RevDataFieldParser.ToInt(cells[0]);</code></td><td><b>零装箱、零反射</b></td></tr>
           <tr><td class="c">9</td><td>主键约定</td><td>第 3 行标 <code>key</code>，找不到则默认第 0 列；JSON 路径硬性要求主键字段名是 <code>id</code> 且为 string</td><td>默认第一个字段，<b>类型不限（int / string 均可）</b></td><td>少一行元数据；字符串主键可直接用业务代号</td></tr>
           <tr><td class="c">10</td><td>表头占几行</td><td>名 / 类型 / key / 描述 = 4 行</td><td>名 / 类型 / 描述 = 3 行</td><td>策划少填一行</td></tr>
           <tr><td class="c">11</td><td>查询 API</td><td>无（自己 <code>dataDic[k]</code>）</td><td><code>FindByKey / Get / TryGet / GetByIndex / ContainsKey / All</code></td><td>业务代码统一、可预测</td></tr>
@@ -370,7 +370,7 @@
           <tr><td class="c">22</td><td>主键重复</td><td>运行时决定（<code>Overwrite/Skip/ThrowError</code>）</td><td><b>导出期就报错</b>，运行期保守跳过</td><td>问题前移到导表</td></tr>
           <tr><td class="c">23</td><td>类型容错</td><td><code>ConvertValue</code>，bool 认 <code>true/1/是/yes</code></td><td>同样宽容 + <code>InvariantCulture</code></td><td>欧/中系统小数点是逗号也不会读错</td></tr>
           <tr><td class="c">24</td><td>空单元格</td><td>依赖 <code>DataRow</code> 默认值</td><td>明确取默认值 <code>0 / 0f / false / ""</code></td><td>行为可预期</td></tr>
-          <tr><td class="c">25</td><td>格式契约</td><td>写端（Editor）与读端（Runtime）<b>各写一套</b></td><td><code>DataTextFormat.cs</code> <b>同一份源码</b>被两端引用</td><td>从根上不可能写读不一致</td></tr>
+          <tr><td class="c">25</td><td>格式契约</td><td>写端（Editor）与读端（Runtime）<b>各写一套</b></td><td><code>RevDataTextFormat.cs</code> <b>同一份源码</b>被两端引用</td><td>从根上不可能写读不一致</td></tr>
           <tr><td class="c">26</td><td>文件编码</td><td>—</td><td>代码 UTF-8 <b>带</b> BOM；数据 UTF-8 <b>不带</b> BOM</td><td>中文注释不乱码 / 注释行首字符正确</td></tr>
         </tbody>
       </table>
@@ -398,8 +398,8 @@ FieldInfo f = t.GetField(name);
 f.SetValue(instance, ConvertValue(cell, f.FieldType));  <span class="c">// 每格一次装箱</span></pre>
         <p><code>SetValue(object)</code> 对 <code>int/float/bool</code> 都要<b>装箱</b>。5 万行 × 10 个数值列 = <b>50 万次装箱</b>，全变成 GC 垃圾。</p>
         <p><b>新版</b>是生成出来的直接赋值：</p>
-        <pre>data.Id     = DataFieldParser.ToInt(cells[0]);
-data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
+        <pre>data.Id     = RevDataFieldParser.ToInt(cells[0]);
+data.Attack = RevDataFieldParser.ToFloat(cells[3]);</pre>
         <p><b>收益</b>：加载期几乎不产生 GC；值类型连续存放，缓存友好。</p>
       </div>
 
@@ -407,7 +407,7 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
         <h3><span class="idx">3</span>生命周期正确：表是一种"资源"</h3>
         <p><b>早期版本</b>只有 <code>LoadTable&lt;T,K&gt;()</code> 与 <code>GetTable&lt;T&gt;()</code>，<b>没有卸载</b>，<code>tableDic</code> 只增不减；且从 StreamingAssets 直接读（Android 要 UnityWebRequest、iOS 要拼 <code>file://</code>），<b>绕过资源系统 = 没有缓存、没有引用计数</b>。</p>
         <p><b>新版</b>统一走资源系统，白拿四件事：</p>
-        <pre>await DataTableManager.LoadAsync&lt;HeroTable&gt;();
+        <pre>await RevDataTableManager.LoadAsync&lt;HeroTable&gt;();
 <span class="c">// ① 缓存   ② 引用计数</span>
 <span class="c">// ③ 分组卸载  ④ 平台透明</span></pre>
         <p>并且<b>禁止直接拼 StreamingAssets 路径</b> —— 那等于绕开上面四条。</p>
@@ -439,9 +439,9 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
         <h3><span class="idx">6</span>契约唯一：写端和读端是同一份源码</h3>
         <p>最容易踩、最难查的一类 bug：<b>工具写出来的格式，运行时读不懂</b>。</p>
         <p><b>早期版本</b>写端在 <code>ExcelTool.cs</code>、读端在 <code>BinaryDataMgr.cs</code>，格式各写一遍，一方改了另一方没同步就要到真机才暴露。</p>
-        <p><b>新版</b>格式规则只存在于 <code>DataTextFormat.cs</code>，工具工程直接链接它：</p>
-        <pre>&lt;Compile Include="..\...\DataLoad\Core\DataTextFormat.cs"
-         Link="Shared\DataTextFormat.cs" /&gt;</pre>
+        <p><b>新版</b>格式规则只存在于 <code>RevDataTextFormat.cs</code>，工具工程直接链接它：</p>
+        <pre>&lt;Compile Include="..\...\RevDataLoad\Core\RevDataTextFormat.cs"
+         Link="Shared\RevDataTextFormat.cs" /&gt;</pre>
         <p><b>收益</b>：改一处两端同时生效，"写读不一致"在结构上不可能发生。</p>
       </div>
 
@@ -449,11 +449,11 @@ data.Attack = DataFieldParser.ToFloat(cells[3]);</pre>
         <h3><span class="idx">7</span>主键类型不限，表名可字符串驱动</h3>
         <p><b>早期版本</b>两条路径的主键约定互相打架：JSON 路径<b>硬性要求主键字段名必须是 <code>id</code> 且类型为 <code>string</code></b>（直接 <code>GetField("id")</code>），想用 int 主键就只能走二进制那条路。</p>
         <p><b>新版</b>主键类型完全由 Excel 第 2 行决定，<code>int</code> / <code>string</code> 都支持：</p>
-        <pre>ID:int     →  DataTable&lt;int, Hero&gt;       FindByKey(1001)
-ID:string  →  DataTable&lt;string, Buff&gt;    FindByKey("BUFF_ATK_UP")</pre>
+        <pre>ID:int     →  RevDataTable&lt;int, Hero&gt;       FindByKey(1001)
+ID:string  →  RevDataTable&lt;string, Buff&gt;    FindByKey("BUFF_ATK_UP")</pre>
         <p>运行时还能<b>按字符串表名取表</b>，"表名来自配置"的场景也能写：</p>
-        <pre>IDataTable t = DataTableManager.Get("Buff");
-DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
+        <pre>RevIDataTable t = RevDataTableManager.Get("Buff");
+RevDataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
 <span class="c">// 内部两张索引指向同一实例：</span>
 <span class="c">//   表名 → 容器（字符串查询） / 容器类型 → 容器（泛型，O(1)）</span></pre>
         <p>工具侧还加了<b>主键类型体检</b>：用 <code>float</code> 或 <code>bool</code> 做主键会提示（浮点精度会导致"表里明明有却查不到"；bool 最多两行数据，基本是配错了）。</p>
@@ -474,7 +474,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
           <tr><th style="width:24%">参考实现设计哲学</th><th style="width:30%">参考实现的体现</th><th style="width:31%">本框架的落地</th><th class="c" style="width:15%">是否照搬</th></tr>
         </thead>
         <tbody>
-          <tr><td><b>工具生成代码</b></td><td>TDR 生成 struct + 容器类</td><td>生成 <code>struct</code> + <code>XxxTable : DataTable&lt;,&gt;</code></td><td class="c"><span class="pill yes">✅ 照搬思想</span></td></tr>
+          <tr><td><b>工具生成代码</b></td><td>TDR 生成 struct + 容器类</td><td>生成 <code>struct</code> + <code>XxxTable : RevDataTable&lt;,&gt;</code></td><td class="c"><span class="pill yes">✅ 照搬思想</span></td></tr>
           <tr><td><b>数据结构是值类型</b></td><td><code>partial struct</code> + <code>[FieldOffset]</code></td><td><code>public struct</code></td><td class="c"><span class="pill yes">✅ 只取值类型</span></td></tr>
           <tr><td><b>容器类统一接口</b></td><td><code>FindByKey / Count / GetByIndex</code></td><td>同名三件套 + <code>Get/TryGet/ContainsKey/All</code>，且<b>做成基类共享实现</b></td><td class="c"><span class="pill yes">✅ 更彻底</span></td></tr>
           <tr><td><b>数据与代码分离</b></td><td><code>.bytes</code> 数据 + 生成代码</td><td><code>.txt</code> 数据 + 生成代码</td><td class="c"><span class="pill yes">✅ 照搬</span></td></tr>
@@ -492,7 +492,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
 
     <h3>4.1 为什么"容器类统一接口"这一条我们做得更彻底</h3>
     <p>参考实现为<b>每张表</b>都生成一遍 <code>FindByKey / Count / GetByIndex</code>（几千张表 = 几千份重复代码，<code>TdrGeneratedCode.cs</code> 有 5.41 MB）。</p>
-    <p>我们把这些查询能力全部放进基类 <code>DataTable&lt;TKey, TData&gt;</code>，<b>生成器只输出两个方法</b>：</p>
+    <p>我们把这些查询能力全部放进基类 <code>RevDataTable&lt;TKey, TData&gt;</code>，<b>生成器只输出两个方法</b>：</p>
     <pre><span class="k">protected override</span> <span class="k">int</span> GetKey(<span class="k">in</span> Hero data) =&gt; data.Id;                 <span class="c">// 主键怎么取</span>
 <span class="k">protected override</span> <span class="k">bool</span> ParseRow(<span class="k">string</span>[] cells, <span class="k">out</span> Hero data) {...}  <span class="c">// 一行怎么解析</span></pre>
     <p>于是每张表的生成代码只有二十来行，<code>FindByKey</code> 的行为由基类保证<b>全表一致</b> —— 业务看一张表会查，就会查所有表。这是"在能简化的地方简化"。</p>
@@ -530,7 +530,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
       <li><b>自研 xlsx 解析有边界</b>。只支持 <code>.xlsx</code>（Excel 2007+），不支持老的 <code>.xls</code>（OLE 复合文档）；不处理图表、批注、条件格式；公式取其缓存值。</li>
       <li><b>全量重写两个代码文件</b>。表很多时生成文件会变大，每次导表都会触发 Unity 重编译。当前 3 张表的演示规模远未到瓶颈；到几百张表时需要评估分文件策略。</li>
       <li><b>还没有 schema 版本号</b>。参考实现 <code>struct</code> 带 <code>version</code> 属性，我们没做"数据文件版本与代码版本不匹配"的检查。当前靠"导表同时覆盖代码和数据"来保证一致。</li>
-      <li><b>运行时解析错误只跳过不报错</b>。容器用 <code>errorCount</code> 记下坏行数但不中断（避免一张表笔误让游戏起不来）；目前没有把它输出到日志的地方 —— 接入项目时建议在 <code>DataTableManager</code> 里加一句日志。</li>
+      <li><b>运行时解析错误只跳过不报错</b>。容器用 <code>errorCount</code> 记下坏行数但不中断（避免一张表笔误让游戏起不来）；目前没有把它输出到日志的地方 —— 接入项目时建议在 <code>RevDataTableManager</code> 里加一句日志。</li>
     </ol>
   </section>
 
@@ -558,12 +558,12 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
       <table>
         <thead><tr><th style="width:42%">文件</th><th>职责</th></tr></thead>
         <tbody>
-          <tr><td><code>DataLoad\Interfaces\IDataTable.cs</code></td><td>容器统一契约</td></tr>
-          <tr><td><code>DataLoad\Core\DataTable.cs</code></td><td>容器基类（Dictionary + List + 查询 API）</td></tr>
-          <tr><td><code>DataLoad\Core\DataTextFormat.cs</code></td><td><b>★ 格式唯一实现</b>（与工具共用同一份源码）</td></tr>
-          <tr><td><code>DataLoad\Core\DataFieldParser.cs</code></td><td>字段取值（InvariantCulture、失败取默认值）</td></tr>
-          <tr><td><code>DataLoad\Manager\DataTableManager.cs</code></td><td>对外唯一入口（加载 / 查询 / 卸载，走资源系统）</td></tr>
-          <tr><td><code>DataLoad\Manager\DataTableLoadException.cs</code></td><td>加载失败异常</td></tr>
+          <tr><td><code>RevDataLoad\Interfaces\RevIDataTable.cs</code></td><td>容器统一契约</td></tr>
+          <tr><td><code>RevDataLoad\Core\RevDataTable.cs</code></td><td>容器基类（Dictionary + List + 查询 API）</td></tr>
+          <tr><td><code>RevDataLoad\Core\RevDataTextFormat.cs</code></td><td><b>★ 格式唯一实现</b>（与工具共用同一份源码）</td></tr>
+          <tr><td><code>RevDataLoad\Core\RevDataFieldParser.cs</code></td><td>字段取值（InvariantCulture、失败取默认值）</td></tr>
+          <tr><td><code>RevDataLoad\Manager\RevDataTableManager.cs</code></td><td>对外唯一入口（加载 / 查询 / 卸载，走资源系统）</td></tr>
+          <tr><td><code>RevDataLoad\Manager\RevDataTableLoadException.cs</code></td><td>加载失败异常</td></tr>
         </tbody>
       </table>
     </div>
@@ -582,7 +582,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
 
     <h3>业务侧用法</h3>
     <pre><span class="c">// 加载（走资源系统：编辑器直读工程 / 真机走 AB）</span>
-<span class="k">await</span> DataTableManager.LoadAsync&lt;HeroTable&gt;();
+<span class="k">await</span> RevDataTableManager.LoadAsync&lt;HeroTable&gt;();
 
 <span class="c">// 查询（int 主键）</span>
 <span class="k">if</span> (HeroTable.Instance.FindByKey(<span class="n">1001</span>, <span class="k">out</span> Hero hero))
@@ -593,7 +593,7 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
     Debug.Log($<span class="s">"{buff.Name} 持续 {buff.Duration}s"</span>);
 
 <span class="c">// 字符串驱动：表名来自配置时也能取到表</span>
-<span class="k">if</span> (DataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl))
+<span class="k">if</span> (RevDataTableManager.TryGet&lt;BuffTable&gt;(<span class="s">"Buff"</span>, <span class="k">out</span> BuffTable tbl))
     Debug.Log($<span class="s">"表 {tbl.TableName} 共 {tbl.Count} 行"</span>);
 
 <span class="c">// 遍历</span>
@@ -601,14 +601,14 @@ DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var buff);
     Handle(HeroTable.Instance.GetByIndex(i));
 
 <span class="c">// 卸载</span>
-DataTableManager.Unload&lt;HeroTable&gt;();   <span class="c">// 按类型</span>
-DataTableManager.Unload(<span class="s">"Buff"</span>);       <span class="c">// 按表名</span></pre>
+RevDataTableManager.Unload&lt;HeroTable&gt;();   <span class="c">// 按类型</span>
+RevDataTableManager.Unload(<span class="s">"Buff"</span>);       <span class="c">// 按表名</span></pre>
   </section>
 
 </main>
 
 <footer>
-  文档对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\DataLoad</code>（5 个文件）。
+  文档对应代码版本：<code>Revolution.ExcelTool</code>（0 警告 0 错误编译）+ <code>Runtime\RevDataLoad</code>（5 个文件）。
   文中实测数据来自 <code>Revolution.Demo\ExcelTool</code> 的真实导出结果。
 </footer>
 

@@ -281,7 +281,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 - ✅ **一行注册**：给方法加个特性就行 —— `[RevGMEntry("给道具：give 1001 5")] static void Give(int id, int count)`
 - ✅ 游戏内控制台 + 编辑器面板共用同一套指令
 
-### 📊 配置表（DataLoad）
+### 📊 配置表（RevDataLoad）
 
 - ✅ **表 = 资源**：走资源系统加载，和 AB 体系天然一致
 - ✅ 按类型取表，表结构由导表工具生成
@@ -327,7 +327,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 | `RevEventSystem` | 事件：强类型事件 + 订阅句柄 | 5 / 1,093 |
 | `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 11 / 1,023 |
 | `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,037 |
-| `DataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 714 |
+| `RevDataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 714 |
 | `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 702 |
 | `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 639 |
 | `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |

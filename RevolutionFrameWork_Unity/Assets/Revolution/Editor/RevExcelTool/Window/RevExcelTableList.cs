@@ -289,7 +289,7 @@ namespace Revolution.Editor.ExcelTool
                 string structName = ExcelCodeGenerator.Identifier(item.table.StructName());
                 menu.AddItem(new GUIContent($"复制容器类名 {container}"), false, () => EditorGUIUtility.systemCopyBuffer = container);
                 menu.AddItem(new GUIContent($"复制加载代码"), false, () => EditorGUIUtility.systemCopyBuffer =
-                    $"{container} table = await DataTableManager.LoadAsync<{container}>();\n" +
+                    $"{container} table = await RevDataTableManager.LoadAsync<{container}>();\n" +
                     $"if (table.FindByKey(key, out {structName} row)) {{ }}");
             }
 

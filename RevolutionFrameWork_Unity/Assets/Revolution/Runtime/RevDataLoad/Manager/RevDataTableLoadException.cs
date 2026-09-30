@@ -1,7 +1,7 @@
 // ============================================================
-// DataTableLoadException.cs —— 数据表加载失败
+// RevDataTableLoadException.cs —— 数据表加载失败
 //
-// 位置：Runtime\DataLoad\Manager\
+// 位置：Runtime\RevDataLoad\Manager\
 //
 // 【为什么要有专门的异常类型？】
 //   加载失败的原因在框架里是枚举 RevResLoadErrorReason（不打日志、不抛异常是资源系统的约定），
@@ -17,10 +17,10 @@ using System;
 namespace Revolution
 {
     /// <summary>数据表加载失败（表名 / 资源位置 / 失败原因一并带出）</summary>
-    public class DataTableLoadException : Exception
+    public class RevDataTableLoadException : Exception
     {
-        public DataTableLoadException(string tableName, string rootPath, string resName, RevResLoadErrorReason reason)
-            : base($"[DataTable] 加载失败：{tableName}（{RevResPathUtil.Join(rootPath, resName)}），原因：{reason}")
+        public RevDataTableLoadException(string tableName, string rootPath, string resName, RevResLoadErrorReason reason)
+            : base($"[RevDataTable] 加载失败：{tableName}（{RevResPathUtil.Join(rootPath, resName)}），原因：{reason}")
         {
             TableName = tableName;
             RootPath = rootPath;

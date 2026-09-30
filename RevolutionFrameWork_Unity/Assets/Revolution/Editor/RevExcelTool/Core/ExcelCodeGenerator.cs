@@ -4,8 +4,8 @@
 // 位置：Editor\RevExcelTool\Core\
 //
 // 【生成什么】
-//   ① 数据结构类：struct，一条数据一个实例（值类型 → 零 GC，见 DataTable 注释）
-//   ② 容器类    ：继承 DataTable&lt;主键, 数据结构&gt;，按主键建字典索引
+//   ① 数据结构类：struct，一条数据一个实例（值类型 → 零 GC，见 RevDataTable 注释）
+//   ② 容器类    ：继承 RevDataTable&lt;主键, 数据结构&gt;，按主键建字典索引
 //
 // 【★ 输出与 WPF 版逐字节一致（除生成时间外）】
 //   同一个团队里可能有人用 WPF 版、有人用编辑器版 —— 两边生成的文件必须一模一样，
@@ -13,7 +13,7 @@
 //   改这里的格式，请同步改 Revolution.ExcelTool/Core/CodeGenerator.cs。
 //
 // 【为什么生成的容器这么短？】
-//   查询能力（FindByKey / Count / GetByIndex / 遍历…）全在运行时基类 DataTable 里，
+//   查询能力（FindByKey / Count / GetByIndex / 遍历…）全在运行时基类 RevDataTable 里，
 //   每张表只需要提供两件事：主键怎么取（GetKey）、一行怎么解析（ParseRow）。
 // ============================================================
 using System;
@@ -100,12 +100,12 @@ namespace Revolution.Editor.ExcelTool
                   .Append(table.Rows.Count).Append(" 条数据）</summary>\n");
 
                 sb.Append("    public sealed class ").Append(Identifier(containerName))
-                  .Append(" : DataTable<").Append(key.CSharpType()).Append(", ").Append(Identifier(structName)).Append(">\n    {\n");
+                  .Append(" : RevDataTable<").Append(key.CSharpType()).Append(", ").Append(Identifier(structName)).Append(">\n    {\n");
 
-                sb.Append("        /// <summary>便捷访问；未加载时为 null（先 DataTableManager.LoadAsync&lt;")
+                sb.Append("        /// <summary>便捷访问；未加载时为 null（先 RevDataTableManager.LoadAsync&lt;")
                   .Append(Identifier(containerName)).Append("&gt;()）</summary>\n");
                 sb.Append("        public static ").Append(Identifier(containerName))
-                  .Append(" Instance => DataTableManager.Get<").Append(Identifier(containerName)).Append(">();\n\n");
+                  .Append(" Instance => RevDataTableManager.Get<").Append(Identifier(containerName)).Append(">();\n\n");
 
                 sb.Append("        /// <summary>表名 = ").Append(Xml(table.Name))
                   .Append("；数据文件默认取逻辑路径 \"Data/").Append(Xml(structName)).Append("\"</summary>\n");

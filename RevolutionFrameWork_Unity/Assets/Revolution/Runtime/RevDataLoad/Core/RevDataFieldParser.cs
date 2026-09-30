@@ -1,7 +1,7 @@
 // ============================================================
-// DataFieldParser.cs —— 单元格取值（生成代码专用）
+// RevDataFieldParser.cs —— 单元格取值（生成代码专用）
 //
-// 位置：Runtime\DataLoad\Core\
+// 位置：Runtime\RevDataLoad\Core\
 //
 // 【为什么要有这一层，而不是直接 int.Parse ？】
 //   ① 容错：策划表里 "  "（空格）、"-"、空单元格都很常见，
@@ -19,7 +19,7 @@ using System.Globalization;
 namespace Revolution
 {
     /// <summary>字段取值工具（生成的 ParseRow 调用它）</summary>
-    public static class DataFieldParser
+    public static class RevDataFieldParser
     {
         public static int ToInt(string cell, int defaultValue = 0)
             => int.TryParse(cell, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : defaultValue;

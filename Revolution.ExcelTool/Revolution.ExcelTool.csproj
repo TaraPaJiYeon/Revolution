@@ -20,8 +20,8 @@
     导表工具（写）与运行时（读）不可能写读不一致。
   -->
   <ItemGroup>
-    <Compile Include="..\RevolutionFrameWork_Unity\Assets\Revolution\Runtime\DataLoad\Core\DataTextFormat.cs"
-             Link="Shared\DataTextFormat.cs" />
+    <Compile Include="..\RevolutionFrameWork_Unity\Assets\Revolution\Runtime\RevDataLoad\Core\RevDataTextFormat.cs"
+             Link="Shared\RevDataTextFormat.cs" />
   </ItemGroup>
 
 </Project>

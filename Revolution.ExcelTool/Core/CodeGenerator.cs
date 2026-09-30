@@ -2,8 +2,8 @@
 // CodeGenerator.cs —— 生成 C# 代码（数据结构类 + 容器类）
 //
 // 【生成什么】
-//   ① 数据结构类：struct，一条数据一个实例（值类型 → 零 GC，见 DataTable 注释）
-//   ② 容器类    ：继承 DataTable&lt;主键, 数据结构&gt;，按主键建字典索引
+//   ① 数据结构类：struct，一条数据一个实例（值类型 → 零 GC，见 RevDataTable 注释）
+//   ② 容器类    ：继承 RevDataTable&lt;主键, 数据结构&gt;，按主键建字典索引
 //   两类分别生成到两个文件里（用户可在界面上指定路径）。
 //
 // 【为什么分两个文件？】
@@ -12,7 +12,7 @@
 //   分开后重新导表的 diff 只落在容器文件上，业务代码的引用不受影响。
 //
 // 【为什么生成的容器这么短？】
-//   查询能力（FindByKey / Count / GetByIndex / 遍历…）全在运行时基类 DataTable 里，
+//   查询能力（FindByKey / Count / GetByIndex / 遍历…）全在运行时基类 RevDataTable 里，
 //   每张表只需要提供两件事：主键怎么取（GetKey）、一行怎么解析（ParseRow）。
 //   生成得越少 = 出 bug 的地方越少。
 // ============================================================
@@ -97,13 +97,13 @@ namespace Revolution.ExcelTool.Core
                   .Append(table.Rows.Count).Append(" 条数据）</summary>\n");
 
                 sb.Append("    public sealed class ").Append(Identifier(containerName))
-                  .Append(" : DataTable<").Append(key.CSharpType()).Append(", ").Append(Identifier(structName)).Append(">\n    {\n");
+                  .Append(" : RevDataTable<").Append(key.CSharpType()).Append(", ").Append(Identifier(structName)).Append(">\n    {\n");
 
                 // 便捷入口：业务最省事的写法
-                sb.Append("        /// <summary>便捷访问；未加载时为 null（先 DataTableManager.LoadAsync&lt;")
+                sb.Append("        /// <summary>便捷访问；未加载时为 null（先 RevDataTableManager.LoadAsync&lt;")
                   .Append(Identifier(containerName)).Append("&gt;()）</summary>\n");
                 sb.Append("        public static ").Append(Identifier(containerName))
-                  .Append(" Instance => DataTableManager.Get<").Append(Identifier(containerName)).Append(">();\n\n");
+                  .Append(" Instance => RevDataTableManager.Get<").Append(Identifier(containerName)).Append(">();\n\n");
 
                 sb.Append("        /// <summary>表名 = ").Append(Xml(table.Name))
                   .Append("；数据文件默认取逻辑路径 \"Data/").Append(Xml(structName)).Append("\"</summary>\n");

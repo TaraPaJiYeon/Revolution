@@ -1,7 +1,7 @@
 // ============================================================
-// DataTextFormat.cs —— 数据文本格式（运行时与导表工具共用的唯一实现）
+// RevDataTextFormat.cs —— 数据文本格式（运行时与导表工具共用的唯一实现）
 //
-// 位置：Runtime\DataLoad\Core\
+// 位置：Runtime\RevDataLoad\Core\
 //
 // 【为什么单独抽成这一个文件？】
 //   导表工具（WPF）负责"写"，运行时（Unity）负责"读"，两端必须严格对称。
@@ -29,7 +29,7 @@
 namespace Revolution
 {
     /// <summary>数据文本格式：分列、转义、拼接（读写两端共用）</summary>
-    public static class DataTextFormat
+    public static class RevDataTextFormat
     {
         /// <summary>字段分隔符（制表符：Excel 里复制出来天然就是这个）</summary>
         public const char FieldSeparator = '\t';

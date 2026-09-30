@@ -28,7 +28,7 @@ using System.Globalization;
 
 namespace Revolution.Editor.ExcelTool
 {
-    /// <summary>字段类型（框架只支持这四种，与 DataFieldParser 一一对应）</summary>
+    /// <summary>字段类型（框架只支持这四种，与 RevDataFieldParser 一一对应）</summary>
     public enum FieldType
     {
         Int,
@@ -75,21 +75,21 @@ namespace Revolution.Editor.ExcelTool
             }
         }
 
-        /// <summary>生成的取值表达式（对应 DataFieldParser 的强类型方法）</summary>
+        /// <summary>生成的取值表达式（对应 RevDataFieldParser 的强类型方法）</summary>
         public string ParseExpression(string cellExpr)
         {
             switch (Type)
             {
-                case FieldType.Int: return "DataFieldParser.ToInt(" + cellExpr + ")";
-                case FieldType.Float: return "DataFieldParser.ToFloat(" + cellExpr + ")";
-                case FieldType.Bool: return "DataFieldParser.ToBool(" + cellExpr + ")";
-                default: return "DataFieldParser.ToStr(" + cellExpr + ")";
+                case FieldType.Int: return "RevDataFieldParser.ToInt(" + cellExpr + ")";
+                case FieldType.Float: return "RevDataFieldParser.ToFloat(" + cellExpr + ")";
+                case FieldType.Bool: return "RevDataFieldParser.ToBool(" + cellExpr + ")";
+                default: return "RevDataFieldParser.ToStr(" + cellExpr + ")";
             }
         }
 
         /// <summary>
         /// 这个值在运行时能不能按本字段类型解析（空值 = 取默认值，算合法）。
-        /// 口径与运行时 DataFieldParser 完全一致：界面预览标红、校验报错用的是同一个判断。
+        /// 口径与运行时 RevDataFieldParser 完全一致：界面预览标红、校验报错用的是同一个判断。
         /// </summary>
         public bool Accepts(string cell)
         {
@@ -104,7 +104,7 @@ namespace Revolution.Editor.ExcelTool
             }
         }
 
-        /// <summary>DataFieldParser.ToBool 认得的写法（其余值运行时一律当 false）</summary>
+        /// <summary>RevDataFieldParser.ToBool 认得的写法（其余值运行时一律当 false）</summary>
         public static bool IsKnownBool(string cell)
         {
             switch (cell.Trim().ToLowerInvariant())

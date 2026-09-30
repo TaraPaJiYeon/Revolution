@@ -1,7 +1,7 @@
 // ============================================================
-// DataTableManager.cs —— 数据表管理器（配置表唯一入口）
+// RevDataTableManager.cs —— 数据表管理器（配置表唯一入口）
 //
-// 位置：Runtime\DataLoad\Manager\
+// 位置：Runtime\RevDataLoad\Manager\
 //
 // 【核心思想：配置表也是一种"资源"】
 //   所以这里不碰任何文件 API —— 数据表统一交给资源系统去取，白拿四件事：
@@ -18,22 +18,22 @@
 //   走资源系统，"读哪儿、怎么读"由策略决定，业务只认逻辑路径。
 //
 // 【最常用三行】
-//   await DataTableManager.LoadAsync&lt;HeroTable&gt;();        // 加载
-//   HeroTable tbl = DataTableManager.Get&lt;HeroTable&gt;();    // 取容器（按类型）
+//   await RevDataTableManager.LoadAsync&lt;HeroTable&gt;();        // 加载
+//   HeroTable tbl = RevDataTableManager.Get&lt;HeroTable&gt;();    // 取容器（按类型）
 //   if (tbl.FindByKey(1001, out Hero cfg)) { ... }          // 查一条（主键可以是 int / string 等任意类型）
 //
 // 【字符串驱动也能用】
 //   表名与主键都可以是字符串，编译期不必知道具体是哪个容器类：
-//     IDataTable t = DataTableManager.Get("Buff");               // 按表名取表
-//     if (DataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var tb)) { ... }
+//     RevIDataTable t = RevDataTableManager.Get("Buff");               // 按表名取表
+//     if (RevDataTableManager.TryGet&lt;BuffTable&gt;("Buff", out var tb)) { ... }
 //     tb.FindByKey("BUFF_ATK_UP", out Buff buff);                // 字符串主键查一行
 //
 // 【主键类型由工具生成，运行时不关心】
-//   int 主键 → DataTable&lt;int, T&gt;；string 主键 → DataTable&lt;string, T&gt;；
+//   int 主键 → RevDataTable&lt;int, T&gt;；string 主键 → RevDataTable&lt;string, T&gt;；
 //   管理器只做"表"这一层的登记与查找，与主键是什么类型无关。
 //
 // 【两种失败风格，随你挑】
-//   LoadAsync&lt;T&gt;()                  → 失败抛 DataTableLoadException（await 时直接抛出，不会静默）
+//   LoadAsync&lt;T&gt;()                  → 失败抛 RevDataTableLoadException（await 时直接抛出，不会静默）
 //   LoadAsync&lt;T&gt;(onFinished)        → 失败回调 (null, 原因)，不抛异常（对齐资源系统的风格）
 // ============================================================
 using System;
@@ -42,22 +42,22 @@ using UnityEngine;
 
 namespace Revolution
 {
-    public static class DataTableManager
+    public static class RevDataTableManager
     {
         /// <summary>
-        /// 表名 → 容器实例。★ 键用的是【表名】（如 "Hero"，来自 IDataTable.TableName），
+        /// 表名 → 容器实例。★ 键用的是【表名】（如 "Hero"，来自 RevIDataTable.TableName），
         /// 不是容器类名（"HeroTable"）—— 因为表名是"数据侧"的名字，可以被配置、被字符串驱动；
         /// 容器类名是"代码侧"的名字，业务不该依赖它。
         /// </summary>
-        private static readonly Dictionary<string, IDataTable> _tables =
-            new Dictionary<string, IDataTable>(System.StringComparer.Ordinal);
+        private static readonly Dictionary<string, RevIDataTable> _tables =
+            new Dictionary<string, RevIDataTable>(System.StringComparer.Ordinal);
 
         /// <summary>
         /// 容器类型 → 容器实例。给 Get&lt;T&gt;() / Unload&lt;T&gt;() 用：
         /// 泛型查询走类型键（O(1)、不分配字符串），字符串查询走表名键，两者指向同一个实例。
         /// </summary>
-        private static readonly Dictionary<System.Type, IDataTable> _tablesByType =
-            new Dictionary<System.Type, IDataTable>();
+        private static readonly Dictionary<System.Type, RevIDataTable> _tablesByType =
+            new Dictionary<System.Type, RevIDataTable>();
 
         // ==================== 查询 ====================
 
@@ -65,24 +65,24 @@ namespace Revolution
         public static int LoadedCount => _tables.Count;
 
         /// <summary>全部已装载的表（键 = 表名；调试窗口 / 排查用）</summary>
-        public static IReadOnlyDictionary<string, IDataTable> Tables => _tables;
+        public static IReadOnlyDictionary<string, RevIDataTable> Tables => _tables;
 
         /// <summary>取容器；没加载过返回 null（不 new、不抛异常）</summary>
-        public static T Get<T>() where T : class, IDataTable
-            => _tablesByType.TryGetValue(typeof(T), out IDataTable table) ? table as T : null;
+        public static T Get<T>() where T : class, RevIDataTable
+            => _tablesByType.TryGetValue(typeof(T), out RevIDataTable table) ? table as T : null;
 
         /// <summary>
         /// 【按表名取表】给"字符串驱动"的场景用：表名来自配置 / 命令行 / 策划表，
         /// 编译期不知道是哪个容器类型时，就用这个。
-        /// 取到后是 IDataTable，需要具体容器时再 as 一下（或直接用它的 Count / IsLoaded）。
+        /// 取到后是 RevIDataTable，需要具体容器时再 as 一下（或直接用它的 Count / IsLoaded）。
         /// </summary>
-        public static IDataTable Get(string tableName)
-            => (tableName != null && _tables.TryGetValue(tableName, out IDataTable table)) ? table : null;
+        public static RevIDataTable Get(string tableName)
+            => (tableName != null && _tables.TryGetValue(tableName, out RevIDataTable table)) ? table : null;
 
         /// <summary>按表名取具体容器（TryGet 风格，不抛异常、不装箱）</summary>
-        public static bool TryGet<T>(string tableName, out T table) where T : class, IDataTable
+        public static bool TryGet<T>(string tableName, out T table) where T : class, RevIDataTable
         {
-            if (tableName != null && _tables.TryGetValue(tableName, out IDataTable found) && found.IsLoaded)
+            if (tableName != null && _tables.TryGetValue(tableName, out RevIDataTable found) && found.IsLoaded)
             {
                 table = found as T;
                 return table != null;
@@ -92,17 +92,17 @@ namespace Revolution
         }
 
         /// <summary>是否已装载（泛型版）</summary>
-        public static bool IsLoaded<T>() where T : class, IDataTable
-            => _tablesByType.TryGetValue(typeof(T), out IDataTable table) && table.IsLoaded;
+        public static bool IsLoaded<T>() where T : class, RevIDataTable
+            => _tablesByType.TryGetValue(typeof(T), out RevIDataTable table) && table.IsLoaded;
 
         /// <summary>是否已装载（按表名）</summary>
         public static bool IsLoaded(string tableName)
-            => tableName != null && _tables.TryGetValue(tableName, out IDataTable table) && table.IsLoaded;
+            => tableName != null && _tables.TryGetValue(tableName, out RevIDataTable table) && table.IsLoaded;
 
         /// <summary>取容器（TryGet 风格；没加载过返回 false）</summary>
-        public static bool TryGet<T>(out T table) where T : class, IDataTable
+        public static bool TryGet<T>(out T table) where T : class, RevIDataTable
         {
-            if (_tablesByType.TryGetValue(typeof(T), out IDataTable found) && found.IsLoaded)
+            if (_tablesByType.TryGetValue(typeof(T), out RevIDataTable found) && found.IsLoaded)
             {
                 table = (T)found;
                 return true;
@@ -118,7 +118,7 @@ namespace Revolution
         /// 真机第一次加载请用异步版（同步加载 AB 是拿不到结果的）。
         /// 失败返回 null。
         /// </summary>
-        public static T Load<T>(RevResGroup group = RevResGroup.Config) where T : class, IDataTable, new()
+        public static T Load<T>(RevResGroup group = RevResGroup.Config) where T : class, RevIDataTable, new()
         {
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) return cached;
@@ -134,14 +134,14 @@ namespace Revolution
 
         /// <summary>
         /// 异步加载（推荐入口）。await 它就行：
-        ///     HeroSkinTable tbl = await DataTableManager.LoadAsync&lt;HeroSkinTable&gt;();
-        /// 加载失败会抛 DataTableLoadException（带上表名与失败原因，便于定位）。
+        ///     HeroSkinTable tbl = await RevDataTableManager.LoadAsync&lt;HeroSkinTable&gt;();
+        /// 加载失败会抛 RevDataTableLoadException（带上表名与失败原因，便于定位）。
         /// 同一张表并发请求会被资源系统合并，只会真正加载一次。
         /// </summary>
         /// <param name="group">归属分组：配置表默认走 RevResGroup.Config（切场景不会被误卸载）</param>
         /// <param name="priority">加载优先级：紧急资源可传 Urgent 抢在预加载前面</param>
         public static RevTask<T> LoadAsync<T>(RevResGroup group = RevResGroup.Config,
-            RevResLoadPriority priority = RevResLoadPriority.Normal) where T : class, IDataTable, new()
+            RevResLoadPriority priority = RevResLoadPriority.Normal) where T : class, RevIDataTable, new()
         {
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) return RevTask<T>.FromResult(cached);
@@ -153,7 +153,7 @@ namespace Revolution
             {
                 if (!ReadText(table, handle))
                 {
-                    source.SetException(new DataTableLoadException(
+                    source.SetException(new RevDataTableLoadException(
                         table.TableName, table.ResourceRoot, table.ResourceName,
                         handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason));
                     return;
@@ -172,7 +172,7 @@ namespace Revolution
         /// </summary>
         public static void LoadAsync<T>(Action<T, RevResLoadErrorReason> onFinished,
             RevResGroup group = RevResGroup.Config, RevResLoadPriority priority = RevResLoadPriority.Normal)
-            where T : class, IDataTable, new()
+            where T : class, RevIDataTable, new()
         {
             T cached = Get<T>();
             if (cached != null && cached.IsLoaded) { onFinished?.Invoke(cached, RevResLoadErrorReason.None); return; }
@@ -196,14 +196,14 @@ namespace Revolution
         // ==================== 卸载 ====================
 
         /// <summary>卸载一张表：清空数据 + 还掉资源引用（引用归零后由资源系统延迟释放）</summary>
-        public static bool Unload<T>() where T : class, IDataTable
-            => _tablesByType.TryGetValue(typeof(T), out IDataTable table) && Unload(table.TableName);
+        public static bool Unload<T>() where T : class, RevIDataTable
+            => _tablesByType.TryGetValue(typeof(T), out RevIDataTable table) && Unload(table.TableName);
 
         /// <summary>按表名卸载（配合 Get(string) 的字符串驱动场景）</summary>
         public static bool Unload(string tableName)
         {
             if (string.IsNullOrEmpty(tableName)) return false;
-            if (!_tables.TryGetValue(tableName, out IDataTable table)) return false;
+            if (!_tables.TryGetValue(tableName, out RevIDataTable table)) return false;
 
             RevResManager.Release(table.ResourceRoot, table.ResourceName);   // ★ 关键：还掉引用，否则 TextAsset 永远卸不掉
             table.Clear();
@@ -226,20 +226,20 @@ namespace Revolution
         // ==================== 内部 ====================
 
         /// <summary>登记一张表：两个字典指向同一个实例（按表名查 / 按类型查都能命中）</summary>
-        private static void Register(IDataTable table)
+        private static void Register(RevIDataTable table)
         {
             _tables[table.TableName] = table;
             _tablesByType[table.GetType()] = table;
         }
 
-        private static void Unregister(IDataTable table)
+        private static void Unregister(RevIDataTable table)
         {
             _tables.Remove(table.TableName);
             _tablesByType.Remove(table.GetType());
         }
 
         /// <summary>把资源句柄里的 TextAsset 文本喂给容器；成功返回 true</summary>
-        private static bool ReadText(IDataTable table, RevResHandle handle)
+        private static bool ReadText(RevIDataTable table, RevResHandle handle)
         {
             if (table == null || handle == null || !handle.IsLoaded) return false;
 
