@@ -160,8 +160,16 @@ namespace Revolution
         /// <summary>归还池前：清空状态槽与引用（★ 不清会串味：下一条序列的步骤可能读到上一条的状态对象）</summary>
         internal void ReleaseState()
         {
-            int used = Definition != null ? Definition.SlotCount : 0;
-            for (int i = 0; i < used && i < StepStates.Length; i++) StepStates[i] = null;
+            // ★ Bug 修复（2026-09-30）：必须清"整个数组"而不是"当前定义用到的槽数" ——
+            //   状态数组只增不减（EnsureStateCapacity 会被更大槽数的定义撑大），归还时只按当前
+            //   Definition.SlotCount 清理的话，更早的大定义写在高位槽里的状态对象会残留下来；
+            //   之后这个实例再被大定义复用时，"先读后写"的自定义步骤（累加器 / 复用状态那种）
+            //   会通过 GetOrCreateState 拿到上上条序列的旧对象 —— 数据串味。
+            //   本文件头部的约束写的就是"归还池时必须清空状态槽"，这里把清理范围补全（多清几个槽零成本）。
+            if (StepStates != null)
+            {
+                for (int i = 0; i < StepStates.Length; i++) StepStates[i] = null;
+            }
 
             _childHandles?.Clear();
 
