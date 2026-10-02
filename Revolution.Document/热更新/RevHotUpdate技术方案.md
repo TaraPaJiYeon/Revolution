@@ -1,14 +1,14 @@
 # RevHotUpdate · 资源热更新系统技术方案
 
 > 定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。
-> 形态：**独立包**（目录 `Assets/RevHotUpdate/`，程序集 `Revolution.HotUpdate`）—— 导入即有、不导入零影响。
+> 形态：**独立包**（目录 `Assets/Revolution.HotUpdate/`，程序集 `Revolution.HotUpdate`）—— 导入即有、不导入零影响。
 > 对标：YooAsset 的 **Online 模式**这一条最常用路径，其余全部砍掉；不引任何第三方依赖。
 >
 > 本文回答两个问题：**① 这事能不能干（可行性）；② 具体怎么干（实现方案）**。
 > 所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。
 >
 > ★ **实施状态：已按本文第十五章的"最优方案"实现**（运行时 18 个 `.cs` / 3177 行 + 编辑器 2 个 `.cs` / 406 行），
-> 代码落在 `Assets/Revolution.HotUpdate/`（与本文写作时的 `Assets/RevHotUpdate/` 是同一个包，仅目录名不同）。
+> 代码落在 `Assets/Revolution.HotUpdate/`（本文写作时这个目录叫 `Assets/RevHotUpdate/`，后来按框架命名规范改名为 `Revolution.HotUpdate`；正文已统一用新路径）。
 > 怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。
 
 ---
@@ -193,7 +193,7 @@
 ### 4.2 包目录结构（新增，与框架/示例并列）
 
 ```text
-Assets/RevHotUpdate/
+Assets/Revolution.HotUpdate/
 ├── package.json                          # 可选：UPM 发布用（name: com.revolution.hotupdate）
 ├── README.md                             # 3 分钟上手
 ├── Runtime/                              # asmdef: Revolution.HotUpdate（references: Revolution.Runtime）
@@ -233,10 +233,10 @@ Assets/RevHotUpdate/
 
 | 机制 | 做法 | 不满足会怎样 |
 |---|---|---|
-| **独立程序集** | `Assets/RevHotUpdate/` 自带 asmdef，`references: ["Revolution.Runtime"]`，反向零引用 | 混进框架程序集 → 删不掉 |
+| **独立程序集** | `Assets/Revolution.HotUpdate/` 自带 asmdef，`references: ["Revolution.Runtime"]`，反向零引用 | 混进框架程序集 → 删不掉 |
 | **零静态构造 / 零 Update** | 门面是静态类，但只有业务调 `InitializeAsync` 才会动；不注册任何 `[RuntimeInitializeOnLoadMethod]` 之外的东西，且钩子里只做"复位" | 导入即产生启动开销 |
 | **框架钩子默认 null** | 两个钩子都是 `public static Func<...> = null`，不设置时走原逻辑（并有断言守护"未设置时路径 = 旧行为"） | 框架行为被静默改变 |
-| **卸载 = 删目录** | 删 `Assets/RevHotUpdate/` + 删启动流程里那一行 `await RevHotUpdate.InitializeAsync(...)`，钩子再没人设 → 框架回到"只读 StreamingAssets" | 留一地残留 |
+| **卸载 = 删目录** | 删 `Assets/Revolution.HotUpdate/` + 删启动流程里那一行 `await RevHotUpdate.InitializeAsync(...)`，钩子再没人设 → 框架回到"只读 StreamingAssets" | 留一地残留 |
 
 ---
 
@@ -789,10 +789,10 @@ App 启动
 
 | 产出 | 路径 | 说明 |
 |---|---|---|
-| 热更包（运行时） | `Assets/RevHotUpdate/Runtime/` | asmdef `Revolution.HotUpdate` |
-| 热更包（编辑器） | `Assets/RevHotUpdate/Editor/` | asmdef `Revolution.HotUpdate.Editor`（Editor only） |
-| 包元数据 | `Assets/RevHotUpdate/package.json` | UPM 用（可选） |
-| 上手文档 | `Assets/RevHotUpdate/README.md` | 3 分钟上手 + 边界声明 |
+| 热更包（运行时） | `Assets/Revolution.HotUpdate/Runtime/` | asmdef `Revolution.HotUpdate` |
+| 热更包（编辑器） | `Assets/Revolution.HotUpdate/Editor/` | asmdef `Revolution.HotUpdate.Editor`（Editor only） |
+| 包元数据 | `Assets/Revolution.HotUpdate/package.json` | UPM 用（可选） |
+| 上手文档 | `Assets/Revolution.HotUpdate/README.md` | 3 分钟上手 + 边界声明 |
 | 技术方案（本文） | `Revolution.Document/热更新/RevHotUpdate技术方案.md` | ✅ 本次已落地 |
 | （可选）HTML 版 | `Revolution.Document/热更新/RevHotUpdate技术方案.html` | 进文档站，与其它模块同款样式 |
 | ✅ 示例 | `Assets/Revolution.Demo/RevHotUpdate.Demo/` | 已落地：演示面板 + 场景 + 编辑器一键装配 + `起本地CDN.cmd`（`HttpListener` 静态服务，支持 Range / 分缓存头，无需真云） |
@@ -876,10 +876,10 @@ App 启动
 | ③ 生成物（运行时读） | `Assets/Resources/RevHotUpdate/HotBundles.txt` | 与框架的 `ResMap.txt` 同族格式（`\|` 分隔 + `#` 注释）；`Resources.Load` 一次读入（几百包 ≈ 几 KB） |
 | ④ 运行时判定 | `Revolution.HotUpdate` 程序集 | 解析成 `HashSet<string>` 做 O(1) 判定；**表缺失时全部按"内置"处理并 Warn 一次**（绝不猜） |
 
-为什么生成物放**工程侧的 `Assets/Resources/`**（而不是框架目录、也不放 `Assets/RevHotUpdate/`）：
+为什么生成物放**工程侧的 `Assets/Resources/`**（而不是框架目录、也不放 `Assets/Revolution.HotUpdate/`）：
 
 - 放框架目录 = 热更包往框架里写东西，删热更包会留垃圾 ✗；
-- 放 `Assets/RevHotUpdate/` = UPM 只读安装时写不进去（框架对生成物有同样的降级处理，见 `ABBuildSetting.EnsureWritableForGeneratedCode`）✗；
+- 放 `Assets/Revolution.HotUpdate/` = UPM 只读安装时写不进去（框架对生成物有同样的降级处理，见 `ABBuildSetting.EnsureWritableForGeneratedCode`）✗；
 - 放工程 `Assets/Resources/` = **UPM 只读也能用**、随包体发布（很小）、WebGL/Android 都能 `Resources.Load` ✓。
 
 > 备选（想要"编译期判定"）：同一次生成再吐一个 `RevHotBundleFlags.cs` 常量类（业务可以用 `if (RevHotBundleFlags.IsHot("hero"))` 在编译期分支）。

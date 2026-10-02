@@ -103,9 +103,13 @@ Assets/Revolution.HotUpdate/
 ### 怎么拿到这个包（两种装法）
 
 ```text
-# ① 分支安装（推荐，与框架本体配对）：两条命令各拉一个包
+# ① 分支安装（推荐，与框架本体配对）：每个包各一条命令
 git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
 git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+
+# 想跑本目录开头提到的那个 demo（示例工程在 demo 分支）：
+git clone -b demo      https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo
+# → Assets/Revolution.Demo/RevHotUpdate.Demo/（演示面板 + 场景 + 起本地CDN.cmd 假 CDN）
 
 # ② 或者：直接把仓库里的 RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate 拷进自己工程的 Assets 下
 ```
@@ -295,3 +299,8 @@ RevHotUpdateResult result = await RevHotUpdate.UpdateAsync(check, p => bar.Set(p
 6. 上传顺序"内容先、清单后"；
 7. 弱网/大包提示用的是 `check.TotalBytesText`（别自己算）；
 8. 失败分支有 UI 提示 + 允许重试（用 `result.Error.Message`，它已经是人话）。
+
+---
+
+*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3177 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 406 行）· 框架侧两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`，默认 `null`）。*
+*demo：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（示例工程在 `demo` 分支：`git clone -b demo https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo`）。*

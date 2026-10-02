@@ -212,9 +212,13 @@ RevResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_
 ├── Runtime/    asmdef: Revolution.HotUpdate         （引用 Revolution.Runtime）
 └── Editor/     asmdef: Revolution.HotUpdate.Editor  （仅编辑器，引用 Revolution.Runtime / HotUpdate / Editor）</pre>
     <h3>怎么拿到这个包（两种装法）</h3>
-    <pre># ① 分支安装（推荐，与框架本体配对）：两条命令各拉一个包
+    <pre># ① 分支安装（推荐，与框架本体配对）：每个包各一条命令
 git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
 git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+
+# 想跑本目录开头提到的那个 demo（示例工程在 demo 分支）：
+git clone -b demo      https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo
+# → Assets/Revolution.Demo/RevHotUpdate.Demo/（演示面板 + 场景 + 起本地CDN.cmd 假 CDN）
 
 # ② 或者：直接把仓库里的 RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate 拷进自己工程的 Assets 下</pre>
     <div class="callout warn">
@@ -451,7 +455,7 @@ RevHotUpdateResult result = <span class="k">await</span> RevHotUpdate.UpdateAsyn
 </main>
 
 <footer>
-  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3254 行 · 编辑器 2 个 <code>.cs</code> / 429 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3177 行 · 编辑器 2 个 <code>.cs</code> / 406 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
   权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate使用说明.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 

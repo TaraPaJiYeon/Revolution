@@ -99,7 +99,7 @@
   <div class="wrap">
     <span class="kicker">技术方案 · 已实现</span>
     <h1>RevHotUpdate · 资源热更新系统技术方案</h1>
-    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/RevHotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3177 行 + 编辑器 2 个 <code>.cs</code> / 406 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（与本文写作时的 <code>Assets/RevHotUpdate/</code> 是同一个包，仅目录名不同）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
+    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/Revolution.HotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3177 行 + 编辑器 2 个 <code>.cs</code> / 406 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（本文写作时这个目录叫 <code>Assets/RevHotUpdate/</code>，后来按框架命名规范改名为 <code>Revolution.HotUpdate</code>；正文已统一用新路径）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
   </div>
 </header>
 
@@ -306,7 +306,7 @@
      {RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/ResMap.txt            ← 映射表（热更它 = 支持新增资源）
      ★ "大版本"这一段是隔离墙：旧客户端的请求永远落在自己的目录里（见第十六章）</pre>
     <h3>4.2 包目录结构（新增，与框架/示例并列）</h3>
-    <pre>Assets/RevHotUpdate/
+    <pre>Assets/Revolution.HotUpdate/
 ├── package.json                          # 可选：UPM 发布用（name: com.revolution.hotupdate）
 ├── README.md                             # 3 分钟上手
 ├── Runtime/                              # asmdef: Revolution.HotUpdate（references: Revolution.Runtime）
@@ -344,10 +344,10 @@
       <table>
         <thead><tr><th>机制</th><th>做法</th><th>不满足会怎样</th></tr></thead>
         <tbody>
-          <tr><td><b>独立程序集</b></td><td><code>Assets/RevHotUpdate/</code> 自带 asmdef，<code>references: ["Revolution.Runtime"]</code>，反向零引用</td><td>混进框架程序集 → 删不掉</td></tr>
+          <tr><td><b>独立程序集</b></td><td><code>Assets/Revolution.HotUpdate/</code> 自带 asmdef，<code>references: ["Revolution.Runtime"]</code>，反向零引用</td><td>混进框架程序集 → 删不掉</td></tr>
           <tr><td><b>零静态构造 / 零 Update</b></td><td>门面是静态类，但只有业务调 <code>InitializeAsync</code> 才会动；不注册任何 <code>[RuntimeInitializeOnLoadMethod]</code> 之外的东西，且钩子里只做"复位"</td><td>导入即产生启动开销</td></tr>
           <tr><td><b>框架钩子默认 null</b></td><td>两个钩子都是 <code>public static Func&lt;...&gt; = null</code>，不设置时走原逻辑（并有断言守护"未设置时路径 = 旧行为"）</td><td>框架行为被静默改变</td></tr>
-          <tr><td><b>卸载 = 删目录</b></td><td>删 <code>Assets/RevHotUpdate/</code> + 删启动流程里那一行 <code>await RevHotUpdate.InitializeAsync(...)</code>，钩子再没人设 → 框架回到"只读 StreamingAssets"</td><td>留一地残留</td></tr>
+          <tr><td><b>卸载 = 删目录</b></td><td>删 <code>Assets/Revolution.HotUpdate/</code> + 删启动流程里那一行 <code>await RevHotUpdate.InitializeAsync(...)</code>，钩子再没人设 → 框架回到"只读 StreamingAssets"</td><td>留一地残留</td></tr>
         </tbody>
       </table>
     </div>
@@ -922,10 +922,10 @@ RevHotUpdateResult r = <span class="k">await</span> RevHotUpdate.UpdateAsync(che
       <table>
         <thead><tr><th>产出</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>热更包（运行时）</td><td><code>Assets/RevHotUpdate/Runtime/</code></td><td>asmdef <code>Revolution.HotUpdate</code></td></tr>
-          <tr><td>热更包（编辑器）</td><td><code>Assets/RevHotUpdate/Editor/</code></td><td>asmdef <code>Revolution.HotUpdate.Editor</code>（Editor only）</td></tr>
-          <tr><td>包元数据</td><td><code>Assets/RevHotUpdate/package.json</code></td><td>UPM 用（可选）</td></tr>
-          <tr><td>上手文档</td><td><code>Assets/RevHotUpdate/README.md</code></td><td>3 分钟上手 + 边界声明</td></tr>
+          <tr><td>热更包（运行时）</td><td><code>Assets/Revolution.HotUpdate/Runtime/</code></td><td>asmdef <code>Revolution.HotUpdate</code></td></tr>
+          <tr><td>热更包（编辑器）</td><td><code>Assets/Revolution.HotUpdate/Editor/</code></td><td>asmdef <code>Revolution.HotUpdate.Editor</code>（Editor only）</td></tr>
+          <tr><td>包元数据</td><td><code>Assets/Revolution.HotUpdate/package.json</code></td><td>UPM 用（可选）</td></tr>
+          <tr><td>上手文档</td><td><code>Assets/Revolution.HotUpdate/README.md</code></td><td>3 分钟上手 + 边界声明</td></tr>
           <tr><td>技术方案（本文）</td><td><code>Revolution.Document/热更新/RevHotUpdate技术方案.md</code></td><td>✅ 本次已落地</td></tr>
           <tr><td>（可选）HTML 版</td><td><code>Revolution.Document/热更新/RevHotUpdate技术方案.html</code></td><td>进文档站，与其它模块同款样式</td></tr>
           <tr><td>✅ 示例</td><td><code>Assets/Revolution.Demo/RevHotUpdate.Demo/</code></td><td>已落地：演示面板 + 场景 + 编辑器一键装配 + <code>起本地CDN.cmd</code>（<code>HttpListener</code> 静态服务，支持 Range / 分缓存头，无需真云）</td></tr>
@@ -1028,11 +1028,11 @@ RevHotUpdateResult r = <span class="k">await</span> RevHotUpdate.UpdateAsync(che
         </tbody>
       </table>
     </div>
-    <p>为什么生成物放<b>工程侧的 <code>Assets/Resources/</code></b>（而不是框架目录、也不放 <code>Assets/RevHotUpdate/</code>）：</p>
+    <p>为什么生成物放<b>工程侧的 <code>Assets/Resources/</code></b>（而不是框架目录、也不放 <code>Assets/Revolution.HotUpdate/</code>）：</p>
     <ul>
       <li>放框架目录 = 热更包往框架里写东西，删热更包会留垃圾 ✗；
       </li>
-      <li>放 <code>Assets/RevHotUpdate/</code> = UPM 只读安装时写不进去（框架对生成物有同样的降级处理，见 <code>ABBuildSetting.EnsureWritableForGeneratedCode</code>）✗；
+      <li>放 <code>Assets/Revolution.HotUpdate/</code> = UPM 只读安装时写不进去（框架对生成物有同样的降级处理，见 <code>ABBuildSetting.EnsureWritableForGeneratedCode</code>）✗；
       </li>
       <li>放工程 <code>Assets/Resources/</code> = <b>UPM 只读也能用</b>、随包体发布（很小）、WebGL/Android 都能 <code>Resources.Load</code> ✓。
       </li>
