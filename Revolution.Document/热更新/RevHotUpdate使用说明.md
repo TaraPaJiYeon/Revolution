@@ -132,6 +132,180 @@ git clone -b demo      https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 > 这两个钩子由 `RevHotUpdate.InitializeAsync` 自动装载（内部调 `Install()`）；只有"自己接管资源系统初始化"的工程才需要手动 `RevHotUpdate.Install()`，且必须在 `RevResBootstrap.Init()` 之前。
 
+### 这两个钩子到底怎么用（面向小白，带可照抄的示例）
+
+> **先给结论：用官方热更包时，这两处已经替你写好了** —— 你一行都不用写。
+> 只有这两种情况才需要自己写：① 不用热更包，但你**有自己的下载器 / CDN 体系**；② 想改热更包的解析规则（多插一层目录、做灰度等）。
+
+| 你的情况 | 要写代码吗 |
+|---|---|
+| 用 **RevHotUpdate** 官方热更包 | ❌ 什么都不用写（`InitializeAsync` 装的就是包里那套：持久化版本目录 → 首包落地 → 回退 StreamingAssets） |
+| 只想在**编辑器**里看看 AB 模式的效果 | ❌ 不用钩子，开 `RevResBootstrap.UseABInEditor = true`（菜单 `Revolution.Tools/资源/AB 加载模式（编辑器）`） |
+| 自己接对象存储 / CDN，不用热更包 | ✅ 写下面的 **示例 1**（回答"包从哪读"） |
+| 自己下发映射表（自研热更 / 灰度） | ✅ 写下面的 **示例 2**（回答"表从哪来"） |
+| 两者都要 | ✅ 示例 1 + 2，再按 **示例 3** 的顺序装配 |
+
+#### 钩子 1：`RevABLoader.BundlePathResolver` —— "这个包该去哪读？"
+
+**契约（先背下来）**：
+
+- **参数**：包名。就是 `ResMap.txt` 第二列那个名字，也是 `AssetBundles/<平台>/` 下的**文件名**（**没有扩展名**，比如 `hero`）。
+- **返回**：这个包的**完整本地文件路径**（`D:/.../hero`）或 **URL**（`https://cdn.../hero`，WebGL / 小游戏用）。
+- **返回 `null`（或空串）= "我不管，按框架默认来"** → 框架走 `{StreamingAssets}/<平台名>/<包名>`。
+- **调用时机**：每次要加载某个包时都会被问一次（包已缓存在内存里就不会再问）。它**只回答"从哪读"**：不负责下载，也不负责卸载。
+
+**示例 1：自研"持久化优先 + 回退内置"**（≈ 官方那套的最小版，可直接抄）：
+
+```csharp
+using System.IO;
+using Revolution;
+using UnityEngine;
+
+/// <summary>自研包路径解析：下过更新就用更新，没下过就回退出包自带的那份。</summary>
+public static class MyCdnPaths
+{
+    /// <summary>更新下来的包放哪：{persistentDataPath}/MyCdn/&lt;平台&gt;/bundles/</summary>
+    public static string LocalBundleDir
+    {
+        get
+        {
+            // ★ 平台名必须与打包产物的目录名一致（Standalone 一律是 "PC"）—— 对不上就会一直找不到文件
+#if UNITY_ANDROID && !UNITY_EDITOR
+            const string platform = "Android";
+#elif UNITY_IOS && !UNITY_EDITOR
+            const string platform = "iOS";
+#else
+            const string platform = "PC";
+#endif
+            return Path.Combine(Application.persistentDataPath, "MyCdn", platform, "bundles");
+        }
+    }
+
+    /// <summary>★ 这个函数就是钩子本体：框架每要加载一个包，就来问一次"它从哪读"。</summary>
+    public static string ResolveBundlePath(string bundleName)
+    {
+        // ① 更新目录里有 → 用它（"热更生效"就是这一步）
+        string local = Path.Combine(LocalBundleDir, bundleName);
+        if (File.Exists(local))
+        {
+            return local;
+        }
+
+        // ② 没有 → 返回 null = 交还框架默认（StreamingAssets/<平台名>/<包名>）
+        //    ★ 新手最容易写错的地方：返回值只能是"完整路径 / URL / null"三种。
+        //      随便拼一个不存在的路径返回，框架会直接去读它并失败 —— 连"回退内置"的机会都没有。
+        return null;
+    }
+}
+```
+
+装配（**必须在资源系统 `Init()` 之前**，时机说明见示例 3）：
+
+```csharp
+// 启动流程里、RevResBootstrap.Instance.Init() 之前：
+RevABLoader.BundlePathResolver = MyCdnPaths.ResolveBundlePath;   // ★ 用方法组，不要写 lambda（见坑 4）
+```
+
+> ★ **WebGL / 小游戏**：那边**没有本地文件系统**（`File.Exists`、`LoadFromFile` 都不可用），
+> 钩子应直接返回 **CDN 的 URL**（`https://.../bundles/<包名>`，URL 里带版本段，见技术方案第十七章）；
+> 可以在同一个函数里用 `#if UNITY_WEBGL && !UNITY_EDITOR` 分开写。
+
+#### 钩子 2：`RevResBootstrap.ResMapOverride` —— "逻辑名 → 包名|资源名 的表从哪来？"
+
+**契约**：
+
+- **返回**：`Dictionary<string, string>`；**键 = 逻辑名**（如 `Hero/1001`），**值 = `包名|资源名`**（如 `hero|1001`，中间是**半角竖线**）。
+- **返回 `null` = 不覆盖**（框架只用内置表）。
+- **语义是"覆盖合并"**：你返回的表里**同名键覆盖**内置表，内置表独有的键**保留** —— 所以"新资源能热更、老资源仍有兜底"。
+- **调用时机**：每次**资源系统初始化**（`RevResBootstrap.Init()`）时调一次，结果被拿去合并成最终表。
+
+**示例 2：读一张自己下发的表**（格式与框架 `ResMap.txt` 完全一致：`逻辑名|包名|资源名`）：
+
+```csharp
+using System.Collections.Generic;
+using System.IO;
+using Revolution;
+
+/// <summary>自研映射表覆盖：把"更新下来的表"交给框架合并。</summary>
+public static class MyCdnResMap
+{
+    /// <summary>★ 钩子本体：返回 null = 不覆盖；返回表 = 覆盖合并到内置表上。</summary>
+    public static Dictionary<string, string> LoadOverrideResMap()
+    {
+        string path = Path.Combine(MyCdnPaths.LocalBundleDir, "..", "ResMap.txt");
+        if (File.Exists(path) == false)
+        {
+            return null;                     // ★ 没有"更新表"就什么都不做，让框架用自己的内置表
+        }
+
+        var map = new Dictionary<string, string>(512);
+        foreach (string raw in File.ReadAllLines(path))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith("#")) { continue; }   // 空行与 # 注释跳过
+
+            string[] parts = line.Split('|');
+            if (parts.Length != 3) { continue; }                          // 列数不对就跳过（容错，别让一行坏数据炸掉整张表）
+
+            map[parts[0]] = parts[1] + "|" + parts[2];                    // 逻辑名 → 包名|资源名
+        }
+
+        return map.Count > 0 ? map : null;   // 空表也没必要覆盖
+    }
+}
+```
+
+```csharp
+// 装配（同样要在 RevResBootstrap.Instance.Init() 之前）：
+RevResBootstrap.ResMapOverride = MyCdnResMap.LoadOverrideResMap;
+```
+
+> ★ **为什么这个钩子非有不可**：映射表在包体的 `Resources` 里、运行时**只读**。
+> 新增的资源如果没有新表，逻辑名就查不到 → 落到 `Resources` 兜底：**编辑器里看着一切正常，真机上才报 `FileNotExist`**。
+> 这也是"表必须和包**同批更新**"的原因（表里有的包必须都已就位）。
+
+#### 示例 3：装配时机 + 还原（**顺序错了整套不生效**）
+
+```csharp
+/// <summary>自己接管资源系统初始化时的标准写法；用官方热更包则不需要（InitializeAsync 内部已处理）。</summary>
+public static class MyCdnBootstrap
+{
+    public static void Install()
+    {
+        // ① 先装钩子：必须在资源系统 Init 之前 —— Init 时会读映射表、注册策略
+        RevABLoader.BundlePathResolver = MyCdnPaths.ResolveBundlePath;
+        RevResBootstrap.ResMapOverride = MyCdnResMap.LoadOverrideResMap;
+
+        // ② 再让资源系统按新钩子重装一次（Init 是幂等的；已经 Init 过就先卸干净）
+        RevResBootstrap.Instance.ShutdownAll();
+        RevResBootstrap.Instance.Init();
+    }
+
+    /// <summary>还原：钩子置回 null = 回到框架默认行为（"临时关掉自研热更"最省事的办法）。</summary>
+    public static void Uninstall()
+    {
+        RevABLoader.BundlePathResolver = null;
+        RevResBootstrap.ResMapOverride = null;
+        RevResBootstrap.Instance.ShutdownAll();
+        RevResBootstrap.Instance.Init();
+    }
+}
+```
+
+#### 五个坑（新手必读）
+
+1. **返回值只能是"完整文件路径 / URL / `null`"**：返回一个不存在的路径 = 框架会直接去读它然后失败，**连回退内置的机会都没有**。想"我不管"就返回 `null`。
+2. **别在钩子里做重活**：它会被**每个包**问一次（首屏几十个包 = 几十次调用），别在里面解析大文件、发网络请求或拼一堆字符串。
+3. **路径不含扩展名**：AB 在磁盘上就叫 `<包名>`（没有 `.bundle` / `.ab` 后缀），加后缀会读不到。
+4. **用方法组，不要写捕获实例的 lambda**：`= MyCdnPaths.ResolveBundlePath;` ✓；写成 `= name => new MyCdn(name).Resolve(name)` 会持有闭包 —— 关闭 Domain Reload 的工程第二次进 Play 可能拿到失效对象。
+5. **必须在 `RevResBootstrap.Init()` 之前设置**。判断法：**Init 之后再设 = 本次不生效**；要生效就 `ShutdownAll()` → 设钩子 → `Init()`（示例 3 就是这个顺序）。
+
+#### 想知道"到底生效了哪一份"？
+
+- 用官方热更包：看 `RevHotUpdate.LocalResVersion` 与 `RevHotUpdate.Dump()`；
+- 自研：在 `ResolveBundlePath` 里**每个包第一次**返回时打一条日志 ——
+  `RevLog.Info($"包 {bundleName} 来自 {local}", "MyCdn")`。「到底读的是哪一份」这类问题，靠这一行日志最容易定位。
+
 ---
 
 ## 三、入口 API 与进度

@@ -199,6 +199,11 @@ Editor         清单生成 + 自检 + 工具窗口</pre>
         </tbody>
       </table>
     </div>
+    <div class="callout good">
+      <span class="t">这两个钩子"业务侧怎么写"</span>
+      自己接 CDN / 自研映射表时的完整代码、装配时机、5 个新手坑：见《RevHotUpdate 使用说明》§二 的
+      「这两个钩子怎么用（面向小白，含可照抄示例）」—— 本节只解释<b>为什么必须有它们</b>，那边解释<b>怎么用</b>。
+    </div>
     <h3>为什么不自己写一个加载器（自研 <code>IRevResPolicy + IRevResLoader</code>）</h3>
     <p>因为<b>包的生命周期绑在框架内部，外部拿不到</b>：</p>
     <ul>

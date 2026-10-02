@@ -438,6 +438,9 @@ private static string ResolveBundlePath(string abName)
 
 > 附带的正确性说明：`LoadBundle` 里的 `File.Exists` 判断在 Android 分支被注释掉了（因为 jar 路径），改成钩子后**建议恢复统一判断**，因为热更路径是真实文件 —— 但这是"可选优化"，不影响本方案。
 
+> ★ **想直接照抄"钩子怎么用"**（自己接 CDN / 自研映射表、装配时机、5 个新手坑）：见《RevHotUpdate 使用说明》§二 的
+> 「这两个钩子怎么用（面向小白，含可照抄示例）」。本节给的是**框架侧 diff**，那边给的是**业务侧用法**。
+
 ### 5.7 ResMap 热更（让"新增资源"成立）
 
 ```csharp

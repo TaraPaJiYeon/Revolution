@@ -94,6 +94,9 @@ Editor         清单生成 + 自检 + 工具窗口
 | `RevABLoader.BundlePathResolver` | 框架的加载根是**编译期写死的**（`StreamingRoot`，`private static`）——不改它，热更下来的包永远不会被读到 |
 | `RevResBootstrap.ResMapOverride` | 映射表在包体的 `Resources` 里（运行时只读）——不改它，"**新增资源**"永远加载不到 |
 
+> ★ **这两个钩子"业务侧怎么写"**（自己接 CDN / 自研映射表时的完整代码、装配时机、5 个新手坑）：
+> 见《RevHotUpdate 使用说明》§二 的「这两个钩子怎么用（面向小白，含可照抄示例）」——本节只解释**为什么必须有它们**，那边解释**怎么用**。
+
 ### 为什么不自己写一个加载器（自研 `IRevResPolicy + IRevResLoader`）
 
 因为**包的生命周期绑在框架内部，外部拿不到**：

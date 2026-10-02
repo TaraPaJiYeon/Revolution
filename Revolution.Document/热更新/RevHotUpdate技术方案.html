@@ -551,6 +551,11 @@ TotalBytes = Σ(Add + Change 的 size)        → 用于给玩家显示"需要�
     <div class="callout">
       <p>附带的正确性说明：<code>LoadBundle</code> 里的 <code>File.Exists</code> 判断在 Android 分支被注释掉了（因为 jar 路径），改成钩子后<b>建议恢复统一判断</b>，因为热更路径是真实文件 —— 但这是"可选优化"，不影响本方案。</p>
     </div>
+    <div class="callout good">
+      <span class="t">想直接照抄"钩子怎么用"</span>
+      自己接 CDN / 自研映射表时的完整代码、装配时机、5 个新手坑：见《RevHotUpdate 使用说明》§二 的
+      「这两个钩子怎么用（面向小白，含可照抄示例）」。本节给的是<b>框架侧 diff</b>，那边给的是<b>业务侧用法</b>。
+    </div>
     <h3>5.7 ResMap 热更（让"新增资源"成立）</h3>
     <pre><span class="c">// ===== 文件：Runtime/RevResourceSystem/Support/RevResBootstrap.cs =====</span>
 <span class="c">/// &lt;summary&gt;</span>
