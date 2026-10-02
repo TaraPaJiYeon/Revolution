@@ -4,6 +4,18 @@
 > 独立包：`Assets/Revolution.HotUpdate/` 不导入 = 框架零影响；导入后业务加载代码一行不用改。
 > 完整设计见 `Revolution.Document/热更新/RevHotUpdate技术方案.md`（md + html）。
 
+## 安装（与框架配对）
+
+```text
+# 两条命令各拉一个包（热更包是"扩展包"，框架本体是前提）
+git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
+git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+```
+
+> ★ `hotupdate` 是**生成分支**（CI 从 `main` 的 `Assets/Revolution.HotUpdate/` 整份重建），不要往它上面提交；
+> 改代码请改 `main`。热更包用到的两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`）
+> 是框架侧后加的 —— **框架必须不早于引入钩子的那一版**，否则编译不过。
+
 ## 最省事用法（放在"加载任何业务资源"之前）
 
 ```csharp

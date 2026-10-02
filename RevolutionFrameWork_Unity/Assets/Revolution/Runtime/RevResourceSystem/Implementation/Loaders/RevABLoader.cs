@@ -1,7 +1,8 @@
 // ============================================================
 // RevABLoader.cs —— AB 加载器
 // 承担三件事：
-//   ① 从 streamingAssetsPath 加载 AB（本框架不做热更新，没有 persistentDataPath 覆盖路径）
+//   ① 从 streamingAssetsPath 加载 AB（默认行为；装了 RevHotUpdate 扩展包时由 BundlePathResolver 钩子重定向到
+//      persistentDataPath 的版本目录或 CDN 的版本化 URL —— 本框架自身永不设置这个钩子，所以默认行为不变）
 //      · Android：包在 APK 内，File.Exists 不可用 → 直接 LoadFromFile
 //      · WebGL （含微信/QQ 小游戏）：不能阻塞 + 路径是 URL → 同步加载不可用，必须走 LoadAsync
 //   ② 主包 Manifest 依赖解析

@@ -28,17 +28,25 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 - 📦 **编辑器工具齐** - RevAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
 - 🔧 **无第三方依赖** - 只用 Unity 官方模块
 
-## ⚠️ 不含热更新（用前必读）
+## 🔄 热更新（本体不含代码热更；资源热更有官方扩展包）
 
-本框架**不含**：
-- ❌ **代码热更新**（HybridCLR / ILRuntime / xLua —— 全仓库 0 处相关代码）；
-- ❌ **AB 远程下载 / 版本管理 / 差量更新** —— AB 只从本机 `StreamingAssets` 读（编辑器下直读），没有 `persistentDataPath` 覆盖路径、没有下载器与版本比对。
+| 能力 | 在哪 |
+|---|---|
+| ❌ **代码热更新**（HybridCLR / ILRuntime / xLua） | 本体不做 —— 全仓库 0 处相关代码 |
+| ✅ **资源热更**（AB 远端下载 / 版本比对 / 差量 / 校验 / 回滚 / 加载路径重定向） | 官方扩展包 **RevHotUpdate** → 独立目录 `Assets/Revolution.HotUpdate`（分支 `hotupdate`）。本体只为它留了 2 个**默认 `null`** 的钩子（`RevABLoader.BundlePathResolver`、`RevResBootstrap.ResMapOverride`）—— **不装就是零影响，装法见下** |
+| ✅ 自己实现 / 换第三方 | 资源层对外只有 `IRevResPolicy` + `IRevResLoader` **两个接口**（`Runtime/RevResourceSystem/Interfaces/`，`RevABLoader` 是同接口的现成范例），可以自己接下载/CDN 体系，也可以整体换成 **YooAsset** —— **两条路都不需要改上层业务代码** |
 
-**要接热更**：资源层对外只有 `IRevResPolicy` + `IRevResLoader` **两个接口**（在 `Runtime/RevResourceSystem/Interfaces/`，`RevABLoader` 是同接口的现成范例），
-可以自己实现（接你已有的下载/CDN 体系），也可以整体换成 **YooAsset** 等第三方资源框架 —— **两条路都不需要改上层业务代码**。
+装扩展包（与本体配对，两条命令）：
 
-详细方案（含步骤、注意事项与"要不要上热更"的决策表）见仓库首页 README：
-<https://github.com/Yokino337088/Revolution#-不做什么热更新与远程更新>
+```text
+git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
+git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+```
+
+> ★ 热更包用的两个钩子是本体后加的 —— **本体的版本必须"不早于"引入钩子的那一版**，否则编译不过。
+
+详细方案（可行性、平台核实、存储选型、决策与分期、两张踩坑清单）见 `Revolution.Document/热更新/RevHotUpdate技术方案.md`；
+怎么用见《RevHotUpdate 使用说明》，设计论证见《RevHotUpdate 架构解析》。
 
 ## 📦 三种安装方式
 
@@ -102,6 +110,7 @@ Revolution/
 
 - **在线文档站（推荐从这里进）**：<https://yokino337088.github.io/Revolution/>
 - 各模块《使用说明》（手把手）与《架构解析》（设计论证）：仓库 `Revolution.Document/`
+- 扩展包 **RevHotUpdate**（资源热更）：《使用说明》《架构解析》《技术方案》——`Revolution.Document/热更新/`（网页版在文档站"扩展包"一节）
 - 3 分钟上手（模块级 README）：`Runtime/RevSoundSystem/README.md`、`Runtime/RevTimer/README.md`、`Runtime/RevLog/README.md` 等
 
 ## 📄 许可

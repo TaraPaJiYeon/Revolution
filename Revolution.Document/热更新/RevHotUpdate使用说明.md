@@ -99,6 +99,23 @@ Assets/Revolution.HotUpdate/
 └── Editor/     asmdef: Revolution.HotUpdate.Editor  （仅编辑器，引用 Revolution.Runtime / HotUpdate / Editor）
 ```
 
+### 怎么拿到这个包（两种装法）
+
+```text
+# ① 分支安装（推荐，与框架本体配对）：两条命令各拉一个包
+git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
+git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+
+# ② 或者：直接把仓库里的 RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate 拷进自己工程的 Assets 下
+```
+
+> ★ **配对前提（升级时必看）**：热更包的运行时程序集只引用 `Revolution.Runtime`，但它使用的两个钩子
+> （`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`）是框架侧后加的 ——
+> 所以框架必须**不早于引入这两个钩子的那一版**，否则编译不过。单独升级热更包时请一并确认框架版本。
+>
+> `hotupdate` 是**生成分支**（CI 从 `main` 的 `Assets/Revolution.HotUpdate/` 整份重建，不保留历史），
+> 见 `.github/workflows/sync-hotupdate-branch.yml`；本地改了包直接推 `main` 即可，不要往生成分支上提交。
+
 **"不导入零影响"靠四条**：① 独立程序集，框架不反向引用它；② 零静态构造、零 `Update`，没人调用就不干活；③ 它给框架加的两个钩子**默认是 `null`**，不设置时框架行为与从前逐字节一致；④ 卸载 = 删掉这个目录 + 启动流程里那一行调用。
 
 ### 对框架的改动（就这两处）

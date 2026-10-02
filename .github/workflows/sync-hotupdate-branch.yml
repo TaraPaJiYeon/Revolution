@@ -1,0 +1,51 @@
+name: 同步 hotupdate 分支（资源热更新扩展包）
+
+# 作用：把 RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate 的内容发布到 `hotupdate` 分支的【仓库根】。
+# 这是"扩展包"，与 package 分支（框架本体）配套使用 —— 框架是前提，热更包是可选的：
+#
+#     git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
+#     git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate
+#
+# 也可以当 git 子模块，或 UPM git URL（...#hotupdate —— 分支根就有 package.json：com.revolution.hotupdate）。
+#
+# ★ 版本依赖（升级时注意）：热更包运行时程序集只引用 Revolution.Runtime，
+#   但它使用的两个钩子 RevABLoader.BundlePathResolver / RevResBootstrap.ResMapOverride 是框架侧新增的 ——
+#   所以框架必须"不早于引入这两个钩子的那一版"，否则编译不过。发布时请把框架与热更包配对说明。
+#
+# 说明：hotupdate 是【生成分支】，每次整份重建（不保留历史），因此用 --force 推送是预期行为。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate/**'
+      - 'RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate.meta'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 组装扩展包内容（热更包 → 仓库根）
+        run: |
+          mkdir -p /tmp/hot
+          cp -r RevolutionFrameWork_Unity/Assets/Revolution.HotUpdate/. /tmp/hot/
+          echo "文件数：$(find /tmp/hot -type f | wc -l)"
+
+      - name: 推送到 hotupdate 分支
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/hot
+          git init -b hotupdate
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "publish: 资源热更新扩展包 RevHotUpdate（源 ${GITHUB_SHA:0:7}）"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" hotupdate
