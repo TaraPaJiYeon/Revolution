@@ -1,0 +1,51 @@
+name: 同步 skill 分支（给 AI Agent 用的技能包）
+
+# 作用：把仓库根 Skills/ 的内容发布到 `skill` 分支的【仓库根】。
+# 于是"装 skill"和"装框架"一样是一条命令 —— 直接克隆进对应工具的 skills 目录即可：
+#
+#     git clone -b skill https://github.com/Yokino337088/Revolution.git .codebuddy/skills
+#     # 结果：.codebuddy/skills/revolution-framework/SKILL.md  ← 工具会自动发现
+#     # 换工具就换目录：.claude/skills / .codex/skills / .opencode/skills / .openclaw/skills
+#     # 只想装某一个 skill：git clone -b skill ... 之后把 Skills/revolution-framework 拷走即可
+#
+# 也可以当 git 子模块（团队共享同一份规范）：
+#     git submodule add -b skill https://github.com/Yokino337088/Revolution.git .codebuddy/skills
+#
+# 说明：skill 是【生成分支】，每次整份重建（不保留历史），因此用 --force 推送是预期行为。
+#      改 skill 请改 main 的 Skills/，不要往生成分支上提交。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Skills/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 组装 skill 内容（Skills → 仓库根）
+        run: |
+          mkdir -p /tmp/skill
+          cp -r Skills/. /tmp/skill/
+          echo "文件数：$(find /tmp/skill -type f | wc -l)"
+          echo "skill 目录：$(find /tmp/skill -maxdepth 1 -type d -not -path /tmp/skill | wc -l) 个"
+
+      - name: 推送到 skill 分支
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/skill
+          git init -b skill
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "publish: AI Agent 技能包（源 ${GITHUB_SHA:0:7}）"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" skill

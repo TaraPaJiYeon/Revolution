@@ -56,6 +56,29 @@ revolution-framework/
 
 ## 安装
 
+### 方式一：从 `skill` 分支克隆（推荐，一条命令）
+
+```text
+# 直接克隆进"项目级 skills 目录" —— 克隆完就是 .codebuddy/skills/revolution-framework/SKILL.md
+git clone -b skill https://github.com/Yokino337088/Revolution.git .codebuddy/skills
+
+# 换工具就换目录：
+#   .claude/skills   .codex/skills   .opencode/skills   .openclaw/skills
+
+# 只想装某一个 skill（比如以后仓库里有多个）：克隆后把需要的子目录拷走
+#   cp -r .codebuddy/skills/revolution-framework <你的 skills 目录>/
+
+# 团队共享同一份规范：用子模块（可 git submodule update --remote 更新）
+git submodule add -b skill https://github.com/Yokino337088/Revolution.git .codebuddy/skills
+
+# 全局安装（跨项目共享）：把 .codebuddy/skills 换成用户级目录
+git clone -b skill https://github.com/Yokino337088/Revolution.git ~/.codebuddy/skills
+```
+
+> `skill` 是**生成分支**（CI 从 `main` 的 `Skills/` 整份重建，不保留历史）：改 skill 请改 `main`，不要往生成分支上提交。
+
+### 方式二：直接拷贝目录
+
 把整个 `revolution-framework/` 目录放进对应工具的 skills 目录（任选其一，按你用的工具）：
 
 ```text
@@ -71,7 +94,7 @@ revolution-framework/
 ~/.claude/skills/revolution-framework/
 ```
 
-> 本仓库里这份位于 `<仓库根>/Skills/revolution-framework/`。
+> 本仓库里这份位于 `<仓库根>/Skills/revolution-framework/`（`Skills/README.md` 就是本文件）。
 > 如果你把框架作为子模块装进工程（`Assets/Revolution`），也可以直接指向它、或用同步脚本复制到上面任一目录。
 
 ## 安装后如何验证命中

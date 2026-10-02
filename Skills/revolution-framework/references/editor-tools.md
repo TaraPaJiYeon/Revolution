@@ -49,6 +49,7 @@
 | `sync-package-branch.yml` | `Assets/Revolution/**` | `package` 分支 = 框架本体（分支根即包根，可 clone / 子模块 / UPM git URL） |
 | `sync-demo-branch.yml` | `Assets/Revolution.Demo/**` | `demo` 分支 = 示例工程（18 个可运行场景） |
 | `sync-hotupdate-branch.yml` | `Assets/Revolution.HotUpdate/**` | `hotupdate` 分支 = 热更扩展包 |
+| `sync-skill-branch.yml` | `Skills/**` | `skill` 分支 = 给 AI Agent 用的技能包（`git clone -b skill ... .codebuddy/skills`） |
 | `pages.yml` | `Revolution.Document/**` | 文档站（https://yokino337088.github.io/Revolution/ ） |
 
 **三条生成分支都是"整份重建、不保留历史"**：改代码请改 `main`，不要往生成分支上提交。

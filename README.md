@@ -402,7 +402,7 @@ Revolution/
 ├── Revolution.Document/                  设计文档（每个模块：使用说明 + 架构解析）
 ├── Skills/                              给 AI Agent 用的技能包（模块速查 / 规范 / 坑位 / 模板）
 ├── Revolution.ExcelTool/                 导表工具（WPF：Excel → C# 类 + 数据文件）
-└── .github/workflows/                    CI（自动同步 package / demo / hotupdate 分支）
+└── .github/workflows/                    CI（自动同步 package / demo / hotupdate / skill 分支）
 ```
 
 > 仓库只收录**必要的代码与文档**：`Library/` `Temp/` `Logs/`、构建产物、IDE 工程文件（`*.csproj` `*.sln`）、
@@ -427,7 +427,12 @@ Revolution/
 > 文档站由 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 即重新发布。
 >
 > 🤖 **给 AI Agent 用的技能包**：[`Skills/revolution-framework/`](Skills/revolution-framework/SKILL.md) —— 模块门面速查 / 代码规范 / 20 条坑位 / 审查清单 / 模板与工程外断言工程；
-> 把这个目录（连同 `Skills/README.md` 的说明）放进 `.codebuddy/skills/`、`.claude/skills/` 等目录即可让 Agent 按本框架的规范写代码。
+> 一条命令装进任何支持 skills 的工具（工具有 `skill` 生成分支，改动 `Skills/` 会自动重建）：
+>
+> ```text
+> git clone -b skill https://github.com/Yokino337088/Revolution.git .codebuddy/skills
+> # → .codebuddy/skills/revolution-framework/SKILL.md（换工具就换目录：.claude/skills 等）
+> ```
 
 **每个模块都有《使用说明》（手把手，照着做就能跑通）**；带 ✅ 的还有《架构解析》（设计论证：为什么这么设计、与别的方案差在哪）。
 

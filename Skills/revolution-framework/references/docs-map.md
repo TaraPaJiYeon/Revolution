@@ -52,6 +52,7 @@ Revolution.Document/
   package    ← Assets/Revolution/**            框架本体
   demo       ← Assets/Revolution.Demo/**       示例工程（18 个可运行场景）
   hotupdate  ← Assets/Revolution.HotUpdate/**  资源热更扩展包
+  skill      ← Skills/**                       给 AI Agent 用的技能包（克隆进 .codebuddy/skills 等目录即可）
 
 工程内安装（两种都行）：
   git clone -b package   https://github.com/Yokino337088/Revolution.git Assets/Revolution
