@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RevHotUpdate · 架构解析</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 5px;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:14.5px;margin:20px 0 8px;color:#33415C;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">架构解析 · 设计论证</span>
+    <h1>RevHotUpdate · 架构解析</h1>
+    <p>配套读法：《使用说明》讲<b>怎么用</b>（手把手），这份讲<b>为什么这么做、边界在哪、失败怎么收场</b>。<br>想先看"要不要做、怎么做"的整体论证，见《RevHotUpdate 技术方案》（含可行性评估、平台核实、存储选型）。<br>一句话：<b>两个根、一份清单、一个版本目录、两处不可见钩子。</b></p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、全貌</a></li>
+      <li><a href="#s1">一、文件职责表</a></li>
+      <li><a href="#s2">二、与框架的接缝：为什么是这两个钩子</a></li>
+      <li><a href="#s3">三、核心机制（含：挂起与等待）</a></li>
+      <li><a href="#s4">四、下载与容错</a></li>
+      <li><a href="#s5">五、性能与内存</a></li>
+      <li><a href="#s6">六、边界：明确不做的六件事</a></li>
+      <li><a href="#s7">七、验证方式</a></li>
+      <li><a href="#s8">八、与 YooAsset 的对照</a></li>
+      <li><a href="#s9">九、后续可加（不做也能用）</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇、全貌 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>全貌</h2>
+    <pre>启动（在加载任何业务资源之前）
+ └─ await RevHotUpdate.InitializeAsync(config, onProgress)
+      ├─ ① 装钩子（幂等）               → 框架的加载路径与映射表从此"可被热更改写"
+      ├─ ② Android：首包落地             → 把 APK 里的内置包拷到持久化目录（幂等，大小一致跳过）
+      ├─ ③ 拉远端清单 + 大版本校验        → @appVersion 不匹配 → 拒绝更新并回调强更
+      ├─ ④ 版本比对（远端 vs 本地基线）    → 只下 hash 变化的包（差量）
+      ├─ ⑤ 下载 → 校验 → 原子落地        → .part 半成品 → 尺寸/SHA-256 → 改名到版本目录
+      ├─ ⑥ 打完成标记 → 原子切版本指针    → .stamp 先于 current.txt（顺序反了会加载到半成品）
+      ├─ ⑦ 清理旧版本（保留 N 份）        → 回滚能力就来自这里
+      └─ ⑧ 重装资源策略（ShutdownAll → Init）→ 重读热更映射表，路径钩子按新版本解析
+之后照旧：RevResManager.Load*（业务代码零改动）</pre>
+    <p>分层（谁负责什么）：</p>
+    <pre>Facade         RevHotUpdate          状态机 + 三个动作 + 安装（业务只碰这一层）
+Core           配置 / 清单 / 版本 / 计划 / 结果 / 进度 / 错误 / 平台能力表（纯逻辑，可工程外断言）
+Download       下载引擎（并发 / 重试 / 多源 / 续传）+ URL 拼装 + 源列表
+Pipeline       存储管家（目录 / 原子落盘 / 首包落地）+ 校验（尺寸 + SHA-256）+ 版本比对
+Integration    与框架的唯一接缝（两个钩子 + 重装资源策略）
+Support        进 Play 复位内存状态（不动磁盘数据）
+Editor         清单生成 + 自检 + 工具窗口</pre>
+  </section>
+
+  <!-- ==================== 一、文件职责表 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>文件职责表</h2>
+    <h3>运行时（18 个文件 / 3254 行）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>职责</th><th>关键点</th></tr></thead>
+        <tbody>
+          <tr><td><code>Facade/RevHotUpdate.cs</code></td><td>门面：<code>Check / Update / Initialize / Install / Dump</code> + 状态机</td><td>所有失败都转成 <code>RevHotUpdateResult</code>，业务不会收到异常</td></tr>
+          <tr><td><code>Core/RevHotConfig.cs</code></td><td>配置 + 校验 + 派生值（生效平台 / 大版本 / 本地根 / 源列表）</td><td><code>Validate()</code> 把"Android 却配了直读 StreamingAssets"这类配置错误在<b>下载前</b>拦下</td></tr>
+          <tr><td><code>Core/RevHotManifest.cs</code></td><td>清单解析 / 序列化</td><td>剥 BOM、兼容未知字段；<b>坏行宁可失败</b>，绝不"尽量解析"</td></tr>
+          <tr><td><code>Core/RevHotBundleInfo.cs</code></td><td>清单条目（hash / 大小 / 依赖 / 标签 / unityHash / unityCrc）</td><td>两个 hash 分工：sha256 用于比对与校验；unityHash/crc 给小游戏引擎用</td></tr>
+          <tr><td><code>Core/RevHotVersion.cs</code></td><td>版本号比较（按段数字比，缺段当 0）</td><td>字符串比较会把 <code>1.2.0.10</code> 判成小于 <code>1.2.0.9</code></td></tr>
+          <tr><td><code>Core/RevHotPlan.cs</code></td><td>差量计划（新增 / 变更 / 删除 / 映射表 / 总字节）</td><td>三集合 + 待下载字节，UI 提示直接用</td></tr>
+          <tr><td><code>Core/RevHotResults.cs</code></td><td><code>RevHotCheckResult</code> / <code>RevHotUpdateResult</code></td><td>检查结果里带内部流转字段（计划、清单原文）供更新阶段使用</td></tr>
+          <tr><td><code>Core/RevHotProgress.cs</code></td><td>状态枚举 + 进度对象 + 聚合器（120ms 节流）</td><td>速度做 50/50 平滑，避免数字乱跳</td></tr>
+          <tr><td><code>Core/RevHotError.cs</code></td><td>错误码 + 错误对象 + 内部异常</td><td><code>RevHotException</code> 带 <code>Retryable</code>，决定"重试 / 换源 / 直接失败"</td></tr>
+          <tr><td><code>Core/RevHotPlatform.cs</code></td><td>平台能力表（是否 WebGL / 有无本地文件 / 首包是否要落地）</td><td>三个平台三条路，全部收敛在这一个文件</td></tr>
+          <tr><td><code>Download/RevHotDownloader.cs</code></td><td>下载引擎</td><td>三层失败结构（见第四章）；换源前删半成品</td></tr>
+          <tr><td><code>Download/RevHotUrlBuilder.cs</code></td><td>URL 拼装</td><td>清单不带资源版本；资源带资源版本</td></tr>
+          <tr><td><code>Download/RevHotSource.cs</code></td><td>源列表（主源 + 备用源，带序号便于日志）</td><td>小游戏只用一个域名（白名单名额有限）</td></tr>
+          <tr><td><code>Pipeline/RevHotStore.cs</code></td><td>盘上布局 / 版本指针 / 原子落盘 / 首包落地 / <b>两个钩子的实现</b></td><td>五条纪律都在这（见第三章第 3 节）</td></tr>
+          <tr><td><code>Pipeline/RevHotVerifier.cs</code></td><td>校验 + SHA-256 计算</td><td>分帧流式（每 8MB 让一帧）；<code>ComputeSha256</code> 供编辑器生成清单</td></tr>
+          <tr><td><code>Pipeline/RevHotPlanner.cs</code></td><td>版本比对</td><td><b>只认 hash</b>：大小相同但内容变了也必须重下</td></tr>
+          <tr><td><code>Integration/RevHotResBridge.cs</code></td><td>装钩子 + 按序重装资源策略</td><td><code>ShutdownAll → 切版本 → Init</code>，绝不在包被使用时覆盖文件</td></tr>
+          <tr><td><code>Support/RevHotUpdateUnityHooks.cs</code></td><td>进 Play 复位内存状态</td><td>关 Domain Reload 时静态字段不清空，必须手动复位（磁盘数据不动）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>编辑器（2 个文件 / 429 行）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>职责</th><th>关键点</th></tr></thead>
+        <tbody>
+          <tr><td><code>Editor/RevHotManifestBuilder.cs</code></td><td>扫产物 → 生成 <code>RevHotManifest.txt</code> / <code>RevHotBuiltin.txt</code> + 自检</td><td>依赖与 CRC/hash <b>复用 Unity 的 <code>.manifest</code> 文本</b>，不自己实现打包分析</td></tr>
+          <tr><td><code>Editor/RevHotUpdateWindow.cs</code></td><td>工具窗口（平台 / 版本 / 生成 / 自检 / 打开目录）</td><td>默认目录与版本号取框架打包配置，少填两个字段</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 二、与框架的接缝：为什么是这两个钩子 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>与框架的接缝：为什么是这两个钩子</h2>
+    <h3>结论</h3>
+    <p>热更包<b>不换</b>框架的策略与加载器，只往框架里塞两个"默认为 <code>null</code>"的静态钩子：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>钩子</th><th>为什么需要它</th></tr></thead>
+        <tbody>
+          <tr><td><code>RevABLoader.BundlePathResolver</code></td><td>框架的加载根是<b>编译期写死的</b>（<code>StreamingRoot</code>，<code>private static</code>）——不改它，热更下来的包永远不会被读到</td></tr>
+          <tr><td><code>RevResBootstrap.ResMapOverride</code></td><td>映射表在包体的 <code>Resources</code> 里（运行时只读）——不改它，"<b>新增资源</b>"永远加载不到</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>为什么不自己写一个加载器（自研 <code>IRevResPolicy + IRevResLoader</code>）</h3>
+    <p>因为<b>包的生命周期绑在框架内部，外部拿不到</b>：</p>
+    <ul>
+      <li>资源释放时，框架调的是 <code>handle.BundleLoader.ReleaseBundle(handle.BundleName)</code>；
+      </li>
+      <li>而 <code>RevResHandle.BundleLoader / BundleName / BundleAcquired</code> 三个字段是 <code>internal</code>，且 <code>BundleLoader</code> 的类型是<b>具体类</b> <code>RevABLoader</code>；
+      </li>
+      <li>于是自研加载器<b>无法被通知"这个包没人用了"</b>，只能反向扫描缓存去猜存活集合 —— 那是语义退化，不是等价实现（热更包会把"包什么时候能卸"这件事重新变成谜）。
+      </li>
+    </ul>
+    <p>用钩子只有 2 处、十几行，且两个平台形态（文件型 / URL 型）都只需要"换一个根"。</p>
+    <h3>钩子的两条契约（写在框架侧注释里，也是断言守护的内容）</h3>
+    <ol>
+      <li><b>不设置时（默认 <code>null</code>）行为与从前逐字节一致</b> —— 对不装热更包的工程零影响；
+      </li>
+      <li><b>返回 <code>null</code> / 空串 = "我不接这个包"</b>，框架走默认逻辑 —— 覆盖式降级的实现方式就是"该我接的返回路径，不该我接的返回 <code>null</code>"。
+      </li>
+    </ol>
+    <h3>装配时序（错了会出问题）</h3>
+    <pre>Install()（设钩子，幂等）
+   ↓
+CheckAsync（读配置、装存储、读本地基线、拉远端清单、比对）
+   ↓
+UpdateAsync（下载 → 校验 → 落地 → .stamp → 切指针 → 清理旧版本）
+   ↓
+RevResBootstrap.Instance.ShutdownAll()   ← ① 先卸载：避免"替换正在被加载的包"
+RevResBootstrap.Instance.Init()          ← ② 再初始化：重读热更映射表、按新版本解析路径</pre>
+  </section>
+
+  <!-- ==================== 三、核心机制 ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>核心机制（清单 / 差量 / 原子性 / 首包落地 / URL 模式 / 挂起与等待）</h2>
+    <h3>1. 清单：为什么是行式文本</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案</th><th>体积</th><th>解析成本</th><th>依赖</th><th>人可读</th></tr></thead>
+        <tbody>
+          <tr><td>JSON + <code>JsonUtility</code></td><td>大</td><td>中</td><td>Unity 内置，但<b>不支持字典</b>，要写一堆 DTO</td><td>一般</td></tr>
+          <tr><td>JSON + Newtonsoft</td><td>大</td><td>中</td><td><b>第三方依赖</b>（框架坚持零依赖）</td><td>一般</td></tr>
+          <tr><td><b>行式文本（本实现）</b></td><td>小</td><td>低（`Split('</td><td>')`）</td><td><b>无</b></td><td><b>高</b>（和 <code>ResMap.txt</code> 同族，记事本能比一比）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>清单里三类信息：</p>
+    <pre>@appVersion|1.2.0        ← 大版本锚点：不匹配 → 拒绝更新（跨大版本必须重出包）
+@resVersion|1.2.0.37     ← 资源版本：玩家看到的就是它
+@resmap|ResMap.txt|hash|size          ← 映射表也是热更文件
+@bundle|hero|hash|字节数|依赖|标签|unityHash|unityCrc</pre>
+    <p><b>大版本锚定带来的简化</b>：资源层不需要考虑"新资源配老代码"——那是"被禁止发生"的情况，于是清单不必支持兼容区间、灰度矩阵与多版本在线查询。</p>
+    <h3>2. 差量：只认 hash</h3>
+    <pre>远端有、本地没有            → 新增
+两边都有、hash 不同          → 变更（重下）
+两边都有、hash 相同          → 跳过（不下、不校验、不落盘）
+本地有、远端没有              → 记下来，切完版本随旧版本目录清理
+映射表 hash 变了             → 必须下（否则新增资源加载不到）</pre>
+    <p><b>为什么不看文件大小</b>：大小相同但内容变了（改了图但压缩后恰好同长）必须重下，只比大小会直接把错版发给玩家。</p>
+    <p><b>为什么不做二进制差量</b>：LZ4 包本身就是块压缩，改一张图会波及多个块，bsdiff 类方案收益不稳定；包级差量已经拿走绝大部分带宽收益。</p>
+    <h3>3. 原子性：五条纪律（每条都在防一个真实故障）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>纪律</th><th>防什么</th></tr></thead>
+        <tbody>
+          <tr><td>下载写 <code>.part</code>，校验通过才改名</td><td>"半个包"被当成好包加载（随机崩溃 / 资源缺失）</td></tr>
+          <tr><td>版本目录全部就位才打 <code>.stamp</code></td><td>半新半旧（一部分包新、一部分旧）</td></tr>
+          <tr><td><code>current.txt</code> 用"临时文件 + 替换"写</td><td>断电/被杀进程写出半行文本 → 版本指针损坏</td></tr>
+          <tr><td>保留 N 个历史版本</td><td>新版本有问题回不去（线上事故的第一道逃生门）</td></tr>
+          <tr><td>切换前先 <code>ShutdownAll</code></td><td>Windows 文件锁导致"替换失败"、以及"内存里还是旧包"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>为什么不是"逐包直接覆盖"</b>：逐包覆盖看起来更简单，但会出现"新 A + 旧 B"的窗口期——如果 A 用到 B 的新资源，玩家就会在那一瞬间报错；而且一旦玩家在覆盖到一半退出，磁盘上就是一份自相矛盾的资源。版本目录 + 完成标记让"生效"变成一个原子动作。</p>
+    <h3>4. 首包落地：Android 的物理现实</h3>
+    <ul>
+      <li>桌面 / iOS：<code>StreamingAssets</code> 是<b>真实文件目录</b> → <code>AssetBundle.LoadFromFile</code> 直接能读，不必落地；
+      </li>
+      <li><b>Android</b>：<code>streamingAssetsPath</code> 是 <code>jar:file:///…apk!/assets</code>，<b>不是文件路径</b>；压缩过的 AB 用 <code>LoadFromFile</code> 读不了 → 必须先把内置包拷到 <code>persistentDataPath</code>；
+      </li>
+      <li>落地是<b>幂等</b>的：目标已存在且大小一致就跳过（首启中断、二次启动都能续上）；整包来自自家 APK，默认只比大小（<code>VerifyBuiltinCopy</code> 可打开哈希校验）。
+      </li>
+    </ul>
+    <h3>5. URL 模式：小游戏没有文件系统</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>文件型（Android / iOS / PC）</th><th>URL 型（WebGL / 小游戏）</th></tr></thead>
+        <tbody>
+          <tr><td>下载</td><td><code>UnityWebRequest</code> + <code>DownloadHandlerFile</code> 落盘</td><td><b>不落盘</b>：AB 由引擎按 URL 拉取并缓存</td></tr>
+          <tr><td>校验</td><td>尺寸 + SHA-256（分帧流式）</td><td>清单里的 <code>unityHash</code> / <code>unityCrc</code> 交给引擎</td></tr>
+          <tr><td>续传</td><td><code>Range</code> + <code>.part</code></td><td>不做（缓存由引擎管，失败重试整包）</td></tr>
+          <tr><td>版本</td><td>本地版本目录</td><td><b>URL 里的版本段就是目录</b></td></tr>
+          <tr><td>我们的活</td><td>下载 + 校验 + 落地 + 切指针</td><td>清单 + URL 拼装 + 版本记录 + 进度</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>也就是说：小游戏上"热更"= 把 URL 换成新版本的 URL；其余交给引擎。（清单里那两列 <code>unityHash</code> / <code>unityCrc</code> 就是为它准备的。）</p>
+
+    <h3>6. 挂起与等待：一轮热更只允许跑一次</h3>
+    <p><b>"一轮热更"是异步长任务</b>（要过网络、要落盘），必须回答两个问题：</p>
+    <p><b>① 重复调用怎么办？</b>（业务在两处都调了 <code>InitializeAsync</code>，或玩家手快点了两下）<br>
+    → 第二次调用<b>不会跑第二遍</b>：门面把"进行中的一轮"登记成挂起源（<code>_pending</code>），后来的调用直接等它 ——
+    两边拿到同一次更新的结果，不会下载两遍、不会把资源策略重装两次。</p>
+    <p><b>② 别处的代码想等它结束怎么办？</b>（首场景业务要等热更完成才加载资源）<br>
+    → <code>WaitReadyAsync()</code>：不发起新热更，只等"正在进行的那一轮"；一轮结束时把结果回填给所有等待者。</p>
+    <div class="callout warn">
+      <span class="t">回填是必须的动作</span>
+      <p>如果一轮跑完没人唤醒等待者，就是"静默卡死"——这类 bug 极难查。
+      门面把回填写在流程收尾处（含失败与异常路径），任何出口都会完成挂起源。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 四、下载与容错 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>下载与容错</h2>
+    <p>三层结构（从里到外）：</p>
+    <pre>TryDownloadOnceAsync   一次尝试 = 断点续传下载 → 校验 → 原子提交
+   · 半成品比目标还大 → 删掉重来（内容已经没救了）
+   · 服务器不支持 Range（返回 200 而不是 206）→ 删掉 .part 并回退为整包重下
+   · 校验失败 → 删掉 .part 并标记"可重试"（重试即从头下载）
+
+DownloadOneAsync       一个文件 = 换源（外层）× 重试退避（内层）
+   · 失败按 500ms → 1s → 2s → 4s 指数退避
+   · 换源前删 .part：不同源内容不保证一致，拼接必然校验失败
+
+DownloadPlanAsync      整批 = N 个工人从共享游标领任务
+   · 任何失败 → 停止领新任务，等在跑的收尾后统一上抛（第一个错误最有诊断价值）</pre>
+    <p>其它容错点：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>点</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>清单拉取失败 / 内容为空</td><td>保持当前版本（玩家照常玩旧版），可重试；换源也会试</td></tr>
+          <tr><td>磁盘预检</td><td>下载前检查可用空间（多留 64MB），不足直接报 <code>DiskFull</code>，不留下半成品</td></tr>
+          <tr><td>取消</td><td><code>RevCancellationToken</code>：取消时立刻停下载（<code>.part</code> 保留，下次续传）</td></tr>
+          <tr><td>更新中途退出</td><td>版本目录没有 <code>.stamp</code>、指针没动 → 下次启动重新算差量，已下好的包 hash 一致自然跳过</td></tr>
+          <tr><td>失败不破坏现状</td><td>所有失败路径都不改 <code>current.txt</code>；<code>Dump()</code> 能看到当前状态与错误</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 五、性能与内存 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>性能与内存</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>关注点</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>内存</td><td>下载用 <code>DownloadHandlerFile</code> <b>直接落盘</b>，几百 MB 的包也不会出现等量内存峰值</td></tr>
+          <tr><td>卡帧</td><td>哈希校验分帧流式（1MB 缓冲、每累计 8MB 让出一帧）</td></tr>
+          <tr><td>启动开销</td><td>清单一次请求（几十 KB）；<b>没有更新时不下载任何东西</b>，只做一次比对</td></tr>
+          <tr><td>清单规模</td><td>行式文本按行解析；几万行的表在启动时一次解析完（一次性的，不在热路径上）</td></tr>
+          <tr><td>进度节流</td><td>进度回调 120ms 节流 + 速度平滑，不给 UI 与日志添负担</td></tr>
+          <tr><td>明确<b>没做</b>的优化（触发条件到了再说）</td><td>表规模极大时的二进制紧凑清单、并行哈希、<code>ulong</code> 键的清单查找 —— 当前量级都不是瓶颈</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 六、边界：明确不做的六件事 ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>边界：明确不做的六件事</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>不做</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>代码热更</td><td>另一条技术线（IL2CPP / 程序集拆分），iOS 审核风险最高；资源热更与它互不冲突，可以叠加</td></tr>
+          <tr><td>AB 加密 / 防篡改</td><td>AB 天生可解包，加密只提高门槛，代价是体积、加载耗时与排查难度</td></tr>
+          <tr><td>二进制差量</td><td>见第三章第 2 节</td></tr>
+          <tr><td>灰度 / 分渠道分流</td><td>运营后台能力；本包只提供 <code>Channel</code> 目录段</td></tr>
+          <tr><td>按需下载（tag）</td><td>阶段 4 能力；当前策略是"清单里有就下"</td></tr>
+          <tr><td>跳商店 / 整包下载 / 渠道分发</td><td>发行层的事；框架只负责"识别大版本不匹配 + 一次回调"</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 七、验证方式 ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>验证方式</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>层</th><th>做了什么</th></tr></thead>
+        <tbody>
+          <tr><td>编译</td><td><b>工程外编译校验</b>：用 UnityEngine 桩把"框架真实 <code>RevABLoader</code> + <code>RevTask</code> + 热更包全部源码"一起编译 —— 钩子契约（签名与调用方式）由真实代码交叉验证</td></tr>
+          <tr><td>纯逻辑</td><td>37 项断言：清单解析（BOM / CRLF / 坏行拒绝 / 未知字段兼容 / 序列化往返）、差量计划（新增/变更/跳过/删除/映射表/空计划/无基线）、版本规则、URL 拼装、配置校验</td></tr>
+          <tr><td>真机（验收清单）</td><td>① 首启落地；② 只下变化的包；③ 下载中断网 → 重连续传；④ 杀进程 → 下次续传；⑤ 改坏已下好的包 → 校验失败重下；⑥ 篡改清单 hash → <code>VerifyFailed</code>；⑦ 磁盘写满 → <code>DiskFull</code> 且不留半成品；⑧ 清单被删 → 保持旧版本可玩</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>真机验收的 8 项里，<b>第 ⑤~⑧ 项是"故意搞破坏"</b>——热更这类模块的价值就体现在这些场景下的表现，建议每次改完都跑一遍。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 八、与 YooAsset 的对照 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>与 YooAsset 的对照</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>维度</th><th>YooAsset</th><th>RevHotUpdate</th></tr></thead>
+        <tbody>
+          <tr><td>定位</td><td>独立资源框架（含收集器、4 种运行模式、报告系统）</td><td><b>框架的补丁包</b>：只补"远端下载 + 版本管理 + 路径重定向"</td></tr>
+          <tr><td>业务改造量</td><td>加载 API 全换</td><td><b>0 行</b>（仍是 <code>RevResManager.Load*</code>）</td></tr>
+          <tr><td>运行模式</td><td>EditorSimulate / Offline / Online / Host</td><td>只做 Online（另加"首包兜底"）</td></tr>
+          <tr><td>清单格式</td><td>自研二进制清单</td><td>行式文本（人可读、可 diff）</td></tr>
+          <tr><td>差量 / 加密 / 灰度</td><td>包级差量、加密、灰度齐全</td><td>只做包级差量</td></tr>
+          <tr><td>代码量</td><td>数万行</td><td>约 3700 行（含注释与编辑器工具）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>结论：<b>不是替代关系</b>。已经用 Revolution 的工程想加一条热更链路，用它最省；要重做资源层、需要加密/灰度，再考虑 YooAsset。</p>
+  </section>
+
+  <!-- ==================== 九、后续可加（不做也能用） ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>后续可加（不做也能用）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>能力</th><th>价值</th><th>成本</th></tr></thead>
+        <tbody>
+          <tr><td>按需下载（tag / 包名白名单）</td><td>首包更小、试玩包体验更好</td><td>清单加标签语义 + 业务侧"用到才下"的 API</td></tr>
+          <tr><td>清单签名</td><td>防篡改升级（现在是信任清单 + hash 校验）</td><td>服务端私钥签 + 客户端公钥验，约 40 行</td></tr>
+          <tr><td>灰度 / 分渠道</td><td>小流量验证新版本资源</td><td>主要是运营后台与 CDN 的事，客户端只需带 <code>Channel</code></td></tr>
+          <tr><td>CDN 预热脚本</td><td>大版本首发首屏更快</td><td>编辑器工具加一个按钮（调云厂商 CLI）</td></tr>
+          <tr><td>ResMap 解析抽公共</td><td>现在框架与热更包各一份解析代码</td><td>抽个小工具类，两边共用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><em>对应代码版本：运行时 <code>Assets/Revolution.HotUpdate/Runtime/</code>（18 个 <code>.cs</code> / 3254 行）· 编辑器 <code>Assets/Revolution.HotUpdate/Editor/</code>（2 个 <code>.cs</code> / 429 行）· 框架侧钩子 <code>RevABLoader.BundlePathResolver</code> 与 <code>RevResBootstrap.ResMapOverride</code>（各十几行，默认 <code>null</code>）。</em></p>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3254 行 · 编辑器 2 个 <code>.cs</code> / 429 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate架构解析.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>

@@ -207,9 +207,27 @@
     </div>
   </section>
 
-  <!-- ③ -->
+  <!-- ③ 扩展包 -->
   <section>
-    <h2><span class="num">3</span>结构类与工具链</h2>
+    <h2><span class="num">＋</span>扩展包：按需安装</h2>
+    <p class="lead">不属于框架本体，单独一个包：<b>导入即有、不导入零影响</b> —— 框架侧只多了两个默认为 <code>null</code> 的钩子，业务加载代码不用改。</p>
+    <div class="grid">
+      <div class="card">
+        <h3><span class="ico">🔄</span>资源热更新（RevHotUpdate）</h3>
+        <p class="desc">清单驱动版本比对与差量下载（只下变化过的包）、断点续传、多源降级、尺寸 + SHA-256 校验、版本目录原子切换与回滚；Android 首包落地、小游戏走版本化 URL + 引擎缓存。</p>
+        <div class="links">
+          <a href="热更新/RevHotUpdate使用说明.html">使用说明</a>
+          <a href="热更新/RevHotUpdate架构解析.html">架构解析</a>
+          <a href="热更新/RevHotUpdate技术方案.html">技术方案</a>
+          <a class="md" href="热更新/RevHotUpdate使用说明.md">.md</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ -->
+  <section>
+    <h2><span class="num">4</span>结构类与工具链</h2>
     <p class="lead">搭架子时用的模块，以及编辑器里的两套工具。</p>
     <div class="grid">
       <div class="card">
@@ -262,7 +280,7 @@
 
   <!-- ④ -->
   <section>
-    <h2><span class="num">4</span>进阶：为什么这么设计</h2>
+    <h2><span class="num">5</span>进阶：为什么这么设计</h2>
     <p class="lead">想知道"框架为什么这样写、跟别的方案比差在哪"时读这几篇（不影响使用，纯设计论证）。</p>
     <div class="grid">
       <div class="card">
@@ -299,7 +317,7 @@
 
   <!-- ⑤ -->
   <section>
-    <h2><span class="num">5</span>还没写进这里的：模块级"3 分钟上手"</h2>
+    <h2><span class="num">6</span>还没写进这里的：模块级"3 分钟上手"</h2>
     <p class="lead">每个运行期模块的代码目录里都自带一份短 README（离代码最近，改代码时会顺手看到）。在 IDE 或 GitHub 里打开：</p>
     <table>
       <tr><th>模块</th><th>文件</th></tr>

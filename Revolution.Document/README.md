@@ -45,6 +45,17 @@
 - `index.html` —— 文档总入口（= 在线站首页，带搜索）
 - `预览文档.cmd` —— 本地预览脚本（等价于在线站）
 
+## 扩展包（不属于框架本体，按需安装）
+
+| 包 | 《使用说明》（手把手） | 《架构解析》（设计论证） | 《技术方案》（要不要做、怎么做） |
+|---|---|---|---|
+| 🔄 资源热更新（RevHotUpdate） | [网页](https://yokino337088.github.io/Revolution/热更新/RevHotUpdate使用说明.html) · [md](热更新/RevHotUpdate使用说明.md) | [网页](https://yokino337088.github.io/Revolution/热更新/RevHotUpdate架构解析.html) · [md](热更新/RevHotUpdate架构解析.md) | [网页](https://yokino337088.github.io/Revolution/热更新/RevHotUpdate技术方案.html) · [md](热更新/RevHotUpdate技术方案.md) |
+
+> 独立包 `Assets/Revolution.HotUpdate/`（程序集 `Revolution.HotUpdate`）：**导入即有、不导入零影响** ——
+> 给框架只加了两个默认为 `null` 的钩子（加载路径重定向 / 映射表覆盖），业务加载代码一行不用改。
+> 能力：清单驱动版本比对与差量下载、断点续传、多源降级、尺寸 + SHA-256 校验、版本目录原子切换与回滚、
+> 首包落地（Android）、URL 模式（小游戏）；明确不做代码热更、加密、二进制差量、灰度。
+
 ## 建议阅读顺序
 
 1. **日志系统** → 2. **计时器系统** → 3. **公共 Mono 模块**（这三篇决定"怎么观察、怎么排时序"）

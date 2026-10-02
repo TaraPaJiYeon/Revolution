@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RevHotUpdate · 资源热更新系统技术方案</title>
+<style>
+  :root{
+    --accent:#2F6FED; --accent-soft:#EAF1FE;
+    --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+    --text:#1F2329; --text-sub:#6B7280;
+    --good:#12A150; --good-soft:#E8F8EF;
+    --warn:#B7791F; --warn-soft:#FDF6E3;
+    --bad:#D93F31;  --bad-soft:#FDECEA;
+    --code-bg:#1E2430; --code-fg:#D7DEEA;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--page); color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:44px 24px 38px;}
+  .hero .wrap{max-width:1080px;margin:0 auto;}
+  .hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+  .hero h1{margin:0 0 10px;font-size:30px;line-height:1.35;font-weight:700;}
+  .hero p{margin:0;color:rgba(255,255,255,.92);font-size:14px;}
+  .hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+  .hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+
+  main{max-width:1080px;margin:0 auto;padding:26px 24px 70px;}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;}
+  h2{font-size:20px;margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  h2 .num{flex:0 0 auto;min-width:28px;height:28px;line-height:28px;text-align:center;border-radius:8px;
+    background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 5px;}
+  h3{font-size:16px;margin:26px 0 10px;}
+  h3:first-of-type{margin-top:6px;}
+  h4{font-size:14.5px;margin:20px 0 8px;color:#33415C;}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+    background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+  .toc{background:#FBFCFE;}
+  .toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px 22px;}
+  .toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+  .toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  thead th{background:#F3F6FB;font-weight:700;white-space:nowrap;}
+  tbody tr:nth-child(even){background:#FAFBFD;}
+  tbody tr:hover{background:#F1F6FF;}
+  td.c,th.c{text-align:center;white-space:nowrap;}
+
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14px;
+    border-left:4px solid var(--accent);background:var(--accent-soft);}
+  .callout.good{border-left-color:var(--good);background:var(--good-soft);}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+  .callout p:first-child{margin-top:0;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+  pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;margin:14px 0;}
+  pre .c{color:#7D8CA6;}
+  pre .k{color:#8FB8FF;}
+  pre .s{color:#A5D6A7;}
+  pre .n{color:#FFB86C;}
+  pre b{color:#FFD479;font-weight:700;}
+
+  footer{max-width:1080px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:23px;}
+    section{padding:18px 16px;}
+  }
+  @media print{
+    body{background:#fff;font-size:12px;}
+    .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+    .hero .kicker,.hero .meta{color:#333;}
+    section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+    pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+    .toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">技术方案 · 已实现</span>
+    <h1>RevHotUpdate · 资源热更新系统技术方案</h1>
+    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/RevHotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3254 行 + 编辑器 2 个 <code>.cs</code> / 429 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（与本文写作时的 <code>Assets/RevHotUpdate/</code> 是同一个包，仅目录名不同）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
+  </div>
+</header>
+
+<main>
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#s0">〇、结论速览</a></li>
+      <li><a href="#s1">一、需求拆解与边界</a></li>
+      <li><a href="#s2">二、现状盘点：框架已经给了什么、缺什么</a></li>
+      <li><a href="#s3">三、三个必须承认的硬事实（可行性的关键判断）</a></li>
+      <li><a href="#s4">四、总体架构</a></li>
+      <li><a href="#s5">五、核心设计逐项论证</a></li>
+      <li><a href="#s6">六、对外 API 草案（业务只用 3 个入口）</a></li>
+      <li><a href="#s7">七、开发计划（4 阶段 + 验收标准）</a></li>
+      <li><a href="#s8">八、验证方案</a></li>
+      <li><a href="#s9">九、风险与对策</a></li>
+      <li><a href="#s10">十、与 YooAsset 的对照</a></li>
+      <li><a href="#s11">十一、框架侧需要的最小改动（diff 草案 + 零改动退路）</a></li>
+      <li><a href="#s12">十二、目录与产出物清单</a></li>
+      <li><a href="#s13">十三、需要拍板的 5 个决策（每条已给推荐）</a></li>
+      <li><a href="#s14">十四、按包标记来源的简化方案（第一档：分工层）</a></li>
+      <li><a href="#s15">十五、最终推荐方案（一页纸，照这个做）</a></li>
+      <li><a href="#s16">十六、版本模型：大版本锚定（大版本内热更，跨大版本重出包）</a></li>
+      <li><a href="#s17">十七、平台核实：Android / 小程序上还需要"路径重定向"吗？</a></li>
+      <li><a href="#s18">十八、存储与 CDN 选型（Android + 小程序）</a></li>
+      <li><a href="#s19">附录 A：清单样例全文</a></li>
+      <li><a href="#s20">附录 B：一次完整热更的日志长什么样</a></li>
+      <li><a href="#s21">附录 C：实施顺序建议（最不容易返工的顺序）</a></li>
+    </ol>
+  </nav>
+
+  <!-- ==================== 〇、结论速览 ==================== -->
+  <section id="s0">
+    <h2><span class="num">0</span>结论速览</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>维度</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td><b>可行性</b></td><td>✅ <b>高</b>。框架的 AB 链路已经完成了热更最难的部分（依赖递归、包级引用计数、并发合并、异步加载），热更包只需要补"清单 + 下载 + 版本目录 + 路径重定向"四件事</td></tr>
+          <tr><td><b>要不要改框架</b></td><td>⚠️ <b>建议改 2 处，共约 15 行</b>（都是"默认 null = 行为与现在完全一致"的钩子）。坚持不改也能做，但代价很明确（见第十一章）</td></tr>
+          <tr><td><b>代码量估算</b></td><td>运行时 ≈ 1600 行（含约 35% 注释）+ 编辑器工具 ≈ 600 行 + demo/文档</td></tr>
+          <tr><td><b>工期估算</b></td><td>阶段 1（可用最小闭环）3~4 天；到"能上项目"12~15 天（含真机验证与文档）</td></tr>
+          <tr><td><b>第三方依赖</b></td><td>✅ <b>0 个</b>。只用 Unity 内置 <code>UnityWebRequest</code> + 框架自带 <code>RevTask</code>；清单用自研行式文本（连 JSON 库都不需要）</td></tr>
+          <tr><td><b>业务改造量</b></td><td>✅ <b>资源加载 API 一行不改</b>（仍是 <code>RevResManager.Load/LoadAsync/Release</code>）；只在启动流程加 1 个 <code>await RevHotUpdate.InitializeAsync(...)</code></td></tr>
+          <tr><td><b>最大价值</b></td><td>不需要把业务迁到 YooAsset 的资源 API；热更是"加一层"，不是"换一套"</td></tr>
+          <tr><td><b>最大风险</b></td><td>iOS 审核合规（纯资源热更 OK，代码热更不行 —— 本方案不做代码热更，方向一致）；Android 首包的 jar 路径问题（第三章 3.3、14.6 有解）</td></tr>
+          <tr><td><b>推荐起步方式</b></td><td>⭐ <b>先做第十四章的"分工层"</b>（编辑器里标哪些包走热更 + 持久化优先/内置兜底）—— 它是本文档阶段 1~4 的真子集，3~4 天可独立验收，后续加下载层不返工</td></tr>
+          <tr><td><b>最终推荐</b></td><td>⭐⭐ <b>第十五章"一页纸"</b>：9 条设计决策（都附"为什么这样最稳"）+ 分期落地 + "为了稳"12 条清单 + "千万别做"8 条清单</td></tr>
+          <tr><td><b>版本模型</b></td><td>⭐ <b>大版本锚定</b>（第十六章）：<b>大版本内</b>用本框架热更资源；<b>跨大版本</b>必须重新出包（=<code>Application.version</code> 变化）。这让"基线""回滚""清单"三件事同时变简单，也是王者那套的做法</td></tr>
+          <tr><td><b>存储/CDN</b></td><td>⭐ <b>对象存储 + CDN</b>，首选 <b>腾讯云 COS + CDN</b>（与微信小游戏同生态、国内社区实践最多），次选阿里云 OSS + CDN；客户端只认"一个 HTTPS 域名 + 路径模板"，<b>不引任何云 SDK</b>（第十八章）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>一句话</b>：这不是"再造一个 YooAsset"，而是<b>把框架 README 里已经写明的那条扩展路（<code>IRevResPolicy</code> + <code>IRevResLoader</code>）真正做出来</b>，并且做得连策略都不用换 —— 只换"包从哪来"。</p>
+  </section>
+
+  <!-- ==================== 一、需求拆解与边界 ==================== -->
+  <section id="s1">
+    <h2><span class="num">1</span>需求拆解与边界</h2>
+    <h3>1.1 你提的 7 件事，逐条落到能力</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>需求</th><th>落地成什么</th><th>归属</th></tr></thead>
+        <tbody>
+          <tr><td>① 重定向 AB <b>下载路径</b></td><td>配置里的 <code>RemoteRoot</code> + <code>FallbackRoots</code>（多源降级），一个字符串换环境（测试/预发/正式）</td><td>RevHotUpdate</td></tr>
+          <tr><td>② 重定向 AB <b>加载路径</b></td><td>运行时"<b>持久化目录优先 → StreamingAssets 兜底</b>"的路径解析（WebGL 直接给 CDN URL）</td><td>RevHotUpdate + 框架 1 个钩子</td></tr>
+          <tr><td>③ 从<b>腾讯云 COS / 阿里云 OSS</b> 下载</td><td>只做"HTTPS 直链下载 + 签名 URL + 自定义 Header"；<b>不引任何云厂商 SDK</b>（见 5.9）</td><td>RevHotUpdate</td></tr>
+          <tr><td>④ 对标 <b>YooAsset</b></td><td>取它的 Online 模式：清单 → 版本比对 → 差量下载 → 校验 → 落地 → 加载。砍掉收集器/多运行模式/报告系统/加密/灰度（见第十章对照）</td><td>RevHotUpdate</td></tr>
+          <tr><td>⑤ <b>轻量</b></td><td>无第三方依赖、清单是行式文本、下载落盘不占内存、复用框架的包管理与异步</td><td>RevHotUpdate</td></tr>
+          <tr><td>⑥ <b>热插拔</b>（导入就有、不导入零影响）</td><td>独立 asmdef + 零静态构造 + 框架钩子默认 null + 卸载即删目录（见 4.3）</td><td>设计约束</td></tr>
+          <tr><td>⑦ <b>基于框架现有 AB 管理方式</b></td><td>复用 <code>RevABLoader</code>（包级引用计数 / 依赖递归 / 并发合并）+ <code>RevABResPolicy</code>（映射表）+ <code>RevResManager</code>（资源级引用计数）</td><td>集成方式</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>1.2 明确不做（边界清单，附理由）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>不做</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>❌ <b>代码热更</b>（HybridCLR / ILRuntime）</td><td>那是另一条技术线（要改 IL2CPP 与程序集拆分、iOS 审核风险最高）。本方案<b>不堵这条路</b>：热更下来的 dll 就是普通资源，打进 AB 后用 <code>RevResManager</code> 读 <code>bytes</code> → <code>Assembly.Load</code> 即可（见 5.13 的 10 行示意）</td></tr>
+          <tr><td>❌ AB <b>加密 / 防篡改签名</b></td><td>AB 本来就是可解包的二进制，加密只提高门槛、不解决根本问题，且会让"体积/加载耗时/排查难度"三样一起涨。需要时作为独立可选模块（钩子已留）</td></tr>
+          <tr><td>❌ <b>二进制级差量</b>（bsdiff / 按 chunk 打补丁）</td><td>收益不稳定（LZ4 已经块压缩，改一张图就会波及多个块），实现与验证成本极高。<b>做包级差量</b>：只重下"内容变了的包"（5.3）</td></tr>
+          <tr><td>❌ <b>灰度发布 / 分渠道分流</b></td><td>属于运营后台能力。本方案只提供 <code>Channel</code> 目录段（<code>.../&lt;平台&gt;/&lt;渠道&gt;/</code>），分流策略由你们的 CDN/服务端做</td></tr>
+          <tr><td>❌ <b>依赖 COS/OSS 的 ListObjects</b></td><td>对象的"目录列表"要么要权限、要么有延迟，且无法表达"原子切换" —— <b>清单是唯一真相</b>（5.2）</td></tr>
+          <tr><td>❌ 运行时多线程下载</td><td>主线程发 <code>UnityWebRequest</code> 即可（Unity 内部自带 IO 线程）；重活（大文件 hash）用"分帧流式"处理，避免卡帧（5.5）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 二、现状盘点：框架已经给了什么、缺什么 ==================== -->
+  <section id="s2">
+    <h2><span class="num">2</span>现状盘点：框架已经给了什么、缺什么</h2>
+    <h3>2.1 ✅ 已具备（都有代码证据，可直接复用）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>能力</th><th>出处（相对 <code>Assets/Revolution/</code>）</th><th>对热更的价值</th></tr></thead>
+        <tbody>
+          <tr><td><b>逻辑名 → 包名+资源名 的映射表</b></td><td><code>Resources/ResourceSystem/ResMap.txt</code>（每行 <code>逻辑名|包名|资源名</code>）；解析在 <code>Runtime/RevResourceSystem/Support/RevResBootstrap.cs:100-127</code></td><td>热更的"资源坐标"只需重定向到新表，<b>业务路径不变</b></td></tr>
+          <tr><td><b>策略链（责任链 + 兜底）</b></td><td><code>Interfaces/IRevResPolicy.cs</code>（<code>Match</code> / <code>MapPath</code> / <code>CreateLoader</code> / <code>AllowFallback</code>）</td><td>天然支持"新包找不到 → 落回旧包/Resources"的降级</td></tr>
+          <tr><td><b>AB 策略</b></td><td><code>Implementation/Policies/RevABResPolicy.cs:38-74</code>（构造 = 映射表 + 加载器；除 <code>Res/</code> 前缀外全接管；<code>AllowFallback = true</code>）</td><td>可直接 <code>new RevABResPolicy(热更表, loader)</code> 复用</td></tr>
+          <tr><td><b>AB 加载器（核心资产）</b></td><td><code>Implementation/Loaders/RevABLoader.cs</code>：包级引用计数 <code>AcquireSingle/ReleaseSingle</code>(:164-218)、依赖递归 <code>AcquireBundle</code>(:131-151)、并发合并 <code>_loading</code>(:49,:478+)、异步统一 <code>RevTask</code>(:284,:307)、主包 Manifest(:90-109,:390-433)、平台分派(:113-128,:442-459)</td><td><b>热更最难的部分已经写完了</b>：我们只需要让它"从哪读"可变</td></tr>
+          <tr><td><b>资源级引用计数 / 分组 / 缓存 / 延迟释放</b></td><td><code>Core/RevResManager.cs</code>（<code>RegisterPolicy</code> :55、缓存 <code>_cache</code>、<code>UnloadGroup</code>、<code>FlushUnused</code> :486、<code>UnloadAll</code> :645）</td><td>业务 API 完全不变，内存纪律沿用现成的一套</td></tr>
+          <tr><td><b>包释放的挂钩点</b></td><td><code>Core/RevResManager.cs:671-681</code> → <code>handle.BundleLoader.ReleaseBundle(bundleName)</code>；字段 <code>Core/RevResHandle.cs:41-43</code></td><td><b>关键约束</b>：包释放依赖 <code>handle.BundleLoader</code>（具体类型 <code>RevABLoader</code>）—— 这决定了"必须复用框架的加载器"（见 3.1）</td></tr>
+          <tr><td><b>启动装配</b></td><td><code>Support/RevResBootstrap.cs:62-98</code>（<code>ClearAllPolicies</code> → 注册策略 → 启动自动卸载门卫）</td><td>热更包只需在 <code>Init()</code> 之前设好钩子，装配逻辑原样复用</td></tr>
+          <tr><td><b>打包工具链</b></td><td><code>Editor/RevResourceSystem/ABTool/</code>：<code>Pipeline/ABBuilderCore.cs</code>（打包 + 拷 StreamingAssets）、<code>ABManifestWriter.cs</code>（写 <code>ResMap.txt</code> + <code>BuildManifest.json</code>）、<code>ABDependencyAnalyzer.cs</code>、<code>ABCIBuild.cs</code>（无头 CI）、<code>Core/ABBuildSetting.cs:31,66-87</code>（<code>AssetBundles/&lt;平台&gt;</code> 与平台名规则）</td><td>热更清单由<b>我们的编辑器工具从这些产物里生成</b>，框架工具一行不改</td></tr>
+          <tr><td><b>异步 / 取消 / 日志</b></td><td><code>Runtime/RevTask/</code>（<code>RevTask&lt;T&gt;</code>、<code>RevTaskCompletionSource&lt;T&gt;</code>、<code>WhenAll</code>、<code>Delay</code>：<code>RevTask.cs:64-95</code>；<code>RevCancellationToken</code>：<code>RevCancellation.cs:31-54</code>；<code>await AsyncOperation</code>：<code>RevTaskUnityExtensions.cs:28-40</code>）、<code>RevLog</code></td><td>下载层的并发/重试/超时/进度全部建立在既有异步设施上，不用引 UniTask</td></tr>
+          <tr><td><b>无第三方依赖</b></td><td><code>Packages/manifest.json</code> 已含 <code>com.unity.modules.unitywebrequest</code> / <code>unitywebrequestassetbundle</code></td><td>下载能力开箱可用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>2.2 ❌ 缺的（本方案要补的，全在"包外"）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>缺口</th><th>影响（今天的实际表现）</th><th>本方案的补法</th></tr></thead>
+        <tbody>
+          <tr><td><b>加载根目录写死</b></td><td><code>RevABLoader.cs:61</code> 的 <code>StreamingRoot</code> 是 <code>private static</code>，只指向 <code>StreamingAssets/&lt;平台名&gt;/</code>；<code>LoadBundle</code>(:113) / <code>LoadBundleAsync</code>(:442) 是私有静态 —— 外部无法重定向</td><td>框架加 1 个静态钩子 <code>BundlePathResolver</code>（11 章 diff），热更包注入"本地优先"解析</td></tr>
+          <tr><td><b>无下载器 / 无 HTTP 层</b></td><td>全仓库只有 WebGL 分支里一处 <code>UnityWebRequest</code>（读本机 StreamingAssets）</td><td>新增 <code>RevHotDownloader</code>（并发、重试、退避、超时、多源、Range 续传）</td></tr>
+          <tr><td><b>无版本清单（无 hash / crc / 依赖字段）</b></td><td><code>BuildManifest.json</code>（<code>ABManifestWriter.cs:56-70</code>）只有 <code>version/platform/buildTime/name/size</code></td><td>新增 <code>RevHotManifest</code>：包级 <code>hash/size/deps/tags</code> + <code>ResMap</code> 也作为热更文件登记</td></tr>
+          <tr><td><b>无版本目录 / 无回滚 / 无断点续传</b></td><td>没有任何 <code>persistentDataPath</code> 相关代码（只有 <code>RevLog</code> 落盘用）</td><td><code>RevHotStore</code>：版本目录 + <code>current</code> 指针 + <code>.tmp</code> + 原子提交 + 保留 2 版（5.1）</td></tr>
+          <tr><td><b>ResMap 不能热更</b></td><td>它在包体的 <code>Resources</code> 里（只读）→ <b>"新增资源"这件事根本做不到</b></td><td>框架加 1 个钩子 <code>ResMapOverride</code>，热更表覆盖内置表（5.7）</td></tr>
+          <tr><td><b>Android 首包读不出来</b></td><td><code>RevABLoader.cs:119-121</code> 在 Android 上用 <code>AssetBundle.LoadFromFile(streamingAssetsPath + ...)</code>，而 Android 的 StreamingAssets 在 <b>APK 内部</b>（<code>jar:file://...</code>），不是真实文件路径</td><td>首包<b>落地方案</b>：首次启动把内置包用 <code>UnityWebRequest</code> 拷到 <code>persistentDataPath</code>（5.1.4），此后一切加载都走持久化目录</td></tr>
+          <tr><td><b>无失败可观测</b></td><td>失败原因枚举 <code>RevResLoadErrorReason</code>（<code>Core/RevResDefine.cs:96-106</code>）是框架固定的 8 个值，热更的"校验失败/磁盘满/清单过期"塞不进去</td><td>热更自有 <code>RevHotError</code> 枚举 + <code>RevLog</code>（tag <code>HotUpdate</code>）+ <code>Dump()</code>；对框架只映射成 <code>BundleLoadFail</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>2.3 一句话总结现状</h3>
+    <div class="callout">
+      <span class="t">缺的全部在"包外"（清单 / 下载 / 磁盘 / 路径），"包内"的加载逻辑（依赖、引用计数、异步、卸载）可以原样复用。</span>
+      <p>这就是"轻量"的底气 —— 我们不是在写资源框架，只是在给现有资源框架装一个"进料口"。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 三、三个必须承认的硬事实（可行性的关键判断） ==================== -->
+  <section id="s3">
+    <h2><span class="num">3</span>三个必须承认的硬事实（可行性的关键判断）</h2>
+    <h3>3.1 事实一：复用框架加载器 = 需要一个"路径钩子"，而且这是<b>唯一</b>的正确接法</h3>
+    <p>证据链（三步）：</p>
+    <ol>
+      <li><code>RevABLoader.LoadBundle(string)</code> / <code>LoadBundleAsync(string)</code> 是 <b>private static</b>，路径由 <b>private static</b> <code>StreamingRoot</code> 拼出（<code>RevABLoader.cs:61,113,442</code>）→ 外部无法重定向；
+      </li>
+      <li>包级引用计数、依赖递归、并发合并、异步全在 <code>RevABLoader</code> 内部（<code>_bundles</code> / <code>_loading</code>）→ 重写一遍等于重写整个加载器（约 460 行，且要重做平台分派）；
+      </li>
+      <li>释放链路是 <code>RevResManager.ReleaseBundleOf(handle)</code> → <code>handle.BundleLoader.ReleaseBundle(name)</code>，而 <code>handle.BundleLoader</code> 的类型是<b>具体类 <code>RevABLoader</code></b>、字段是 <code>internal</code>（<code>RevResHandle.cs:41-43</code>、<code>RevResManager.cs:671-681</code>）→ <b>自定义加载器无法参与这套生命周期管理</b>（连"把引用挂到句柄上"都做不到，<code>internal</code> 挡住）。
+      </li>
+    </ol>
+    <p>结论：</p>
+    <ul>
+      <li><b>方案 A（推荐）</b>：框架给 <code>RevABLoader</code> 加一个静态钩子 <code>BundlePathResolver</code>（约 8 行，默认 null 行为不变）→ 热更包零侵入复用整条加载链路，<code>RevResBootstrap.ShutdownAll()</code> 也能正常释放我们的包；
+      </li>
+      <li><b>方案 B（零改动退路）</b>：热更包自研 policy + loader，自己维护包级引用计数 —— 因为拿不到"资源释放"的回调（<code>BundleAcquired</code> 是 <code>internal</code>），只能自己扫 <code>RevResManager.CachedHandles</code>（公开）+ <code>handle.RealPath</code>（公开，格式 <code>包名|资源名</code>）反推存活集合，<b>在版本切换/回登录时手动触发包回收</b>。功能能跑通，但代码量约 +250 行、生命周期语义变模糊、且和框架的自动卸载门卫存在时序耦合。
+      </li>
+    </ul>
+    <h3>3.2 事实二：ResMap 必须能热更，否则"新增资源"做不到</h3>
+    <p>今天的链路：<code>RevResBootstrap.LoadResMap()</code> 从 <b><code>Assets/Revolution/Resources/ResourceSystem/ResMap.txt</code></b> 读表 → 这张表随包体发布、<b>运行时只读</b>。</p>
+    <p>如果热更只更新 AB 包、不更新映射表，那么"这次热更新增了一张 UI 图"这件事就没有任何办法被业务加载到（逻辑路径根本查不到）→ 产品上表现为"热更成功但新资源加载失败"。</p>
+    <p>所以 <code>ResMap.txt</code> <b>必须作为热更文件之一下发</b>，并在加载器建表时覆盖内置表（策略：<b>热更表优先 + 内置表兜底</b>，见 5.7）。这需要框架的第 2 个钩子（<code>RevResBootstrap.ResMapOverride</code>）。</p>
+    <h3>3.3 事实三：Android 的首包不能直接 <code>LoadFromFile</code>（jar 路径问题）</h3>
+    <ul>
+      <li>桌面 / iOS：<code>Application.streamingAssetsPath</code> 是<b>真实文件目录</b> → <code>AssetBundle.LoadFromFile</code> 可用（框架现状 OK）；
+      </li>
+      <li><b>Android</b>：<code>streamingAssetsPath == "jar:file:///data/app/&lt;包名&gt;.apk!/assets"</code> → <code>File.Exists</code> / <code>LoadFromFile</code> 都不是文件系统语义（框架 <code>RevABLoader.cs:119-121</code> 的注释也承认"File.Exists 不可用，直接尝试加载"，实际能否成功取决于 AB 是否被 APK 压缩，<b>不可靠</b>）；
+      </li>
+      <li>WebGL：没有本地文件概念 → 只能 <code>UnityWebRequest</code>（框架已按这个分支实现）。
+      </li>
+    </ul>
+    <p><b>解法（本方案的核心设计之一）</b>：</p>
+    <div class="callout">
+      <span class="t">首包也落地</span>
+      <p>。首次启动时，把内置在 StreamingAssets 里的首包 AB 用 <code>UnityWebRequest</code> 拷进 <code>persistentDataPath</code>（Android 上 <code>UnityWebRequest</code> 读 jar 内文件是可行的），此后<b>所有平台的加载路径统一为"持久化目录"</b>，<code>StreamingAssets</code> 只作为"首包来源"。</p>
+      <p>好处：一条加载路径打平三平台（桌面/iOS 也可以选择"不拷贝、直接读 StreamingAssets"以省磁盘，配置项控制，见 5.1.4）。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 四、总体架构 ==================== -->
+  <section id="s4">
+    <h2><span class="num">4</span>总体架构</h2>
+    <h3>4.1 分层与数据流</h3>
+    <pre>                      ┌──────────────────────── 业务只碰这一层 ────────────────────────┐
+                      │   await RevHotUpdate.InitializeAsync(config, onProgress)       │
+                      │   （之后照旧：RevResManager.LoadAsync&lt;Sprite&gt;(路径, cb, 分组)）│
+                      └───────────────────────────────┬───────────────────────────────┘
+                                                      │
+   ┌──────────────────────── 热更包 Revolution.HotUpdate（新增）────────────────────────┐
+   │  门面 RevHotUpdate ── CheckAsync 检查更新 → UpdateAsync 下载 → Install 装钩子      │
+   │      │                                                                           │
+   │      ├─ 清单层 RevHotManifest（解析/序列化/版本比对；纯 C#，可工程外断言）          │
+   │      ├─ 下载层 RevHotDownloader（并发 3 / 重试 / 退避 / 超时 / 多源 / Range 续传）  │
+   │      ├─ 校验层 RevHotVerifier（尺寸 + SHA-256 流式分帧；可选复用 .manifest 的 CRC） │
+   │      ├─ 存储层 RevHotStore（版本目录 / tmp / 原子提交 / current 指针 / 清理）       │
+   │      └─ 桥接层 RevHotResBridge（设框架的 2 个静态钩子 → 触发一次 RevResBootstrap.Init）│
+   └───────────────────────────────┬───────────────────────────────────────────────────┘
+                                   │  钩子（默认 null，不装热更包时行为与现在完全一致）
+   ┌───────────────────────────────▼───────────── 框架 Revolution.Runtime（不改加载逻辑）┐
+   │  RevResBootstrap.Init → RevABResPolicy(映射表, RevABLoader) → RevResourcesResPolicy  │
+   │  RevABLoader：依赖递归 / 包级引用计数 / 并发合并 / RevTask 异步 / 平台分派            │
+   │  RevResManager：资源级引用计数 / 分组卸载 / 缓存 / 延迟释放                          │
+   └─────────────────────────────────────────────────────────────────────────────────────┘
+
+   远端（COS / OSS / CDN）：
+     {RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/RevHotManifest.txt   ← 版本清单（唯一真相，最后上传）
+     {RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/bundles/hero          ← AB 包（内容寻址，可长缓存）
+     {RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/ResMap.txt            ← 映射表（热更它 = 支持新增资源）
+     ★ "大版本"这一段是隔离墙：旧客户端的请求永远落在自己的目录里（见第十六章）</pre>
+    <h3>4.2 包目录结构（新增，与框架/示例并列）</h3>
+    <pre>Assets/RevHotUpdate/
+├── package.json                          # 可选：UPM 发布用（name: com.revolution.hotupdate）
+├── README.md                             # 3 分钟上手
+├── Runtime/                              # asmdef: Revolution.HotUpdate（references: Revolution.Runtime）
+│   ├── Facade/RevHotUpdate.cs            # 业务唯一入口：CheckAsync / UpdateAsync / Install / Progress
+│   ├── Core/
+│   │   ├── RevHotConfig.cs               # 配置（远端根 / 多源 / 并发 / 超时 / 校验 / 保留版本数…）
+│   │   ├── RevHotManifest.cs             # 清单数据结构 + 解析 + 序列化（纯 C#）
+│   │   ├── RevHotBundleInfo.cs           # 单个包：name/hash/size/deps/tags/builtin
+│   │   ├── RevHotVersion.cs              # 版本号 + 平台 + minApp + 比较规则（纯 C#）
+│   │   ├── RevHotPlan.cs                 # 差量计划：新增/变更/删除 三集合 + 需要下载的字节数
+│   │   └── RevHotError.cs                # 失败原因枚举（热更自有，映射到框架的 BundleLoadFail）
+│   ├── Download/
+│   │   ├── RevHotDownloader.cs           # 并发调度 + 重试/退避 + 进度聚合
+│   │   ├── RevHotSource.cs               # 下载源（主源 + 备用源，失败自动切换）
+│   │   └── RevHotUrlBuilder.cs           # URL 拼装（远端根 + 平台 + 渠道 + 相对路径）
+│   ├── Pipeline/
+│   │   ├── RevHotVerifier.cs             # 校验（size / SHA-256 流式分帧 / 可选 CRC）
+│   │   └── RevHotStore.cs                # 盘上布局：版本目录 / tmp / 原子提交 / 清理 / 首包落地
+│   ├── Integration/
+│   │   └── RevHotResBridge.cs            # 设框架钩子 + 调 RevResBootstrap.Init + 版本切换时的清理顺序
+│   └── Support/
+│       └── RevHotUpdateUnityHooks.cs     # 进 Play 复位钩子、清理残留 tmp（域重载纪律）
+└── Editor/                               # asmdef: Revolution.HotUpdate.Editor（includePlatforms: [Editor]）
+    ├── RevHotManifestBuilder.cs          # 读 AssetBundles/&lt;平台&gt; + *.manifest + ResMap.txt → 生成清单
+    ├── RevHotUploadKit.cs                # 产出上传目录 + 生成上传命令（coscmd/ossutil/aws-cli 均可）
+    └── Window/RevHotUpdateWindow.cs      # 面板：选平台/版本 → 生成清单 → 校验 → 打开目录 → 导出上传脚本</pre>
+    <div class="callout">
+      <p>三处配套（可选但强烈建议，与既有工程习惯一致）：</p>
+      <p>1. <code>.github/workflows/sync-hotupdate-branch.yml</code>（照 <code>sync-package-branch.yml</code> 的写法，把 <code>Assets/RevHotUpdate/</code> 同步到 <code>hotupdate</code> 分支，别人一条命令就能装上）；</p>
+      <p>2. <code>Assets/Revolution.Demo/RevHotUpdate.Demo/</code>（联调场景 + 本地静态 HTTP 服务器脚本 <code>起本地CDN.cmd</code>，无需真云也能跑通全链路）；</p>
+      <p>3. 本文档的 HTML 版（文档站可点开，md 先落地）。</p>
+    </div>
+    <h3>4.3 热插拔的 4 条机制（"不导入就零影响"怎么保证）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>机制</th><th>做法</th><th>不满足会怎样</th></tr></thead>
+        <tbody>
+          <tr><td><b>独立程序集</b></td><td><code>Assets/RevHotUpdate/</code> 自带 asmdef，<code>references: ["Revolution.Runtime"]</code>，反向零引用</td><td>混进框架程序集 → 删不掉</td></tr>
+          <tr><td><b>零静态构造 / 零 Update</b></td><td>门面是静态类，但只有业务调 <code>InitializeAsync</code> 才会动；不注册任何 <code>[RuntimeInitializeOnLoadMethod]</code> 之外的东西，且钩子里只做"复位"</td><td>导入即产生启动开销</td></tr>
+          <tr><td><b>框架钩子默认 null</b></td><td>两个钩子都是 <code>public static Func&lt;...&gt; = null</code>，不设置时走原逻辑（并有断言守护"未设置时路径 = 旧行为"）</td><td>框架行为被静默改变</td></tr>
+          <tr><td><b>卸载 = 删目录</b></td><td>删 <code>Assets/RevHotUpdate/</code> + 删启动流程里那一行 <code>await RevHotUpdate.InitializeAsync(...)</code>，钩子再没人设 → 框架回到"只读 StreamingAssets"</td><td>留一地残留</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 五、核心设计逐项论证 ==================== -->
+  <section id="s5">
+    <h2><span class="num">5</span>核心设计逐项论证</h2>
+    <h3>5.1 盘上布局与版本目录</h3>
+    <h4>5.1.1 目录结构</h4>
+    <pre>{persistentDataPath}/RevHotUpdate/                 ← 默认加载根（可配置 LocalRootOverride）
+├── current.txt                                     ← 当前生效的版本号（一行文本；原子替换）
+├── &lt;平台&gt;/                                         ← PC / Android / iOS / WebGL（WebGL 不用这条）
+│   ├── 1.0.3/                                      ← 版本目录（只读语义：写完就不再改）
+│   │   ├── RevHotManifest.txt                      ← 本次生效的清单副本（排查用，加载时读它）
+│   │   ├── ResMap.txt                              ← 热更映射表（5.7）
+│   │   ├── bundles/hero                            ← AB 包（文件名 = 包名，与框架一致）
+│   │   ├── .tmp/hero.part                          ← 下载中的半成品（同一个包一个文件，天然续传）
+│   │   └── .stamp                                  ← 版本完成标记（所有文件校验通过后才写）
+│   └── 1.0.2/                                      ← 上一个版本（保留 N 份，默认 2；回滚用）
+└── .lock                                           ← 单实例锁（防止两个进程同时写版本目录）</pre>
+    <h4>5.1.2 三条纪律</h4>
+    <ol>
+      <li><b>版本目录只写一次</b>：所有文件下载 + 校验完成 → 写 <code>.stamp</code> → 才更新 <code>current.txt</code>；<b>半成品版本永远不会被加载</b>（加载只认 <code>current.txt</code> 指向且带 <code>.stamp</code> 的目录）。
+      </li>
+      <li><b><code>current.txt</code> 用"写临时文件 + 替换"的方式更新</b>（<code>File.Replace</code> / 先删后移），避免断电写出半行文本。
+      </li>
+      <li><b>清理规则</b>：启动时删掉 <code>临时目录</code> 里超过 7 天的 <code>.part</code>（上次没下完的），并保证"当前版本 + 上 1 个版本"之外的老版本目录被删（可配置 <code>KeepVersions</code>）。
+      </li>
+    </ol>
+    <h4>5.1.3 加载路径解析（钩子的实现）</h4>
+    <pre><span class="c">// RevHotStore.ResolveBundlePath（热更包内，静态方法 —— 不捕获实例，避免域重载后指向死对象）</span>
+<span class="k">internal</span> <span class="k">static</span> <span class="k">string</span> ResolveBundlePath(<span class="k">string</span> bundleName)
+{
+    <span class="c">// ① 当前生效版本目录里有 → 用它（热更下来的新包）</span>
+    <span class="k">string</span> hot = Path.Combine(CurrentVersionDir, <span class="s">"bundles"</span>, bundleName);
+    <span class="k">if</span> (File.Exists(hot)) <span class="k">return</span> hot;
+
+    <span class="c">// ② 没有 → 首包兜底（桌面/iOS 的 StreamingAssets 是真文件；Android 已在首启落地到 persistentDataPath）</span>
+    <span class="k">return</span> Path.Combine(FirstPackageDir, bundleName);   <span class="c">// 见 5.1.4</span>
+}</pre>
+    <p>要点：</p>
+    <ul>
+      <li><b>"本地优先 + 首包兜底"</b> 意味着<b>只下载变化过的包</b>，磁盘不再是"整份资源 × 2"；
+      </li>
+      <li>WebGL 下这个函数直接返回 <code>{RemoteRoot}/{平台}/bundles/{包名}</code>（远端 URL，框架的 WebGL 分支本身就吃 URL）→ <b>WebGL 连落盘都不需要</b>；
+      </li>
+      <li>返回 <code>null</code> 表示"让它走框架默认路径"（存在这种场景：业务临时关掉热更）。
+      </li>
+    </ul>
+    <h4>5.1.4 首包（内置资源）的三种模式</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模式</th><th>做法</th><th>适用</th><th>磁盘代价</th></tr></thead>
+        <tbody>
+          <tr><td><b>A. 首包落地（Android 必选；也是默认）</b></td><td>首次启动：读内置清单 → 把 StreamingAssets 里的包用 <code>UnityWebRequest</code> 拷到 <code>persistentDataPath/RevHotUpdate/_builtin/&lt;平台&gt;/</code>（已存在且 hash 一致就跳过）</td><td>Android（jar 路径）；想统一三平台加载路径的项目</td><td>首包体积 × 2（可用"启动后清理"或"首包只放核心包"来降）</td></tr>
+          <tr><td><b>B. 直接读 StreamingAssets</b></td><td>不拷贝，钩子返回 <code>streamingAssetsPath</code> 路径</td><td>桌面 / iOS（真实文件目录）</td><td>0</td></tr>
+          <tr><td><b>C. 首包也为空（纯远端）</b></td><td>只把极小启动资源放进包体，其余全下</td><td>试玩包 / 小游戏</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="t">默认建议：A</span>
+      <p>。理由是"一条加载路径打平三平台"，排查时不需要区分"这个包是本地的还是热更的"；等出包优化阶段再对桌面/iOS 切 B（配置项一行）。</p>
+    </div>
+    <h3>5.2 清单格式：为什么用行式文本，而不是 JSON</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案</th><th>体积</th><th>解析成本</th><th>依赖</th><th>人可读</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>JSON + <code>JsonUtility</code></td><td>大</td><td>中</td><td>Unity 内置（但<b>不支持 Dictionary / 需要一堆 DTO 包装类</b>）</td><td>一般</td><td>✗</td></tr>
+          <tr><td>JSON + Newtonsoft</td><td>大</td><td>中</td><td><b>第三方依赖</b>（框架坚持零依赖）</td><td>一般</td><td>✗</td></tr>
+          <tr><td><b>行式文本（本方案）</b></td><td><b>小</b></td><td><b>低</b>（`Split('</td><td>')`）</td><td><b>无</b></td><td><b>高</b>（和 <code>ResMap.txt</code> 同族）</td><td>✅</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>选它还有两个工程上的理由：</p>
+    <ol>
+      <li>框架自己的映射表（<code>ResMap.txt</code>，<code>逻辑名|包名|资源名</code>）就是这个风格（<code>RevResBootstrap.cs:115-124</code>）——<b>同一套心智，不用记第二种格式</b>；
+      </li>
+      <li>出问题时"用记事本打开比一比"就能定位（<code>BuildManifest.json</code> 定位是"给人/CI 看"的，清单则是"运行时真正吃的"，可读性值钱）。
+      </li>
+    </ol>
+    <p>完整样例见 <b>附录 A</b>。核心字段：</p>
+    <pre># RevHotManifest v1
+@version|1.0.3
+@platform|Android
+@channel|official
+@minAppVersion|1.0.0            ← 防"新资源配老包"（App 版本太低就强制更新包体）
+@hashAlgo|sha256
+@builtAt|2026-10-01 12:00:00
+@bundleCount|128
+
+@resmap|ResMap.txt|8f3c...|20481        ← 映射表本身也当热更文件（含 hash/size）
+@bundle|hero|9a1b...|15728640|common,shader|builtin,hot
+@bundle|ui_login|2c7d...|1048576|common|hot
+...</pre>
+    <h3>5.3 版本比对与差量：算法（这是"只下变化的部分"的核心）</h3>
+    <pre>输入：远端清单 R（刚下载的）、本地清单 L（= 当前版本目录里的清单副本；没有则视为空）
+输出：RevHotPlan { Add[]  Change[]  Remove[]  TotalBytes  ResMapChanged }
+
+对每个 R.bundle：
+    L 里没有同名包            → Add（新增）
+    L 里有，但 hash 不同       → Change（内容变了）
+    L 里有，hash 相同          → 跳过（不下、不校验、不落盘）
+对每个 L.bundle 而 R 里没有的 → Remove（标记为"下次清理时连同删除"）
+R.resmap.hash != L.resmap.hash → ResMapChanged（必须下载，否则新资源加载不到）
+
+TotalBytes = Σ(Add + Change 的 size)        → 用于给玩家显示"需要下载 XX MB"
+若 TotalBytes == 0 且 !ResMapChanged        → 无更新，直接 Install 走人（零下载启动）</pre>
+    <p>配套的产品化细节（都只有几行代码，但决定体验）：</p>
+    <ul>
+      <li><b>WIFI / 流量提示</b>：<code>RevHotUpdate.CheckAsync</code> 返回的 <code>TotalBytes</code> 交给 UI 决定"是否现在就下"；
+      </li>
+      <li><b>弱网/大包保护</b>：<code>Config.MaxBytesPerSession</code>（超过就本次不下，提示稍后）—— 可选；
+      </li>
+      <li><b>失败可恢复</b>：没下完 / 校验失败 → 版本目录未打 <code>.stamp</code>，<code>current.txt</code> 没变 → <b>下次启动从 <code>Change/Add</code> 重新算一遍，已下好的包用 hash 比对跳过</b>（天然支持"暂停/继续"）。
+      </li>
+    </ul>
+    <h3>5.4 下载器设计（轻量但该有的都有）</h3>
+    <pre><span class="c">// 核心：一个文件 = 一个 RevTask；并发由信号量控制；失败按指数退避重试；支持从 .part 续传</span>
+<span class="k">private</span> <span class="k">async</span> RevTask DownloadOneAsync(RevHotFileRef file, RevCancellationToken token)
+{
+    <span class="k">string</span> part = _store.TempPathOf(file);
+    <span class="k">long</span> offset = RevHotStore.ExistingLength(part);           <span class="c">// 续传起点（0 = 从头下）</span>
+    <span class="k">string</span> url  = _urlBuilder.Build(file.RemotePath);
+
+    <span class="k">using</span> (UnityWebRequest www = UnityWebRequest.Get(url))
+    {
+        <span class="k">if</span> (offset &gt; <span class="n">0</span> &amp;&amp; offset &lt; file.Size)
+            www.SetRequestHeader(<span class="s">"Range"</span>, <span class="s">"bytes="</span> + offset + <span class="s">"-"</span>);   <span class="c">// COS/OSS 原生支持 Range</span>
+        <span class="k">else</span>
+            offset = <span class="n">0</span>;
+
+        www.downloadHandler = <span class="k">new</span> DownloadHandlerFile(part, append: offset &gt; <span class="n">0</span>);  <span class="c">// ★ 落盘，不占内存</span>
+        www.timeout         = _config.TimeoutSeconds;
+        <span class="k">await</span> www.SendWebRequest();                            <span class="c">// RevTask 直接 await UnityWebRequestAsyncOperation</span>
+        <span class="k">if</span> (www.result != UnityWebRequest.Result.Success)
+            <span class="k">throw</span> RevHotError.Network.Wrap(www.error, url);    <span class="c">// 上层决定换源 / 重试 / 中止</span>
+    }
+    <span class="k">await</span> _verifier.VerifyAsync(part, file, token);            <span class="c">// 尺寸 + hash（分帧，见 5.5）</span>
+    _store.Commit(part, file.LocalPath);                       <span class="c">// 原子 rename → 版本目录</span>
+}</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>特性</th><th>做法</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>并发</td><td>默认 3（可配 1~4）</td><td>手机端不要超过 4：CDN 限速 + 发热 + 抢占游戏 IO</td></tr>
+          <tr><td>重试</td><td>默认 3 次，退避 0.5s→1s→2s</td><td>只对网络类失败重试；<b>校验失败直接重下</b>（不带 offset）</td></tr>
+          <tr><td>多源</td><td><code>Sources = [主源, 备用源]</code>；连续 N 次失败换源并<b>记住"哪个源健康"</b></td><td>换源不影响续传（URL 变了但 <code>.part</code> 保留）</td></tr>
+          <tr><td>超时</td><td>Cookie 超时 + 整体超时（<code>www.timeout</code>）</td><td>大包用"无进度超时"（比如 30s 没收到数据就判死）</td></tr>
+          <tr><td>进度</td><td><code>RevHotProgress { Percent, DownloadedBytes, TotalBytes, SpeedText, CurrentFile, FileIndex, FileCount }</code></td><td>聚合进度：完成文件字节 + 当前文件已下字节</td></tr>
+          <tr><td>磁盘预检</td><td>下载前 <code>DriveInfo.AvailableFreeSpace &gt; TotalBytes * 1.2</code></td><td>磁盘满不该表现为"下到一半失败"</td></tr>
+          <tr><td>取消/暂停</td><td><code>RevCancellationTokenSource</code>（框架自带）</td><td>切后台/玩家取消 → <code>token.Cancel()</code>，<code>.part</code> 保留即可续传</td></tr>
+          <tr><td>内存</td><td><code>DownloadHandlerFile</code> 直接写盘</td><td>200MB 的包也不会出现 200MB 的内存峰值</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>5.5 校验：复用 Unity 已经算好的东西</h3>
+    <p>两条路，<b>默认只做第一条</b>（够用且零成本）：</p>
+    <p><b>① 复用 Unity 生成的信息（零成本）</b></p>
+    <p>Unity 为每个包生成的 <code>&lt;包名&gt;.manifest</code>（纯文本）里已经带了 <code>CRC</code> 与 <code>Hashes.AssetFileHash</code>（MD5）。</p>
+    <p>我们的编辑器工具在生成清单时<b>直接读这些字段</b>填进 <code>@bundle</code> 行 —— 不需要自己实现 hash 计算，还能顺便用 <code>CRC</code> 做 <code>AssetBundle.LoadFromFile(path, crc, 0)</code> 的加载期校验（可作为可选钩子加在 <code>BundlePathResolver</code> 旁边）。</p>
+    <div class="callout warn">
+      <p>⚠️ 实施时先打包一次核对 <code>.manifest</code> 字段是否齐全（Unity 版本差异存在），缺字段就退到方案 ②。</p>
+    </div>
+    <p><b>② 自己算 SHA-256（可选，推荐用于"防篡改 + 增量缓存"）</b></p>
+    <p>用 <code>FileStream</code> 分块读（1MB 缓冲），每帧最多算 N MB（默认 8MB/帧）→ 避免几百 MB 的包一次性把帧卡住；进度可复用"下载进度条"的尾部阶段。</p>
+    <p><b>校验策略配置</b>：</p>
+    <pre><span class="k">public</span> <span class="k">enum</span> RevHotVerifyMode
+{
+    SizeOnly,      <span class="c">// 只比大小（最快，仅适合内网联调）</span>
+    Hash,          <span class="c">// 尺寸 + hash（默认；hash 算法取清单的 @hashAlgo）</span>
+    HashAndCrc,    <span class="c">// 再加 Unity 的 CRC（最严；加载期也校验）</span>
+}</pre>
+    <h3>5.6 加载重定向：框架侧钩子的完整 diff 草案</h3>
+    <pre><span class="c">// ===== 文件：Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs =====</span>
+<span class="c">/// &lt;summary&gt;</span>
+<span class="c">/// 包路径重定向钩子：参数 = 包名，返回 = 该包的完整路径（本地文件路径，或 WebGL 下的 URL）；</span>
+<span class="c">/// 返回 null / 空串 → 走默认的 StreamingAssets/&amp;lt;平台名&amp;gt;/&amp;lt;包名&amp;gt;。</span>
+<span class="c">/// ★ 热更包用它把加载指到 persistentDataPath 的版本目录；本框架自身不使用它。</span>
+<span class="c">/// ★ 不设置时（默认 null）行为与从前完全一致 —— 对不装热更包的工程是零影响。</span>
+<span class="c">/// &lt;/summary&gt;</span>
+<span class="k">public</span> <span class="k">static</span> Func&lt;<span class="k">string</span>, <span class="k">string</span>&gt; BundlePathResolver { <span class="k">get</span>; <span class="k">set</span>; }
+
+<span class="k">private</span> <span class="k">static</span> <span class="k">string</span> ResolveBundlePath(<span class="k">string</span> abName)
+{
+    <span class="k">string</span> custom = BundlePathResolver?.Invoke(abName);
+    <span class="k">return</span> <span class="k">string</span>.IsNullOrEmpty(custom) ? StreamingRoot + abName : custom;
+}</pre>
+    <p>然后把现有 <b>3 处</b> <code>StreamingRoot + abName</code> 换成 <code>ResolveBundlePath(abName)</code>：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>位置</th><th>现状</th><th>改后</th></tr></thead>
+        <tbody>
+          <tr><td><code>LoadBundle</code>（:119-127）</td><td>Android 分支 <code>LoadFromFile(StreamingRoot + abName)</code>、其他平台 <code>File.Exists</code> + <code>LoadFromFile</code></td><td><code>ResolveBundlePath(abName)</code>（保留 <code>File.Exists</code> 判断，因为它就是"存在性检查"）</td></tr>
+          <tr><td><code>LoadBundleAsync</code>（:442-459）</td><td>WebGL 分支 <code>UnityWebRequestAssetBundle.GetAssetBundle(StreamingRoot + abName)</code>；其他平台 <code>LoadFromFileAsync(...)</code></td><td>同上（WebGL 分支此时能直接吃远端 URL，<b>顺带支持了 WebGL 的"不落地热更"</b>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>附带的正确性说明：<code>LoadBundle</code> 里的 <code>File.Exists</code> 判断在 Android 分支被注释掉了（因为 jar 路径），改成钩子后<b>建议恢复统一判断</b>，因为热更路径是真实文件 —— 但这是"可选优化"，不影响本方案。</p>
+    </div>
+    <h3>5.7 ResMap 热更（让"新增资源"成立）</h3>
+    <pre><span class="c">// ===== 文件：Runtime/RevResourceSystem/Support/RevResBootstrap.cs =====</span>
+<span class="c">/// &lt;summary&gt;</span>
+<span class="c">/// ResMap 映射表的覆盖来源（热更包用它把"逻辑名 → 包名|资源名"换成热更版本，从而支持新增资源 / 改包）。</span>
+<span class="c">/// 返回 null → 只用内置表。★ 不设置时行为与现在完全一致。</span>
+<span class="c">/// &lt;/summary&gt;</span>
+<span class="k">public</span> <span class="k">static</span> Func&lt;Dictionary&lt;<span class="k">string</span>, <span class="k">string</span>&gt;&gt; ResMapOverride { <span class="k">get</span>; <span class="k">set</span>; }
+
+<span class="k">private</span> Dictionary&lt;<span class="k">string</span>, <span class="k">string</span>&gt; LoadResMap()
+{
+    <span class="k">var</span> map = <span class="k">new</span> Dictionary&lt;<span class="k">string</span>, <span class="k">string</span>&gt;();
+
+    <span class="c">// ① 内置表（随包体发布）—— 原逻辑不变</span>
+    TextAsset ta = Resources.Load&lt;TextAsset&gt;(<span class="s">"ResourceSystem/ResMap"</span>);
+    <span class="k">if</span> (ta != <span class="k">null</span>) { /* 原样解析：按行、Trim、跳过 # 与空行、Split('|') */ }
+
+    <span class="c">// ② ★ 热更表覆盖内置表（同名键覆盖；内置表里独有的键保留）</span>
+    <span class="c">//    合并而不是替换，是为了"新资源能热更 + 老资源不用重下"两边都要：</span>
+    <span class="c">//    热更表本身就包含全部条目（编辑器工具生成的是全量表），合并只是给"清单损坏/不完整"留一层兜底。</span>
+    Dictionary&lt;<span class="k">string</span>, <span class="k">string</span>&gt; hot = ResMapOverride?.Invoke();
+    <span class="k">if</span> (hot != <span class="k">null</span>) <span class="k">foreach</span> (KeyValuePair&lt;<span class="k">string</span>, <span class="k">string</span>&gt; kv <span class="k">in</span> hot) map[kv.Key] = kv.Value;
+
+    <span class="k">return</span> map;
+}</pre>
+    <p>热更表从哪来：<code>{版本目录}/ResMap.txt</code>（下载下来的），解析逻辑与框架 <code>RevResBootstrap</code> 完全一致（同样的格式、同样的 <code>#</code> 注释与 Trim 规则）。<b>解析这份表的代码有 2 份</b>（框架 1 份 + 热更 1 份）—— 建议后续把它抽成 <code>RevResMapReader</code> 供两边共用（属于"可选的小重构"，不做也能跑）。</p>
+    <h3>5.8 生命周期与卸载：完全交给框架</h3>
+    <p>因为走的是"复用 <code>RevABLoader</code>"的路线，<b>包级引用计数、资源的释放时机、版本切换时的清理顺序都由框架既有的机制负责</b>：</p>
+    <pre><span class="c">// 版本切换（热更到新版本）时的正确顺序 —— 顺序错了会"卸载正在用的资源"</span>
+RevAsyncLoadPump.CancelAll();                 <span class="c">// ① 中断在途加载（否则新包还没落地就有人去读）</span>
+RevResPreloader.ReleaseAll();                 <span class="c">// ② 归还预加载持有</span>
+RevResManager.UnloadAll();                    <span class="c">// ③ 清资源缓存并归还包级引用</span>
+RevBootstrap 内部的 _abLoader.ReleaseAll();   <span class="c">// ④ 释放所有包 + 主包 Manifest（RevResBootstrap.ShutdownAll 已经做了 ①~④）</span>
+RevHotStore.Activate(newVersion);             <span class="c">// ⑤ 切 current.txt 指针</span>
+RevHotStore.DeleteOldVersions();              <span class="c">// ⑥ 删老版本目录（保留 KeepVersions）</span>
+RevResBootstrap.Instance.Init();              <span class="c">// ⑦ 重装策略（新清单/新映射表生效）</span></pre>
+    <div class="callout">
+      <p>因为 <code>RevResBootstrap.ShutdownAll()</code>（<code>RevResBootstrap.cs:154-160</code>）已经封装了 ①~④，热更包只需要调它 + 做 ⑤~⑦ ——<b>"卸载"这件事我们一行新逻辑都不用写</b>。</p>
+    </div>
+    <h3>5.9 对象存储适配（COS / OSS / CDN）</h3>
+    <p><b>原则：不引 SDK，只拼 URL。</b></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>云</th><th>公读 URL 形态</th><th>私有桶（签名 URL）</th></tr></thead>
+        <tbody>
+          <tr><td>腾讯云 COS</td><td><code>https://&lt;bucket&gt;-&lt;appid&gt;.cos.&lt;region&gt;.myqcloud.com/&lt;key&gt;</code></td><td>由<b>你们的服务端</b>用临时密钥签好 URL（<code>q-sign-algorithm=sha1&amp;q-ak=...&amp;q-sign-time=...&amp;q-key-time=...&amp;q-header-list=...&amp;q-url-param-list=...&amp;q-signature=...</code>），客户端只负责 GET</td></tr>
+          <tr><td>阿里云 OSS</td><td><code>https://&lt;bucket&gt;.oss-&lt;region&gt;.aliyuncs.com/&lt;key&gt;</code></td><td>同样由服务端签（<code>OSSAccessKeyId=&amp;Expires=&amp;Signature=</code>），或直接发 STS 给客户端自己签（不推荐把 AK 放客户端）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>配置长这样（<b>换环境 = 改一个字符串</b>）：</p>
+    <pre><span class="k">new</span> RevHotConfig
+{
+    RemoteRoot    = <span class="s">"https://cdn.example.com/gameA"</span>,     <span class="c">// 主源（一般是 CDN，回源到 COS/OSS）</span>
+    FallbackRoots = <span class="k">new</span>[] { <span class="s">"https://bucket-1250000000.cos.ap-guangzhou.myqcloud.com/gameA"</span> },  <span class="c">// 直连兜底</span>
+    Channel       = <span class="s">"official"</span>,                          <span class="c">// 可选：分渠道（.../&lt;平台&gt;/&lt;渠道&gt;/）</span>
+    ExtraHeaders  = <span class="k">new</span> Dictionary&lt;<span class="k">string</span>, <span class="k">string</span>&gt; { [<span class="s">"x-game-token"</span>] = <span class="s">"..."</span> },  <span class="c">// 可选：临时令牌</span>
+}</pre>
+    <p>三条实践纪律（都是踩过坑的）：</p>
+    <ol>
+      <li><b>清单别长缓存</b>：<code>RevHotManifest.txt</code> 请求带 <code>?t={unix秒}</code> 或让 CDN 对该路径设 <code>Cache-Control: no-cache</code>；包文件用<b>长缓存</b>（因为文件名/版本目录变了内容就变了，是 immutable 的）；
+      </li>
+      <li><b>上传顺序</b>：先传所有内容（包 + ResMap），<b>最后传清单</b> —— 清单是"原子切换开关"；反之会出现玩家拉到"半新半旧"的组合；
+      </li>
+      <li><b>CORS</b>（WebGL 必需）：COS/OSS 的跨域规则要放开 <code>GET</code>、<code>Range</code>、以及你们自定义的 Header，否则小游戏/网页端会以"网络错误"的形式失败（排查时非常费时间）。
+      </li>
+    </ol>
+    <h3>5.10 安全与合规</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>传输</td><td>强制 HTTPS（配置里只接受 <code>https://</code>，除非显式打开 <code>AllowHttp</code> 用于内网联调）</td></tr>
+          <tr><td>完整性</td><td>尺寸 + hash（默认 SHA-256）；不匹配就丢弃重下，<b>绝不"带病加载"</b></td></tr>
+          <tr><td>防篡改</td><td>hash 由你们的出包流程生成并上传到你们自己的桶 → 客户端只信任清单；<b>升级路径：清单签名</b>（服务端用私钥签清单尾部，客户端内置公钥验签，约 40 行，属于可选增强）</td></tr>
+          <tr><td>密钥</td><td><b>客户端永不持有云厂商长期密钥</b>；私有桶一律用服务端签发的临时 URL</td></tr>
+          <tr><td>审核（iOS）</td><td>只做<b>资源</b>热更（不下载/不执行代码），符合常见审核口径；文档与代码里都要"看得见结论"（README 里明确写"不做代码热更"）</td></tr>
+          <tr><td>不做加密</td><td>明确写在需求边界里（1.2）；需要时按 6.3 的"扩展钩子"另做</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>5.11 编辑器侧工具（清单生成是核心）</h3>
+    <pre><span class="c">// RevHotManifestBuilder：输入是"框架打包工具的产物"，输出是一份可直接上传的清单</span>
+<span class="c">//   输入：AssetBundles/&lt;平台&gt;/          （ABBuildSetting.GetOutputDir）</span>
+<span class="c">//         &lt;平台&gt;/&lt;包名&gt;.manifest         （Unity 原生清单：CRC / AssetFileHash / Dependencies）</span>
+<span class="c">//         &lt;平台&gt;/BuildManifest.json      （框架的产物清单：version / buildTime）</span>
+<span class="c">//         Assets/Revolution/Resources/ResourceSystem/ResMap.txt（框架生成的映射表）</span>
+<span class="c">//   输出：&lt;输出目录&gt;/RevHotManifest.txt + 复制一份 ResMap.txt + 校验报告</span>
+[MenuItem(<span class="s">"Revolution.Tools/热更新/生成热更清单"</span>, <span class="k">false</span>, <span class="n">10</span>)]
+<span class="k">public</span> <span class="k">static</span> <span class="k">void</span> Build() { ... }</pre>
+    <p>面板（<code>RevHotUpdateWindow</code>）提供 5 个动作：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>动作</th><th>做什么</th></tr></thead>
+        <tbody>
+          <tr><td>平台 &amp; 版本</td><td>选 `AssetBundles/PC</td><td>Android</td><td>iOS</td><td>WebGL<code>，填版本号（默认读 </code>ABBuildConfig.version`）</td></tr>
+          <tr><td>生成清单</td><td>扫产物 → 生成 <code>RevHotManifest.txt</code>（含每包 hash/size/deps）</td></tr>
+          <tr><td>自检</td><td>校验"清单里的每个包在磁盘上存在 + hash 一致 + ResMap 覆盖了所有包"（防止漏传/漏生成）</td></tr>
+          <tr><td>打开上传目录</td><td>打开产物目录（可直接拖进 COS/OSS 控制台）</td></tr>
+          <tr><td>导出上传脚本</td><td>生成 <code>upload.ps1</code> / <code>upload.sh</code>（调用 <code>coscmd</code> / <code>ossutil</code> / <code>aws s3 cp --recursive</code>），<b>先传包后传清单</b>的顺序已经写好</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>不内置云 SDK 的代价是"上传要装个 CLI"，收益是"引擎包里永远没有云厂商 SDK"。这条取舍写在文档里，用户可自行替换成自家 CI 管线。</p>
+    </div>
+    <h3>5.12 可观测性（沿用框架的风格）</h3>
+    <pre>RevHotUpdate.State          <span class="c">// Idle / Checking / Downloading / Verifying / Applying / Ready / Failed</span>
+RevHotUpdate.LastError      <span class="c">// RevHotError（含分类 + 人话消息 + 出错的 URL / 文件名）</span>
+RevHotUpdate.Dump()         <span class="c">// 一行行地打出：远端版本、本地版本、计划集合、每包状态（照 RevLog.Dump 的味道）</span>
+RevLog 出口                 <span class="c">// tag = "HotUpdate"；失败必带原因（不打日志也不静默失败）</span></pre>
+    <p>失败分类（沿用框架"失败必带原因"的纪律）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th><code>RevHotError</code></th><th>人话</th></tr></thead>
+        <tbody>
+          <tr><td><code>ManifestFetchFailed</code></td><td>拉不到版本清单（网络/CDN/清单路径不对）</td></tr>
+          <tr><td><code>ManifestInvalid</code></td><td>清单格式不对或版本号解析失败（上传流程出错）</td></tr>
+          <tr><td><code>AppVersionTooLow</code></td><td>客户端版本太低，需要更新包体（<code>@minAppVersion</code>）</td></tr>
+          <tr><td><code>DownloadFailed</code></td><td>某个包下载失败（含最后一次的 HTTP 错误与 URL）</td></tr>
+          <tr><td><code>VerifyFailed</code></td><td>校验不通过（尺寸/hash），已重试 N 次</td></tr>
+          <tr><td><code>DiskFull</code></td><td>磁盘空间不足（预检拦下）</td></tr>
+          <tr><td><code>Cancelled</code></td><td>玩家取消 / 切后台</td></tr>
+          <tr><td><code>ApplyFailed</code></td><td>切换版本失败（写 <code>current.txt</code> / 删旧版本失败）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>5.13 顺带说明：代码热更怎么接（本方案不堵这条路）</h3>
+    <pre><span class="c">// 资源热更做完之后，代码热更（HybridCLR）只需要把 dll 当普通资源：</span>
+RevResManager.LoadAsync&lt;TextAsset&gt;(RevResPath.HotCode, <span class="s">"GameLogic"</span>, ta =&gt;
+{
+    System.Reflection.Assembly.Load(ta.bytes);      <span class="c">// 10 行接入，本文档不展开</span>
+}, RevResGroup.Config);</pre>
+    <p>也就是说：<b>热更包负责"把文件搬到本地并保证完整"，代码热更负责"加载程序集"</b> —— 两者是叠放关系，不冲突。这也是把"只做资源热更"作为本期边界的底气。</p>
+  </section>
+
+  <!-- ==================== 六、对外 API 草案（业务只用 3 个入口） ==================== -->
+  <section id="s6">
+    <h2><span class="num">6</span>对外 API 草案（业务只用 3 个入口）</h2>
+    <h3>6.1 最省事（推荐，5 行）</h3>
+    <pre><span class="c">// 放在启动流程最前面（比 RevResBootstrap.Init 早 —— 热更包内部会替你把 Init 的时机安排对）</span>
+RevHotUpdateResult r = <span class="k">await</span> RevHotUpdate.InitializeAsync(
+    <span class="k">new</span> RevHotConfig
+    {
+        RemoteRoot = <span class="s">"https://cdn.example.com/gameA"</span>,
+        <span class="c">// 其余全默认：平台目录自动判定 / SHA-256 校验 / 并发 3 / 重试 3 次 / 保留 2 个版本</span>
+    },
+    onProgress: p =&gt; loadingBar.Set(p.Percent, p.Text));      <span class="c">// p.Text 例如 "正在更新 3/12 · 12.4 MB / 48.1 MB · 2.3 MB/s"</span>
+
+<span class="k">if</span> (!r.Success) { tips.Show($<span class="s">"更新失败：{r.Error}"</span>); <span class="k">return</span>; }   <span class="c">// r.Error 已是一句人话</span>
+<span class="c">// 之后照旧写业务：RevResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, "Hero_1001", cb, RevResGroup.UI);</span></pre>
+    <h3>6.2 进阶（分步，UI 自己掌控）</h3>
+    <pre><span class="c">// ① 只检查（不下载）：拿"要不要更新 / 多大 / 什么版本"去做提示弹窗</span>
+RevHotCheckResult check = <span class="k">await</span> RevHotUpdate.CheckAsync(config);
+<span class="k">if</span> (!check.HasUpdate) { RevHotUpdate.Install(); <span class="k">return</span>; }
+
+<span class="c">// ② 玩家确认后再下（WIFI 策略、大包提示都在这层做）</span>
+<span class="k">if</span> (!check.ResMapChanged &amp;&amp; check.TotalBytes &gt; <span class="n">50</span> * <span class="n">1024</span> * <span class="n">1024</span> &amp;&amp; !IsWifi())
+{
+    <span class="k">if</span> (!tips.Ask($<span class="s">"本次更新 {check.TotalBytesText}，建议在 WIFI 下进行"</span>)) <span class="k">return</span>;
+}
+
+<span class="c">// ③ 下载 + 校验 + 落地（可取消：token 来自框架的 RevCancellationTokenSource）</span>
+RevHotUpdateResult r = <span class="k">await</span> RevHotUpdate.UpdateAsync(check, tokenSource.Token, onProgress);
+
+<span class="c">// ④ 生效（装钩子 + 重装策略；内部会先 ShutdownAll 再 Init）</span>
+<span class="k">if</span> (r.Success) RevHotUpdate.Install();</pre>
+    <h3>6.3 配置对象（字段 + 默认值）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>字段</th><th>默认</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>RemoteRoot</code></td><td>无（必填）</td><td>远端根，如 <code>https://cdn.example.com/gameA</code></td></tr>
+          <tr><td><code>FallbackRoots</code></td><td>空</td><td>备用源（按顺序降级）</td></tr>
+          <tr><td><code>Channel</code></td><td><code>""</code></td><td>渠道目录段（<code>.../&lt;平台&gt;/&lt;渠道&gt;/</code>），留空则不分渠道</td></tr>
+          <tr><td><code>PlatformOverride</code></td><td><code>""</code></td><td>覆盖平台目录名（默认按运行时判定：<code>PC/Android/iOS/WebGL</code>，与 <code>ABBuildSetting.GetPlatformName</code> 保持一致）</td></tr>
+          <tr><td><code>VersionOverride</code></td><td><code>""</code></td><td>强制目标版本（内网测试用：直接指定版本不再比对）</td></tr>
+          <tr><td><code>LocalRootOverride</code></td><td><code>""</code></td><td>覆盖本地根（默认 <code>{persistentDataPath}/RevHotUpdate</code>）</td></tr>
+          <tr><td><code>Concurrency</code></td><td><code>3</code></td><td>下载并发（1~4）</td></tr>
+          <tr><td><code>TimeoutSeconds</code></td><td><code>30</code></td><td>单请求超时（含"无进度超时"）</td></tr>
+          <tr><td><code>RetryCount</code> / <code>RetryBackoffMs</code></td><td><code>3</code> / <code>500</code></td><td>重试次数与退避基数（指数）</td></tr>
+          <tr><td><code>VerifyMode</code></td><td><code>Hash</code></td><td><code>SizeOnly</code> / <code>Hash</code> / <code>HashAndCrc</code></td></tr>
+          <tr><td><code>KeepVersions</code></td><td><code>2</code></td><td>保留几个历史版本（回滚用）</td></tr>
+          <tr><td><code>FirstPackageMode</code></td><td><code>CopyToLocal</code></td><td><code>CopyToLocal</code> / <code>ReadFromStreamingAssets</code> / <code>None</code>（见 5.1.4）</td></tr>
+          <tr><td><code>CoreBundles</code></td><td>空</td><td>"首包/最小包"包名清单（用于"首包瘦身 + 按需下载"进阶模式；留空 = 首包全量）</td></tr>
+          <tr><td><code>ExtraHeaders</code></td><td>空</td><td>附加请求头（临时令牌等）</td></tr>
+          <tr><td><code>AllowHttp</code></td><td><code>false</code></td><td>允许 http（仅内网联调）</td></tr>
+          <tr><td><code>ManifestFileName</code></td><td><code>RevHotManifest.txt</code></td><td>清单文件名</td></tr>
+          <tr><td><code>LogTag</code></td><td><code>"HotUpdate"</code></td><td>走 <code>RevLog</code> 的 tag</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>6.4 与框架的调用顺序（必须照这个顺序）</h3>
+    <pre>App 启动
+  │
+  ├─ ①（可选）RevLog.EnableFileLog(...)          ← 热更期间日志落盘，真机排查靠它
+  ├─ ② await RevHotUpdate.InitializeAsync(cfg)   ← 拉清单 → 比对 → 下载 → 校验 → 落地
+  │        └─ 内部：RevHotResBridge.Install()
+  │               ├─ RevABLoader.BundlePathResolver = RevHotStore.ResolveBundlePath
+  │               ├─ RevResBootstrap.ResMapOverride   = RevHotStore.BuildResMap
+  │               ├─ RevResBootstrap.Instance.Init()          ← 框架原样装配（策略 + 自动卸载门卫）
+  │               └─ （若有更新）先 ShutdownAll() 再 Init()，确保新映射表/新包路径生效
+  ├─ ③ 业务 Init（UI/场景/配置表…）              ← 此时加载的就是"热更后的资源"
+  └─ ④ 进游戏</pre>
+  </section>
+
+  <!-- ==================== 七、开发计划（4 阶段 + 验收标准） ==================== -->
+  <section id="s7">
+    <h2><span class="num">7</span>开发计划（4 阶段 + 验收标准）</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>阶段</th><th>内容</th><th>产出</th><th>验收标准（可量化）</th><th>预估</th></tr></thead>
+        <tbody>
+          <tr><td><b>1. 最小闭环</b></td><td>清单结构 + 解析（纯 C#）；本地目录布局；下载器（单文件、无重试）；哈希校验；<code>Install</code> 钩子接入；<code>InitializeAsync</code></td><td>PC 真机（编辑器 AB 模式也行）能"从本地 HTTP 服务下一张图并加载出来"</td><td>① 清单解析 + 版本比对 + 差集计算：<b>工程外纯 C# 断言 ≥ 40 条全过</b>；② PC 上"改一张图 → 重新打包 → 只下变化包 → 加载到新图"跑通</td><td>3~4 天</td></tr>
+          <tr><td><b>2. 生产可用</b></td><td>并发 + 重试/退避 + 多源 + Range 续传 + 磁盘预检 + 版本目录/<code>.stamp</code>/<code>current</code> + 保留版本与清理 + <code>Dump</code></td><td>断网可续、暂停可续、版本可回滚</td><td>① 破坏性测试 8 项全过（见 8.3）；② Android 真机首包落地 + 增量更新跑通；③ 400MB 包下载期间帧率不掉（分帧校验）</td><td>4~5 天</td></tr>
+          <tr><td><b>3. 编辑器链路</b></td><td><code>RevHotManifestBuilder</code> + 自检 + 上传脚本导出 + 面板</td><td>一条"打包 → 生成清单 → 上传 → 客户端更新"的完整流水线</td><td>① 面板 3 个动作可用；② 自检能拦下"漏包 / hash 不符 / ResMap 缺条目"；③ 与 <code>ABCIBuild</code> 一起可在 CI 里无人值守跑</td><td>3 天</td></tr>
+          <tr><td><b>4. 打磨与交付</b></td><td>demo 场景 + 本地 CDN 脚本 + README + 本文档的 HTML 版 + 可选 <code>hotupdate</code> 分支同步</td><td>别人 clone 下来 30 分钟能跑通</td><td>① demo 场景从启动到"热更后加载新图"全程可点；② README 3 分钟上手；③ <code>sync-hotupdate-branch.yml</code> 生效</td><td>3 天</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="t">不放进前 4 阶段的（按需再加）</span>
+      <p>：清单签名、按 tag 的按需下载、加密、灰度、<code>HashAndCrc</code> 加载期校验、<code>ResMapReader</code> 抽公共、WebGL 专项优化。</p>
+    </div>
+    <div class="callout good">
+      <span class="t">实际推荐从"阶段 0"起步</span>
+      <p>：即第十四章的"<b>按包标记来源的分工层</b>"（编辑器里标哪些包走热更 + 持久化优先/内置兜底的路径解析）。</p>
+      <p>它是本文档阶段 1~4 的<b>真子集</b>（那边的东西它全保留），但能独立验收、3~4 天见效果，且不返工 —— 先跑通"两个根"，再加"下载与版本"。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 八、验证方案 ==================== -->
+  <section id="s8">
+    <h2><span class="num">8</span>验证方案</h2>
+    <h3>8.1 工程外纯 C# 断言（沿用框架既有习惯，跑完即删临时工程）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>组</th><th>断言点</th></tr></thead>
+        <tbody>
+          <tr><td>清单</td><td>行式文本解析（含 <code>#</code> 注释、空行、未知字段、字段数不足、BOM、<code>\r\n</code> 与 <code>\n</code>）；序列化往返一致；版本号比较（<code>1.10.0 &gt; 1.9.0</code>）</td></tr>
+          <tr><td>计划</td><td>新增/变更/删除三集合；hash 相同时<b>不下</b>；<code>ResMapChanged</code> 单独标记；<code>TotalBytes</code> 计算</td></tr>
+          <tr><td>存储</td><td>版本目录路径拼装；<code>.tmp</code> 续传起点；原子提交；<code>current.txt</code> 读写；老版本清理（保留 N）</td></tr>
+          <tr><td>URL</td><td>平台目录名映射（与 <code>ABBuildSetting.GetPlatformName</code> 一致）；渠道拼接；多源切换；非法 <code>RemoteRoot</code>（缺协议、结尾斜杠）归一化</td></tr>
+          <tr><td>校验</td><td>尺寸先判（省一次 hash）；hash 不匹配报 <code>VerifyFailed</code>；空文件/截断文件的处理</td></tr>
+          <tr><td>错误</td><td>每类失败都有人话消息（<b>不允许空消息</b>，照 GM 模块的纪律）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>8.2 真机验收清单</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>平台</th><th>验收点</th></tr></thead>
+        <tbody>
+          <tr><td>PC（编辑器 AB 模式 + 独立包）</td><td>全链路；切换 <code>RemoteRoot</code>；无更新启动耗时（应为毫秒级）</td></tr>
+          <tr><td>Android</td><td>首包落地（jar → persistentDataPath）；增量更新；杀进程后续传；升级覆盖安装</td></tr>
+          <tr><td>iOS</td><td>StreamingAssets 直读模式；增量更新；审核说明文档（只做资源热更）</td></tr>
+          <tr><td>WebGL（若需要）</td><td>直接吃 CDN URL（不落地）；CORS 配置正确；<code>.br</code>/<code>.gz</code> 压缩传输（CDN 侧）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>8.3 破坏性测试（必做 8 项）</h3>
+    <ol>
+      <li>下载中<b>断网</b> → 重连后从断点继续（<code>.part</code> 长度对得上）；
+      </li>
+      <li>下载中<b>杀进程</b> → 下次启动自动续传；
+      </li>
+      <li>手动<b>改坏一个已下好的包</b> → 校验失败 → 重下 → 成功；
+      </li>
+      <li>手动<b>篡改清单里的 hash</b> → <code>VerifyFailed</code>（不静默加载）；
+      </li>
+      <li><b>磁盘写满</b> → <code>DiskFull</code>（预检拦下，不留半成品版本）；
+      </li>
+      <li>远端清单<b>只有半个文件</b>（上传中被读到）→ <code>ManifestInvalid</code>，且<b>旧版本照常能玩</b>（<code>current.txt</code> 没动）；
+      </li>
+      <li><b>回滚</b>：把 <code>current.txt</code> 指回上一版本 → 加载的是老资源（保留版本策略生效）；
+      </li>
+      <li>CDN 主源 404 / 超时 → 自动切备用源完成更新。
+      </li>
+    </ol>
+  </section>
+
+  <!-- ==================== 九、风险与对策 ==================== -->
+  <section id="s9">
+    <h2><span class="num">9</span>风险与对策</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>风险</th><th>概率 / 影响</th><th>对策</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>框架那 2 个钩子带来的维护成本</b>（改框架 = 以后同步升级要小心）</td><td>中 / 中</td><td>两处都是"默认 null 行为不变"的纯增量；加断言守护"未设置钩子时路径与旧行为一致"；文档里写明"改这里必须同步"（照框架既有的 <code>StreamingRoot ↔ ABBuildSetting.GetPlatformName</code> 那条注释的写法）</td></tr>
+          <tr><td>2</td><td><b>Android 首包落地占双份磁盘</b></td><td>高 / 中</td><td>默认只落地<b>首包</b>（不是全部资源）；提供"启动完成后删除多余内置包"的可选步骤；或改用"首包瘦身（CoreBundles）"只内置核心包</td></tr>
+          <tr><td>3</td><td><b>首包落地耗时</b>（首次启动多等几秒）</td><td>高 / 中</td><td>落地放在 loading 最早阶段 + 进度条；已存在且 hash 一致则跳过；可配置"仅在 Android 落地"</td></tr>
+          <tr><td>4</td><td><b><code>.manifest</code> 字段（CRC/AssetFileHash）在你们 Unity 版本上不全</b></td><td>中 / 中</td><td>阶段 1 第一步实测一次；不全就切"自算 SHA-256"（能力已设计）</td></tr>
+          <tr><td>5</td><td><b>iOS 审核对"下载资源"的认定</b></td><td>中 / 高</td><td>只做资源、不做代码；README 与提审说明里明确写清；不提供"下载可执行文件"的任何 API</td></tr>
+          <tr><td>6</td><td><b>大包 hash 校验卡帧</b></td><td>中 / 中</td><td>分帧流式（默认 8MB/帧）+ 进度可见；校验期间不阻塞下载下一文件（流水线：下 A 的同时校验 B）</td></tr>
+          <tr><td>7</td><td><b>CDN 缓存导致"更新了但玩家拿到旧清单"</b></td><td>中 / 高</td><td>清单 URL 带 <code>?t=</code> 或用 no-cache 规则；上传顺序"内容先、清单后"；<code>Dump()</code> 里打印实际请求 URL 便于排查</td></tr>
+          <tr><td>8</td><td><b>多源切换后续传不一致</b>（不同源的文件不同）</td><td>低 / 中</td><td>切换源只对"续传点之后"生效；校验失败即整包重下（不尝试合并不同源的片段）</td></tr>
+          <tr><td>9</td><td><b>框架侧钩子被未来重构删掉</b></td><td>低 / 高</td><td>钩子写在 <code>RevABLoader</code> / <code>RevResBootstrap</code> 的显眼处并附"热更包依赖此钩子"注释；本文档与 README 互相引用</td></tr>
+          <tr><td>10</td><td><b>UPM 只读安装时编辑器工具不能写文件</b></td><td>低 / 低</td><td>生成物一律写 <code>AssetBundles/</code> 与 <code>Library/</code>（不写包目录），照 <code>ABBuildSetting.EnsureWritableForGeneratedCode</code> 的既有约定</td></tr>
+          <tr><td>11</td><td><b>手写行式文本解析的健壮性</b></td><td>中 / 中</td><td>解析层全部有工程外断言（8.1 第一组就是它）；解析失败必抛 <code>ManifestInvalid</code>（不"尽量解析"）</td></tr>
+          <tr><td>12</td><td><b>热更包自身成为"第二套资源系统"</b>（膨胀）</td><td>中 / 高</td><td>硬约束：<b>热更包不允许新增资源加载 API</b>（不许出现 <code>RevHotUpdate.LoadAsync&lt;T&gt;</code>）；它只管"文件到位 + 路径重定向"，所有加载仍走 <code>RevResManager</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十、与 YooAsset 的对照 ==================== -->
+  <section id="s10">
+    <h2><span class="num">10</span>与 YooAsset 的对照</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>维度</th><th>YooAsset</th><th>RevHotUpdate（本方案）</th></tr></thead>
+        <tbody>
+          <tr><td>定位</td><td>独立资源框架（含编辑器收集器、4 种运行模式、报告系统）</td><td><b>框架的补丁包</b>：只补"远端下载 + 版本管理 + 路径重定向"</td></tr>
+          <tr><td>业务改造量</td><td>加载 API 全换（<code>YooAssets.LoadAssetAsync</code>），生命周期也要跟着换</td><td><b>0 行</b>（仍是 <code>RevResManager.Load/LoadAsync/Release</code>）</td></tr>
+          <tr><td>依赖</td><td>无（但用了大量 Unity API 与自身清单格式）</td><td>无（<code>UnityWebRequest</code> + 框架 <code>RevTask</code>）</td></tr>
+          <tr><td>运行模式</td><td>EditorSimulate / Offline / Online / Host 四种</td><td><b>只做 Online</b>（另加"首包直读"模式应付离线）</td></tr>
+          <tr><td>清单格式</td><td>自研二进制清单（<code>PackageManifest</code>）+ 版本清单</td><td>行式文本（人可读、可 diff、和 <code>ResMap.txt</code> 同族）</td></tr>
+          <tr><td>差量</td><td>包级（默认）/ 按需 tag</td><td><b>包级</b>（不做二进制差量）</td></tr>
+          <tr><td>下载器</td><td>多下载器（含 UnityWebRequest / 自定义）、并发、重试、续传、超时</td><td>UnityWebRequest：并发 3、重试退避、多源、Range 续传、超时、磁盘预检</td></tr>
+          <tr><td>版本/回滚</td><td>有（含灰度、按玩家分组）</td><td>有（版本目录 + <code>current</code> 指针 + 保留 N 版）；灰度交给你们的 CDN</td></tr>
+          <tr><td>加密</td><td>支持（多种）</td><td>不做（明确边界）</td></tr>
+          <tr><td>代码量</td><td>约 3 万行量级</td><td>目标 ≈ 2200 行（含注释与编辑器工具）</td></tr>
+          <tr><td>上手成本</td><td>半天~两天（学一套新 API）</td><td><b>30 分钟</b>（只学 3 个入口）</td></tr>
+          <tr><td>谁该选谁</td><td>项目准备重做资源层、需要加密/灰度/多运行模式</td><td><b>已经是 Revolution 工程、只想加一条热更链路</b>（本项目的情况）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>结论</b>：不替换 YooAsset，也不打算做成它 —— 我们的目标是"<b>用最小的面积，把框架缺的那一格补上</b>"。</p>
+  </section>
+
+  <!-- ==================== 十一、框架侧需要的最小改动（diff 草案 + 零改动退路） ==================== -->
+  <section id="s11">
+    <h2><span class="num">11</span>框架侧需要的最小改动（diff 草案 + 零改动退路）</h2>
+    <h3>11.1 改动清单（2 个文件，共约 15 行）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>文件</th><th>改动</th><th>行数</th><th>不改会怎样</th></tr></thead>
+        <tbody>
+          <tr><td><code>Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs</code></td><td>新增静态钩子 <code>BundlePathResolver</code> + <code>ResolveBundlePath()</code>，3 处替换</td><td>≈ 11</td><td>无法重定向加载路径（除非重写整个加载器，见 3.1 方案 B）</td></tr>
+          <tr><td><code>Runtime/RevResourceSystem/Support/RevResBootstrap.cs</code></td><td>新增静态钩子 <code>ResMapOverride</code> + <code>LoadResMap()</code> 里合并热更表</td><td>≈ 6</td><td>热更无法<b>新增资源</b>（只能改已有资源）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>两处都有三个共同特征：<b>默认 null = 行为与现在逐字节一致</b>；<b>框架自身永不设置它们</b>；<b>不装热更包的工程感受不到任何差别</b>。</p>
+    <h3>11.2 断言守护（跟着进框架的脱机断言工程）</h3>
+    <pre>✓ 未设置 BundlePathResolver 时：解析结果 == StreamingRoot + 包名（逐平台）
+✓ 设置后返回 null / 空串 → 仍走默认路径
+✓ 未设置 ResMapOverride 时：LoadResMap 结果与旧实现一致（键值全等）
+✓ 设置后返回空表 → 与未设置等价；返回部分表 → 内置表独有键保留（合并语义）</pre>
+    <h3>11.3 如果坚持"框架一行都不改"（方案 B 的代价，供决策）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项</th><th>方案 A（加钩子，推荐）</th><th>方案 B（零改动）</th></tr></thead>
+        <tbody>
+          <tr><td>加载器</td><td>复用框架 <code>RevABLoader</code></td><td><b>自研 loader + policy（约 +250 行）</b></td></tr>
+          <tr><td>包级引用计数</td><td>框架管（<code>handle.BundleLoader</code>）</td><td>自研 + 反向扫描 <code>RevResManager.CachedHandles</code> 反推存活（因为 <code>BundleAcquired</code> 是 <code>internal</code>，拿不到释放回调）</td></tr>
+          <tr><td>卸载时机</td><td>与框架一致（引用归零即卸）</td><td>需要"显式回收点"（版本切换/回登录），否则包常驻内存</td></tr>
+          <tr><td>与自动卸载门卫的耦合</td><td>无</td><td>有时序耦合（门卫淘汰资源时我们收不到通知）</td></tr>
+          <tr><td>风险</td><td>低（15 行增量）</td><td>中（生命周期语义变模糊，排查更难）</td></tr>
+          <tr><td>结论</td><td>✅ 推荐</td><td>可用但不建议；只有"框架目录严禁改动"的硬约束下才选</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十二、目录与产出物清单 ==================== -->
+  <section id="s12">
+    <h2><span class="num">12</span>目录与产出物清单</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>产出</th><th>路径</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>热更包（运行时）</td><td><code>Assets/RevHotUpdate/Runtime/</code></td><td>asmdef <code>Revolution.HotUpdate</code></td></tr>
+          <tr><td>热更包（编辑器）</td><td><code>Assets/RevHotUpdate/Editor/</code></td><td>asmdef <code>Revolution.HotUpdate.Editor</code>（Editor only）</td></tr>
+          <tr><td>包元数据</td><td><code>Assets/RevHotUpdate/package.json</code></td><td>UPM 用（可选）</td></tr>
+          <tr><td>上手文档</td><td><code>Assets/RevHotUpdate/README.md</code></td><td>3 分钟上手 + 边界声明</td></tr>
+          <tr><td>技术方案（本文）</td><td><code>Revolution.Document/热更新/RevHotUpdate技术方案.md</code></td><td>✅ 本次已落地</td></tr>
+          <tr><td>（可选）HTML 版</td><td><code>Revolution.Document/热更新/RevHotUpdate技术方案.html</code></td><td>进文档站，与其它模块同款样式</td></tr>
+          <tr><td>（可选）示例</td><td><code>Assets/Revolution.Demo/RevHotUpdate.Demo/</code></td><td>场景 + <code>起本地CDN.cmd</code>（<code>HttpListener</code> 静态服务，无需真云）</td></tr>
+          <tr><td>（可选）分支同步</td><td><code>.github/workflows/sync-hotupdate-branch.yml</code></td><td>照 <code>sync-package-branch.yml</code>，产出 <code>hotupdate</code> 分支</td></tr>
+          <tr><td>框架侧改动</td><td><code>RevABLoader.cs</code> / <code>RevResBootstrap.cs</code></td><td>第十一章的 15 行</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十三、需要拍板的 5 个决策（每条已给推荐） ==================== -->
+  <section id="s13">
+    <h2><span class="num">13</span>需要拍板的 5 个决策（每条已给推荐）</h2>
+    <div class="callout good">
+      <p>★ 这 5 个决策的<b>最终选定结果</b>在第十五章（如果你只想看结论，直接跳到第十五章）。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>决策</th><th>选项</th><th>我的推荐</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>是否接受"框架加 2 个钩子"</td><td>加钩子（A）/ 零改动（B）</td><td><b>A</b></td><td>15 行 vs 250 行 + 生命周期语义变模糊；且钩子默认 null，风险可控</td></tr>
+          <tr><td>2</td><td>默认首包模式</td><td>落地（A）/ 直读 (B) / 纯远端 (C)</td><td><b>Android 落地、桌面/iOS 直读</b></td><td>一条路径打平三平台的是 Android；桌面/iOS 直读省磁盘与时延</td></tr>
+          <tr><td>3</td><td>清单 hash 算法</td><td>SHA-256 / MD5 / 复用 <code>.manifest</code> 的 AssetFileHash</td><td><b>默认 SHA-256，允许复用 <code>.manifest</code> 作为"零成本档"</b></td><td>首次实施时按实测（风险 4）二选一，配置项已留</td></tr>
+          <tr><td>4</td><td>是否做"首包瘦身 + 按需下载"</td><td>首包全量（简）/ 只内置核心包（进阶）</td><td><b>先用"首包全量"跑通</b>，<code>CoreBundles</code> 留到阶段 4 之后</td><td>首包全量最不容易出错（不会有"缺包"的诡异失败）</td></tr>
+          <tr><td>5</td><td>热更包要不要独立发分支</td><td>是（<code>hotupdate</code>）/ 否（就放主仓库）</td><td><b>是</b></td><td>与 <code>package</code> / <code>demo</code> 一致的用法，别人一条命令就能装</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十四、按包标记来源的简化方案（第一档：分工层） ==================== -->
+  <section id="s14">
+    <h2><span class="num">14</span>按包标记来源的简化方案（第一档：分工层）</h2>
+    <div class="callout good">
+      <span class="t">如果你主推 Android / 小程序（WebGL），这一章还可以再砍一层</span>
+      <p>：</p>
+      <p>那两个平台上"按包标记 + 混合来源"其实用不上 —— 见<b>第十七章</b>（结论：留下"一个可注入的根"，砍掉"按包分流"；</p>
+      <p>小程序上更是连"落地/断点续传/文件校验"整套都可以不要，下载与缓存交给引擎）。</p>
+      <p>本章的"按包标记"在 <b>PC / iOS 需要混合来源</b>时才真正必要。</p>
+    </div>
+    <div class="callout">
+      <p>这一章回答的是另一个更小的问题：</p>
+      <p><b>"我在编辑器里标出哪些 AB 包要走热更、哪些不用；要热更的从持久化路径读，不热更的从 StreamingAssets 读" —— 这样行不行？</b></p>
+      <p>结论：<b>行，而且这是正确的地基；但有一处语义必须改（14.2），四个细节必须一起做掉（14.6），并且它本身还不是"热更"（14.8）。</b></p>
+    </div>
+    <h3>14.1 先回答"行不行"</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>问题</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>这个分工本身成立吗</td><td>✅ 成立。它天然复用框架的依赖递归（<code>acquireBundle</code> 按包名逐个解析 → 每个包各自落到正确的根）与平台分派</td></tr>
+          <tr><td>能解决什么</td><td>"同一个工程里两种来源的包都要能加载"；把"哪些包将来可变"变成<b>打包期就能看见的标记</b></td></tr>
+          <tr><td><b>不能解决什么</b></td><td><b>没有传输层</b>：持久化目录里的包得<b>有人放进去</b>（谁下？下哪些？下坏了怎么办？）—— 这些属于第二档（本文档阶段 1~4）</td></tr>
+          <tr><td>要改框架几处</td><td>2 处钩子（约 17 行，默认 null 零影响；见第十一章）</td></tr>
+          <tr><td>实现量</td><td>编辑器 ≈ 350 行 + 运行时 ≈ 250 行；<b>3~4 天含真机验收</b></td></tr>
+          <tr><td>与本文档主方案的关系</td><td><b>真子集</b>。它做的每件事在第二档里原样保留（表格式、钩子、目录约定、编辑器窗口都不改），第二档只是"在它上面加下载与版本"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>所以：行，而且是推荐的起步方式。</b> 但它解决的问题是"<b>加载从哪来</b>"，不是"<b>新包怎么来</b>"。</p>
+    <h3>14.2 ⚠️ 一处必须改的语义（否则新装机必崩）</h3>
+    <p>你原话是"<b>需要热更新的就从持久化路径当中来加载</b>"。如果<b>严格按字面</b>实现（热更包只认持久化路径），会遇到一个致命场景：</p>
+    <pre>新装机 / 首次启动 / 玩家清了数据 / 换机
+  → {persistentDataPath} 是空的
+  → 所有"热更包"全部 BundleLoadFail
+  → 首包连登录界面都拉不起来（如果登录 UI 在热更包里，直接黑屏）</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>语义</th><th>首装表现</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>✗ 热更包 = <b>只</b>从持久化读</td><td>首装必崩（除非首启强制阻塞下载完所有热更包才能进游戏）</td><td>不推荐</td></tr>
+          <tr><td>✅ 热更包 = <b>持久化优先，持久化没有就回退内置（StreamingAssets）</b></td><td>首装照常跑（用内置那份），有热更内容就用热更的</td><td><b>推荐</b></td></tr>
+          <tr><td>✅ 热更包 = 持久化优先 + 回退 + <b>强制要求该包必须已下载</b>（可配置 <code>RequireDownloaded</code>）</td><td>首装崩（但错误信息明确："hero 需要先下载"）</td><td>少数"必须在线"的场景</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>推荐把标记语义定成"允许被覆盖"（overridable），而不是"必须从某处读"</b>。这带来三个额外好处：</p>
+    <ol>
+      <li>新装机、清数据、换机不用特殊处理（都是"回退内置"这条路径）；
+      </li>
+      <li>可以"临时关掉热更"（把持久化目录删掉/改个名就回到出包状态）——排查神器；
+      </li>
+      <li>打包期不用纠结"这个包到底放哪"：<b>非热更包 = 永不覆盖</b>，<b>热更包 = 内置一份 + 允许覆盖</b>，两者都能跑。
+      </li>
+    </ol>
+    <div class="callout">
+      <p>因此 14.5 的路径解析一定是"<b>先看持久化有没有 → 有就用 → 没有就用内置</b>"，而不是"按标记二选一"。</p>
+      <p>这也让"哪些包标成热更"变成一个<b>低风险决策</b>：标多了不会崩（只是允许被覆盖），标少了才会限制将来的灵活性。</p>
+    </div>
+    <h3>14.3 标记配在哪、怎么变成运行时能读的东西</h3>
+    <p>三条纪律：<b>不改框架的打包窗口</b>、<b>不改包名</b>、<b>生成物写在工程侧（不在 <code>Assets/Revolution</code> 里）</b>。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>环节</th><th>落在哪</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>① 配置（人写）</td><td><code>Assets/Editor/RevHotUpdateConfig.asset</code>（工程侧 ScriptableObject）</td><td>规则列表 + 兜底默认值 + 持久化根名（见 14.3.1）</td></tr>
+          <tr><td>② 包清单来源</td><td><b><code>Assets/Revolution/Resources/ResourceSystem/ResMap.txt</code> 的第 2 列去重</b></td><td>零框架 API、不用先打包、且这就是运行时真正用的表；表不存在时提示"先跑一次『仅生成映射』"</td></tr>
+          <tr><td>③ 生成物（运行时读）</td><td><code>Assets/Resources/RevHotUpdate/HotBundles.txt</code></td><td>与框架的 <code>ResMap.txt</code> 同族格式（<code>|</code> 分隔 + <code>#</code> 注释）；<code>Resources.Load</code> 一次读入（几百包 ≈ 几 KB）</td></tr>
+          <tr><td>④ 运行时判定</td><td><code>Revolution.HotUpdate</code> 程序集</td><td>解析成 <code>HashSet&lt;string&gt;</code> 做 O(1) 判定；<b>表缺失时全部按"内置"处理并 Warn 一次</b>（绝不猜）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>为什么生成物放<b>工程侧的 <code>Assets/Resources/</code></b>（而不是框架目录、也不放 <code>Assets/RevHotUpdate/</code>）：</p>
+    <ul>
+      <li>放框架目录 = 热更包往框架里写东西，删热更包会留垃圾 ✗；
+      </li>
+      <li>放 <code>Assets/RevHotUpdate/</code> = UPM 只读安装时写不进去（框架对生成物有同样的降级处理，见 <code>ABBuildSetting.EnsureWritableForGeneratedCode</code>）✗；
+      </li>
+      <li>放工程 <code>Assets/Resources/</code> = <b>UPM 只读也能用</b>、随包体发布（很小）、WebGL/Android 都能 <code>Resources.Load</code> ✓。
+      </li>
+    </ul>
+    <div class="callout">
+      <p>备选（想要"编译期判定"）：同一次生成再吐一个 <code>RevHotBundleFlags.cs</code> 常量类（业务可以用 <code>if (RevHotBundleFlags.IsHot("hero"))</code> 在编译期分支）。</p>
+      <p><b>默认只出 txt（单一真相，免编译等待）</b>，需要常量再打开开关 —— 避免"两份表不一致"。</p>
+    </div>
+    <h4>14.3.1 配置资产长什么样</h4>
+    <pre>[CreateAssetMenu(menuName = <span class="s">"Revolution/热更包配置"</span>, fileName = <span class="s">"RevHotUpdateConfig"</span>)]
+<span class="k">public</span> <span class="k">sealed</span> <span class="k">class</span> RevHotUpdateConfig : ScriptableObject
+{
+    [Tooltip(<span class="s">"持久化根目录名（{persistentDataPath}/&lt;这个名字&gt;/bundles/&lt;包名&gt;）"</span>)]
+    <span class="k">public</span> <span class="k">string</span> localRootName = <span class="s">"RevHotUpdate"</span>;
+
+    [Tooltip(<span class="s">"没有命中任何规则的包，默认算热更还是内置（推荐 hot：标多了不会崩，只是允许被覆盖）"</span>)]
+    <span class="k">public</span> <span class="k">bool</span> defaultHot = <span class="k">true</span>;
+
+    [Tooltip(<span class="s">"规则：从上往下匹配，命中即止。支持 精确名 / 前缀（以 * 结尾）"</span>)]
+    <span class="k">public</span> List&lt;Rule&gt; rules = <span class="k">new</span> List&lt;Rule&gt;();
+
+    [Tooltip(<span class="s">"生成时顺带写入每个包的 hash 与大小（供运行时可选校验；实测 .manifest 字段齐全才准确）"</span>)]
+    <span class="k">public</span> <span class="k">bool</span> writeHashColumn = <span class="k">true</span>;
+
+    [Tooltip(<span class="s">"运行时是否对'从持久化加载的包'做一次 hash 校验（默认关：档 1 以轻为主）"</span>)]
+    <span class="k">public</span> <span class="k">bool</span> verifyOnLoad = <span class="k">false</span>;
+
+    [Serializable]
+    <span class="k">public</span> <span class="k">sealed</span> <span class="k">class</span> Rule
+    {
+        <span class="k">public</span> <span class="k">string</span> pattern;   <span class="c">// "ui_*" / "hero" / "scene_arena"</span>
+        <span class="k">public</span> <span class="k">bool</span> hot;         <span class="c">// true = 允许被覆盖</span>
+    }
+}</pre>
+    <p>编辑器窗口 <code>RevHotUpdateWindow</code>（挂在 <code>Revolution.Tools/热更新/热更包标记</code>）提供 4 个动作：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>动作</th><th>做什么</th></tr></thead>
+        <tbody>
+          <tr><td>列出所有包</td><td>读 <code>ResMap.txt</code> 第 2 列去重 → 表格显示"包名 / 资源数 / 当前判定（热更</td><td>内置）/ 命中哪条规则"</td></tr>
+          <tr><td>勾选</td><td>直接勾/取消（写回规则：精确名规则自动追加，不用手写 pattern）</td></tr>
+          <tr><td>一键默认</td><td>"全部热更" / "全部内置" / "只热更某个前缀"</td></tr>
+          <tr><td>生成</td><td>写 <code>Assets/Resources/RevHotUpdate/HotBundles.txt</code> + 自检（有规则但没有任何包命中 → 提示；包名与 <code>ResMap</code> 不一致 → 报错）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>14.4 生成物格式（<code>HotBundles.txt</code>）</h3>
+    <pre># RevHotBundles v1 —— 由 RevHotUpdate 编辑器工具生成，请勿手改（改了会被下次生成覆盖）
+# 字段：@key|value / @bundle|包名|来源(hot|builtin)|hash|字节数
+@generatedAt|2026-10-01 12:00:00
+@localRoot|RevHotUpdate
+@default|hot
+@rule|ui_*|hot
+@rule|scene_arena|builtin
+@bundleCount|6
+
+@bundle|common|hot|7c1e...|1572864
+@bundle|ui_login|hot|9b2f...|1048576
+@bundle|ui_bag|hot|1a3d...|2097152
+@bundle|hero|hot|5e6f...|15728640
+@bundle|effect_battle|hot|8d9c...|8388608
+@bundle|scene_arena|builtin|2b4a...|25165824</pre>
+    <ul>
+      <li>与 <code>RevHotManifest</code>（附录 A）<b>同族</b>，第二档升级时只是"多几列、多一份远端来源"，不需要换解析器；
+      </li>
+      <li><code>hash</code>/<code>字节数</code>两列就是 14.6 第 1 条的"搬错包"防线，成本几乎为零（编辑器侧本来就在读 <code>.manifest</code>）。
+      </li>
+    </ul>
+    <h3>14.5 运行时实现（三段 + 一条时序约束）</h3>
+    <h4>14.5.1 表</h4>
+    <pre><span class="c">// RevHotBundleTable：解析 HotBundles.txt（找不到表 → 全部按 builtin，Warn 一次）</span>
+<span class="k">internal</span> <span class="k">static</span> <span class="k">class</span> RevHotBundleTable
+{
+    <span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> Dictionary&lt;<span class="k">string</span>, RevHotBundleEntry&gt; _map = <span class="k">new</span> ...;   <span class="c">// 包名 → {hot, hash, size}</span>
+    <span class="k">internal</span> <span class="k">static</span> <span class="k">bool</span> IsHot(<span class="k">string</span> bundleName);
+    <span class="k">internal</span> <span class="k">static</span> <span class="k">string</span> LocalRoot { <span class="k">get</span>; }                                        <span class="c">// {persistentDataPath}/{@localRoot}</span>
+}</pre>
+    <h4>14.5.2 路径解析（钩子的实现，这一段就是整个方案的核心）</h4>
+    <pre><span class="c">// 唯一入口：框架的 RevABLoader.BundlePathResolver 指向它</span>
+<span class="k">internal</span> <span class="k">static</span> <span class="k">string</span> ResolveBundlePath(<span class="k">string</span> bundleName)
+{
+    <span class="c">// ① 标记为"允许被覆盖"的包：持久化目录里有就用它（这就是"热更生效"）</span>
+    <span class="k">if</span> (RevHotBundleTable.IsHot(bundleName))
+    {
+        <span class="k">string</span> local = Path.Combine(RevHotBundleTable.LocalRoot, <span class="s">"bundles"</span>, bundleName);
+        <span class="k">if</span> (File.Exists(local))
+        {
+            LogOnce(bundleName, <span class="s">"热更"</span>);        <span class="c">// ★ 首次加载时打一条 Info：这个包此刻从哪来 —— 排查全靠它</span>
+            <span class="k">return</span> local;
+        }
+        <span class="c">// 持久化没有 → 回退内置（新装机 / 没下过 / 临时关热更，都走这里）—— 见 14.2</span>
+    }
+
+    <span class="c">// ② 其余（内置包、或热更包还没下）：保持框架原行为</span>
+    <span class="k">return</span> <span class="k">null</span>;                                <span class="c">// 返回 null = 让框架走 StreamingAssets/&lt;平台&gt;/&lt;包名&gt;</span>
+}</pre>
+    <div class="callout">
+      <span class="t">返回 <code>null</code> 而不是自己拼 StreamingAssets 路径</span>
+      <p>：这样"默认行为"只有框架一个出处在维护（平台名、目录规则、Android/WebGL 分支都在框架里），我们只负责"要不要覆盖"。</p>
+    </div>
+    <h4>14.5.3 装配</h4>
+    <pre><span class="k">public</span> <span class="k">static</span> <span class="k">void</span> Install()
+{
+    RevABLoader.BundlePathResolver  = RevHotPaths.ResolveBundlePath;   <span class="c">// 静态方法，不捕获实例</span>
+    RevResBootstrap.ResMapOverride  = RevHotPaths.LoadLocalResMap;     <span class="c">// 持久化里有 ResMap.txt 就用它，否则返回 null</span>
+    RevResBootstrap.Instance.Init();                                   <span class="c">// 框架原样装配</span>
+}</pre>
+    <p><code>LoadLocalResMap()</code>：读 <code>{LocalRoot}/ResMap.txt</code> → 解析成 <code>Dictionary&lt;string,string&gt;</code> → 没有文件就返回 <code>null</code>（框架继续用内置表）。</p>
+    <p><b>为什么档 1 也要它</b>：业务往持久化目录搬"新包 + 新表"时，如果表还是内置那份，"新增资源"照样加载不到（3.2 那条硬事实在档 1 依然成立）。</p>
+    <h4>14.5.4 目录约定（档 1 扁平版）</h4>
+    <pre>{persistentDataPath}/RevHotUpdate/
+├── bundles/&lt;包名&gt;        ← 允许被覆盖的包放这里（档 1：人工/工具搬；档 2：下载器写）
+├── ResMap.txt            ← 可选：热更映射表（有就用它）
+└── .tmp/                 ← 档 2 的下载临时目录（档 1 空着即可）</pre>
+    <h4>14.5.5 ★ 一条时序约束（必须遵守，否则会出诡异问题）</h4>
+    <p><b>不许在"包正被使用"时替换它的文件</b>。原因有两条，都很难排查：</p>
+    <ol>
+      <li>Windows（编辑器 / PC 包）上，文件被 <code>LoadFromFile</code> 映射后<b>替换会失败</b>（文件锁）→ 表现为"更新成功但加载的还是旧内容"；
+      </li>
+      <li>即使替换成功，<b>已经加载的包仍留在内存里</b>，本次进程内不会生效 → 表现为"我明明覆盖了，怎么没变"。
+      </li>
+    </ol>
+    <p>正确顺序（档 2 会自动做，档 1 里由业务手工遵守）：</p>
+    <pre>RevResBootstrap.Instance.ShutdownAll();   // ① 卸载所有资源与包（①②③④ 都被它封装了）
+（写入/替换持久化目录里的包 + ResMap.txt）
+RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生效</pre>
+    <div class="callout">
+      <p>开发期手工验证时记住这条：<b>"搬完包先重进一次 Play"</b>（或先调 <code>ShutdownAll</code>）。</p>
+    </div>
+    <h3>14.6 四个必须一起做掉的细节（缺一个都会变成"偶尔出问题"）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>细节</th><th>不做的后果</th><th>做法</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>miss 回退 + 来源日志</b>（14.2 / 14.5.2）</td><td>新装机黑屏；或"到底加载的是哪个版本"永远说不清</td><td>回退内置；每个包<b>首次加载时打一条 Info</b>（包名 + 来的根），并进 <code>Dump()</code></td></tr>
+          <tr><td>2</td><td><b>Android 上"非热更包"的读取</b></td><td>Android 真机上内置包报 <code>BundleLoadFail</code>（<code>streamingAssetsPath</code> 是 <code>jar:file://...</code>，不是文件路径；<code>AssetBundle.LoadFromFile</code> 对压缩包读不了）</td><td>三选一：<b>① 首包落地</b>（把内置包拷到持久化目录，加载路径统一，代价是双份磁盘）/ ② 内置包 <b>AB 不压缩</b>（<code>UncompressedAssetBundle</code>，<code>LoadFromFile</code> 可读 jar，代价是首包体积 +30%~50%）/ ③ 把钩子返回值扩成"URL 语义"（框架按 <code>http://</code>/<code>jar:</code> 前缀改用 <code>UnityWebRequestAssetBundle</code>，代价是内存峰值 + 首启解包耗时）。<b>推荐 ①</b></td></tr>
+          <tr><td>3</td><td><b>逐包生效 vs 整版本一致</b></td><td>档 1 是"逐包生效"：如果包 A 与包 B 有<b>互相依赖的改动</b>（A 用到 B 的新资源），先搬 A 后搬 B 的窗口里会出现"新 A + 旧 B" → 报错或表现诡异</td><td>档 1：搬包时<b>整批搬</b>（工具化：一次拷完再 <code>ShutdownAll</code>+<code>Init</code>）；档 2：版本目录 + <code>.stamp</code> 完成标记（5.1）天然解决</td></tr>
+          <tr><td>4</td><td><b>ResMap 与包同源</b></td><td>只换包不换表 → 新增资源加载不到（3.2）；只换表不换包 → 表里有、包里没有 → <code>AssetLoadFail</code></td><td>表与包<b>同批更新</b>；<code>LoadLocalResMap</code> 与包放在同一个持久化根下（档 2 里两者都在版本目录里，天然同源）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>14.7 验收标准（档 1 可独立验收）</h3>
+    <p><b>工程外纯 C# 断言（20+ 条，照框架习惯）</b>：表解析（含 <code>#</code> 注释 / 空行 / 字段不足 / BOM / <code>\r\n</code>）、规则匹配（精确 / 前缀 / 兜底默认值 / 规则顺序）、路径选择（hot+存在 → 持久化；hot+缺失 → 内置；builtin → 内置）、<code>LocalRoot</code> 拼装、缺表时的降级行为。</p>
+    <p><b>真机手工验证 5 条</b>：</p>
+    <ol>
+      <li>把某个"热更包"的新版本（不同内容）拷进 <code>{persistent}/RevHotUpdate/bundles/</code> → 重进 Play → <b>加载到新内容</b>（并看到"来源：热更"的日志）；
+      </li>
+      <li>把该文件删掉 → 重进 Play → 回到内置内容（<b>来源：内置</b>）；
+      </li>
+      <li>一个包都不放 → 重进 Play → 一切与装热更包之前<b>完全一样</b>（验收"不导入零影响"）；
+      </li>
+      <li>Android 真机：内置包能加载（14.6 第 2 条的方案生效）+ 热更包能被覆盖；
+      </li>
+      <li>WebGL（若需要）：钩子返回 CDN URL 时能加载（这一条依赖第十一章钩子的 URL 语义）。
+      </li>
+    </ol>
+    <h3>14.8 与第二档的关系、以及什么时候必须升级</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>档 1 里做的东西</th><th>第二档（本文档主方案）里怎么用</th></tr></thead>
+        <tbody>
+          <tr><td><code>HotBundles.txt</code> 表格式与解析</td><td><b>原样保留</b>（并升级成 <code>RevHotManifest</code> 的一份子集：多一列"远端路径"、多一份远端清单做版本比对）</td></tr>
+          <tr><td><code>ResolveBundlePath</code>（持久化优先 + 回退）</td><td><b>原样保留</b>（只是"持久化目录"从扁平变成"版本目录"）</td></tr>
+          <tr><td>两个框架钩子</td><td><b>原样保留</b>（钩子的语义不用变）</td></tr>
+          <tr><td>编辑器窗口（列包 / 勾选 / 生成）</td><td><b>原样保留</b>（再加"生成清单 / 上传辅助"两个按钮）</td></tr>
+          <tr><td>目录约定（持久化根 + bundles + ResMap）</td><td><b>平滑升级</b>：外面套一层版本目录</td></tr>
+          <tr><td>—</td><td>新增：下载器 / 版本比对 / 校验 / 版本目录与完成标记 / 回滚清理</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>什么时候必须从档 1 升到档 2</b>：当"新包怎么进玩家手机"这件事<b>不能再靠人工/外部更新器</b>时 —— 也就是产品要求"玩家自己点一下更新、下完就能玩新版资源"。在那之前，档 1 已经完全能支撑：</p>
+    <ul>
+      <li>"我提前知道哪些包将来要改"（打包期就分好）；
+      </li>
+      <li>"测试同学手工换一版资源验证"（拷包 + 重进）；
+      </li>
+      <li>"同一份代码同时支持两种来源的包"（设备上混合加载）。
+      </li>
+    </ul>
+    <h3>14.9 工作量与推荐</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>项</th><th>档 1（本章）</th><th>档 2（本文档主方案）</th></tr></thead>
+        <tbody>
+          <tr><td>框架改动</td><td>2 处钩子（≈17 行）</td><td>同（不再增加）</td></tr>
+          <tr><td>运行时</td><td>≈ 250 行（表 + 路径 + 装配 + 日志）</td><td>≈ 1600 行</td></tr>
+          <tr><td>编辑器</td><td>≈ 350 行（配置 + 窗口 + 生成 + 自检）</td><td>+ ≈ 600 行（清单 / 上传辅助）</td></tr>
+          <tr><td>工期</td><td><b>3~4 天（含真机）</b></td><td>再 9~12 天</td></tr>
+          <tr><td>能上线的形态</td><td>内部 / 测试环境；"资源随包或由外部更新器分发"</td><td>玩家自助更新</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="t">推荐路径：先做档 1（本章），跑通"两个根"并验收；产品需要"玩家自助更新"时，再加档 2 的传输层 —— 档 1 的产物全部保留，不返工。</span>
+      <p>这也是对"我这样行不行"最实用的回答：<b>行，但你得知道它是一半 —— 而且这一半必须做对（14.2 的语义 + 14.6 的四个细节）。</b></p>
+    </div>
+  </section>
+
+  <!-- ==================== 十五、最终推荐方案（一页纸，照这个做） ==================== -->
+  <section id="s15">
+    <h2><span class="num">15</span>最终推荐方案（一页纸，照这个做）</h2>
+    <div class="callout">
+      <p>前面十四章是论证与备选；<b>这一章是结论</b>：一套方案、一条实施路径、两张"踩坑清单"。</p>
+      <p>一句话：<b>两个根 + 一份表 + 一个版本目录 + 两处不可见钩子。</b></p>
+    </div>
+    <h3>15.1 一张图看懂</h3>
+    <pre>启动
+ └─ await RevHotUpdate.InitializeAsync(cfg)
+      ├─ ① Android：把内置首包"落地"到持久化（幂等 + hash 跳过；PC/iOS 跳过这一步）
+      ├─ ② 拉远端清单（失败/损坏 → 保持当前版本，玩家照常进游戏）
+      ├─ ③ 版本比对 → 只下变化过的包（Range 续传 / 重试 / 多源降级）
+      ├─ ④ 校验（尺寸 + SHA-256）→ .tmp 原子改名 → 全齐后打 .stamp
+      ├─ ⑤ 原子切换 current.txt（旧版本保留 N 份，可回滚）→ 删更老的
+      └─ ⑥ 装钩子：持久化优先 → 内置兜底 → 都没有才报错；ResMap 同步热更
+           └─ RevResBootstrap.Init()  ← 框架原样装配，业务加载代码一行不改</pre>
+    <h3>15.2 九条设计决策（每条都附"为什么这样最稳"）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>决策</th><th>为什么这是最稳的</th><th>放弃了什么</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>接缝方式</b>：框架加 2 个默认 <code>null</code> 的静态钩子（<code>BundlePathResolver</code> / <code>ResMapOverride</code>），热更包复用框架的 <code>RevABLoader</code></td><td>包级引用计数、依赖递归、卸载时机全部沿用框架（<code>RevResHandle.BundleAcquired</code> / <code>BundleLoader</code> 是 <code>internal</code>，自研 loader 拿不到释放回调 → 生命周期只能"反推"，是<b>语义退化</b>，不是等价实现）</td><td>框架 17 行改动（默认 null，有断言守护）</td></tr>
+          <tr><td>2</td><td><b>标记语义</b>：<b>覆盖式</b> —— 持久化有就用、没有就回退内置、两者都没有才报错（<b>不是</b>"热更包只从持久化读"）</td><td>新装机 / 清数据 / 换机 / 临时关热更，全都走同一条"回退内置"，<b>没有"首装崩"这一档故障</b></td><td>无（唯一的"代价"是包会同时存在两份，属空间而非正确性）</td></tr>
+          <tr><td>3</td><td><b>生效粒度</b>：<b>版本目录 + <code>.stamp</code> 完成标记 + <code>current.txt</code> 原子切换</b>（不是逐包直接覆盖）</td><td>消灭"半新半旧"这一整类问题；下载中断/校验失败<b>绝不污染</b>当前可用版本；天然可回滚</td><td>多一点目录管理代码（约 +120 行）</td></tr>
+          <tr><td>4</td><td><b>首包策略</b>：<b>首包全量内置</b>（每个包在包体里都有一份）</td><td>任何"缺包"的诡异失败（<code>BundleLoadFail</code>、黑屏）都不会发生；热更只下"变化的包"，正常玩家更新量 = 变化量</td><td>包体最省（"首包瘦身 + 按需下载"留到第 4 步）</td></tr>
+          <tr><td>5</td><td><b>Android 首包读取</b>：<b>落地到持久化</b>（幂等 + hash 跳过）；PC / iOS 直接读 StreamingAssets</td><td>Android 的 <code>streamingAssetsPath</code> 是 <code>jar:file://...</code>，压缩 AB 用 <code>LoadFromFile</code> 读不了；落地后<b>三平台都是"文件路径"一条链路</b>，<code>LoadFromFile</code> 的加载速度与内存表现最好</td><td>Android 上双份磁盘 + 首次启动的拷贝时间（用"只拷缺失 + hash 跳过"压到最小）</td></tr>
+          <tr><td>6</td><td><b>校验</b>：下载期 <b>尺寸 + SHA-256</b>（分帧流式）；可选复用 Unity <code>.manifest</code> 的 <code>CRC</code> 做加载期校验</td><td>坏包<b>绝不进</b>版本目录；hash 是"重下 vs 跳过"的唯一判据</td><td>少量 CPU（分帧后无感）；<code>.manifest</code> 字段齐不齐需实测一次</td></tr>
+          <tr><td>7</td><td><b>清单与映射表</b>：行式文本（与 <code>ResMap.txt</code> 同族）；<b>ResMap 必须与包同批更新</b>，热更表覆盖内置表（合并语义）</td><td>新增资源 / 改包只有靠它才成立；零第三方依赖；出问题能"记事本比一比"</td><td>JSON 生态便利（用不上）</td></tr>
+          <tr><td>8</td><td><b>传输容错</b>：并发 3、重试指数退避、多源降级、Range 续传、磁盘预检；<b>清单拉取失败或损坏 → 保持当前版本</b></td><td>弱网 / 断网 / CDN 抖动 / 单源故障的表现全部可预期；玩家最坏情况是"这次没更新"，而不是"进不去游戏"</td><td>无</td></tr>
+          <tr><td>9</td><td><b>切换时序</b>：<code>ShutdownAll()</code> → 切 <code>current</code> → 删旧版本 → <code>Init()</code>；<b>禁止在包被使用时覆盖文件</b></td><td>避开两个最阴的坑：Windows 文件锁导致"替换失败"，以及已加载包在内存里导致"覆盖了却不生效"</td><td>无（这是一条纪律，不是代价）</td></tr>
+          <tr><td>10</td><td><b>版本模型</b>：<b>大版本锚定</b> —— 大版本内热更资源，跨大版本重新出包（清单里的 <code>@appVersion</code> 不匹配就拒绝并引导强更）</td><td>把"不可能兼容的变更"挡在包体更新这条路径上，资源层因此<b>不需要做向后兼容</b>；"基线 = 包体"让回滚有确定边界；清单/目录也可以只做"单一大版本内的差量"，省掉灰度矩阵与兼容区间（第十六章）</td><td>大版本内不能改代码；跨大版本玩家要整包下载</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>15.3 分期落地（每步独立可验收、都不返工）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>步</th><th>内容</th><th>产出验收</th><th>工期</th></tr></thead>
+        <tbody>
+          <tr><td><b>1</b></td><td>钩子 + 标记表 + 路径解析（= 第十四章）</td><td>手工把包拷进持久化目录 → 加载到新内容；删掉 → 回退内置；什么都不放 → 与装热更前完全一样</td><td>3~4 天</td></tr>
+          <tr><td><b>2</b></td><td>清单 + 下载器 + 校验 + 版本目录 + Android 首包落地</td><td>"改一张图 → 重新打包 → 生成清单 → 放进本地 CDN → 真机只下变化包并生效"闭环；8 项破坏性测试全过</td><td>4~5 天</td></tr>
+          <tr><td><b>3</b></td><td>编辑器链路（标记 UI / 清单生成 / 自检 / 上传脚本）+ demo + CI</td><td>面板 3 个动作可用；自检能拦下漏包与 hash 不符；与 <code>ABCIBuild</code> 一起能无人值守</td><td>3 天</td></tr>
+          <tr><td><b>4（按需）</b></td><td>首包瘦身 / 按需下载 / 清单签名 / 加密 / 灰度</td><td>按产品需要单独评估</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>15.4 "为了稳"清单（12 条；每条都在防一个具体故障）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>做法</th><th>防的是什么</th></tr></thead>
+        <tbody>
+          <tr><td>首包落地<b>幂等 + hash 跳过</b></td><td>重复拷贝、半截文件被当成好文件</td></tr>
+          <tr><td><code>.tmp</code> + <b>原子 rename</b></td><td>"半个包"被加载（表现为随机崩溃或资源缺失）</td></tr>
+          <tr><td>版本目录 <b><code>.stamp</code> 完成标记</b></td><td>半新半旧：一部分包新、一部分旧</td></tr>
+          <tr><td><code>current.txt</code> <b>原子替换</b></td><td>断电/被杀进程时写出半行文本 → 版本指针损坏</td></tr>
+          <tr><td><b>保留 N 个版本</b></td><td>新版本出问题时回不去（线上事故的第一道逃生门）</td></tr>
+          <tr><td>清单失败/损坏 → <b>保持当前版本</b></td><td>CDN 抖动或误删清单导致"玩家集体进不去游戏"</td></tr>
+          <tr><td>校验失败 → <b>整包重下（不带 offset）</b></td><td>续传点错位导致的"持续性损坏"（越续越坏）</td></tr>
+          <tr><td>每个包<b>首次加载打印来源</b>（持久化 / 内置）</td><td>"到底跑的哪一版"永远说不清 → 排查成本爆炸</td></tr>
+          <tr><td>下载前<b>磁盘预检</b></td><td>下到一半失败（且留下垃圾）</td></tr>
+          <tr><td><b>多源降级</b></td><td>单一 CDN 故障直接变成"全部玩家更新失败"</td></tr>
+          <tr><td>切换前 <b><code>ShutdownAll()</code></b></td><td>文件锁 + 已加载包不生效这两个坑</td></tr>
+          <tr><td>表缺失时<b>全按内置 + Warn 一次</b></td><td>"配置没生成"却悄悄改变了加载来源（最怕静默）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>15.5 "千万别做"清单（8 条）</h3>
+    <ol>
+      <li><b>别让"热更包"只从持久化读</b> —— 新装机必崩（14.2）。
+      </li>
+      <li><b>别在包被使用时覆盖它的文件</b> —— 文件锁 + 内存不一致（15.2 第 9 条）。
+      </li>
+      <li><b>别用 <code>File.WriteAllBytes</code> 直接写最终文件名</b> —— 必须 <code>.tmp</code> → rename。
+      </li>
+      <li><b>别把对象存储的 <code>ListObjects</code> 当目录清单</b> —— 权限/延迟/无原子性，清单才是唯一真相。
+      </li>
+      <li><b>别忘了把 <code>ResMap</code> 放进更新内容</b> —— 否则"新增资源"永远加载不到。
+      </li>
+      <li><b>别把热更放在资源系统初始化之后</b> —— 那会先加载一整套旧资源，再被卸载重载。
+      </li>
+      <li><b>别在回调里做同步全量校验</b> —— 几百 MB 会直接卡帧，必须分帧流式。
+      </li>
+      <li><b>别给热更包加自己的资源加载 API</b>（<code>RevHotUpdate.LoadAsync&lt;T&gt;</code> 之类）—— 一旦有了它会立刻长成"第二套资源系统"，与框架的引用计数/分组/自动卸载彻底分家。
+      </li>
+    </ol>
+    <h3>15.6 对第十三章 5 个决策的最终选定</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>决策</th><th>选定</th></tr></thead>
+        <tbody>
+          <tr><td>① 是否接受框架加 2 个钩子</td><td><b>接受</b>（方案 A：17 行、默认 null、有断言守护）——比"零改动自研 loader"稳</td></tr>
+          <tr><td>② 默认首包模式</td><td><b>Android 落地，PC/iOS 直读 StreamingAssets</b></td></tr>
+          <tr><td>③ 清单 hash 算法</td><td><b>SHA-256 为默认</b>；有实测依据时可把"复用 <code>.manifest</code> 的 AssetFileHash"降级为"零成本档"</td></tr>
+          <tr><td>④ 是否做首包瘦身</td><td><b>先不做</b>（首包全量最稳），留到第 4 步</td></tr>
+          <tr><td>⑤ 独立分支</td><td><b>要</b>（<code>hotupdate</code> 分支，与 <code>package</code> / <code>demo</code> 一致，一条命令就能装）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>15.7 一句话总结</h3>
+    <div class="callout">
+      <span class="t">最稳妥 = "覆盖式语义 + 版本目录原子切换 + 首包全量兜底 + 复用框架加载器（2 个不可见钩子）"； 最优 = 这套东西同时是"最小面积"：0 第三方依赖、业务加载代码 0 改动、约 2200 行、可分 3 步落地且每步都不返工。</span>
+      <p>换句话说：<b>不追求"功能最全"，追求"每个失败都有确定的出口"</b> —— 这也正是这个框架一贯的取舍。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 十六、版本模型：大版本锚定（大版本内热更，跨大版本重出包） ==================== -->
+  <section id="s16">
+    <h2><span class="num">16</span>版本模型：大版本锚定（大版本内热更，跨大版本重出包）</h2>
+    <div class="callout">
+      <p>这一章是把一项<b>产品/发版纪律</b>写进技术方案：<b>大版本之内</b>用 RevHotUpdate 热更资源；<b>整个大版本切换</b>时重新打包、走商店更新。</p>
+      <p>结论：<b>这是这类项目最优的版本模型</b> —— 它不是"少做点功能"，而是用一条版本纪律<b>消掉方案里一大半的兜底复杂度</b>。</p>
+    </div>
+    <h3>16.1 模型长什么样：两个版本号，一条隔离墙</h3>
+    <pre>App 大版本（= Player Settings 里的 Application.version，如 1.2.0）  ← 锚点：只由"重新出包"改变
+资源版本（如 1.2.0.37）                                            ← 锚点之内：可热更、可多次、可回滚
+
+1.2.0 出包（基线）
+  ├─ 1.2.0.1  … 1.2.0.37        资源热更（只下变化的包；同一大版本内可回滚到任意保留版本）
+  └─ 1.3.0 重新出包             ← 新的大版本：全新的远端目录，老客户端永远不会拉到它
+
+远端目录：{RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/…     ← "大版本"这一段就是隔离墙</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>谁</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><b>客户端</b></td><td>拿自己的 <code>Application.version</code> 去请求清单；<code>@appVersion</code> 不匹配 → <b>拒绝更新 + 提示更新客户端</b>（绝不用不匹配的资源）</td></tr>
+          <tr><td><b>服务端 / CDN</b></td><td>按大版本分开的目录；大版本切换 = 新目录（不复用旧的）</td></tr>
+          <tr><td><b>发版流程</b></td><td>大版本切换必须重新出包；大版本内只做资源热更</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>16.2 为什么这是最优的版本策略（五条论证）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>理由</th><th>省掉了什么</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>不需要资源层向后兼容</b>：跨大版本的资源与代码不兼容问题是"被禁止发生"的，不是"被小心处理"的</td><td>省掉版本兼容矩阵、资源与代码接口的双向兼容测试</td></tr>
+          <tr><td>2</td><td><b>基线是天然的</b>：包体里那批包就是该大版本的基线（清单随包体发布）</td><td>省掉"第一次热更要先下一份基准"、"基准丢了怎么办"这一类问题</td></tr>
+          <tr><td>3</td><td><b>回滚有确定边界</b>：同一大版本内回滚 = 指回上一份资源版本（保留 N 份）；<b>最坏兜底 = 删持久化目录 → 回到出包状态</b>（一行操作）</td><td>省掉"回滚目标可能跨大版本"这种没法处理的情况</td></tr>
+          <tr><td>4</td><td><b>清单与目录可以极简</b>：只描述"单一兼容窗口内的差量"</td><td>省掉灰度矩阵、兼容区间、多版本同时在线的复杂查询</td></tr>
+          <tr><td>5</td><td><b>与框架零冲突</b>：锚点就是 <code>Application.version</code>，框架不需要任何新增机制</td><td>不需要为热更改框架的版本概念</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>附带收益：<b>如果将来引入代码热更（HybridCLR），这个模型就是它的公共地基</b> —— "大版本"天然界定了"哪些变更属于同一个兼容窗口"，这正是代码热更最需要的语义（但 iOS 审核红线不变，本期边界仍是"只做资源热更"）。</p>
+    <h3>16.3 需要落地哪些机制（5 条，都是小东西）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>机制</th><th>落点</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>清单头部加三个版本字段：<code>@appVersion</code>（精确锚点）、<code>@resVersion</code>（同大版本内自增）、<code>@minAppVersion</code>（兼容下限，"补丁包"场景用）</td><td>清单生成器 + 解析器（附录 A 已更新样例）</td></tr>
+          <tr><td>2</td><td>客户端校验 + 强更回调：不匹配 → <code>RevHotError.AppVersionMismatch</code>，并触发 <code>OnForceUpdateRequired(info)</code>（业务决定跳商店 / 弹公告 / 走整包下载）</td><td><code>RevHotUpdate.CheckAsync</code> 的第一步（比清单比对更早，省一次无意义下载）</td></tr>
+          <tr><td>3</td><td><b>远端目录按大版本隔离</b></td><td>URL 拼装：<code>{RemoteRoot}/{环境?}/{平台}/{appVersion}/{渠道?}/…</code>（4.1 的图已更新）</td></tr>
+          <tr><td>4</td><td><b>基线清单随包体发布</b>：<code>Assets/Resources/RevHotUpdate/Baseline.txt</code>（出包时由编辑器工具生成，内容 = 该大版本全部包的 <code>name|hash|size|deps</code>）</td><td>与 <code>HotBundles.txt</code> 同一个目录（14.3 的约定），运行时读它算差集、也用它做"回滚到出包状态"的判据</td></tr>
+          <tr><td>5</td><td>大版本切换的运维动作：新目录（不复用旧目录）+ 旧目录保留 N 天（给还没更新的老客户端）</td><td>上传脚本 / CI（文档化的操作清单）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>框架/provider 侧<b>不做</b>：跳商店、整包下载、渠道分发 —— 那是发行层的事。框架只负责"<b>识别版本不匹配 + 给出明确原因 + 一次回调</b>"。</p>
+    </div>
+    <h3>16.4 "大版本内能热更什么 / 必须重新出包"对照表（给策划与产品看）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>内容</th><th>大版本内热更</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>新增 / 替换美术资源（图集、模型、特效、音频）</td><td>✅</td><td>纯资源</td></tr>
+          <tr><td>新增 UI 面板（用已有的面板基类 + 预制体 + 配置表拼装）</td><td>✅</td><td>预制体是资源；行为仍由已有脚本驱动</td></tr>
+          <tr><td>数值 / 配置表（导表工具产出）</td><td>✅</td><td>数据</td></tr>
+          <tr><td>新增活动、限时玩法（用已有系统拼装）</td><td>✅</td><td>数据 + 资源</td></tr>
+          <tr><td>Shader 参数 / 材质调整</td><td>⚠️ 需实测</td><td>Shader 本身是资源，但可能牵动渲染管线设置</td></tr>
+          <tr><td>脚本代码（修 bug、新功能）</td><td>❌（除非另接 HybridCLR，本期不做）</td><td>代码在包体里</td></tr>
+          <tr><td>新的 Unity 插件 / 新的原生库 / 渲染管线与 Player Settings 变更</td><td>❌</td><td>属包体级变更</td></tr>
+          <tr><td>资源布局的<b>破坏性重构</b>（包名大改、依赖结构重排）</td><td>⚠️ 技术可行（ResMap 同步 + 依赖重算），但<b>建议留到大版本</b></td><td>风险与收益不匹配</td></tr>
+          <tr><td>大版本之间复用资源包</td><td>❌ <b>禁止</b>（远期不是"不能"，而是"不许"）</td><td>避免"看起来能用"的幻觉（16.6 第 4 条）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>16.5 这个模型给前面章节带来的简化</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>章节</th><th>原本要考虑</th><th>在大版本锚定下</th></tr></thead>
+        <tbody>
+          <tr><td>5.3 版本比对</td><td>兼容矩阵 / 多版本在线 / 灰度</td><td>只需"<b>基线清单 vs 远端同大版本清单</b>"的纯差量</td></tr>
+          <tr><td>5.7 ResMap 合并语义</td><td>担心"热更表删了键、基线表残留"</td><td>该风险只在跨大版本时出现，而它被禁止 → <b>合并语义在大版本内是安全的</b>（生成期再自检"热更表覆盖基线全部键"即可）</td></tr>
+          <tr><td>5.1 版本目录</td><td>目录层级与清理规则</td><td>变成 <code>&lt;平台&gt;/&lt;appVersion&gt;/&lt;resVersion&gt;/</code> 两级，清理规则更明确：同一大版本内保留 N 份；跨大版本目录在切版本时<b>整目录删</b></td></tr>
+          <tr><td>14.2 标记语义</td><td>"热更包缺了怎么办"</td><td>基线永远在包体里 → 回退路径永远存在，"最坏=回到出包状态"成为可承诺的兜底</td></tr>
+          <tr><td>附录 A 清单</td><td>只有 minAppVersion</td><td>补 <code>@appVersion</code> / <code>@resVersion</code> / <code>@baseManifest</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>16.6 边界与纪律（5 条，踩了会白干）</h3>
+    <ol>
+      <li><b>服务端必须按大版本返回清单</b>（客户端带上自己的 <code>Application.version</code>；服务端不要"返回最新"）——否则旧客户端会拿到新资源清单；
+      </li>
+      <li><b>测试环境务必按大版本隔离</b> ——"测试同学用旧包、拉到新资源"是这类项目最常见、也最难查的一类"假 bug"；
+      </li>
+      <li><b>大版本内不要做资源布局破坏性重构</b> —— 包名大改、依赖结构重排留到下一个大版本；
+      </li>
+      <li><b>跨大版本不要复用远端包目录</b> —— 哪怕 hash 相同、看起来能加载，也会埋下"资源与代码接口不匹配"的雷；
+      </li>
+      <li><b>强更体验要提前设计</b> —— 包体大小、是否走"游戏内下载整包"、以及审核/渠道节奏，都不在框架范围内，但必须在发版流程里定死。
+      </li>
+    </ol>
+    <h3>16.7 一句话</h3>
+    <div class="callout">
+      <span class="t">大版本锚定 = 把"必须重装"这件事从"随机发生的意外"变成"显式的版本纪律"</span>
+      <p>，于是资源层只需要面对"同一兼容窗口内的差量"这一种情况 ——</p>
+      <p>方案里那些"跨版本兼容"的复杂兜底因此不必存在，这也是"最稳妥"的一部分：<b>不是把边界兜住，而是让边界不存在。</b></p>
+    </div>
+  </section>
+
+  <!-- ==================== 十七、平台核实：Android / 小程序上还需要"路径重定向"吗？ ==================== -->
+  <section id="s17">
+    <h2><span class="num">17</span>平台核实：Android / 小程序上还需要"路径重定向"吗？</h2>
+    <div class="callout">
+      <p>前提：这个框架<b>主推 Android + 小程序（微信 / QQ 小游戏，构建目标 = WebGL）</b>。</p>
+      <p>问题："AB 包的下载路径好像没必要重定向了吧？"</p>
+      <p>结论：<b>对了一半，而且是关键的那一半 ——</b></p>
+      <p><b>能砍掉的是"按包分流 + 落地/断点续传/文件校验"这一整套（小游戏上完全用不到）；不能砍的是"根可注入"。</b></p>
+      <p>在小游戏上，"重定向"甚至就是热更的<b>全部机制</b>（因为那边除了 URL 什么都没有）。</p>
+    </div>
+    <h3>17.1 先把两个词分开（后面所有结论都建立在这个区分上）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th><b>下载路径</b>（从哪拿）</th><th><b>加载路径</b>（从哪读）</th></tr></thead>
+        <tbody>
+          <tr><td>是什么</td><td>远端根：<code>https://cdn/…/{环境}/{平台}/{大版本}/{渠道}</code></td><td>运行时把某个包解析到"本地文件 <code>或</code> URL"的那个点</td></tr>
+          <tr><td>配置形态</td><td>几个字段（主源 + 备用源 + 环境 + 渠道 + Header）</td><td>一个函数（框架的 <code>BundlePathResolver</code> 钩子）</td></tr>
+          <tr><td>为什么需要</td><td>换环境（dev/test/prod）、多源降级、签名 URL、大版本隔离</td><td>让"下载/更新后的那份"真正被加载到（否则热更不生效）</td></tr>
+          <tr><td>能不能砍</td><td>❌ 砍不了（但<b>它只是配置，不是机制</b>）</td><td>⚠️ 取决于平台（见 17.2~17.4）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>你原话里的"下载路径没必要重定向"其实混了这两件事。分开看之后，答案就清楚了：</p>
+      <p><b>下载侧：不需要"重定向机制"，只需要"一个可配的远端根"； 加载侧：Android 需要"根注入"，小游戏需要"根 URL"（而且它就是全部）。</b></p>
+    </div>
+    <h3>17.2 平台矩阵（事实核实）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th><b>Android</b></th><th><b>小程序（WebGL）</b></th><th>PC（编辑器/Windows）</th><th>iOS</th></tr></thead>
+        <tbody>
+          <tr><td>首包 AB 放在哪</td><td>APK 内 <code>StreamingAssets</code>（<b><code>jar:file://…!/assets</code>，不是文件路径</b>）</td><td><b>没有"包内 AB"这回事</b>（代码包有体积上限，资源必须走 CDN）</td><td><code>StreamingAssets</code> 真实目录</td><td><code>StreamingAssets</code> 真实目录</td></tr>
+          <tr><td>引擎怎么读 AB</td><td><code>LoadFromFile</code>（<b>压缩包读不了 jar</b>）→ 落地或用 <code>UnityWebRequest</code></td><td>只能 <code>UnityWebRequestAssetBundle</code>（框架 WebGL 分支就是这么写的：<code>RevABLoader.cs:444-452</code>）</td><td><code>LoadFromFile</code>（最快）</td><td><code>LoadFromFile</code></td></tr>
+          <tr><td>有没有可写落地目录</td><td>✅ <code>persistentDataPath</code></td><td>❌ 没有文件系统语义（<code>persistentDataPath</code> 是 IndexedDB 虚拟路径；<code>File.Exists</code> / <code>LoadFromFile</code> 在小游戏里都不可用 —— 框架 WebGL 分支的注释原文就写了这条）</td><td>✅</td><td>✅（但审核只允许资源热更）</td></tr>
+          <tr><td>"第二次启动不重复下载"靠什么</td><td>落地文件（我们自己管）</td><td><b>引擎的 <code>UnityWebRequest</code> 缓存</b>（IndexedDB / 平台缓存）</td><td>落地文件</td><td>落地文件</td></tr>
+          <tr><td>热更"生效"怎么做</td><td>让加载指向<b>落地后的那份</b></td><td><b>换 URL</b>（版本段变了，缓存自然失效；同名 URL 换内容是不行的）</td><td>指向落地后的那份</td><td>同 Android</td></tr>
+          <tr><td>需要"<b>按包分流</b>"（哪些包走持久化、哪些走内置）吗</td><td>❌ <b>不需要</b>（简化成"统一落地 + 基线兜底"两级即可）</td><td>❌ <b>不需要</b>（只有一个来源：URL）</td><td>⚠️ 可选（想省磁盘才需要）</td><td>⚠️ 可选</td></tr>
+          <tr><td>需要"<b>根可注入</b>"吗</td><td>✅ <b>需要</b>（否则热更永不生效）</td><td>✅ <b>需要，且是唯一机制</b></td><td>✅ 需要</td><td>✅ 需要</td></tr>
+          <tr><td>断点续传 / 文件级 hash 校验 / 原子落地</td><td>✅ 需要（我们自己实现）</td><td>❌ <b>不需要</b>（交给引擎缓存与引擎校验）</td><td>✅ 需要</td><td>✅ 需要</td></tr>
+          <tr><td>并发建议</td><td>3</td><td><b>2</b>（单线程 + 内存紧）</td><td>3~4</td><td>3</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>换句话说：<b>主推的这两个平台把方案的形态"劈成两半"</b> ——</p>
+      <p><b>文件型平台（Android / iOS / PC）</b>：下载器 + 落地 + 校验 + 版本目录（本文档第五章那一整套）；</p>
+      <p><b>URL 型平台（WebGL / 小游戏）</b>：清单 + <b>URL 拼装（含版本段）</b> + 把 Unity 的 hash/crc 交给引擎；<b>下载、缓存、校验全是引擎的事</b>。</p>
+    </div>
+    <h3>17.3 Android 核实：为什么"根"仍然必须可注入</h3>
+    <p>推论链（每步都有依据）：</p>
+    <ol>
+      <li>热更生效 = "加载时读到的是<b>下载落地后的那份</b>"（这是热更的定义，没有别的做法）；
+      </li>
+      <li>而框架的加载根是<b>编译期写死的</b>：<code>RevABLoader.cs:61</code> 的 <code>StreamingRoot</code>（<code>private static</code>，永远指向 <code>StreamingAssets/&lt;平台名&gt;/</code>），<code>LoadBundle</code> / <code>LoadBundleAsync</code> 也都是 <code>private static</code>；
+      </li>
+      <li>所以在 Android 上<b>必须有"一个点"能把根换成持久化目录</b> —— 要么框架给钩子（11 行），要么自研 loader（方案 B：因为 <code>RevResHandle.BundleAcquired/BundleLoader</code> 是 <code>internal</code>，拿不到释放回调，生命周期语义退化）；
+      </li>
+      <li>而这<b>与"按包分流"无关</b>：采用"首包全量落地 + 只用版本目录一个根 + 基线兜底"之后，解析逻辑变成固定的两级（<code>当前版本根 → 基线根</code>），没有配置表、没有按包标记。
+      </li>
+    </ol>
+    <p><b>所以在 Android 上：可以砍掉"按包标记"（第十四章降级为可选），不能砍掉"根注入"（第十一章那 11 行仍然要）。</b></p>
+    <h3>17.4 小程序（WebGL）核实：为什么"重定向"恰恰是全部</h3>
+    <p>推论链：</p>
+    <ol>
+      <li>小游戏里 <code>AssetBundle.LoadFromFile</code> / <code>File.Exists</code> 都不可用（框架自己那行注释：<code>RevABLoader.cs:117</code>），AB 只能通过 <code>UnityWebRequestAssetBundle.GetAssetBundle(url, …)</code> 拿到；
+      </li>
+      <li>而 <code>url</code> 的来源在框架里是 <b><code>StreamingRoot + abName</code></b> = <code>{小游戏发布目录}/StreamingAssets/…</code>（<code>RevABLoader.cs:447</code>）；
+      </li>
+      <li>也就是说：<b>不改这个 URL，AB 永远只能来自"发布包自带的那个目录"</b> → 想热更就只能"覆盖发布目录里的同名文件"，那等于放弃原子切换、放弃回滚、放弃"同版本内多次热更"，而且有 CDN/浏览器缓存一致性风险；
+      </li>
+      <li>所以小游戏的正确做法是：<b>资源放到 CDN，URL 里带版本段</b>（<code>{cdn}/{平台}/{大版本}/{资源版本}/bundles/hero</code>），客户端按清单决定用哪个版本 → <b>"重定向"在这里就是热更的全部</b>；
+      </li>
+      <li>但反过来，小游戏上<b>不需要</b>：落地目录、<code>.tmp</code> + rename、断点续传、文件级 SHA-256（没有"下载完的文件"可以读回来算哈希）→ 这些在小游戏上是纯负担。
+      </li>
+    </ol>
+    <p>小游戏上的替代形态（都在本文档既有章节里，只是换个实现）：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>能力</th><th>文件型平台</th><th>小游戏（URL 型）</th></tr></thead>
+        <tbody>
+          <tr><td>下载</td><td><code>UnityWebRequest</code> + <code>DownloadHandlerFile</code>（落盘）</td><td><code>UnityWebRequestAssetBundle</code>（进引擎缓存，<b>不要用 <code>DownloadHandlerFile</code></b>）</td></tr>
+          <tr><td>完整性校验</td><td>尺寸 + SHA-256（分帧流式）</td><td>把清单里的 <b>Unity hash（<code>Hash128</code>）+ CRC</b> 交给 <code>GetAssetBundle(url, hash, crc)</code>，<b>由引擎校验</b></td></tr>
+          <tr><td>断点续传</td><td><code>Range</code> + <code>.part</code></td><td>❌ 不做（缓存由引擎管；失败就重试整包）</td></tr>
+          <tr><td>版本目录</td><td>本地 <code>…/&lt;大版本&gt;/&lt;资源版本&gt;/</code></td><td><b>URL 里的版本段</b>（本身就是"目录"，本地无需任何目录）</td></tr>
+          <tr><td>回滚</td><td>指向上一份资源版本</td><td>指向上一份 URL 版本（引擎缓存里那份还在，但不要依赖它 —— 直接重新拉）</td></tr>
+          <tr><td>进度</td><td>文件字节聚合</td><td>引擎给的是"每个 bundle 的下载进度"，聚合方式相同</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>17.5 抽取出的平台化设计（对前面章节的具体改动）</h3>
+    <p>新增一个只有 <b>两个实现</b> 的小抽象（各约 30 行），把"文件型 / URL 型"分开：</p>
+    <pre><span class="c">// 下载接收器：文件型落盘、URL 型交给引擎（小游戏）</span>
+<span class="k">internal</span> <span class="k">interface</span> IRevHotSink
+{
+    <span class="c">// 文件型：下载到 .tmp → 校验 → 原子 rename → 版本目录</span>
+    <span class="c">// URL 型：不落地，直接返回"该包应使用的最终 URL"（交给框架的 WebGL 分支去加载）</span>
+    RevTask&lt;<span class="k">string</span>&gt; PrepareAsync(RevHotBundleInfo bundle, RevHotSource source, RevCancellationToken token);
+}
+<span class="k">internal</span> <span class="k">sealed</span> <span class="k">class</span> RevHotFileSink : IRevHotSink { ... }    <span class="c">// Android / iOS / PC</span>
+<span class="k">internal</span> <span class="k">sealed</span> <span class="k">class</span> RevHotUrlSink  : IRevHotSink { ... }    <span class="c">// WebGL / 小游戏（只拼 URL + 交给引擎校验）</span></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>章节</th><th>改动</th></tr></thead>
+        <tbody>
+          <tr><td>5.4 下载器</td><td>保留文件型实现；URL 型退化为"URL 拼装 + 重试 + 进度"（不做续传、不落盘）</td></tr>
+          <tr><td>5.5 校验</td><td>校验策略按平台分派：文件型 = 尺寸 + SHA-256；URL 型 = 引擎 hash/crc（清单里必须带 Unity 的 <code>Hash128</code> 与 CRC，见附录 A 的补列说明）</td></tr>
+          <tr><td>5.6 钩子</td><td>用途表述改为：<b>"根注入"是必备，"按包分流"是可选</b>（PC/iOS 想省磁盘时才用按包标记）</td></tr>
+          <tr><td>第十四章</td><td>"按包标记 + 混合来源" → <b>降级为可选</b>（主推平台上用不到）</td></tr>
+          <tr><td>15.2 决策 5</td><td>"Android 首包落地"的完整表述应为："<b>文件型平台</b>首包落地（小游戏没有落地这回事）"</td></tr>
+          <tr><td>11 章钩子草案</td><td>不变（那 11 行在两种形态下都要用）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>17.6 小游戏专项注意（8 条，全是真金白银的坑）</h3>
+    <ol>
+      <li><b>代码包有体积上限（且平台会调整）</b> —— 所以"AB 全走 CDN"是前提，不是选择；首包只放"能跑起来的最小可玩集"；
+      </li>
+      <li><b>没有文件系统</b> —— 所有"落地 / 断点续传 / 文件校验"换成"引擎缓存 + 引擎校验"，别照搬 Android 那套；
+      </li>
+      <li><b>CORS 必须配</b> —— 对象存储/CDN 要放开 <code>GET</code>、<code>Range</code>（引擎可能用）与你们自定义的 Header；配错的表象是"网络错误"，排查极费时间；
+      </li>
+      <li><b>缓存策略</b>：内容文件用<b>带版本段的 URL</b>（可长缓存、天然不可变）；清单 URL 必须 <b>no-cache</b>（或带 <code>?t=</code>）；
+      </li>
+      <li><b>并发降到 2、包粒度做小</b> —— 单线程 + 内存上限，大包会带来内存峰值（这也是"分包粒度"在小游戏上比在手机上更重要的原因）；
+      </li>
+      <li><b>平台自己的更新机制管"代码包"，不管"资源"</b> —— 微信 <code>UpdateManager</code> / 分包加载解决的是代码包体积与更新，资源热更仍然是我们这套；
+      </li>
+      <li><b>清单里必须带 Unity 的 hash（<code>Hash128</code>）与 CRC</b> —— 引擎的缓存与校验吃的是这个，不是 SHA-256（生成方式见附录 A 的补列说明；实测确认一次）;
+      </li>
+      <li><b>首屏要"最小资源集"</b> —— 小游戏首次进入必然要下载，进度条 + 分阶段加载的体验设计比在手机上更关键（这也是第 4 步"首包瘦身 / 按需下载"在小游戏上是刚需而非可选项）。
+      </li>
+    </ol>
+    <h3>17.7 回答"有没有必要"（总结）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>问题</th><th>结论</th></tr></thead>
+        <tbody>
+          <tr><td>下载路径要不要"可重定向"？</td><td><b>要可配置，但不需要"机制"</b> —— 它就是一个远端根 + 环境/渠道/多源字段。三平台都需要（因为三平台都要从 CDN 拿）</td></tr>
+          <tr><td>加载路径在 <b>Android</b> 上要不要"可重定向"？</td><td><b>要（根注入），但可以砍掉"按包分流"</b>：统一落地 + 基线兜底两级解析即可；第十四章的"按包标记"降级为可选</td></tr>
+          <tr><td>加载路径在 <b>小程序</b> 上要不要"可重定向"？</td><td><b>要，而且它就是热更的唯一机制</b>（URL + 版本段）；但"落地 / 续传 / 文件校验 / 本地版本目录"这一整套<b>可以全部砍掉</b>，交给引擎</td></tr>
+          <tr><td>那能砍掉多少？</td><td>主推 Android + 小游戏时：<b>砍掉"按包标记表 + 混合来源"（约 250 行编辑器 + 80 行运行时）</b>；小游戏上再砍掉"落地/sink 的文件实现"那一路（约 150 行）。<b>框架那 11 行钩子保留</b>（它是"根注入"，两种平台都要）</td></tr>
+          <tr><td>一句话</td><td><b>"AB 从哪来"这件事在文件型平台上是"本地两个根"，在 URL 型平台上就是"一个带版本段的 URL" —— 两者都不叫"重定向机制"，都只是"一个根"。你直觉里"没必要"的是复杂的那一半（按包分流），而"根"这一半恰恰是热更的命门。</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ==================== 十八、存储与 CDN 选型（Android + 小程序） ==================== -->
+  <section id="s18">
+    <h2><span class="num">18</span>存储与 CDN 选型（Android + 小程序）</h2>
+    <div class="callout">
+      <p>问题："有没有适合 Android + 小程序的 AB 存储方案？用哪家好？"</p>
+      <p>结论：<b>对象存储 + CDN，主流云都能做；选谁的决定性因素不是"存储"，而是"小游戏的域名白名单 / 备案 / 缓存规则配得顺不顺手"</b>。</p>
+      <p>首选 <b>腾讯云 COS + CDN</b>（与微信同生态、国内实践最多），次选 <b>阿里云 OSS + CDN</b>（团队已有链路就别换）。</p>
+      <p><b>对客户端代码零影响</b> —— 我们只用 HTTPS 直链，不引任何云 SDK，换家只改配置。</p>
+    </div>
+    <h3>18.1 一句话选型表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案</th><th>适合谁</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>⭐ <b>腾讯云 COS + CDN</b></td><td>主推小程序 / 微信生态的项目（本项目的首选）</td><td>与微信同生态（白名单、备案、证书流程顺）；国内小游戏社区实践最多；<code>coscmd</code> / S3 兼容 API / CDN 规则配置成熟</td></tr>
+          <tr><td>⭐ <b>阿里云 OSS + CDN</b></td><td>团队已有阿里云账号/链路</td><td>能力与 COS 基本等价，节点与文档同样成熟；别为了"换云"而换云</td></tr>
+          <tr><td><b>七牛云 / 又拍云（CDN）+ 任意对象存储做源</b></td><td>已经用它们做图片/静态资源，或纯流量大想压成本</td><td>纯 CDN 厂商价格常更灵活；对象存储的权限/生命周期管理弱于 COS/OSS</td></tr>
+          <tr><td><b>火山引擎 TOS + CDN</b></td><td>字节系渠道、带宽议价能力强</td><td>游戏/短视频场景带宽价格有优势</td></tr>
+          <tr><td><b>华为云 OBS / 百度 BOS / 京东云</b></td><td>已有对应云账号</td><td>都可用，选"人熟"的那家</td></tr>
+          <tr><td><b>微信云开发 / 云托管静态托管（CloudBase）</b></td><td>小体量、快速验证、不想自己搭 CDN</td><td>省内小游戏最省事的起步方式；体量大了再迁到 COS/OSS + CDN</td></tr>
+          <tr><td><b>Cloudflare R2 + CDN</b></td><td><b>海外版</b>（无出网费，性价比高）</td><td>国内版别用（备案 + 国内节点问题）</td></tr>
+          <tr><td>❌ 自建（MinIO / nginx + 自建 CDN）</td><td>只用于<b>内网测试环境</b></td><td>玩家侧不推荐：带宽成本、跨网质量、抗攻击都不是自建能扛的</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>18.2 小程序的硬约束（选谁都躲不过，务必先看这一节）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>约束</th><th>对方案的影响</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>必须在微信公众平台配置"服务器域名"</b>（<code>request</code> / <code>downloadFile</code> / <code>socket</code> 三类都要配；域名必须 <b>ICP 备案 + HTTPS</b>，不支持 IP、不支持端口）</td><td>这是"能不能下载"的门槛：本地开发可以在开发者工具里勾"不校验合法域名"，<b>真机/体验版必然校验</b></td></tr>
+          <tr><td>2</td><td><b>合法域名数量有上限</b>（官方给的名额是"十余~二十个"量级，具体以后台/官方文档为准）</td><td>★ 不要用"多域名"做多源降级 —— <b>把多源/容灾下沉到 CDN 的多源站配置，客户端只认一个域名，用路径区分环境/版本/渠道</b></td></tr>
+          <tr><td>3</td><td><code>wx.request</code> / <code>wx.uploadFile</code> / <code>wx.downloadFile</code> <b>各 10 个并发</b>（微信官方文档）；Unity/团结引擎在小游戏底层也是走这套网络接口</td><td>下载并发设 <b>1~2</b>（我们还有游戏逻辑在同一条主线程上跑）</td></tr>
+          <tr><td>4</td><td>引擎在底层用 <b>XHR 访问远程资源 + 用微信小游戏的文件存储系统做缓存</b>（微信官方文档《使用 Unity/团结引擎适配》+ 团结引擎《微信资源缓存》）</td><td>印证第十七章：<b>小游戏不用自己做落地/续传</b>，缓存交给引擎；但"版本段"必须体现在 URL 上，否则缓存永远命中旧的</td></tr>
+          <tr><td>5</td><td>跨域（CORS）</td><td>对象存储/CDN 要放开 <code>GET</code>（含 <code>Range</code>，引擎可能用）与自定义 Header；配错的表象是"网络错误"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>18.3 Android 侧的约束（宽松得多，但有几条会踩）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>约束</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b><code>Range</code> 必须可用</b></td><td>断点续传靠它；COS/OSS/CDN 默认支持，<b>但 CDN 侧若开了"分片缓存/拼接"等特殊配置要确认没关掉 Range</b></td></tr>
+          <tr><td>2</td><td><b>证书链必须完整</b></td><td>缺中间证书会导致一部分老机型直接失败（这类故障只在小批量机型上出现，最难查）</td></tr>
+          <tr><td>3</td><td>TLS 1.2+</td><td>Android 5.0+ 基本无虞，但请确认 CDN 没只开 TLS 1.0/1.1 的老配置</td></tr>
+          <tr><td>4</td><td>域名数量不受限、可多源</td><td>但<b>为了与小程序行为一致，仍建议"客户端一个域名 + CDN 多源"</b>（同一条代码路径，少一套分支）</td></tr>
+          <tr><td>5</td><td>DNS 劫持/解析慢</td><td>可选 HTTPDNS（腾讯云/阿里云都有）——<b>本方案不引</b>（保持零依赖），真遇到再上</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>18.4 推荐组合与理由（为什么首选腾讯云 COS + CDN）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>理由</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>同生态</b></td><td>微信小游戏的域名白名单 / 备案 / 证书 / CDN 加速是腾讯云最熟的一条链路；出问题时能查到的<b>同场景案例最多</b></td></tr>
+          <tr><td><b>政策与工具</b></td><td><code>coscmd</code>（上传）、S3 兼容 API（CI 里 <code>aws s3 cp</code> 也能用）、CDN 路径级缓存规则、回源鉴权/私有读、生命周期规则（自动清旧版本目录）——<b>我们在 18.5 需要配的每一条它都有现成开关</b></td></tr>
+          <tr><td><b>成本可控</b></td><td>存储/流量单价都是"量级参考：存储 ~0.1 元/GB/月，CDN 流量 ~0.2 元/GB（国内、按量，具体以官网报价与合同为准）"</td></tr>
+          <tr><td><b>可迁移性</b></td><td>因为客户端只用 HTTPS 直链、<b>不引 SDK</b>，将来换到阿里云只是"换一个域名 + 重新上传" —— 没有沉没成本</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>什么时候选阿里云：团队已有账号/账号体系/财务流程在那边，或者已有 CDN 用量合同 —— <b>能力的差异远小于流程的差异</b>。</p>
+      <p>什么时候选七牛/又拍：已经用它们做别的静态资源，或纯流量大且能谈到更好的带宽价。</p>
+      <p>什么时候先别上云：<b>开发期用本地静态服务</b>（文档第 14/17 章都提到 <code>起本地CDN.cmd</code>），联调通了再上测试桶 —— 别一上来就烧流量。</p>
+    </div>
+    <h3>18.5 云端要配的东西（清单，缺一条都会变成"玄学 bug"）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>要配什么</th><th>具体设置</th><th>不配的后果</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>目录结构</b></td><td><code>/{环境?}/{平台}/{大版本}/{渠道?}/{资源版本}/…</code>（第十六章）</td><td>老客户端拉到新资源 → 线上事故</td></tr>
+          <tr><td>2</td><td><b>缓存规则（内容）</b></td><td>资源包路径：<code>Cache-Control: max-age=31536000, immutable</code>（URL 带版本段，天然不可变）</td><td>每次都回源，流量白白翻倍</td></tr>
+          <tr><td>3</td><td><b>缓存规则（清单）</b></td><td>清单路径：<code>no-cache</code>（或客户端加 <code>?t=</code> 破缓存）</td><td>"更新了但玩家拿到旧清单"（最经典的假 bug）</td></tr>
+          <tr><td>4</td><td><b>CORS</b></td><td>允许 <code>GET</code>/<code>HEAD</code>、<code>Range</code>、自定义 Header；<code>Access-Control-Allow-Origin</code> 按需（可先 <code>*</code>）</td><td>小游戏报"网络错误"，排查极费时间</td></tr>
+          <tr><td>5</td><td><b>Range</b></td><td>确认 CDN/存储均支持分片请求（默认支持）</td><td>Android 断点续传失效</td></tr>
+          <tr><td>6</td><td><b>私有读 + 回源鉴权</b>（可选）</td><td>桶设为私有，CDN 用回源鉴权/签名 URL 访问；客户端只拿 CDN 域名</td><td>资源被人直接盗链刷流量</td></tr>
+          <tr><td>7</td><td><b>上传顺序</b></td><td><b>先传所有内容、最后传清单</b>（清单是原子切换开关）</td><td>玩家拿到"半新半旧"的组合</td></tr>
+          <tr><td>8</td><td><b>生命周期规则</b></td><td>旧版本目录保留 N 天（如 30 天）后自动删除</td><td>存储费用只涨不降；也避免"测试拿到几个月前的资源"</td></tr>
+          <tr><td>9</td><td><b>预热（可选）</b></td><td>大版本发布时对"首屏必需包"做一次 CDN 预热</td><td>首发当天大量回源，首屏慢、回源带宽打满</td></tr>
+          <tr><td>10</td><td><b>备案与证书</b></td><td>域名备案 + 有效证书（含中间证书）+ 小程序白名单三处都要做</td><td>小游戏真机直接不可用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>18.6 成本量级：为什么"差量更新"能直接省出云费</h3>
+    <pre>下载量 ≈ 单次更新体积 × 更新次数 × 活跃玩家数
+
+① 不做差量（每次全量 1 GB）：
+   1 GB × 1 次/周 × 10 万玩家 ≈ 400 TB/月 → 按 ~0.2 元/GB ≈ 8 万元/月量级
+② 做差量（每次更新 50 MB）：
+   50 MB × 1 次/周 × 10 万玩家 ≈ 20 TB/月 → ≈ 4 千元/月量级
+
+（单价为国内 CDN 常见的量级参考，实际以官网报价/合同为准；真正的结论是：
+  "只下变化的包"这件事本身就是最大的一笔成本优化，而不是把 CDN 换一家。）</pre>
+    <h3>18.7 和小游戏平台自带的方案什么关系</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案</th><th>说明</th><th>取舍</th></tr></thead>
+        <tbody>
+          <tr><td><b>Unity / 团结引擎官方的 AutoStreaming + UOS CDN</b></td><td>引擎侧给的"StreamingAssets 分离 + CDN 托管"方案；省去自己写清单/下载</td><td>绑定引擎与它的 CDN；清单/版本/回滚这些语义不透明，且与框架的 AB 链路是两套。<b>本项目不采用</b>（我们已经有自己的清单与版本模型），但值得知道它的存在</td></tr>
+          <tr><td><b>微信小游戏"分包加载"</b></td><td>解决<b>代码包</b>体积与更新</td><td>管不到 AB；AB 仍走 CDN（两条路各管一段）</td></tr>
+          <tr><td><b>平台 UpdateManager</b></td><td>管"小游戏版本更新"（含强制更新提示）</td><td>与我们的资源更新并行：代码包更新走平台，资源更新走 RevHotUpdate</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>18.8 一句话结论</h3>
+    <div class="callout">
+      <span class="t">存储用"对象存储 + CDN"（首选腾讯云 COS + CDN），真正的活在于"路径带版本段 + 两套缓存规则 + CORS/Range/备案白名单"这几项配置； 客户端始终只认"一个 HTTPS 域名 + 路径模板"，不引任何云 SDK —— 所以选谁都能换，选谁都不影响代码。</span>
+      <p>而省钱的关键不是"换一家 CDN"，是<b>只下变化的包</b>（18.6）。</p>
+    </div>
+  </section>
+
+  <!-- ==================== 附录 A：清单样例全文 ==================== -->
+  <section id="s19">
+    <h2><span class="num">A</span>清单样例全文</h2>
+    <pre># RevHotManifest v1 —— 行式文本，与 ResMap.txt 同族（# 开头是注释，空行忽略）
+# 字段：@key|value / @bundle|包名|hash|字节数|依赖(逗号分隔)|标签(逗号分隔)
+@appVersion|1.2.0            ← 大版本锚点（= Application.version）；不匹配 → 拒绝更新并引导强更（第十六章）
+@resVersion|1.2.0.37         ← 资源版本（同一大版本内自增；玩家看到的就是它）
+@minAppVersion|1.2.0         ← 兼容下限（补丁包场景；一般 == @appVersion）
+@baseManifest|Baseline.txt   ← 该大版本的基线清单（随包体发布的那份，供差量计算与回滚）
+@version|1.2.0-p1            ← 打包工具的版本字符串（给人看，进 BuildManifest.json 的那个）
+@platform|Android
+@channel|official
+@env|prod
+@hashAlgo|sha256
+@builtAt|2026-10-01 12:00:00
+@bundleCount|6
+@firstPackageBundles|common,ui_login
+
+# 映射表也要热更（新增资源全靠它）
+@resmap|ResMap.txt|3f7a1c9d4b6e8f20a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e|20481
+
+# 包：名称|hash|字节|依赖|标签（builtin = 首包内置；hot = 可热更；optional = 按需下载）
+@bundle|common|7c1e...|1572864|common|builtin,hot
+@bundle|ui_login|9b2f...|1048576|common|builtin,hot
+@bundle|ui_bag|1a3d...|2097152|common,ui_login|hot
+@bundle|hero|5e6f...|15728640|common|hot
+@bundle|effect_battle|8d9c...|8388608|common,hero|hot
+@bundle|scene_arena|2b4a...|25165824|common|hot,optional
+
+# ★ 目标平台含 WebGL / 小游戏时，每行末尾再补两列（交给引擎做缓存与校验，见第十七章）：
+#    @bundle|名称|sha256|字节|依赖|标签|unityHash|unityCrc
+#    unityHash = AssetBundleManifest.GetAssetBundleHash(包名).ToString()
+#    unityCrc  = 该包 .manifest 里的 CRC（无签名数字型）
+# 例：@bundle|hero|5e6f...|15728640|common|hot|f3a1c2...|3524891730</pre>
+  </section>
+
+  <!-- ==================== 附录 B：一次完整热更的日志长什么样 ==================== -->
+  <section id="s20">
+    <h2><span class="num">B</span>一次完整热更的日志长什么样</h2>
+    <pre>[HotUpdate] 大版本 1.2.0（Application.version）· 本地资源版本 1.2.0.36（{persistent}/RevHotUpdate/Android/1.2.0/1.2.0.36）
+[HotUpdate] 拉取清单：https://cdn.example.com/gameA/prod/Android/1.2.0/official/RevHotManifest.txt?t=1759300000 （18.4 KB，82 ms）
+[HotUpdate] 远端：资源版本 1.2.0.37（builtAt 2026-10-01 12:00:00，appVersion 1.2.0 ✓ 与当前包体一致）
+[HotUpdate] 差量（对比基线 Baseline.txt）：新增 1、变更 2、删除 0、映射表 有更新 → 需下载 17.8 MB（3 个文件）
+[HotUpdate] 下载 1/3 ui_bag 2.0 MB ✓（sha256 校验通过，412 ms，4.9 MB/s）
+[HotUpdate] 下载 2/3 hero 15.0 MB ✓（sha256 校验通过，3.1 s，4.8 MB/s）
+[HotUpdate] 下载 3/3 ResMap.txt 20.0 KB ✓
+[HotUpdate] 写入版本目录 1.2.0.37 → 打完成标记 .stamp → 切换 current.txt（原子替换）
+[HotUpdate] 清理旧版本：删除 1.2.0.35（同一大版本内保留 2 份）
+[HotUpdate] 装钩子：BundlePathResolver = RevHotStore.ResolveBundlePath（根注入），ResMapOverride = RevHotStore.BuildResMap
+[HotUpdate] 重装资源策略（RevResBootstrap.Init）→ 就绪，总计 3.9 s
+
+# 小游戏（WebGL / URL 型平台）同一次更新长这样 —— 没有落地、没有续传，缓存与校验交给引擎：
+[HotUpdate] 大版本 1.2.0 · URL 型平台：资源直接走 CDN（不落地），版本段 1.2.0.37
+[HotUpdate] 资源根：https://cdn.example.com/gameA/prod/WebGL/1.2.0/official/bundles/
+[HotUpdate] 差量（对比内置基线）：变更 2、映射表 有更新 → 需加载 17.0 MB（引擎缓存命中 0）
+[HotUpdate] hero 15.0 MB → 17.0 MB 已由引擎缓存/校验完成（hash + crc 均已下发）→ 总计 6.2 s</pre>
+  </section>
+
+  <!-- ==================== 附录 C：实施顺序建议（最不容易返工的顺序） ==================== -->
+  <section id="s21">
+    <h2><span class="num">C</span>实施顺序建议（最不容易返工的顺序）</h2>
+    <pre>① 先定清单格式与解析（它同时决定编辑器工具与运行时的接口）—— 写完就跑工程外断言
+② 再定盘上布局（版本目录 / tmp / current / 原子提交）—— 这是"能不能续传/回滚"的地基
+③ 然后写下载器（先单文件跑通，再加并发/重试/多源/续传）
+④ 最后接框架钩子（此时"文件已经到位"，钩子只是把路径指过去 —— 最不容易出问题）
+⑤ 编辑器工具放在 ④ 之后（此时清单格式已经冻结，工具只是"填数据"）</pre>
+    <p><em>对应代码版本：框架 <code>Assets/Revolution/Runtime/RevResourceSystem/</code>（<code>RevABLoader.cs</code> / <code>RevResBootstrap.cs</code> / <code>RevResManager.cs</code> / <code>RevABResPolicy.cs</code>）+ 打包工具 <code>Assets/Revolution/Editor/RevResourceSystem/ABTool/</code>；<b>RevHotUpdate 已实现</b>（<code>Assets/Revolution.HotUpdate/</code>，运行时 18 个文件 / 3254 行 + 编辑器 2 个文件 / 429 行）。本文档保留"方案阶段"的完整论证（含现状盘点里的 ❌ 标记与钩子草案），实现后的落地情况与差异见《RevHotUpdate 架构解析》第七、九章。</em></p>
+  </section>
+
+</main>
+
+<footer>
+  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3254 行 · 编辑器 2 个 <code>.cs</code> / 429 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate技术方案.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
+</footer>
+
+</body>
+</html>
