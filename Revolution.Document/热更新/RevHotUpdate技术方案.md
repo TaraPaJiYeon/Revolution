@@ -225,7 +225,8 @@ Assets/RevHotUpdate/
 > 三处配套（可选但强烈建议，与既有工程习惯一致）：
 > 1. ✅ **已落地**：`.github/workflows/sync-hotupdate-branch.yml`（照 `sync-package-branch.yml` 的写法，把 `Assets/Revolution.HotUpdate/` 同步到 `hotupdate` 分支，别人一条命令就能装上：
 >    `git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Revolution.HotUpdate`）；
-> 2. `Assets/Revolution.Demo/RevHotUpdate.Demo/`（联调场景 + 本地静态 HTTP 服务器脚本 `起本地CDN.cmd`，无需真云也能跑通全链路）；
+> 2. ✅ **已落地**：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（演示面板 + 联调场景 + 本机假 CDN 脚本 `起本地CDN.cmd`：
+>    编辑器一键"打包 + 清单 + 装配本地 CDN"，服务器支持 Range 与两类缓存头 —— 无需真云就能跑通全链路）；
 > 3. 本文档的 HTML 版（文档站可点开，md 先落地）。
 
 ### 4.3 热插拔的 4 条机制（"不导入就零影响"怎么保证）
@@ -667,7 +668,7 @@ App 启动
 | **1. 最小闭环** | 清单结构 + 解析（纯 C#）；本地目录布局；下载器（单文件、无重试）；哈希校验；`Install` 钩子接入；`InitializeAsync` | PC 真机（编辑器 AB 模式也行）能"从本地 HTTP 服务下一张图并加载出来" | ① 清单解析 + 版本比对 + 差集计算：**工程外纯 C# 断言 ≥ 40 条全过**；② PC 上"改一张图 → 重新打包 → 只下变化包 → 加载到新图"跑通 | 3~4 天 |
 | **2. 生产可用** | 并发 + 重试/退避 + 多源 + Range 续传 + 磁盘预检 + 版本目录/`.stamp`/`current` + 保留版本与清理 + `Dump` | 断网可续、暂停可续、版本可回滚 | ① 破坏性测试 8 项全过（见 8.3）；② Android 真机首包落地 + 增量更新跑通；③ 400MB 包下载期间帧率不掉（分帧校验） | 4~5 天 |
 | **3. 编辑器链路** | `RevHotManifestBuilder` + 自检 + 上传脚本导出 + 面板 | 一条"打包 → 生成清单 → 上传 → 客户端更新"的完整流水线 | ① 面板 3 个动作可用；② 自检能拦下"漏包 / hash 不符 / ResMap 缺条目"；③ 与 `ABCIBuild` 一起可在 CI 里无人值守跑 | 3 天 |
-| **4. 打磨与交付** | demo 场景 + 本地 CDN 脚本 + README + 本文档的 HTML 版 + `hotupdate` 分支同步 | 别人 clone 下来 30 分钟能跑通 | ① demo 场景从启动到"热更后加载新图"全程可点；② README 3 分钟上手；③ ✅ `sync-hotupdate-branch.yml` 已落地（产出 `hotupdate` 分支） | 3 天 |
+| **4. 打磨与交付** | ✅ demo + 本地 CDN 脚本（`Assets/Revolution.Demo/RevHotUpdate.Demo/`）+ README + 本文档的 HTML 版 + ✅ `hotupdate` 分支同步 | 别人 clone 下来 30 分钟能跑通 | ① ✅ demo 从"菜单①装配 CDN → 起本地CDN → 检查/执行更新 → 加载到新内容"全程可点；② ✅ 该目录 README 3 分钟上手；③ ✅ `sync-hotupdate-branch.yml` 已落地（产出 `hotupdate` 分支） | 3 天 |
 
 > **不放进前 4 阶段的（按需再加）**：清单签名、按 tag 的按需下载、加密、灰度、`HashAndCrc` 加载期校验、`ResMapReader` 抽公共、WebGL 专项优化。
 
@@ -794,7 +795,7 @@ App 启动
 | 上手文档 | `Assets/RevHotUpdate/README.md` | 3 分钟上手 + 边界声明 |
 | 技术方案（本文） | `Revolution.Document/热更新/RevHotUpdate技术方案.md` | ✅ 本次已落地 |
 | （可选）HTML 版 | `Revolution.Document/热更新/RevHotUpdate技术方案.html` | 进文档站，与其它模块同款样式 |
-| （可选）示例 | `Assets/Revolution.Demo/RevHotUpdate.Demo/` | 场景 + `起本地CDN.cmd`（`HttpListener` 静态服务，无需真云） |
+| ✅ 示例 | `Assets/Revolution.Demo/RevHotUpdate.Demo/` | 已落地：演示面板 + 场景 + 编辑器一键装配 + `起本地CDN.cmd`（`HttpListener` 静态服务，支持 Range / 分缓存头，无需真云） |
 | ✅ 分支同步 | `.github/workflows/sync-hotupdate-branch.yml` | 已落地：推 `main` 时把 `Assets/Revolution.HotUpdate/` 重建到 `hotupdate` 分支（与 `package` / `demo` 同一套写法） |
 | 框架侧改动 | `RevABLoader.cs` / `RevResBootstrap.cs` | 第十一章的 15 行 |
 

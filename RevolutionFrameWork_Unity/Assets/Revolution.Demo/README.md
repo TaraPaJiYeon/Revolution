@@ -3,7 +3,7 @@
 每个运行时模块一个 `Rev<模块>.Demo` 目录：**一个带详尽注释的演示脚本 + 一个可直接打开点 Play 的场景**。
 打开场景 → 点 Play → 按界面左侧按钮逐个体验；右侧是步骤日志（讲清楚每一步发生了什么）。
 
-## 场景索引（17 个，全部可运行）
+## 场景索引（18 个，全部可运行）
 
 | 场景（目录内同名 .unity） | 演示模块 | 亮点 |
 |---|---|---|
@@ -24,6 +24,10 @@
 | RevUISystemDemo.unity | UI 系统 | [RevUIPanel] 声明式面板、[RevBind] 绑定、OnClick 分发、面板池、Back 语义（首次需一键生成演示预制体） |
 | RevActionSequenceDemo.unity | 行动序列 | 按键驱动的多段序列播放（既有示例） |
 | RevGMCommandDemo.unity | GM 指令 | 场景内提示 + 命令注册演示；指令面板在编辑器菜单（Ctrl+Shift+G） |
+| RevHotUpdateDemo.unity | 资源热更（扩展包） | 本机假 CDN 跑通全链路：一键打包+清单+装配 → 起本地CDN.cmd → 检查/执行更新 → 加载到新内容（需装 `Revolution.HotUpdate` 包；见该目录 README） |
+
+> ★ 第 18 个（`RevHotUpdate.Demo`）属于**扩展包**演示：它有自己的程序集（`Revolution.Demo.HotUpdate`，引用 `Revolution.HotUpdate`）。
+> 没装热更包时只有这一个目录报"找不到程序集引用"，其余 17 个场景不受影响。
 
 ## 结构约定
 

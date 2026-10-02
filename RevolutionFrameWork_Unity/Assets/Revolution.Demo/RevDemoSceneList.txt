@@ -19,3 +19,4 @@ Revolution.Demo/RevSingleton.Demo/RevSingletonDemo.unity
 Revolution.Demo/RevUISystem.Demo/RevUISystemDemo.unity
 Revolution.Demo/RevActionSequence.Demo/RevActionSequenceDemo.unity
 Revolution.Demo/RevGMCommand.Demo/RevGMCommandDemo.unity
+Revolution.Demo/RevHotUpdate.Demo/RevHotUpdateDemo.unity

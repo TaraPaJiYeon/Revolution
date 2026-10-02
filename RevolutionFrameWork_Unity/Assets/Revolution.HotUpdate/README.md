@@ -15,6 +15,9 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 > ★ `hotupdate` 是**生成分支**（CI 从 `main` 的 `Assets/Revolution.HotUpdate/` 整份重建），不要往它上面提交；
 > 改代码请改 `main`。热更包用到的两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`）
 > 是框架侧后加的 —— **框架必须不早于引入钩子的那一版**，否则编译不过。
+>
+> ⚡ **想先看跑起来的效果**：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（演示面板 + 编辑器一键"打包 + 清单 +
+> 装配本地 CDN" + `起本地CDN.cmd` 假 CDN；3 步跑通，全程不需要真云账号）。
 
 ## 最省事用法（放在"加载任何业务资源"之前）
 

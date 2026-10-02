@@ -4,6 +4,7 @@
 > 形态：**独立包**（`Assets/Revolution.HotUpdate/`，程序集 `Revolution.HotUpdate` + `Revolution.HotUpdate.Editor`）——
 > **导入就有、不导入零影响**；业务侧的资源加载代码**一行都不用改**。
 > 读法：先跑通第〇章，再按第四章配字段；出问题直接跳第八章 FAQ / 第九章错误码。
+> ⚡ **想先看跑起来的效果**：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（演示面板 + 一键"打包 + 清单 + 装配本地 CDN" + `起本地CDN.cmd` 假 CDN，3 步跑通全链路，见该目录 README）。
 
 ## 目录
 

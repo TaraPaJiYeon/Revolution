@@ -154,6 +154,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 文档：《使用说明》（手把手）·《架构解析》（设计论证与失败收场）·《技术方案》（可行性、平台核实、存储选型、决策与分期），
 见 `Revolution.Document/热更新/`（网页版在文档站"扩展包"一节）。
+想直接跑起来看：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（一键"打包 + 清单 + 装配本地 CDN" → 起本地假 CDN → 面板点三步，全程不需要真云账号）。
 
 > ★ 配对前提：扩展包用的两个钩子是本体后加的 —— **本体版本必须"不早于"引入钩子的那一版**，否则编译不过。
 > 覆盖范围：**只做资源热更（AB）**；不做代码热更、加密、二进制差量、灰度。
