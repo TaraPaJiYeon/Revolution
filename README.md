@@ -400,8 +400,9 @@ Revolution/
 │   ├── Assets/GameRes/                     资源根目录（放你的资源，RevAB 从这里扫）
 │   └── Packages/ · ProjectSettings/        Unity 工程配置
 ├── Revolution.Document/                  设计文档（每个模块：使用说明 + 架构解析）
+├── Skills/                              给 AI Agent 用的技能包（模块速查 / 规范 / 坑位 / 模板）
 ├── Revolution.ExcelTool/                 导表工具（WPF：Excel → C# 类 + 数据文件）
-└── .github/workflows/                    CI（自动同步 package / demo 分支）
+└── .github/workflows/                    CI（自动同步 package / demo / hotupdate 分支）
 ```
 
 > 仓库只收录**必要的代码与文档**：`Library/` `Temp/` `Logs/`、构建产物、IDE 工程文件（`*.csproj` `*.sln`）、
@@ -424,6 +425,9 @@ Revolution/
 > 🌐 **在线文档站**：<https://yokino337088.github.io/Revolution/> —— 一页看全所有模块，带分组、搜索与阅读顺序建议。
 > 💻 **本地预览**：双击 [`Revolution.Document/预览文档.cmd`](Revolution.Document/预览文档.cmd)（或直接双击 `index.html`）；
 > 文档站由 [`pages.yml`](.github/workflows/pages.yml) 自动发布，改动 `Revolution.Document/` 即重新发布。
+>
+> 🤖 **给 AI Agent 用的技能包**：[`Skills/revolution-framework/`](Skills/revolution-framework/SKILL.md) —— 模块门面速查 / 代码规范 / 20 条坑位 / 审查清单 / 模板与工程外断言工程；
+> 把这个目录（连同 `Skills/README.md` 的说明）放进 `.codebuddy/skills/`、`.claude/skills/` 等目录即可让 Agent 按本框架的规范写代码。
 
 **每个模块都有《使用说明》（手把手，照着做就能跑通）**；带 ✅ 的还有《架构解析》（设计论证：为什么这么设计、与别的方案差在哪）。
 
