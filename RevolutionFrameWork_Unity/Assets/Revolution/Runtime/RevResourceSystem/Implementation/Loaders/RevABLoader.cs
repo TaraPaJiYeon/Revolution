@@ -84,6 +84,27 @@ namespace Revolution
             }
         }
 
+        // ============================================================
+        // 包路径重定向钩子（RevHotUpdate 热更包使用；本框架自身永不设置它）
+        // ============================================================
+
+        /// <summary>
+        /// 包路径重定向钩子：参数 = 包名，返回 = 该包的完整文件路径（本地）或 URL（WebGL/小游戏）；
+        /// 返回 null / 空串 → 走默认的 StreamingAssets/&lt;平台名&gt;/&lt;包名&gt;。
+        /// <para>★ 不设置时（默认 null）行为与从前完全一致 —— 对不装热更包的工程是零影响。</para>
+        /// <para>★ 热更包用它把加载指到 persistentDataPath 的版本目录（Android）或 CDN 的版本 URL（小程序）。</para>
+        /// <para>★ 用静态属性是有意的：两种平台形态（文件型 / URL 型）都只需要"换一个根"，不需要按包各配一套。</para>
+        /// </summary>
+        public static Func<string, string> BundlePathResolver { get; set; }
+
+        /// <summary>解析一个包的读取位置：先问钩子，钩子不接（返回 null/空）再走默认的 StreamingAssets 路径。</summary>
+        private static string ResolveBundlePath(string abName)
+        {
+            Func<string, string> resolver = BundlePathResolver;          // 先取快照：属性可能在别的线程被清空
+            string custom = resolver == null ? null : resolver(abName);
+            return string.IsNullOrEmpty(custom) ? StreamingRoot + abName : custom;
+        }
+
         // ==================== 同步路径 ====================
 
         /// <summary>确保主包 + Manifest 已加载</summary>
@@ -117,11 +138,13 @@ namespace Revolution
             // 只能走 LoadBundleAsync（UnityWebRequest）。返回 null 让上层报 BundleLoadFail，而不是假死。
             return null;
 #elif UNITY_ANDROID && !UNITY_EDITOR
-            // Android：streamingAssetsPath 在 APK 内，File.Exists 不可用，直接尝试加载
-            return AssetBundle.LoadFromFile(StreamingRoot + abName);
+            // Android：streamingAssetsPath 在 APK 内，File.Exists 不可用，直接尝试加载。
+            // ★ 走钩子：热更包会把"内置包"重定向到 persistentDataPath 的基线目录（File.Copy 后的文件路径，
+            //   LoadFromFile 能读），把"热更包"重定向到版本目录 —— 没有钩子时这里仍是默认的 StreamingAssets。
+            return AssetBundle.LoadFromFile(ResolveBundlePath(abName));
 #else
-            string path = StreamingRoot + abName;
-            if (File.Exists(path)) 
+            string path = ResolveBundlePath(abName);   // ★ 同上：先问钩子（本地路径），没有再走 StreamingAssets
+            if (File.Exists(path))
                 return AssetBundle.LoadFromFile(path);
             return null;
 #endif
@@ -444,15 +467,16 @@ namespace Revolution
 #if UNITY_WEBGL && !UNITY_EDITOR
             // WebGL（含小游戏）：streamingAssetsPath 是 URL/虚拟路径，只能用 UnityWebRequest 下载。
             // await 直接吃 UnityWebRequestAsyncOperation（它继承 AsyncOperation，见 RevTaskUnityExtensions）。
-            using (UnityWebRequest www = UnityWebRequestAssetBundle.GetAssetBundle(StreamingRoot + abName))
+            // ★ 走钩子：小游戏的"热更"就是把 URL 换成 CDN 的版本地址 —— 引擎会按 URL 做缓存与校验。
+            using (UnityWebRequest www = UnityWebRequestAssetBundle.GetAssetBundle(ResolveBundlePath(abName)))
             {
                 await www.SendWebRequest();
                 if (www.result != UnityWebRequest.Result.Success) return null;   // 上层报 BundleLoadFail
                 return DownloadHandlerAssetBundle.GetContent(www);              // using 释放后 bundle 依然有效
             }
 #else
-            //调用unity官方的API来异步加载ab包
-            AssetBundleCreateRequest req = AssetBundle.LoadFromFileAsync(StreamingRoot + abName);
+            //调用unity官方的API来异步加载ab包（★ 同样先走钩子：热更包会重定向到持久化目录）
+            AssetBundleCreateRequest req = AssetBundle.LoadFromFileAsync(ResolveBundlePath(abName));
             await req;
             return req.assetBundle;
 #endif

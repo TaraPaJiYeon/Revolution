@@ -57,6 +57,19 @@ namespace Revolution
         }
 #endif
 
+        // ============================================================
+        // 映射表覆盖钩子（RevHotUpdate 热更包使用；本框架自身永不设置它）
+        // ============================================================
+
+        /// <summary>
+        /// ResMap 映射表的覆盖来源：热更包用它把"逻辑名 → 包名|资源名"换成热更版本 ——
+        /// 否则"新增资源 / 改包"永远加载不到（表在包体的 Resources 里，运行时只读）。
+        /// <para>★ 返回 null → 只用内置表。不设置时（默认 null）行为与从前完全一致 —— 零影响。</para>
+        /// <para>★ 语义是"覆盖合并"：热更表覆盖内置表的同名键，内置表独有的键保留 ——
+        /// 新资源能热更、老资源在热更表残缺时仍有内置表兜底（两边都要）。</para>
+        /// </summary>
+        public static Func<Dictionary<string, string>> ResMapOverride { get; set; }
+
         // ==================== 初始化 ====================
 
         public void Init()
@@ -121,6 +134,18 @@ namespace Revolution
                 if (p.Length != 3) continue;
 
                 map[p[0]] = p[1] + "|" + p[2];
+            }
+
+            // ★ 热更表覆盖内置表（合并而不是替换）：新资源能热更；热更表残缺时内置表仍是兜底。
+            //   钩子先取快照再调用 —— 与 RevABLoader.BundlePathResolver 同一条纪律（防并发清空）。
+            Func<Dictionary<string, string>> overrideSource = ResMapOverride;
+            if (overrideSource != null)
+            {
+                Dictionary<string, string> hot = overrideSource();
+                if (hot != null)
+                {
+                    foreach (KeyValuePair<string, string> kv in hot) map[kv.Key] = kv.Value;
+                }
             }
 
             return map;
