@@ -7,13 +7,13 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
 [![Issues](https://img.shields.io/github/issues/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution/issues)
 [![Top Language](https://img.shields.io/github/languages/top/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
-[![Runtime](https://img.shields.io/badge/Runtime%20模块-17%20个%20·%202.76%20万行-brightgreen?style=flat-square)](#-核心模块)
+[![Runtime](https://img.shields.io/badge/Runtime%20模块-17%20个%20·%202.97%20万行-brightgreen?style=flat-square)](#-核心模块)
 
 ---
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**17 个运行期模块 + 2 套编辑器工具**（Runtime 176 个 `.cs` / 约 2.76 万行），
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**17 个运行期模块 + 2 套编辑器工具**（Runtime 179 个 `.cs` / 约 2.97 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：框架本体不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
@@ -126,7 +126,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 | AB **本机**加载 | ✅ 有 | 从 `StreamingAssets` 读；编辑器直读 / AB 两条后端自动切换 |
 | AB **远程下载** + 版本管理 + 差量更新 | ✅ **扩展包提供** | 官方扩展包 **RevHotUpdate**（`Assets/Revolution.HotUpdate`，分支 `hotupdate`）：清单驱动版本比对 / 差量下载 / 断点续传 / 多源降级 / 尺寸+SHA-256 校验 / 版本目录原子切换与回滚 / 首包落地（Android）/ URL 模式（小游戏）。**不装 = 与从前逐字节一致** |
 | **代码热更新**（HybridCLR / ILRuntime / xLua） | ❌ **没有** | 全仓库 0 处相关代码（扩展包也不做） |
-| 运行框架本体（15 个模块：资源 / UI / 序列 / 状态机 / 音效 / 计时器 / 日志 …） | ✅ 有 | 与热更**解耦**：热更接上之后这些模块照常工作，业务代码不用改 |
+| 运行框架本体（17 个模块：资源 / UI / 序列 / 状态机 / 音效 / 计时器 / 日志 …） | ✅ 有 | 与热更**解耦**：热更接上之后这些模块照常工作，业务代码不用改 |
 
 > 源码里就是这么写的（`Runtime/RevResourceSystem/Implementation/RevABLoader.cs` 头部注释原文）：
 > 「① 从 `streamingAssetsPath` 加载 AB（**本框架不做热更新，没有 `persistentDataPath` 覆盖路径**）」。
@@ -181,7 +181,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ### 方案 B：接入 YooAsset 等第三方资源框架（要真上线的项目推荐）
 
-**思路**：把「打包 + 版本 + 下载 + 更新」整块交给 YooAsset，只写一层**适配**把它接进本框架的资源层 —— 上层 15 个模块与全部业务代码不动 ✓。
+**思路**：把「打包 + 版本 + 下载 + 更新」整块交给 YooAsset，只写一层**适配**把它接进本框架的资源层 —— 上层 17 个模块与全部业务代码不动 ✓。
 
 步骤（本质就是方案 A，只是"你的实现"变成"调用 YooAsset"）：
 
@@ -351,7 +351,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，17 个模块 / 176 个 `.cs` / 27,612 行）
+**运行期**（`Assets/Revolution/Runtime/`，17 个模块 / 179 个 `.cs` / 29,692 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|

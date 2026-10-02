@@ -22,7 +22,7 @@ RevMono.AddUpdate(OnTick, owner: this);                      // 让纯 C# 类每
 
 ## ✨ 特点
 
-- 🧩 **模块化** - 16 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevInput` / `RevLog` …），可单独拿走、可整块删除
+- 🧩 **模块化** - 17 个运行期模块，每个一个门面（`RevSound` / `RevTimer` / `RevInput` / `RevLog` …），可单独拿走、可整块删除
 - 🧪 **可脱离 Unity 验证** - 内核是纯 C#，链接进普通 .NET 工程就能跑断言（145 条，不打开 Unity）
 - 🛡 **防漏防崩** - 句柄代际校验、`owner` / 作用域一行清理、逐回调异常隔离、失败必带原因枚举
 - 📦 **编辑器工具齐** - RevAB 打包窗口（分包浏览自动同步 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具
@@ -94,7 +94,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ```text
 Revolution/
-├── Runtime/          15 个运行期模块（RevResourceSystem / RevUISystem / RevSoundSystem / RevTimer / RevLog / …）
+├── Runtime/          17 个运行期模块（RevResourceSystem / RevUISystem / RevSoundSystem / RevTimer / RevLog / …）
 ├── Editor/           编辑器工具（RevAB 打包窗口、GM 指令面板）
 ├── Generation/       生成的路径常量（RevResPath.cs，勿手改）
 ├── Resources/        框架自带运行时资源（ResMap.txt、UI 预制体）
