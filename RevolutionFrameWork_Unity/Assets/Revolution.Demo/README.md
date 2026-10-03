@@ -21,7 +21,7 @@
 | RevStateMachineDemo.unity | 状态机 | 轻量状态机三件套、自动流转（巡逻→追击→攻击）、StateChanged、重复切换拦截 |
 | RevResourceSystemDemo.unity | 资源加载 | 资源根目录、Load 缓存、引用计数（归零才真卸载）、句柄与失败原因 |
 | RevSingletonDemo.unity | 单例 | 纯 C# 惰性单例 / 自动创建的组件单例（跨场景常驻）、适用纪律 |
-| RevUISystemDemo.unity | UI 系统 | [RevUIPanel] 声明式面板、[RevBind] 绑定、OnClick 分发、面板池、Back 语义（首次需一键生成演示预制体 → 生成到资源根目录 `Assets/GameRes/RevUIDemo/`） |
+| RevUISystemDemo.unity | UI 系统 | 覆盖《UI 使用说明》全部章节：三种事件接法 · 8 个生命周期回调 · 全部 API（异步/预加载/查询/关层/关组/Back/DumpStats）· 带数据面板 · 六层与遮罩/返回栈 · 互斥组 · 三 Canvas · 动画（预设+自定义转场+控件动效）· Part 两种挂法（首次需一键生成演示预制体 → 生成到资源根目录 `Assets/GameRes/RevUIDemo/`） |
 | RevActionSequenceDemo.unity | 行动序列 | 按键驱动的多段序列播放（既有示例） |
 | RevGMCommandDemo.unity | GM 指令 | 场景内提示 + 命令注册演示；指令面板在编辑器菜单（Ctrl+Shift+G） |
 | RevHotUpdateDemo.unity | 资源热更（扩展包） | 本机假 CDN 跑通全链路：一键打包+清单+装配 → 起本地CDN.cmd → 检查/执行更新 → 加载到新内容（需装 `Revolution.HotUpdate` 包；见该目录 README） |
