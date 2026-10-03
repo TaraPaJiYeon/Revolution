@@ -19,6 +19,14 @@ using System.IO;
 using System.Security.Cryptography;
 using Revolution;
 
+// ★ 把"配套的编辑器程序集"设为友元程序集（friend assembly）：
+//   编辑器工具生成清单时要调 ComputeSha256，而 RevHotVerifier 是 internal（本程序集的实现细节，
+//   不想让包外的人看到）—— 跨程序集访问 internal 会报 CS0122，所以在这里显式开个口子。
+//   · 字符串必须与 Editor/Revolution.HotUpdate.Editor.asmdef 里的 "name" 完全一致；
+//     若改了那个 asmdef 的名字（或把 Editor 目录挪进别的程序集），这里要同步改，否则又会 CS0122。
+//   · 只影响编译期可见性：运行时零开销，包外使用者依然看不到这些 internal 类型。
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Revolution.HotUpdate.Editor")]
+
 namespace Revolution.HotUpdate
 {
     /// <summary>校验器（文件型平台专用；小游戏没有本地文件，校验交给引擎的 hash/crc）。</summary>

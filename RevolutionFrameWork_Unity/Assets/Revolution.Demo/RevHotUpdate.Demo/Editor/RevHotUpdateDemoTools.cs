@@ -25,6 +25,7 @@ using System.IO;
 using System.Text;
 using Revolution.Editor;
 using Revolution.HotUpdate;
+using Revolution.HotUpdate.Editor;      // RevHotManifestBuilder（生成清单）在这个命名空间
 using UnityEditor;
 using UnityEngine;
 
