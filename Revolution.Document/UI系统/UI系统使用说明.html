@@ -587,6 +587,21 @@ RevUIAnim.StopAllOf(<span class="k">this</span>);                               
       </table>
     </div>
 
+    <h3>进阶：另外 6 条（多数和"复用 / 生命周期"有关）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:40%">坑</th><th>正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>⑦ 事件没用 <code>owner: this</code> 注册</td><td>关闭面板时框架会 <code>RevEvent.RemoveAllByOwner(this)</code>，但它只摘"登记在你名下"的；用别的 owner 注册的监听（例如挂在某个长期服务上）框架摘不掉，那类监听要自己按生命周期管</td></tr>
+          <tr><td>⑧ 在 <code>OnRefreshView</code> 里发请求 / 改数据</td><td>那就不是"落屏"而是逻辑了，会出现"刷新一次发一次请求"的死循环 → 请求放 <code>OnOpen</code> / 交互回调里</td></tr>
+          <tr><td>⑨ 面板里直接 <code>Destroy(gameObject)</code></td><td>绕过管理器会让索引、池、资源引用对不上 → 关自己请用 <code>CloseSelf()</code></td></tr>
+          <tr><td>⑩ 把飘字放在参与返回栈的层</td><td><code>Toast</code> 层不参与 <code>Back()</code>；自定义面板若不想被返回键关掉，设 <code>InBackStack = false</code></td></tr>
+          <tr><td>⑪ 遮罩把不该挡的挡住了</td><td>想"看一眼但不打断操作"的浮层，显式写 <code>Mask = RevUIMaskMode.None</code>（<code>Popup</code> / <code>Guide</code> / <code>Top</code> 层默认是挡的）</td></tr>
+          <tr><td>⑫ 池里实例占内存</td><td><code>KeepAlive</code> 的界面会一直留着一份实例（连同它端的预制体引用）→ 大界面用 <code>CacheMode = DestroyOnClose</code>，或把 <code>MaxCachedPanels</code> 调小</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="callout bad">
       <span class="t">最贵的一课：面板会复用</span>
       面板不是"打开就新建、关闭就销毁"，而是<b>从池里拿、关掉放回</b>。所以任何"只做一次"的事情别写在 <code>OnOpen</code>，

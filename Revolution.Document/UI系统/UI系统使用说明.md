@@ -434,6 +434,17 @@ RevUIAnim.StopAllOf(this);                                     // 停掉这个�
 | ⑤ 用 `CloseAll()` 当"关一个"用 | 要关单个用 `Close<T>()`；切场景才用 `ShutdownAll()` |
 | ⑥ 打不开却没有任何提示 | 检查三处：预制体是否在资源根目录的对应路径下 · 特性里目录/名字是否写对 · 「打包」页签是否已生成映射 |
 
+### 进阶：另外 6 条（多数和"复用 / 生命周期"有关）
+
+| 坑 | 正确做法 |
+|---|---|
+| ⑦ 事件没用 `owner: this` 注册 | 关闭面板时框架会 `RevEvent.RemoveAllByOwner(this)`，但它只摘"登记在你名下"的；用别的 owner 注册的监听（例如挂在某个长期服务上）框架摘不掉，那类监听要自己按生命周期管 |
+| ⑧ 在 `OnRefreshView` 里发请求 / 改数据 | 那就不是"落屏"而是逻辑了，会出现"刷新一次发一次请求"的死循环 → 请求放 `OnOpen` / 交互回调里 |
+| ⑨ 面板里直接 `Destroy(gameObject)` | 绕过管理器会让索引、池、资源引用对不上 → 关自己请用 `CloseSelf()` |
+| ⑩ 把飘字放在参与返回栈的层 | `Toast` 层不参与 `Back()`；自定义面板若不想被返回键关掉，设 `InBackStack = false` |
+| ⑪ 遮罩把不该挡的挡住了 | 想"看一眼但不打断操作"的浮层，显式写 `Mask = RevUIMaskMode.None`（`Popup` / `Guide` / `Top` 层默认是挡的） |
+| ⑫ 池里实例占内存 | `KeepAlive` 的界面会一直留着一份实例（连同它端的预制体引用）→ 大界面用 `CacheMode = DestroyOnClose`，或把 `MaxCachedPanels` 调小 |
+
 > [!NOTE]
 > **最贵的一课：面板会复用**
 > 从池里拿、关掉放回
