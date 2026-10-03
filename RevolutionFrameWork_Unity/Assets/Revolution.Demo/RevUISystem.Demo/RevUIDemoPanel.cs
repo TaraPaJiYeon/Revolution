@@ -13,6 +13,9 @@
 // 【预制体从哪来】
 //   Editor\RevUIDemoPrefabBuilder.cs 里有一个"一键生成演示预制体"的菜单
 //   （用代码搭出 Panel → 按钮 / 文本 的结构并存成 prefab）。生成一次即可，之后随用随开。
+//   ★ 生成到【资源根目录】下：Assets/GameRes/RevUIDemo/RevUIDemoPanel.prefab
+//     因为编辑器直读/AB 都按「资源根目录 + 逻辑路径」找资源 —— 这里声明的 "RevUIDemo"
+//     就是相对 Assets/GameRes/ 的逻辑路径（不是完整的 Assets/... 路径）。
 // ============================================================
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,7 +23,8 @@ using UnityEngine.UI;
 namespace Revolution.Demo.UI
 {
     // 层级用 Popup：框架会自动推断"这个层带遮罩挡点击"（Mask = RevUIMaskMode.Auto 的默认推断）
-    [RevUIPanel("Assets/Revolution.Demo/RevUISystem.Demo", RevUILayer.Popup)]
+    // 第一个参数是**相对「资源根目录」（Assets/GameRes/）的逻辑目录** —— 少了这段前缀就找不到预制体。
+    [RevUIPanel("RevUIDemo", RevUILayer.Popup)]
     public sealed class RevUIDemoPanel : RevUIPanel
     {
         // ---------- [RevBind]：按节点名自动拿控件（路径默认 = 字段名去掉下划线） ----------
@@ -63,5 +67,12 @@ namespace Revolution.Demo.UI
         private void Refresh() => _txtInfo.text = $"演示面板已打开。\n「加一条日志」点了 {_clicks} 次。\n点右上角 ✕ 关闭。";
 
         public override string ToString() => "RevUIDemoPanel";
+
+        //下面这种就是直接通过特性的方式来监听
+        [RevButtonClick("btnAdd")]
+        private void OnBtnAddClick()
+        {
+            RevLog.Info("按钮被点击");
+        }
     }
 }

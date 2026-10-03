@@ -11,7 +11,8 @@
 //   本示例自带一个演示文本 demo_data.txt（就在本目录），用编辑器直读模式加载它。
 //
 // 【本示例演示什么】
-//   ① 资源根目录：编辑器直读按 <资源根目录>/<逻辑路径> 找文件 —— 未配置时演示一键指向本目录；
+//   ① 资源根目录：编辑器直读按 <资源根目录>/<逻辑路径> 找文件 —— 未配置时演示一键指向本目录
+//      （本演示的 demo_data.txt 就在根目录下，所以"逻辑根目录"传空字符串 —— 见 DemoLogicalRoot）；
 //   ② Load<T>：同步加载（编辑器直读 / 已缓存时有效；真机首次用 LoadAsync）；
 //   ③ 缓存：同一资源只读一次盘（第二次 Load 直接命中缓存）；
 //   ④ 引用计数：Release 归零后才真正卸载 —— "表/资源被提前卸掉"这类事故的解药；
@@ -29,6 +30,13 @@ namespace Revolution.Demo.ResourceSystem
 
         /// <summary>本演示的资源根目录（demo_data.txt 就在这里；用 '/' 结尾）。</summary>
         private const string DemoRoot = "Assets/Revolution.Demo/RevResourceSystem.Demo/";
+
+        /// <summary>
+        /// 加载用的**逻辑根目录** —— ★ 它是"相对资源根目录"的逻辑段，不是工程全路径。
+        /// demo_data.txt 就躺在资源根目录下（没有子目录），所以逻辑根传空字符串。
+        /// （编辑器直读按「资源根目录 + 逻辑路径」找文件；这里若写 "Assets/…" 会拼成 Assets/…/Assets/… 而找不到。）
+        /// </summary>
+        private const string DemoLogicalRoot = "";
 
         private void Ui(string line)
         {
@@ -69,7 +77,7 @@ namespace Revolution.Demo.ResourceSystem
             {
                 if (root.Length == 0) { Ui("请先配置资源根目录（上面第一个按钮）。"); return; }
 
-                var handle = Revolution.RevResManager.Load(DemoRoot, "demo_data", typeof(TextAsset));
+                var handle = Revolution.RevResManager.Load(DemoLogicalRoot, "demo_data", typeof(TextAsset));
                 if (handle != null && handle.IsLoaded)
                 {
                     string text = (handle.Content as TextAsset)?.text ?? "";
@@ -84,17 +92,17 @@ namespace Revolution.Demo.ResourceSystem
             // ③ 缓存：同一资源第二次 Load 直接命中（不再读盘）
             if (GUILayout.Button("③ 再 Load 一次（命中缓存，引用计数 +1）"))
             {
-                Revolution.RevResManager.Load(DemoRoot, "demo_data", typeof(TextAsset));
-                int refs = Revolution.RevResManager.GetRefCount(DemoRoot, "demo_data");
+                Revolution.RevResManager.Load(DemoLogicalRoot, "demo_data", typeof(TextAsset));
+                int refs = Revolution.RevResManager.GetRefCount(DemoLogicalRoot, "demo_data");
                 Ui($"命中缓存 ✓ 当前引用计数 = {refs}（每次 Load / AddRef +1）。全库缓存句柄 {RevResManager.CachedCount} 个。");
             }
 
             // ④ 引用计数：Release 归零才真正卸载
             if (GUILayout.Button("④ Release：释放一次（计数 -1）"))
             {
-                int before = Revolution.RevResManager.GetRefCount(DemoRoot, "demo_data");
-                Revolution.RevResManager.Release(DemoRoot, "demo_data");
-                int after = Revolution.RevResManager.GetRefCount(DemoRoot, "demo_data");
+                int before = Revolution.RevResManager.GetRefCount(DemoLogicalRoot, "demo_data");
+                Revolution.RevResManager.Release(DemoLogicalRoot, "demo_data");
+                int after = Revolution.RevResManager.GetRefCount(DemoLogicalRoot, "demo_data");
                 Ui(after > 0
                     ? $"引用计数 {before} → {after}：还有人在用，不会真卸载（这就是『不会被提前卸掉』的保证）。"
                     : $"引用计数归零：资源已真正卸载（下次 Load 会重新读盘）。");
@@ -103,7 +111,7 @@ namespace Revolution.Demo.ResourceSystem
             // ⑤ 句柄：拿到内容与状态
             if (GUILayout.Button("⑤ Get：拿句柄查状态"))
             {
-                var handle = Revolution.RevResManager.Get(DemoRoot, "demo_data");
+                var handle = Revolution.RevResManager.Get(DemoLogicalRoot, "demo_data");
                 Ui(handle == null
                     ? "当前没有这个资源的句柄（已卸载或从未加载）。"
                     : $"句柄状态：IsLoaded={handle.IsLoaded}，类型={handle.Content?.GetType().Name ?? "null"}");

@@ -49,11 +49,11 @@ namespace Revolution.Demo.UI
             GUILayout.Label("<b>RevUI UI 系统演示</b>", TitleStyle());
 
 #if UNITY_EDITOR
-            // ① 生成演示面板预制体（只需一次；生成物 RevUIDemoPanel.prefab 在本目录，进版本库）
+            // ① 生成演示面板预制体（只需一次；生成到【资源根目录】Assets/GameRes/RevUIDemo/，进版本库）
             if (GUILayout.Button("① 生成演示面板预制体（首次使用点一次）"))
             {
                 bool ok = Editor.RevUIDemoPrefabBuilder.Build();
-                Ui(ok ? "预制体已生成：RevUISystem.Demo/RevUIDemoPanel.prefab ✓（下一步就能打开面板）"
+                Ui(ok ? "预制体已生成：Assets/GameRes/RevUIDemo/RevUIDemoPanel.prefab ✓（下一步就能打开面板）"
                       : "生成失败，详见 Console。");
             }
             GUILayout.Space(4);
@@ -64,7 +64,15 @@ namespace Revolution.Demo.UI
             {
                 RevUI.Open<RevUIDemoPanel>(panel =>
                 {
-                    if (panel != null) Ui("面板已打开（第二次打开走面板池，秒开）。");
+                    if (panel != null)
+                    {
+                        Ui("面板已打开（第二次打开走面板池，秒开）。");
+                    }
+                    else
+                    {
+                        Ui("打开失败：预制体加载不到 —— ① 先点上面的「生成演示面板预制体」；"
+                         + "② 确认「资源根目录」= Assets/GameRes（菜单 Revolution.Tools/资源/RevAB 打包工具）。");
+                    }
                 });
                 Ui("已发起打开（需要加载时异步，完成时回调）……");
             }
