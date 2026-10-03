@@ -355,7 +355,7 @@ public sealed class MainHudPanel : RevUIPanel
 }
 ```
 
-`Static` 放常驻且基本不变的 Scene 内容，`Dynamic` 放常驻且频繁变化的 Scene 内容；`Common`（默认）放其余所有面板。现有混合静态/动态内容的预制体若要分到两个画布，需要拆成两个 Scene 面板，**只配置一个属性不会自动把面板内部控件分离**。`Normal` / `Popup` / `Toast` / `Guide` / `Top` 声明成 `Static` 或 `Dynamic` 会被放回 `Common` 并告警，以保证弹窗和引导遮罩位于最上层。切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见[《架构解析》4.12](UI系统架构解析.md)。
+`Static` 放常驻且基本不变的 Scene 内容，`Dynamic` 放常驻且频繁变化的 Scene 内容；`Common`（默认）放其余所有面板。现有混合静态/动态内容的预制体若要分到两个画布，需要拆成两个 Scene 面板，**只配置一个属性不会自动把面板内部控件分离**。`Normal` / `Popup` / `Toast` / `Guide` / `Top` 声明成 `Static` 或 `Dynamic` 会被放回 `Common` 并告警，以保证弹窗和引导遮罩位于最上层。切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见[《架构解析》第五章 · 决策 11](UI系统架构解析.md)。
 
 ### 面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）
 

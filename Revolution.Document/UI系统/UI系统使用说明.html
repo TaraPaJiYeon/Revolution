@@ -505,7 +505,7 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
     <p><code>Static</code> 放常驻且基本不变的 Scene 内容，<code>Dynamic</code> 放常驻且频繁变化的 Scene 内容；<code>Common</code>（默认）放其余所有面板。
     现有混合静态/动态内容的预制体若要分到两个画布，需要拆成两个 Scene 面板，<b>只配置一个属性不会自动把面板内部控件分离</b>。
     <code>Normal</code> / <code>Popup</code> / <code>Toast</code> / <code>Guide</code> / <code>Top</code> 声明成 <code>Static</code> 或 <code>Dynamic</code> 会被放回 <code>Common</code> 并告警，以保证弹窗和引导遮罩位于最上层。
-    切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见<a href="UI系统架构解析.html#s4-12">《架构解析》4.12</a>。</p>
+    切换后继续测 CPU 合批和 Draw Call；没有改善就退回单 Canvas。详见<a href="UI系统架构解析.html#s5">《架构解析》第五章 · 决策 11</a>。</p>
 
     <h3>面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）</h3>
     <p>框架自带一套 <b>UI 专用</b>的轻量动画库（代码在 <code>Runtime\RevUISystem\Animation\</code>，入口 <code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。</p>

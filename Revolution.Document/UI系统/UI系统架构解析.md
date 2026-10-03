@@ -1,1053 +1,613 @@
 # UI 系统 · 架构解析
 
-> 覆盖：`Assets\Revolution\Runtime\RevUISystem\`（`Core\` + `Facade\` + `Implementation\` + `Interfaces\` + `Support\`）
+> 覆盖：`Assets\Revolution\Runtime\RevUISystem\`（26 个 `.cs`：`Core\` · `Facade\` · `Implementation\` · `Interfaces\` · `Support\` · `Animation\`）
 >
-> **本篇只回答"为什么"**：这套 UI 框架为什么这么设计、为什么这么写代码、每个决策换来了什么、代价是什么、边界画在哪。
-> **想学怎么用**（写面板 / 摆预制体 / 打开关闭 / 传数据 / Part / 动画 / 层级与遮罩）→ 看同目录的《UI 系统 · 使用说明》，那里是手把手，本篇不重复。
-> **面向小白**：每一节都用大白话讲"不这么做会怎样"，而不是复述代码。
+> **本篇只回答"为什么"**：这套框架由哪些部件组成、它们为什么被这样切分、每个决策背后的取舍是什么、源码为什么写成这样。
+> **想看怎么用**（写面板 / 传数据 / 层级遮罩 / 动画 / API 对照表）→ 看同目录的《UI 系统 · 使用说明》。
+> **面向小白**：用大白话讲"不这么做会怎样"，不教用法、不复述代码。
+
+## 目录
+
+- 〇、三句话速览 + 术语小抄
+- 一、它要解决什么问题
+- 二、整体骨架：四个角色、两圈分层
+- 三、跟着一次"打开面板"走完全程
+- 四、生命周期：四个状态 + 一组钩子
+- 五、关键设计决策（源码为什么这样写）
+- 六、刻意的取舍与边界
+- 七、System / BusinessLogic 要不要做
+- 八、验证结果
+- 九、附：关键文件索引
+- 十、本期没做的（可后续扩展）
 
 ---
 
-## 设计起源 · 为什么要重写一套 UI 框架
+## 〇、三句话速览 + 术语小抄
 
-> 这一节是作者的第一人称自述，讲清"这套东西为什么会存在"。只想看设计结论的，可以直接跳到下一节《设计哲学》。
+### 三句话速览
 
-**起点：写一个界面要写五个脚本。**
+```text
+① 对外只有一个入口：RevUI（门面）          // 业务只跟它打交道
+② 状态只有一个主人：RevUIManager（管理器） // 谁开着、谁在池里、谁盖着谁，全由它记账
+③ 需要 Unity 的事只有一处：RevUIRoot（常驻根节点） // 建 Canvas、摆六层、挡点击、每帧重排
+```
 
-作者在项目组里用的那套 UI 框架极其复杂 —— 写一个 UI 功能要写好几个脚本，各管一段：
+> **整套架构可以用一句话概括：**
+> **一个界面 = 一个脚本 + 一个预制体；找资源、装配控件、排序、遮挡、复用、销毁，全部由框架保证。**
+> 后面每一章都在回答同一件事：为了让这句话成立，源码里必须付出哪些代价。
+
+### 本篇怎么读
+
+| 你想知道 | 去哪看 |
+|---|---|
+| 这套东西由哪几个部件组成、谁调用谁 | 第二章「整体骨架」 |
+| 点一下"打开面板"，框架内部到底做了什么 | 第三章「跟着一次打开走完全程」 |
+| 哪些钩子什么时候被调、为什么有先后 | 第四章「生命周期」 |
+| 为什么用特性 + 反射、为什么要池、为什么自研动画… | 第五章「关键设计决策」 |
+| 框架"故意不做"什么（以及代价） | 第六章「刻意的取舍与边界」 |
+| 要不要再拆 System / BusinessLogic 两层 | 第七章 |
+| 想写界面（怎么用） | 同目录《UI 系统 · 使用说明》 |
+
+### 术语小抄：不认识下面这些词，也能读完本篇
+
+本篇会反复用到这几个词，先用大白话解释一遍（都是很普通的编程概念，不是这套框架发明的）：
+
+| 词 | 大白话 | 在本系统里对应什么 |
+|---|---|---|
+| **特性**<br>`Attribute` | 写在类或字段上的一行"标签"。它不是代码逻辑，而是给工具/框架看的**说明**，运行时要靠"读标签"才知道你的意图。 | `[RevUIPanel]`（这个类是什么面板、资源在哪、放哪层）、`[RevBind]`（这个字段要绑哪个节点） |
+| **反射**<br>`Reflection` | 程序在运行时"查看自己"的能力：按名字找类型、找字段、读标签、调用方法。灵活但慢，所以要少用、要缓存。 | 框架靠它读特性、按字段名找节点；**每个类型只做一次**，结果缓存起来（见决策 2） |
+| **门面**<br>`Facade` | 一扇门：让人只跟一个入口打交道，不必知道门后有几个房间、谁在管什么。 | `RevUI`：业务只调它，它把活转给管理器 |
+| **单例**<br>`Singleton` | 全局只有一个的对象（这里用的是"用到时才创建"的懒加载单例）。 | `RevUIManager`：只能有一个"记账本"，否则两个管理器各记一半 |
+| **池化**<br>`Pool` | 用完不销毁，收进"仓库"，下次要用的直接取出来接着用 —— 省掉反复创建/销毁的开销。 | `RevUIPanelPool`：界面关掉通常只失活并回池（决策 6） |
+| **脏标记**<br>`dirty flag` | 不立刻干活，只挂一个"待处理"的小旗子，等到统一时机一次做完 —— 避免同一帧里反复干同一件事。 | 打开/关闭面板只标记"要重排"，真正排序在**本帧渲染前的 `LateUpdate`**（决策 5） |
+| **`Update` / `LateUpdate`** | Unity 每帧的回调：`Update` 是"每帧逻辑"，`LateUpdate` 在它之后、**本帧画面渲染之前**。 | 根节点用 `Update` 处理"延迟一帧的销毁"，用 `LateUpdate` 做排序与遮罩重算 |
+| **`timeScale` / `unscaledTime`** | 游戏可以"暂停"（`timeScale = 0`），此时常规时间停止；`unscaledDeltaTime` 是**不受暂停影响**的真实时间。 | 界面动画与长按判定都用不受暂停影响的时间：暂停时 UI 照样能动、长按照样能判 |
+| **纯 C# 内核** | 不引用 `UnityEngine` 的普通 C# 文件 —— 能丢进一个普通 .NET 工程里跑，不需要打开 Unity。 | 规则类文件（词汇、特性、绑定计划、元数据、动画内核）都是纯 C#，**因此可以脱机断言**（决策见 2.3） |
+
+---
+
+## 一、它要解决什么问题
+
+### 1.1 起点：写一个界面要写五个脚本
+
+这套框架不是"从零设计的架构练习"，而是从一个真实痛点长出来的。作者在项目组里用的那套 UI 框架极其复杂 —— 写一个 UI 功能要写好几个脚本，各管一段：
 
 | 脚本 | 它管什么 |
 |---|---|
-| `ViewData` | UI 界面的数据 |
+| `ViewData` | 界面的数据 |
 | `FromView` | UGUI 控件绑定 |
 | `FromLogic` | 控件逻辑绑定 |
 | `System` | 网络消息收发处理 |
-| `BusinessLogic` | 业务总控：负责注册、启动、销毁这个业务功能 |
+| `BusinessLogic` | 业务总控：注册、启动、销毁这个业务功能 |
 
-写一个界面，就要在五个文件之间来回跳。**太复杂了。** 而且这套东西是用 TypeScript（puerts）写的 ——
-在 Unity 工程里用 TS 写 UI 很别扭、很丑陋：编译链、类型、调试、和 C# 侧的边界，全是额外的心智负担。
+写一个界面，就要在五个文件之间来回跳；而且这套东西是用 TypeScript（puerts）写的，在 Unity 工程里用 TS 写 UI 还多出编译链、类型、调试、跨语言边界一堆心智负担。
 
-**更关键的矛盾：分这么多层，只是为了热更；而热更本身又只是"半套"。**
+**更关键的矛盾是：** 把界面切成这么多层，唯一的正当理由是**热更新**（界面逻辑放进 TS 就能不发版改界面）。但项目里的实际情况是：只有大版本之内的小更新才走热更，**一整个大版本更新必须重新打包发版**。
 
-把界面切成这么多层，唯一的正当理由是**热更新** —— 界面逻辑放进 TS，就能不发版改界面。
-但项目里的实际情况是：
+于是这笔账不划算了：为了"偶尔一次小更新"，长期付出"每个界面五个脚本 + 一整套 TS 工具链"的成本。既然大版本反正要重新发版，不如让语言统一回 C#，**分层也顺着 C# 的习惯重新设计**，不必为了 TS 的边界把界面切得那么碎。
 
-- **只有大版本之内的小更新**才走热更；
-- **一整个大版本更新，必须重新打包发版**。
+### 1.2 三条目标：后面每个决策都是它们的展开
 
-那这笔账就不划算了：为了"偶尔一次小更新"，长期付出"每个界面五个脚本 + 一整套 TS 工具链"的成本。
-既然大版本反正要重新发版，**还不如全量上 HybridCLR 这类 C# 热更方案** —— 语言统一在 C#，
-分层也可以顺着 C# 的习惯重新设计，不必为了 TS 的边界把界面切得那么碎。
+| 目标 | 为什么是它 | 落到代码上就是 |
+|---|---|---|
+| **① 复用安全** | 复用是性能（不加载、不实例化、不重绑），但**复用是 bug 温床**：上次的滚动位置、选中的页签、输入框里的字、"还挂着上次的数据"—— 这类 bug 偶尔才出现，最难查。所以复用必须是**有契约的路径**，不能各凭自觉。 | 实例池 + 必被调用的 `OnReuse()`；框架在调用它之前先替你清空上一次的数据；复用时再兜一次"摘事件" |
+| **② 异常可见** | UI 的问题几乎都是**静默失败**："点了没反应""图不见了""数据不对"，根源往往是节点改名了、预制体没进包、控件类型写错了。如果只给一句 `null`，就只能靠断点猜。 | 凡是"本该成功却没成功"的地方都报**能照着改**的错：列出根节点下真实存在的节点名、给出三条排查路径、明确指出该换哪个入口 |
+| **③ 分层靠结构** | 参考实现的四层很干净，代价是一个界面要写好几个文件。这里要的是**用结构约束行为，而不是靠注释约定** —— 该只做装配的钩子就必须只做装配。 | **一个面板仍然只有一个脚本**，但每个钩子只许干一件事；带数据的界面连"怎么把数据画上去"都是**抽象方法**，不写编译不过 |
 
-**于是就想到：留下那套框架里真正值得复用的部分，其余按自己的方式重写。**
+### 1.3 具体盯的是哪几件事
 
-具体三条：
+| UI 最容易失控的地方 | 不解决会怎样 | 框架的做法（细节见第三、五章） |
+|---|---|---|
+| 界面怎么找到 | 路径写在调用处 → 改目录/改名就散落一地；加载失败只留一句 null | 路径**写在面板类自己身上**（一行特性），打开时框架去读 —— 调用处一行路径都不写，也就没有"调用处拼错路径" |
+| 控件怎么拿到 | 手写 `Find("Panel/Panel/Button")`，节点一改名就静默变 null | `[RevBind]` 字段按"字段名 ↔ 节点名"自动绑定；找不到时报错并列出真实节点名 |
+| 表现 / 数据 / 逻辑怎么分 | 混在一个 `Update` 里，改一处崩三处 | 用钩子职责分开（装配 / 落屏 / 业务），但**仍然只有一个脚本** |
+| 谁盖着谁、谁挡住点击 | 每个弹窗预制体自己摆遮罩、自己设 `sortingOrder`，早晚互相打架 | 六层结构 + **按层自动铺挡板**；层内顺序 = 打开顺序，由框架统一排 |
+| 开关与复用时的资源/状态 | 关掉不销毁 → 残留；关掉就销毁 → 反复加载卡顿 | 实例池 + 清理契约 + 延迟一帧销毁 + 资源引用配对释放，全由管理器记账 |
+| 事件泄漏 | 面板没了，监听还挂在全局事件上 → 空引用、鬼畜刷新 | 关闭/释放时框架自动 `RevEvent.RemoveAllByOwner(this)`：**机制保证，不靠纪律** |
 
-1. **留下真正有复用价值的东西** —— 比如 `ViewData`（数据与界面分离）、`Part`（可复用的界面单元）这类"结构上就对"的设计；
-2. **融合作者跟唐老师学到的 UI 框架**里的做法（面板 + 钩子 + 声明式绑定这一路）；
-3. 目标就三个词：**高复用、易用、傻瓜式** —— 写一个界面 = 一个脚本 + 一个预制体，
-   不该先学会一套分层学说才能动手。
+### 1.4 比早期版本多出来的不是"功能"，是"保证"
 
-> 这三条不是口号，它们直接决定了后面的每个设计决策：
-> 让复用**安全**（复用既是性能，也是 bug 温床）、让失败**可见**（UI 的问题几乎都是静默失败）、
-> 让分层**靠结构**而不是靠自觉（钩子职责分离，但仍然只有一个脚本）。
-> 下一节《设计哲学》就是这三条的展开。
+这套系统的前身是 `BasePanel`（219 行）+ `UIMgr`（335 行），只做"开 / 关 / 隐藏"。新版文件多了，但它补的每一条都是**给业务的保证**：
+
+| 维度 | 早期版本 | 现在 |
+|---|---|---|
+| 控件获取 | `Awake` 里把 Button/Toggle/Slider/Text… **全量扫进字典**，再弱类型取 | `[RevBind]` 强类型字段；**只扫"你真的重写了回调"的那几类控件**，且每类型只反射一次 |
+| 事件绑定 | 每个按钮 `AddListener(() => ClickBtn(名字))` —— 每个实例每次 `Awake` 都分配一个闭包 | 每个交互节点一个"继电器"对象，创建时挂一次，**复用时不再重挂** |
+| 层级 / 遮罩 | 四层，靠一个 `UI/Canvas` 预制体摆好；遮罩要每个弹窗自己记得摆 | 六层**代码建**（零资源依赖）；按层自动铺透明挡板，点遮罩关该层最上面的弹窗 |
+| 复用 | "隐藏不销毁"，**没有清理契约** → 残留全靠人记 | 实例池 + `OnReuse` 契约 + 框架代清数据 |
+| 异步加载合并 | 有（占位 + 回调累加，思路保留） | 有，且更彻底：在途请求**真合并**，多份回调都拿到同一个实例 |
+| 第三方依赖 | 硬依赖 DOTween（扩展 1000+ 行） | **零依赖**：转场是可插拔钩子，动画是自研内核（决策 8） |
+
+> 早期版本那两个"方便"的点 —— **预制体名 = 类名**、**一个面板一个脚本** —— 不但保留，还是新版的主线。
 
 ---
 
-## 〇、这份文档怎么读
+## 二、整体骨架：四个角色、两圈分层
+
+### 2.1 一张图看懂依赖方向
+
+先看全景。箭头是"调用/依赖"方向，**箭头是单向的** —— 这一点很重要，它保证了"业务不碰实现、实现不反向依赖业务"：
 
 ```text
-① 想搞懂"为什么这么设计"   → 往下读（本篇）
-② 想学"怎么写一个界面"     → 看同目录《UI 系统 · 使用说明》
-③ 想知道"和早期版本的差别" → 第二章「当前实现 vs 早期版本」
-④ 想知道"要不要 System / BusinessLogic 层" → 第十章（直接给了结论）
+业务代码
+  │  只调这一个入口
+  ▼
+RevUI（门面 · 静态类 · 无状态）                   // Facade\RevUI.cs
+  │  Open / Close / Back / Preload / DumpStats …
+  ▼
+RevUIManager（管理器 · 单例 · 非 MonoBehaviour）  // Implementation\RevUIManager.cs
+  ├─ 索引：打开中 / 加载中 / 打开顺序 / 互斥组 / 实例池
+  ├─ 找资源：RevResManager（资源系统，见《资源加载系统》）
+  ├─ 解析声明：RevUIPanelMeta（读特性，一次）→ RevUIBindPlan（算绑定计划，一次）
+  ├─ 存 / 取实例：RevUIPanelPool（私有持有）
+  └─ 首用时创建 ▼
+RevUIRoot（常驻场景 · MonoBehaviour）             // Implementation\RevUIRoot.cs
+  ├─ 建 Canvas + 六层挂点（Scene/Normal/Popup/Toast/Guide/Top）
+  ├─ RevUIPopupMask（每层一块挡板，私有持有）
+  ├─ EventSystem 兜底 / UI 相机
+  ├─ Update      → 处理"延迟一帧的销毁"
+  └─ LateUpdate  → 回调管理器：层内排序 + 遮罩摆位 + 被盖住通知
+
+面板侧（业务继承它，框架驱动它）
+RevUIPanel  ──用──▶ RevUIBinder（装配）· RevUIAnim（动画）· RevEvent（事件）
+RevUIPart   ──只认──▶ IRevUIPartHost（宿主接口，因此能跨面板复用）
 ```
 
-本篇的篇幅都花在**论证**上：每个决策都说清"为什么这样最稳、不这样会怎样、代价是什么"。
+### 2.2 四个角色：各自为什么存在、为什么不能合并
 
+| 角色 | 它的唯一职责 | 为什么必须单独存在（合并会怎样） |
+|---|---|---|
+| **门面**<br>`RevUI`<br>*静态 · 无状态* | 业务唯一入口：转发 + 失败时给人话文案。 | 如果让业务直接调管理器：**业务就绑死在一个具体实现上**，将来换实现（或加一层队列/优先级）要改所有调用处。门面把"说什么"和"怎么做"分开：**门面负责叫法，管理器负责做法**。 |
+| **管理器**<br>`RevUIManager`<br>*单例 · 非 MonoBehaviour* | 唯一的"账本"：谁开着、谁在加载、打开顺序、互斥组、池、资源引用配对。 | 账本只能有一本。它**刻意不是 MonoBehaviour**：不需要挂在场景对象上、不需要每帧回调，因此不受"根节点被销毁 / 场景切换"影响；根节点没了它会重建（见决策 7）。 |
+| **根节点**<br>`RevUIRoot`<br>*常驻场景 · MonoBehaviour* | 所有"必须靠 Unity 才能做"的事：建 Canvas 与六层挂点、挡板、EventSystem、每帧重排、延迟销毁。 | 这些事需要 `Update` / `LateUpdate` 与场景对象，只能由 MonoBehaviour 干。把"记账"和"干活"分开，管理器才能保持干净、可推理。 |
+| **池 + 挡板**<br>`RevUIPanelPool`<br>`RevUIPopupMask` | 池：按面板分桶存实例；挡板：每层一块透明挡板。 | 它们**不是单例**，分别由管理器和根节点**私有持有**。理由很朴素：**谁创建谁销毁、谁知道它的生命周期**。做成全局单例，就会出现"根节点重建了、旧挡板还在"这类对不上的状态。 |
 
----
+### 2.3 两圈分层：哪些文件是"纯 C#"，为什么
 
-## 设计哲学 · 一条主线
+26 个文件里有一圈**完全不引用 `UnityEngine`** 的纯 C# 文件。这不是洁癖，而是**为了能被验证**：
 
-> **让"复用"安全，让"异常"可见，让"分层"靠结构而不是靠自觉。**
-> 后面每一章的设计决策都是这三条的展开 —— 它们同时也是"为什么这么设计"和"好处是什么"的答案。
-
-### ① 复用安全：复用是性能，也是 bug 温床
-
-界面关闭不销毁、下次直接复用是最省的做法（不加载、不实例化、不重新绑定），但**复用最大的风险是"上次的东西还在"**：
-上一次的滚动位置、选中的页签、输入框里的字、面板还挂着上次的数据 —— 这类 bug 最难查，因为它"偶尔才出现"。
-
-所以框架把"复用"做成一条**有契约的路径**，而不是让每个面板各凭自觉：
-
-- 实例池 + 必写钩子 `OnReuse()`（框架保证它一定被调用，业务只要在里面清**界面残留**）；
-- 框架在 `OnReuse` 之前**先替你清空上一次的数据**（泛型面板连 `Data` 一起清）—— 不需要你记得清，也不会忘；
-- 复用时再兜一次 `RevEvent.RemoveAllByOwner(this)`，避免"复用的实例还在收上一次的事件"。
-
-### ② 异常可见：UI 的问题几乎都是"静默失败"
-
-UI 出问题的典型形态是"点了没反应""图不见了""数据不对"，而根源往往是：节点改名了、预制体没进包、控件类型写错了。
-这些如果只是一句 `null`，就只能靠断点猜。
-
-所以框架里凡是"本该成功却没成功"的地方，都报**能照着改**的错误：
-
-- 绑定找不到节点 → 打印"要找的名字 + **根节点下真实存在的节点名** + 两种改法"；
-- 预制体加载不到 → 列出三条排查路径（资源根目录 / AB 标记 / 路径写法），并提示打包工具「检查」页签能看漏标；
-- 预制体与脚本对不上 → 直接说"根节点上没有 XxxPanel 组件"，并提醒默认约定是"预制体名 = 类名"；
-- 同步打开拿不到实例 → 明确告诉你改用哪个入口，而不是返回 null 让你查半天。
-
-### ③ 分层靠结构：钩子职责分离，但仍然只有一个脚本
-
-参考实现的 UI 是 `View / Logic / System / BusinessLogic` 四层 + TS 桥接，分层很干净，代价是**一个界面要写好几个文件**。
-你没有热更需求、也不想为一面板写一堆脚本，所以这里取的是参考文档《06-架构抽离与复用》自己给出的结论：
-**用结构约束行为，而不是靠注释约定**。
-
-```csharp
-protected override void OnBindView()    { /* 只做表现装配：拿控件、挂交互 */ }
-protected override void OnRefreshView() { /* 只做数据落屏：把 Data 画到界面 */ }
-protected override void OnClick(string nodeName) { /* 业务逻辑：改数据、请求数据、刷新 */ }
-```
-
-带数据的界面继承 `RevUIPanel<TData>` 时，`OnRefreshView` 是**抽象方法** ——
-有数据就必须写清楚"数据怎么落到界面上"，不允许糊过去；而纯静态界面（说明页、加载页）继承 `RevUIPanel` 就少写一个方法。
-
-> **好处（一句话版）**：一个界面写一个文件、改一处只影响一处；真机出问题能顺着报错文案直接定位，不用开断点猜；
-> 面板之间"谁开谁关、谁挡谁、谁进池"由管理器统一保证，业务不用各自维护。
-
----
-
-## 一、UI 系统解决什么问题
-
-UI 是"最容易越写越乱"的一块：谁都能开界面、谁都能改界面，最后变成"改一个按钮崩三个界面"。这套系统盯的是四件事：
-
-| 要解决的问题 | 具体做法 |
+| 纯 C# 内核（可丢进普通 .NET 工程跑） | 它管什么规则 |
 |---|---|
-| **界面怎么找到** | 路径**写在面板类自己身上**（一行特性），打开时框架去读 —— 调用处一行路径都不写，也就没有"调用处拼错路径" |
-| **控件怎么拿到** | `[RevBind]` 字段按"**字段名 ↔ 节点名**"自动绑定；不想写字段就重写 `OnClick(节点名)` 按名字分发 |
-| **表现 / 数据 / 逻辑怎么分** | 用**两个必写钩子**在结构上强制分开（`OnBindView` 只装配、`OnRefreshView` 只画数据），但**一个面板仍然只有一个脚本** |
-| **开/关/复用的资源与状态怎么不出错** | 管理器统一管层级、遮罩、实例池、返回栈、互斥组、延迟销毁；关闭时**自动摘掉本面板注册的全部事件** |
+| `Core\RevUIDefine.cs` | 词汇与规则：六层的顺序、状态枚举、遮罩按层怎么推断、面板进哪个画布、画布排序号 |
+| `Core\RevUIAttributes.cs` | 声明式特性的定义（`[RevUIPanel]` / `[RevUIPart]` / `[RevBind]`） |
+| `Support\RevUIPanelMeta.cs` | 把特性解析成元数据：目录规范化、资源名默认取类名、拼出资源键 |
+| `Support\RevUIBindPlan.cs` | 绑定计划：字段 ↔ 节点名 ↔ 控件类型、"这个类重写了哪些回调" |
+| `Core\RevUIWidgetEvents.cs` | 方法特性（如 `[RevButtonClick]`）的扫描、形状校验与派发 |
+| `Animation\RevUIEase.cs` · `RevUIAnimSpec.cs` · `RevUIAnimEngine.cs` | 缓动曲线、动画规格、动画内核（时间 → 系数） |
+
+> **为什么要把规则抽成纯 C#**
+> 因为这些规则的特点都是"**写的时候看不出错，跑起来才知道**"：`"UI/Panel/"` 会不会拼出双斜杠？省略资源名到底取什么？`Popup` 层默认挡不挡？`_btnClose` 该变成哪个节点名？只重写了滚动回调会不会顺手把点击也挂上？
+> 抽成纯 C# 之后，这些问题可以在**不开 Unity 的情况下用真断言逐条验证**（见第八章）—— 而不是"打开工程、进 Play、点一遍、看起来对了"。
+
+### 2.4 26 个文件怎么归类
+
+按"它是哪一类角色"分，一眼就能看全（详细职责见第九章）：
+
+| 分类 | 数量 | 文件 |
+|---|---|---|
+| **门面** | 1 | `Facade\RevUI.cs` |
+| **管理器与根** | 4 | `Implementation\RevUIManager.cs` · `RevUIRoot.cs` · `RevUIPanelPool.cs` · `RevUIPopupMask.cs` |
+| **声明与解析** | 6 | `Core\RevUIDefine.cs` · `RevUIAttributes.cs` · `RevUIWidgetEvents.cs` · `Support\RevUIPanelMeta.cs` · `RevUIBindPlan.cs` · `RevUIBinder.cs` |
+| **面板侧基类** | 6 | `Core\RevUIPanel.cs` · `RevUIPanel.Generic.cs` · `RevUIPart.cs` · `Interfaces\IRevUIPartHost.cs` · `IRevUIUserEvents.cs` · `Support\RevUIButtonPressRelay.cs` |
+| **配置与钩子** | 2 | `Support\RevUISetting.cs` · `RevUIUnityHooks.cs` |
+| **动画** | 7 | `Animation\` 下全部：门面 / 内核 / 规格 / 落点 / 驱动 / 缓动 / 控件反馈 |
 
 ---
 
-## 二、当前实现 vs 早期版本
+## 三、跟着一次"打开面板"走完全程
 
-### 2.1 总览
+架构图看着抽象，跟着一次打开走一遍就具体了。下面这一步一步，就是源码里真实发生的顺序（行号见第九章的文件表）。
 
-| 维度 | 早期版本（`BasePanel` 219 行 + `UIMgr` 335 行） | 新版（`RevUISystem\`，26 个文件） |
-|---|---|---|
-| 面板基类 | `BasePanel`：`ShowMe` / `HideMe` 两个钩子 | `RevUIPanel`：**生命周期 8 个钩子 + 2 个必写钩子**（表现/数据分离） |
-| 管理器 | `UIMgr.ShowPanel<T>()`：加载 + 层级 + 隐藏复用 | `RevUIManager` + `RevUI` 门面：打开/关闭/层级/池/互斥/返回栈/遮罩/诊断 |
-| 控件获取 | `Awake` 里**把 Button/Toggle/Slider/InputField/Dropdown/ScrollRect/Text/Image… 全量扫进字典**，再用 `GetControl<T>("名字")` 弱类型取 | `[RevBind]` 强类型字段，**每类型只反射一次**（绑定计划缓存）；只扫"你重写了回调的那几类控件" |
-| 事件绑定 | 每个按钮 `AddListener(() => ClickBtn(名字))`（**每实例每次 Awake 都分配闭包**） | 每个交互节点一个"继电器"对象，**实例创建时挂一次**，池化复用不再重挂 |
-| 输入框事件 | `onValueChanged` 里同时回调"输入中"和"结束编辑"（每敲一个字都触发一次结束编辑） | `onValueChanged` / `onEndEdit` **分开挂**，语义正确 |
-| 资源路径 | 靠"预制体名 = 面板类名"约定 + AB 名写死 `ui_panel` | 同样默认"预制体名 = 类名"，但**根目录段写在特性里**，支持多级嵌套目录，可用 `RevResPath` 常量 |
-| 层级 | `Bottom / Middle / Top / System` 四层（靠加载 `UI/Canvas` 预制体摆好） | `Scene / Normal / Popup / Toast / Guide / Top` 六层，**代码建 Canvas**（零资源依赖） |
-| Canvas 架构 | 只有单 Canvas | **单 Canvas（默认且主推）**；仅单 Canvas 的实测合批瓶颈经过常规优化仍不达标时，可选三 Canvas 动静分离（常用 / 静态 / 动态；见 4.12） |
-| 遮罩 / 点穿 | 无（要每个弹窗预制体自己记得摆遮罩） | 按层级**自动**给弹窗铺透明挡板，自动插到正确位置，点遮罩关最上面的弹窗 |
-| 复用 | "隐藏不销毁"（`SetActive(false)`），**没有清理契约** | 实例池 + **`OnReuse` 清理钩子**，框架还会替你清掉上一次的数据 |
-| 数据 | 没有数据这一层（数据在面板字段里，谁都能改） | `RevUIPanel<TData>` + 纯 C# 数据对象 + `OnDataChanged(增量)` + `OnRefreshView` |
-| 返回栈 / 互斥 | 无 | `RevUI.Back()` / `[RevUIPanel(..., ExclusiveGroup = "bag")]` |
-| 加载合并 | 有（用 `PanelInfo` 占位 + 回调累加，思路很好，保留） | 有，且更彻底：在途请求**真合并**，多份回调都收到同一个实例 |
-| 诊断 | 无 | `RevUI.DumpStats()`（打开中/加载中/池中 + 每层顺序 + 被盖住状态） |
-| 第三方依赖 | DOTween 扩展（`DOTweenPanelAnimationExtension` 等 1000+ 行，硬依赖） | **零依赖**：转场是 `PlayOpenTransition(Action onDone)` 可插拔钩子 |
+### 3.1 第一件事：先看"有没有现成的" —— 五级查找
 
-> **说明**：代码量比早期版本大（早期版本 554 行 ≈ 只做"开/关/隐藏"），因为补上了早期版本**完全没有**的能力：六层与自动遮罩、实例池 + 清理契约、互斥组、返回栈、数据驱动、Part 复用、绑定计划缓存、延迟销毁与延迟排序、异常隔离、诊断统计。早期版本那两个"方便"的点（**预制体名 = 类名**、**一个面板一个脚本**）不但保留，还是新版的主线。
+打开面板时，框架不会傻乎乎地"每次都加载 + 实例化"，而是按**从便宜到昂贵**的顺序找五遍。这个顺序本身就是性能设计：
 
-### 2.2 为什么"表现 / 数据 / 逻辑"不拆成三个类
-
-参考实现的 UI 是 `View / Logic / System / BusinessLogic` 四层 + TS 热更桥接，分层干净，但**一个界面要写好几个文件、还要跨语言通信**。你没有热更需求、也不想为一面板写一堆脚本，所以这里取的是参考文档《06-架构抽离与复用》自己给的结论：
-
-> **用结构约束行为，而不是靠注释约定。**
-
-具体落地就是：**一个面板 = 一个脚本**，但每个钩子只许干一件事：
-
-```csharp
-protected override void OnBindView()   { /* 只做表现装配：拿控件、挂交互 */ }
-protected override void OnRefreshView() { /* 只做数据落屏：把 Data 画到界面 */ }
-protected override void OnClick(string nodeName) { /* 业务逻辑：改数据、请求数据、刷新 */ }
-```
-
-带数据的界面继承 `RevUIPanel<TData>` 时，`OnRefreshView` 是**抽象方法**——有数据就必须写清楚"数据怎么落到界面上"，不允许糊过去；而纯静态界面（说明页、加载页）继承 `RevUIPanel` 就少写一个方法。
-
-> ★ 参考实现还有 **`System`** 与 **`BusinessLogic`** 两层：要不要单独做、能不能合并？
-> 见**第十章**的专门评估（结论：不新增这两个类，但把它们解决的问题分别落在"服务定位器"与"面板的数据 + 钩子"上）。
-
----
-
-## 三、运用了参考实现的哪些设计哲学
-
-对照《00~07 UI框架》《05-UI中介者模式》《局外系统架构》《messagebox》里的结论，逐条说落地情况：
-
-| 参考实现的做法 / 结论 | 这里的落地 |
-|---|---|
-| ① **路径寻址**（`OpenForm(path)`），且路径不该手写在调用处 | 路径写在**面板类的特性**上（`[RevUIPanel(root, layer, name)]`），打开时框架读；`name` 省略 = 类名 |
-| ② **Form 专用对象池 + `ReUse()` 重置契约**（明确写过"form 不要用通用 GameObjectPool"） | 专门的 `RevUIPanelPool`（**没有**套用框架的 `RevPool`）+ 必写钩子 `OnReuse()`，框架还会先替你清空上次的数据 |
-| ③ **三层查找**：单例复用 → 池 → 新建 | 在途合并 → 已打开 → 实例池 → **资源缓存里同步实例化** → 异步加载新建（五级，见 4.4） |
-| ④ **绑定代替硬编码 `Find("Panel/Panel/Button")`**（文档里把硬编码 Find 列为反面教材） | `[RevBind]` 字段 + 绑定计划缓存；找不到时报错会**列出根节点下真实存在的节点名** |
-| ⑤ **按所有者批量注销事件**（防泄漏纪律，`RemoveEventHandlersByObserver(this)`） | 关闭面板/Part 时框架自动 `RevEvent.RemoveAllByOwner(this)` —— 机制保证，不靠纪律 |
-| ⑥ **遍历中删除要延迟**（`m_formsWaitingRecycle`）、**排序用脏标记延迟批量做** | 关闭的面板下帧才销毁；层内排序由根节点 `LateUpdate` 按脏标记一次做完（本帧开关的面板在同一帧渲染前排好） |
-| ⑦ **互斥组 + 打开序号决定层级**（`m_group` / `m_formOpenOrder`） | `ExclusiveGroup`（开新的自动关同组旧的）；层内顺序 = 打开顺序 |
-| ⑧ **消息框结论**：队列 + 优先级 + 去重；按钮只转发事件不处理业务；内容/容器分离 | 结构上已备齐（`InBackStack`、`CloseGroup`、遮罩点击关顶层）；MessageBox 本身列为"本期没做"，见第九章 |
-| ⑨ **单向数据流**（UI 不改数据、系统不直接刷 UI、界面之间不直接通信） | `SetData → OnDataChanged → OnRefreshView` 是唯一数据入口；Part 与 Part 之间必须经宿主中转（`IRevUIPartHost.NotifyPartChanged`） |
-| ⑩ **From / Part**（独立面板 / 依附的可复用单元） | `RevUIPanel` / `RevUIPart`；Part 分**节点级**（摆宿主预制体里，零加载）与**预制体级**（可跨面板复用） |
-| ⑪ 异常隔离（一个 handler 抛异常不影响整条派发） | 所有业务钩子都过 `RevUILog.Guard`；打开回调逐个 try/catch |
-| ⑫ 巨型方法（`OpenMessageBoxBase` 19 个参数）是反面教材 | 打开接口是 `Open<T>(data, onOpened)`；数据用**数据对象**传，而不是参数列表 |
-
-**砍掉的（都是"为 TS 热更 / 跨语言"而存在的那部分）**：Puerts 桥接、`LuaCallCs_*`、`CallTsViewFun`、`CUITsComponent / CPuertsProxyView`、`.mjs` + `InGamePath:` + CDN 寻址、跨语言事件转发。
-
-**简化的**：`View + Logic + System + BusinessLogic` 四层 → **一个面板类 + 职责钩子**；参考实现的 `UI_BINDING` **代码生成流程** → 特性 + 反射（每类型一次，结果缓存）；三套事件系统 → **统一用本框架的 `RevEvent`**。
-
----
-
-## 四、设计要点对应的写法（**不是教程**：完整用法见《使用说明》）
-
-> ★ 本章保留"每个设计点在代码里长什么样"，方便你把**设计与写法**对上号；
-> 一步步的用法（API 对照表、传数据、层级遮罩、动画、常见坑）在《UI 系统 · 使用说明》，本章不重复教。
-
-### 4.1 一个面板长什么样
-
-**最小面板（没有数据）**：
-
-```csharp
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]      // ← 资源路径写在类上，资源名默认 = 类名
-public sealed class SettingsPanel : RevUIPanel
-{
-    [RevBind] private Button _btnClose;                   // 节点名 btnClose
-    [RevBind] private Slider _volume;                     // 节点名 volume
-
-    protected override void OnBindView()                  // ★ 只做表现装配
-    {
-        _btnClose.onClick.AddListener(CloseSelf);
-    }
-
-    protected override void OnClick(string nodeName)      // 也可以不写字段，按节点名分发
-    {
-        if (nodeName == "btnReset") ResetToDefault();
-    }
-
-    private void ResetToDefault() { /* 业务逻辑 */ }
-}
-```
-
-**带数据的面板**：
-
-```csharp
-// 数据：纯 C# 对象（放哪都行，同一个文件也可以）—— 它不碰 UnityEngine，所以能被普通单测构造与断言
-public sealed class BagData
-{
-    public bool UseCellLayout;
-    public IReadOnlyList<int> ItemIds;
-}
-
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal, name: "BagPanel")]
-public sealed class BagPanel : RevUIPanel<BagData>
-{
-    [RevBind] private ScrollRect _itemList;
-
-    protected override void OnBindView()                  // ★ 只装配
-    {
-        _itemList.gameObject.SetActive(false);
-        RevEvent.AddEventListener(GameEventId.BagChanged, OnBagChanged, owner: this);   // 关闭时自动摘
-    }
-
-    protected override void OnRefreshView()               // ★ 只画 Data（有数据的面板必须实现）
-    {
-        _itemList.gameObject.SetActive(Data.UseCellLayout);
-        // Data.ItemIds → 列表…
-    }
-
-    protected override void OnDataChanged(BagData oldData, BagData newData)   // 可选：只更新变化的部分
-    {
-        if (oldData != null && oldData.UseCellLayout == newData.UseCellLayout) return;   // 布局没变就不动
-        // 只处理会变的那部分…
-    }
-
-    private void OnBagChanged() => RefreshView();         // 业务逻辑：数据变了就重画
-}
-```
-
-### 4.2 资源路径声明（写在类上，加载时自动读）
-
-```csharp
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]                          // 资源名 = 类名（BagPanel）
-[RevUIPanel("UI/UIPanel/Lobby", RevUILayer.Normal)]                           // 多级嵌套目录，随便多深
-[RevUIPanel("UI/Popup", RevUILayer.Popup, "Form_Confirm")]                    // 资源名与类名不一致时写第三个参数
-[RevUIPanel(RevResPath.UI_Popup, RevUILayer.Popup,
-    CacheMode = RevUICacheMode.DestroyOnClose,                                // 关闭即销毁（不占内存）
-    Mask = RevUIMaskMode.None,                                               // 不挡下面的点击
-    ExclusiveGroup = "confirm",                                              // 同组只留一个
-    InBackStack = false)]                                                    // 不参与返回栈
-public sealed class ConfirmPanel : RevUIPanel<ConfirmData> { ... }
-```
-
-| 特性字段 | 默认 | 说明 |
-|---|---|---|
-| `Root`（第一个参数，必填） | — | 预制体所在的**资源根目录段**，和 `RevResManager` 的 `rootPath` 同义；结尾带不带 `/`、用 `\` 还是 `/` 都会被规范化 |
-| `Layer`（第二个参数） | `Normal` | 挂哪一层 |
-| `Name`（第三个参数） | `null` → **类名** | 资源名（不带扩展名） |
-| `CacheMode` | `Unspecified` → 用 `RevUISetting.DefaultCacheMode` | `KeepAlive`（关闭进池复用）/ `DestroyOnClose` |
-| `Mask` | `Auto` | 按层推断：Popup / Guide / Top 挡点击，其余不挡 |
-| `CanvasType` | `Common` | 进哪个画布：`Common` / `Static` / `Dynamic`；只在三 Canvas 架构下生效，静态 / 动态只收 Scene 层（见 4.12） |
-| `ExclusiveGroup` | 空 | 互斥组名 |
-| `InBackStack` | `true` | 是否参与 `RevUI.Back()` |
-
-**预制体本身的要求**（两条）：
-
-1. 根节点是 `RectTransform`，并且**挂上面板脚本**（框架对面板加了 `[RequireComponent(typeof(RectTransform))]`，漏了会自动补）；
-2. 预制体**名字**默认与面板类名一致（不一致就用特性第三个参数写清楚）。
-
-> 面板预制体放哪：放在「资源根目录」下的任意目录（建议 `UI/Panel`），并给它（或它的父文件夹）**设 AB 名** —— 和普通资源完全一样。打包工具的「检查」页签会替你确认没有漏标。
-
-### 4.3 控件绑定与"控件监听"怎么处理（两种写法，可以混用）
-
-**写法一：强类型字段 + `[RevBind]`**
-
-```csharp
-[RevBind] private Button _btnClose;          // 找名字叫 "btnClose" 的节点
-[RevBind] private Text   m_title;            // 同样找 "title"（m_ 前缀会被忽略）
-[RevBind("Top/Title")] private Text _title;  // 层次深、或同名节点多时，写显式路径（相对面板根节点）
-```
-
-节点名规则（**越少越好预测**）：
-
-| 字段名 | 找的节点名 | 规则 |
-|---|---|---|
-| `_btnClose` | `btnClose` | 去掉前导下划线 |
-| `__btnClose` | `btnClose` | 多个下划线都去掉 |
-| `m_title` | `title` | 去掉 `m_` 前缀 |
-| `btnClose` | `btnClose` | 原样 |
-
-查找顺序：**直接子节点 → 整个后代**（UI 嵌套三四层很常见）。同名节点有多个时用第一个并**告警**提示你改用显式路径；找不到时报错会把"要找的名字"和"**根节点下真实存在的节点名**"一起打出来：
-
-```text
-BagPanel._btnClose（想要 Button）找不到节点：
-  找的是：名字 = "btnClose"（按字段名推出来的）
-  根节点 BagPanel 下现有节点："Bg"  "Top"  "btnClose2"  "List"  …
-  → 要么把节点改成这个名字，要么写清楚路径：[RevBind("父节点/子节点")]
-```
-
-字段类型可以是**任意 Component**（`Button` / `Image` / `Text` / TMP 的控件 / 你自己的控件 / `RevUIPart`）或 `GameObject`；节点上直接没有、子节点里**唯一**有一个时会自动用它（多个就报错让你指清楚）。
-
-**写法二：按节点名分发（早期实现最方便的地方，保留）**
-
-```csharp
-protected override void OnClick(string nodeName)
-{
-    switch (nodeName)
-    {
-        case "btnClose": CloseSelf(); break;
-        case "btnSort":  SortByQuality(); break;
-    }
-}
-
-protected override void OnToggleChanged(string nodeName, bool value) { }
-protected override void OnSliderChanged(string nodeName, float value) { }
-protected override void OnInputChanged(string nodeName, string value) { }
-protected override void OnInputEndEdit(string nodeName, string value) { }
-protected override void OnDropdownChanged(string nodeName, int index) { }
-protected override void OnScrollChanged(string nodeName, float x, float y) { }
-```
-
-两个关键点：
-
-- **只挂你重写了的那些**：没重写 `OnToggleChanged`，框架连 `Toggle` 都不扫（早期版本是无脑全扫 + 每个按钮一个闭包）；
-- **同一个按钮只会走一条路**：写了字段就用字段，重写了 `OnClick` 就按名字分发，两者不会重复触发。
-
-**控件监听：从声明到回调的完整链路**（"控件监听"到底是怎么处理的）
-
-早期实现的做法是"`Awake` 时把所有控件全扫一遍，每个按钮挂一个闭包，回调里再按名字 if/switch"。这里把这件事拆成五步，每一步都解决旧做法的一个具体问题：
-
-```text
-① 类加载期（每个类型只做一次，结果缓存）
-   反射一次 → 绑定计划 RevUIBindPlan：哪些字段要绑、字段名对应哪个节点、这个类是"重写了哪些交互回调"
-
-② 实例创建期（面板/Part 首次装配，只做一次）
-   按计划绑字段：显式路径 or 字段名 → 找节点 → 取组件 → 赋值
-   只扫"你重写了回调"的控件类型：没重写 OnToggleChanged 就连 Toggle 都不扫
-
-③ 挂监听（每个交互节点一个"继电器"对象，它自己记住自己叫什么）
-   btn.onClick.AddListener(relay.OnClick)
-   ↑ 不是 () => OnClick("btnClose") 那种闭包；继电器是实例方法引用，也不会随"开/关界面"重复分配
-
-④ 事件触发（框架统一转发，业务钩子被异常隔离）
-   控件事件 → relay → IRevUIUserEvents.DispatchXxx(节点名) → RevUILog.Guard → 你的 OnClick/OnToggleChanged/…
-
-⑤ 生命周期收尾（自动，不用你记）
-   关闭面板/Part 时 → RevEvent.RemoveAllByOwner(this)      // 你自己注册的事件全摘掉
-   实例进池 → 控件引用保留（不重新绑定）；复用时 → OnReuse 清界面残留
-```
-
-| 要挂的监听 | 怎么声明 | 什么时候用哪个 |
-|---|---|---|
-| 按钮点击 | `[RevBind] Button _btnClose;` 或 `OnClick(节点名)` | 单个按钮要做特殊处理 → 用字段；一整屏按钮统一分发 → 用 `OnClick` |
-| 开关 / 滑条 / 输入框 / 下拉 / 滚动 | 重写对应 `OnXxxChanged(节点名, 值)` | 这类控件天然是"按名字区分"，用名字分发最省代码 |
-| 输入框"结束编辑" | 重写 `OnInputEndEdit` | 提交 / 校验放在这里；`OnInputChanged` 只做实时反馈 |
-| 自定义控件（TMP / 长按按钮 / 自研） | `RevUI.RegisterAutoEvent<T>(...)` | 注册一次，之后所有面板里出现该类型控件都自动接上 |
-| 框架之外的事件（业务事件 / 网络回调） | `RevEvent.AddEventListener(..., owner: this)` | 写在 `OnBindView` 里，关闭时框架自动按 owner 摘掉 |
-
-**自定义控件怎么办**（TMP、长按按钮、自研控件）：
-
-```csharp
-RevUI.RegisterAutoEvent<LongPressButton>((dispatch, btn) =>
-{
-    btn.onShortClick.AddListener(dispatch.Click);     // 短按 → OnClick(节点名)
-    btn.onLongPress.AddListener(dispatch.Click);      // 长按 → 也走 OnClick(节点名)
-});
-```
-
-### 4.4 打开、关闭、层级、遮罩
-
-**打开的五种姿势**：
-
-```csharp
-// ① 回调式（推荐；真机首次必然异步，这种写法最稳）
-RevUI.Open<BagPanel>(panel => { /* 打开完成后回调；失败时收到 null */ });
-
-// ② await 式
-BagPanel p = await RevUI.OpenAsync<BagPanel>();
-
-// ③ 带数据（强类型，不装箱）
-RevUI.Open<BagPanel, BagData>(data, panel => panel.RefreshView());
-BagPanel p2 = await RevUI.OpenAsync<BagPanel, BagData>(data);
-
-// ④ 同步（只在"已经打开过 / 池里有 / 预制体已在资源缓存里"时能成功）
-BagPanel p3 = RevUI.Open<BagPanel>();
-//   想让第一次打开也同步成功：先预热（编辑器直读模式下不预热也能成功）
-RevUI.Preload<BagPanel>(() => { BagPanel p4 = RevUI.Open<BagPanel>(); });
-```
-
-> `RevUI.Open<T>()` 走不通时会**报一条明确错误**并告诉你改用哪个入口，而不是静默返回 null 让你查半天。
-
-**找实例的顺序（从快到慢）**：
-
-```text
-① 正在加载中  → 把本次请求并进在途那次（★ 真合并：并发 Open 同一面板只创建一个实例，两份回调都收到它）
-② 已经打开    → 置顶 + 按最新数据重画
-③ 实例池里有  → 取出复用（不加载、不实例化、不重新绑定 —— 最快的一条路）
-④ 预制体已在资源缓存里（Preload 过 / 编辑器直读）→ 同步实例化
-⑤ 都没有      → 异步加载预制体 → 实例化 → 装配 → 打开
-```
-
-**关闭与层级**：
-
-```csharp
-panel.CloseSelf();                       // 面板内部关自己
-RevUI.Close<BagPanel>();
-RevUI.Close(panel);
-RevUI.CloseAll(RevUILayer.Popup);         // 只关某一层
-RevUI.CloseGroup("confirm");             // 关掉互斥组当前占用的那个
-RevUI.Back();                            // 返回上一层（关掉最晚打开、且参与返回栈的面板）
-RevUI.ShutdownAll();                     // 回登录界面 / 切大版本：所有面板 + 实例池 + 根节点一起清
-```
-
-| 层级 | 典型内容 | 默认挡点击 |
-|---|---|---|
-| `Scene` | 主界面、大厅、全屏场景界面（对应早期版本 `Bottom`） | 否 |
-| `Normal` | 二级界面、背包、商店（对应早期版本 `Middle`） | 否 |
-| `Popup` | 确认框、奖励结算（对应早期版本 `Top`） | **是** |
-| `Toast` | 飘字、跑马灯（不参与返回栈） | 否 |
-| `Guide` | 新手引导遮罩、手指提示 | **是** |
-| `Top` | 断线重连、Loading、公告（对应早期版本 `System`） | **是** |
-
-**遮罩是自动的**：某层出现"要挡点击"的面板时，框架在该层铺一块**全屏透明挡板**（只挡点击、不遮画面；要半透明黑底就在面板预制体里自己画），并自动插到"最上面那个弹窗"的正下方（挡板是**不生成顶点**的 Graphic：只挡射线、不进合批，没有全屏 overdraw）。点它会关掉该层最上面的弹窗（`RevUISetting.ClickMaskClosesTop = false` 可关掉这个行为）。
-
-**被盖住会通知你**：面板被上层遮罩盖住 / 恢复时会收到 `OnCovered(bool)` —— 用它可以暂停界面上的动画、音效、每帧逻辑。
-
-### 4.5 Part：可复用的 UI 单元
-
-| | 节点级 Part | 预制体级 Part |
-|---|---|---|
-| 怎么声明 | **不加特性**，就摆在宿主面板的预制体里 | `[RevUIPart("UI/Part")]`（可选第二个参数写资源名） |
-| 怎么拿到 | 面板上 `[RevBind] private RevShopTab _tab;`（拿到即自动初始化） | `RevUIPart.Create<ShopTabCell>(this, slot, part => { ... })` |
-| 加载成本 | 零（本来就在宿主预制体里） | 一次资源加载（同实例复用，不会重复创建） |
-| 复用范围 | 只服务它所在的宿主类型 | **可跨面板复用**（背包、商城、活动共用一个商品格） |
-
-```csharp
-[RevUIPart("UI/Part")]
-public sealed class ShopTabCell : RevUIPart
-{
-    [RevBind] private Button _btnBuy;
-
-    protected override void OnBindView()                    // ★ 只装配
-    {
-        _btnBuy.onClick.AddListener(() => NotifyHost());    // 通知宿主"我这儿点了"
-    }
-
-    protected override void OnPartRefresh() { /* 宿主让我刷就刷 */ }
-    protected override void OnPartClose()   { /* 停协程、停特效 */ }
-}
-```
-
-**通信纪律**（Part 才能真的跨面板复用）：
-
-- Part → 宿主：只认 `IRevUIPartHost`（`PartRoot` / `IsHostOpened` / `RequestClose()` / `NotifyPartChanged(this)`）；
-- Part ↔ Part：**不直接耦合**，经宿主中转（宿主在 `OnPartChanged(part)` 里协调）；
-- 宿主 → Part：宿主直接调 Part 的公开方法，或 `RefreshParts()` 全部刷一遍。
-
-> 加 Part 与面板一样**自动摘事件**：Part 关闭时框架执行 `RevEvent.RemoveAllByOwner(part)`。
-
-### 4.6 生命周期与回调顺序
-
-```text
-创建（实例化）
-  └─ 绑定控件（[RevBind] 字段此时已有值）→ OnBindView() → OnInit()          ← 只发生一次
-打开
-  └─ 状态 Opening → PlayOpenTransition() →（转场结束）State=Opened
-     → OnOpen() → OnRefreshView() → 打开身上所有 Part → 触发打开回调
-复用（从池里取出）
-  └─ 框架清空上次的数据 → OnReuse()（清界面残留）→ 摘事件 → 再走"打开"
-关闭
-  └─ 状态 Closing → 关闭所有 Part → PlayCloseTransition() →（转场结束）
-     → OnClose() → ★ 自动 RevEvent.RemoveAllByOwner(this) → State=Closed
-     → 回实例池（KeepAlive）或下一帧销毁（DestroyOnClose / 池满）
-销毁
-  └─ OnRelease() → 归还这一次的 prefab 资源引用 → Destroy(GameObject) → OnDestroy（兜底摘事件）
-```
-
-> 状态枚举里有 `Loading`，但那是**管理器的"在途加载"**在表示（这时面板实例还不存在）；
-> 面板自己的状态只会走 `None → Opening → Opened → Closing → Closed`。
-
-| 你想做的事 | 该写在哪 |
-|---|---|
-| 拿控件、挂交互、注册事件（`owner: this`） | `OnBindView` |
-| 每次打开都要做的准备（刷新数据、开始计时） | `OnOpen` |
-| 清掉上一次的残留（滚动位置、页签选中、输入框） | `OnReuse` |
-| 把数据画到界面 | `OnRefreshView` |
-| 增量刷新（只更新变化的控件） | `OnDataChanged(old, new)` |
-| 业务规则、发请求、改数据 | `OnClick` 等交互回调 |
-| 停协程 / 计时器 / 特效 | `OnClose` |
-| 解绑外部引用、归还自申请的东西 | `OnRelease` |
-
-### 4.7 转场与显示动画（**框架内置动画库**，不依赖任何缓动库）
-
-面板 / Part 的显示隐藏动画**一行预设**就能加（用法见《使用说明》的动画一节）：
-
-```csharp
-protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 打开时自动播，播完才算"打开完成"
-protected override RevUIAnimPreset HideAnimation => RevUIAnimPreset.PopOut;   // 关闭时自动播，播完才真正关闭 / 回池
-```
-
-**想自己掌控**：转场钩子仍然可插拔（与预设并存，不重写预设时就在这里写）：
-
-```csharp
-protected override void PlayOpenTransition(Action onDone)
-{
-    RevUIAnim.SlideIn(this, RevUISlideDirection.Top, 0.25f, onDone, owner: this);   // ★ 结束时必须调 onDone
-}
-
-protected override void PlayCloseTransition(Action onDone) { onDone(); }
-```
-
-- 动画库在 `Runtime\RevUISystem\Animation\`：`RevUIEase` / `RevUIAnimSpec` / `RevUIAnimEngine`（**纯 C#**：采样模型 + 帧余量结转 + 循环往返 + 运行时池 + 版本号句柄）＋ `RevUIAnimTarget` / `RevUIAnimDriver` / `RevUIWidgetFeedback` ＋ 门面 `RevUIAnim`。
-- 每帧推进**复用框架已有的 `RevMono`**（不新起隐藏宿主）；时间口径 `unscaledDeltaTime`（暂停时 UI 动画照常播），全局倍速 `RevUIAnim.GlobalSpeed`。
-- 默认实现仍是"无动画、立刻完成"（不重写预设、不写转场 = 行为与没有动画库时完全一致）。**注意**：转场钩子里 `onDone` 不调 = 面板会一直停在 `Opening`/`Closing` 状态。
-- 要关动效：`RevUISetting.UIAnimationsEnabled = false` —— 预设直接写终态，业务代码一行不用改。
-
-### 4.8 配置与诊断
-
-```csharp
-RevUISetting.ReferenceResolution = new Vector2(1920f, 1080f);   // 设计分辨率（框架自建 Canvas 时用）
-RevUISetting.MatchWidthOrHeight  = 0.5f;
-RevUISetting.SortOrderBase       = 100;                          // Canvas 排序基准
-RevUISetting.CanvasArchitecture  = RevUICanvasArchitecture.Single; // Single（默认）/ Split（三 Canvas 动静分离，见 4.12）
-RevUISetting.DefaultCacheMode    = RevUICacheMode.KeepAlive;     // 面板没声明时用哪个
-RevUISetting.MaxCachedPanels     = 1;                            // 同一面板最多缓存几个实例
-RevUISetting.ClickMaskClosesTop  = true;                         // 点遮罩关最上面的弹窗
-RevUISetting.BindFailureIsError  = true;                         // 绑定失败按错误报（不建议关）
-RevUISetting.VerboseLog          = false;                        // 打开/关闭/命中池的诊断日志
-```
-
-```csharp
-Debug.Log(RevUI.DumpStats());
-// RevUI（单 Canvas）：打开中 3 个，加载中 1 个，池中 2 个      ← 三 Canvas 下每行还会带画布，如 [Scene/Dynamic]
-// 打开顺序（从下到上）：
-//   [Scene] UI/Panel/MainPanel  Opened
-//   [Normal] UI/Panel/BagPanel  Opened（被上层遮罩盖住）
-//   [Popup] UI/Popup/ConfirmBox  Opening（互斥组 confirm）
-```
-
-框架会**自己建 UI 根节点**（第一次打开面板时）：`[RevUIRoot]`（Canvas + CanvasScaler + GraphicRaycaster，`DontDestroyOnLoad`）→ 六个层级空节点；场景里没有 `EventSystem` 时会兜底建一个（已有自己的就完全不插手）。
-
-### 4.9 关于摄像机：需要吗？
-
-**不需要。** 框架建的 Canvas 是 `Screen Space - Overlay`：
-
-```csharp
-// RevUIRoot.Build()
-_canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-_canvas.sortingOrder = RevUISetting.SortOrderBase;      // 只和"别的 Overlay Canvas"排先后，与场景 3D 无关
-```
-
-Overlay 的语义是"**直接画到屏幕上、不参考场景或相机**"（Unity 手册原话：即使场景中根本没有相机也会渲染 UI）。具体到三个组件：
-
-| 组件 | Overlay 下和相机的关系 |
-|---|---|
-| `Canvas` | 没有 Render Camera 字段可填，也不需要（不存在"忘了指定相机"这种错） |
-| `CanvasScaler` | 按**屏幕分辨率**算缩放，不经过相机（所以相机 FOV / 正交透视都不影响 UI 尺寸） |
-| `GraphicRaycaster` | 用**屏幕坐标**合成射线，不需要 `EventCamera` —— 这就是"UI 不用相机也能点"的原因 |
-
-**那早期实现为什么要加载 `UI/UICamera` 预制体？** 那台相机是给"UI 层里的 3D 模型 / 粒子特效"和"Camera 模式 Canvas"准备的，顺带沿用了模板；
-代价是多三份资源、必须记得打 AB 包、配错（比如 culling mask 漏了 UI 层）要到运行时才发现整个 UI 不显示。这里零资源依赖、零配置。
-
-**什么时候你会真的需要一台 UI 相机**（出现下面四种需求之一时）：
-
-| 需求 | 为什么 Overlay 不行 | 怎么办 |
-|---|---|---|
-| 面板里摆 **3D 模型**（立绘、旋转展示） | Overlay **永远**画在最上层，3D 模型会被 UI 盖住 | 切 `ScreenSpaceCamera` + 一台 UI 相机（或再加一台相机做相机堆叠） |
-| 面板里播 **粒子 / 特效** | 同上 —— 粒子和场景物体都压不过 Overlay | 同上；或把粒子渲到 `RenderTexture` 再贴 `RawImage` |
-| 要把 UI **渲进 RenderTexture**（UI 模糊背景、UI 截图、小地图外框） | Overlay **不由相机渲染**，不会出现在任何 RT 里 | 必须用 Camera / World Space 模式 |
-| 要让 UI **被场景物体遮挡**（角色走到界面前面挡住它） | Overlay 不参与深度排序 | World Space / Camera 模式 |
-
-> **优先考虑不改模式的替代做法**（改动最小）：把 3D 模型 / 粒子单独用一台相机渲染到 `RenderTexture`，再在面板里用 `RawImage` 显示 ——
-> UI 仍然是 Overlay，"零配置 + 永远最上层"的好处全部保留。
-
-**Camera 模式真正要接的线只有三条**（框架已经全替你接好，自己接的时候别漏）：
-
-1. 指定相机：`canvas.worldCamera = uiCamera;`
-2. 相机的 **Culling Mask 必须包含 UI 所在 Layer**（漏了 → 整个 UI 不渲染）；
-3. **Plane Distance** 要落在相机近裁剪面与远裁剪面之间（否则 Canvas 被裁掉）。
-
-> **不用管 `GraphicRaycaster.eventCamera`** —— 它是**只读**属性，ugui 内部是 `m_EventCamera ?? canvas.worldCamera`，
-> 会自动取 Canvas 的 worldCamera。所以"worldCamera 设对" = **显示与点击同时对**。
-> （只有工程里另外加了 `PhysicsRaycaster` / 自定义 Raycaster 时，才需要单独关心它们各自的 eventCamera。）
-
-> 现在的默认选择（Overlay）换来的是：UI 永远在最上层；相机被销毁 / 禁用 / 改 culling mask / 改 FOV / 加后处理，**都不影响 UI**；
-> 层内顺序靠 Canvas 子节点顺序天然保证，不需要谁去调 `sortingOrder`。代价就是上表那四种需求不满足。
-
-### 4.10 Canvas 和 EventSystem 是谁建的？（都不用你手动建）
-
-| | 谁建 | 什么时候建 | 会不会重复 |
+| 级 | 查找条件 | 命中后的动作 | 为什么排在这一级 |
 |---|---|---|---|
-| `[RevUIRoot]`（Canvas + CanvasScaler + GraphicRaycaster + 六层挂点） | 框架，**代码建** | **第一次** `RevUI.Open<T>()` / `Preload<T>()`（懒创建，不是启动时） | 不会：`EnsureReady` 用 Unity 的"假 null"判断，`ShutdownAll` 销毁后下次打开**自动重建** |
-| `[RevUIEventSystem]`（EventSystem + **输入模块**：优先新输入系统，退回早期版本） | 框架，**仅当场景里一个 EventSystem 都没有、且 `RevUISetting.AutoCreateEventSystem` 打开**时 | 紧跟在根节点创建之后（同一时刻，只判断一次） | 只在"你自己一个都没摆"时才建；已有自己的**完全不插手** |
+| ① | **正在加载中**（`_loading` 命中） | 把你的回调**并进在途的那一次**，直接返回 | 最便宜：什么都不用做。而且这是正确性 —— 同一面板被连点两次，**只该加载/创建一个实例**，两份回调都要收到通知 |
+| ② | **已经打开**（`_opened` 命中） | `BringToTop()` 置顶；有数据就 `SetData`，没有就 `RefreshView()`；然后回调 | 次便宜：实例已经在场景里了。注意**不会重走 `OnOpen`** —— 它本来就是打开的 |
+| ③ | **池里有闲置实例**（`RevUIPanelPool` 命中） | `Take` 取出 → `InternalReuse()`（框架先替你清数据、再调 `OnReuse`）→ 登记 → 完整走一遍打开 | 省掉"加载 + 实例化"两笔大开销，代价是要清残留 —— 所以必须有 `OnReuse` 契约 |
+| ④ | **资源缓存里已有**（预热过，或编辑器直读模式） | **同步**取到预制体 → 立刻实例化 → 登记 → 打开 | 资源已经在内存里，同步能完成就别绕异步（少一帧延迟，业务手感更好） |
+| ⑤ | 都不是 | `LoadAsync` 异步加载 → 加载回来再实例化 → 登记 → 打开 | 最贵的一级，也是真机首次打开的常态（预制体在 AB 包里） |
 
-```csharp
-// RevUIRoot.Build() 的最后一步
-EnsureEventSystem();   // 开关关了 → 直接返回；已有 EventSystem → 直接返回；否则建一个
-```
+> **由此得到一条很容易踩的结论：同步打开 ≠ 同帧一定拿得到**
+> 只有"已打开 / 池里有 / 资源缓存里有"这三条快路能在**同一帧同步完成**。真机第一次打开面板时预制体还要从 AB 包里读，必然异步 —— 所以框架提供了回调式与 `OpenAsync` 两种入口，同步入口拿不到实例时会**明确告诉你该换哪个入口**，而不是返回一个 null 让你查半天。
 
-**输入模块怎么选**（"UI 点不动"最常见的坑，框架已经替你处理）：
+### 3.2 实例化之后：先"装配"，再"打开"
 
-| 工程情况 | 框架挂的模块 | 结果 |
-|---|---|---|
-| 装了新输入系统（Input System Package） | `InputSystemUIInputModule`（反射挂载，**自动分配默认操作**） | 正常 |
-| 没装新输入系统（就是早期版本 Input） | `StandaloneInputModule` | 正常 |
-| Active Input Handling = **New only** 且找不到新模块 | 退回 `StandaloneInputModule` | **报错告警**：UI 会点不动，去改 Active Input Handling 或自己摆一个 |
+拿到实例不是就完了 —— 控件还是空的、数据还没画。框架把这段拆成两件**不同性质**的事：
 
-> 为什么用**反射**而不是直接写类型：新输入系统是可选包，直接 `using` 会让"没装这个包的工程"编译不过 ——
-> 现在**装了就自动用上**（`AddComponent` 即可：官方文档写明，代码挂载的模块会在自己的 `OnEnable` 里自动分配
-> `DefaultInputActions`，不需要你手动 assign），**没装也照常工作**。
+1. **装配（只做一次）**：按绑定计划把字段填上控件、按需挂上 UGUI 监听，然后依次调用 `OnBindView()`（你的装配代码）与 `OnInit()`。**它跟"打开几次"无关**，所以池化复用不会重来。
+2. **进入打开流程**：置为 `Opening` → 激活物体 → 播放转场 → 转场结束置为 `Opened` → 调 `OnOpen()` → 调 `OnRefreshView()` 画数据 → 通知所有 Part 打开 → 播放显示动画 → 最后调业务传进来的回调。
 
-**两条纪律**（踩了会出问题）：
+为什么要分这么清？因为二者的"频率"不同：**装配一辈子一次，打开可以很多次**。混在一起写，复用就会变成"重新绑一遍"（白花性能）或"忘了重画"（数据是旧的）——这两种 bug 都很常见。
 
-1. **你自己的 EventSystem 必须早于"第一次开面板"存在**。这个判断**只在建根节点那一刻做一次** —— 如果你的 EventSystem 是后来才实例化 / 后来场景才加载的，
-   框架已经先建了一个 → 场景里两个 EventSystem，Unity 会警告 `There are 2 event systems in the scene`，输入行为变得不确定。
-2. **想自己全权管 EventSystem（例如自带 `InputActionAsset` 的预制体）**：把 `RevUISetting.AutoCreateEventSystem = false` 关掉，框架一行都不碰
-   —— 但同样要遵守上面第 1 条（自己的那个必须早于第一次开面板）。
+### 3.3 挂到哪、盖住谁：重排为什么放到"渲染前一刻"
 
-> 另外 `FindObjectOfType` **只找启用中的对象**：场景里的 EventSystem 若是禁用状态，框架会当成"没有"而再建一个
-> （禁用状态的 EventSystem 本来也不收输入，所以通常没问题 —— 但别靠"运行时再把它启用"这种做法）。
-
-**结论**：给 UI 用的 Canvas **不用摆、也不要摆**（框架的根节点是 `DontDestroyOnLoad` 常驻的，你再摆一个只会变成两套 UI 根，各排各的 `sortingOrder`，互相盖）；
-EventSystem 是"**你有就听你的、没有就兜一个**"。
-
-### 4.11 怎么开相机模式（框架已内置：两个标准预制体 + 三个配置字段）
-
-相机模式不需要你改框架代码。标准模板放在 `Assets/Revolution/Resources/RevUIPrefab/`：
-
-| 文件 | 内容 | 干什么用 |
-|---|---|---|
-| `RevUICanvas.prefab` | Canvas（`ScreenSpaceCamera`、sortingOrder `100`）+ CanvasScaler（1920×1080、match 0.5）+ GraphicRaycaster | 当"UI 根节点模板"：你可以在 Inspector 里调缩放/排序、加自己的背景层；★ **不要**往里放六个层级节点（框架自己建） |
-| `RevUICamera.prefab` | Camera：**正交**、`Clear Flags = Depth only`、`Depth = 100`、`Culling Mask = UI` 层、近/远裁剪 `0.3 / 1000` | 当"UI 相机模板"：叠在主相机之上、只画 UI、不重复画 3D |
-
-```csharp
-// ① 最省事：两个路径都指上 —— 渲染模式自动跟随预制体里选的 ScreenSpaceCamera
-RevUISetting.CanvasPrefabPath   = "RevUIPrefab/RevUICanvas";
-RevUISetting.UICameraPrefabPath = "RevUIPrefab/RevUICamera";
-
-// ② 或者不用预制体，代码里显式指定（Canvas 由框架代码建，但模式按你指定的来）
-RevUISetting.CanvasMode          = RevUICanvasMode.ScreenSpaceCamera;
-RevUISetting.UICamera            = myUiCamera;     // 你场景里的相机
-RevUISetting.CanvasPlaneDistance = 100f;           // 必须落在相机近/远裁剪面之间
-
-// ③ 什么都不配 = ScreenSpaceOverlay（默认值；不需要相机、永远最上层）
-//    （想跟随 Canvas 预制体里选的模式，要显式设 Auto）
-```
-
-**相机的查找顺序**（找到即用）：
-`RevUISetting.UICamera` → `UICameraPrefabPath` 预制体 → 场景里名为 `UICamera` / `[RevUICamera]` 的相机 → 按标准参数代码兜底建一台。
-
-**图层是隐形前提**：相机 Culling Mask 只认 `RevUISetting.UILayerName`（默认 `"UI"`，即 Unity 第 5 号图层），
-框架会把**根节点 / 六层挂点 / 每个面板实例 / 每个 Part / 遮罩**都设成这个图层 —— 你只要保证相机认它（示例相机预制体已经填好 `UI` 层）。
-
-| 现象 | 多半是这个原因 |
-|---|---|
-| 面板开了，但屏幕上一个都没有 | 相机的 **Culling Mask 没包含 UI 图层** |
-| UI 有透视变形、边缘被拉伸 | 相机不是**正交**（`orthographic = true`） |
-| UI 显示正常，但整个界面**点不动** | 缺 `EventSystem`（见 4.10），或 `canvas.worldCamera` 为空 |
-| Canvas 整个被裁掉 | `planeDistance` 不在相机近/远裁剪面之间 |
-| 屏幕完全没有 UI | 相机被禁用 / 销毁 → 框架会**退回 Overlay 并报错** |
-
-**兜底逻辑（保证不会"静默看不到 UI"）**：Camera 模式下如果一台相机都找不到，框架**报错 + 退回 `ScreenSpaceOverlay`**；
-如果只是没配相机路径，它会按标准参数建一台并**告警**提醒你换成自己的那台。
-
-> 这两份预制体放在 `Resources` 下，会被无条件打进包（都很小）且**不参与 AB 分包** —— 它们是框架自用的模板，
-> 打包工具里不需要做任何配置（也**不用**给它们设 AB 名，它们不走资源系统）。
-
-### 4.12 单 Canvas 优先，必要时才启用三 Canvas
-
-**一句话总结：优先使用单 Canvas；只有实际项目在目标设备上测出 UI 合批开销已成为性能瓶颈、常规优化仍无法满足帧预算时，才考虑切换到三 Canvas。**
-
-`RevUISetting.CanvasArchitecture` 默认是 `RevUICanvasArchitecture.Single`。这不只是兼容旧项目的默认值，也是**框架推荐的新项目起点**。框架提供 `Split` 作为有条件的性能优化选项，不要求每个项目都配置三 Canvas，更不是"有动态 UI 就必须拆"。
-
-**① 为什么可能需要拆：两笔账**
-
-| 开销 | 什么时候发生 | 波及范围 |
-|---|---|---|
-| 网格重建（Rebuild） | 控件自己变了：换文字 / 换图 / 改颜色 / 改尺寸 | 只重建变了的那个控件 —— 与 Canvas 怎么分**无关** |
-| **重新合批（Rebatch）** | Canvas 下**任意一个**控件的网格或位置 / 缩放变了 | 该 Canvas 的**全部**控件重新排序、合并网格 |
-
-单 Canvas 下，主界面 / HUD 上常驻的倒计时、血条、飘字、摇杆可能持续触发重新合批；**但可能不等于性能不达标**。如果目标设备上的耗时仍在预算内，拆 Canvas 只会增加管理和渲染成本，保持单 Canvas 即可。
-
-**② 先优化单 Canvas，达不到目标再考虑切换**
-
-1. **从单 Canvas 开始**：在目标设备、目标帧率和典型重负载场景（例如主界面常驻 HUD、弹窗出现、滚动列表）实测，记录 UI 相关 CPU 耗时、帧时间和 Draw Call。不要拿编辑器中的卡顿或"面板数量多"代替证据。
-2. **先定位并优化具体界面**：检查是否有不必要的每帧文本 / 布局刷新、循环动画、未虚拟化的长列表和过多的可射线检测控件；让不显示的界面停止更新，减少不必要的 UI 写入。优化后按同样场景复测。
-3. **只有确认 Canvas 重新合批仍是主要瓶颈，且实际帧时间超出项目预算时，才试用 `Split`**：把长期不变的 Scene 内容与常驻高频变化的 Scene 内容拆成不同面板，分别放到静态 / 动态画布，再测一次 CPU 与 Draw Call。如果收益不足或渲染成本反而上升，就继续用单 Canvas。
-
-> **没有统一的"几个面板 / 多少控件就必须切换"阈值**：目标机型、目标帧率、UI 复杂度不同，结论由该项目的性能预算和实际测量决定。不是只要有倒计时、血条，就应该切换。
-
-| | 单 Canvas（`Single`，推荐默认） | 三 Canvas（`Split`，性能瓶颈时按需开启） |
-|---|---|---|
-| 框架新建的 Canvas 数 | 1 | **3 个**（根/常用、静态、动态；不按面板增设） |
-| 合批与 Draw Call | 跨区域有机会合批；单个动态控件可能让整张画布重新合批 | 常驻动静内容互不拖累；画布边界会减少跨区域合批机会，Draw Call 变化须实测 |
-| 适合 | **绝大多数项目的起点；只要满足预算就继续使用** | 已定位到单 Canvas 合批开销超预算且常规优化无法解决的项目 |
-| 业务改动 | 无 | 一行配置 + 给需要分离的 Scene 层面板写 `CanvasType` |
-
-> 为什么三 Canvas 不按面板数量扩张：固定少量合批边界，使复杂度可控；但三 Canvas **不是性能保证**，同一画布内的动态内容仍会使该画布重新合批，是否值得拆必须用 Profiler 验证。预制体或业务自行添加 Canvas 时，场景 Canvas 总数可能超过框架新建的 3 个。
-
-**③ 结构长什么样**（常用画布就是根 Canvas 本身，单 Canvas 只是"少建了两个画布"）
+打开/关闭面板时，框架**不会立刻**去调兄弟节点顺序、也不会立刻挪挡板，而只是挂一个"待重排"的脏标记；真正干活的是根节点的 `LateUpdate`（本帧画面渲染之前）：
 
 ```text
-[RevUIRoot]            常用画布 = 根 Canvas（CanvasScaler 只在这里）         sortingOrder = 根（默认 100）
-  ├ [StaticCanvas]     静态画布：override 排序 + GraphicRaycaster          sortingOrder = 根 − 2
-  ├ [DynamicCanvas]    动态画布：override 排序 + GraphicRaycaster          sortingOrder = 根 − 1
-  └ Scene / Normal / Popup / Toast / Guide / Top     常用画布的六层挂点（与单 Canvas 完全一样）
+// 一帧里可能开了 3 个、关了 2 个面板 —— 每次开关都立刻重排 = 同一帧排 5 次
+开关面板  →  只打脏标记  // O(1)，很便宜
+   …
+LateUpdate（渲染前） →  一次做完：
+     ① 各层内部按打开顺序排兄弟节点
+     ② 找出"谁提供本层遮罩" → 把挡板插到它正下方
+     ③ 通知"被盖住 / 恢复"变化的面板（OnCovered）
 ```
 
-- 两个子画布各自带 `GraphicRaycaster`：UGUI 的 Graphic 只登记到**离自己最近的 Canvas**，没有它里面的按钮就点不到；
-- 子画布的着色器通道、排序层都跟根 Canvas 对齐（TMP 等要用的通道不丢）；
-- 遮罩跟着"托着它的面板"所在的父节点走（必要时换父节点）。
+这样做的三个附带好处：**①** 同一帧开关多次只排一次；**②** 排序发生在渲染前，所以"本帧开的面板本帧就看到正确层级"，不会闪一下；**③** 排序只有一个地方做，不会出现"这里排了、那里又设了 `sortingOrder`"的打架。
 
-**④ 谁盖谁：常用画布在最上面（这是整个设计里最关键的一条）**
+> **于是"层间谁在上面"这件事只有一条规则**
+> 层级 = **六个层从下到上**（`Scene` → `Normal` → `Popup` → `Toast` → `Guide` → `Top`），层内 = **打开顺序**（后开的在上面）。全部靠**同一 Canvas 下的子节点顺序**表达，不需要每个面板自己设排序号。
+
+### 3.4 关闭：为什么"关"是异步的
+
+关闭不是一句 `SetActive(false)`，而是一条有始有终的流程：
 
 ```text
-静态画布（根 − 2）  <  动态画布（根 − 1）  <  常用画布（根）
+Closing → 通知 Part 关闭 → 播关闭转场 → OnClose() → 摘掉本面板所有事件
+        → 播隐藏动画 → 置 Closed → 管理器收尾
+                                    ├─ 可复用（KeepAlive）→ 失活后放回池
+                                    └─ 否则 → 挂进"待销毁"队列，下一帧才真正销毁 + 还资源引用
 ```
 
-- **为什么常用画布必须在最上面**：弹窗遮罩、新手引导、Loading、断线重连都在常用画布里，它们必须盖住并**挡住**一切。
-  如果动态画布排在最上面，弹窗打开时 HUD 的倒计时会压在弹窗上、摇杆还能被点到 —— 遮罩就形同虚设。
-- **代价**：静态 / 动态画布整体排在常用画布之下，所以它们**只收 Scene 层**（主界面、HUD 这类"常驻底层"的界面）。
-  其它层声明了会**自动放回常用画布，并按面板类型告警一次**。
-  例子：一个 Top 层的 Loading 进度条声明成动态，如果真放进动态画布，就会被常用画布里的主界面盖住 —— 所以框架不照做。
-- 同在 Scene 层时，视觉顺序是"静态 < 动态 < 常用"，同一个画布里才按打开顺序；"被盖住"通知、点遮罩关顶层都按这个顺序算。
+因为中间有转场和动画，所以"关闭"必然跨帧 —— 这才需要 `Closing` 这个状态（见第四章）。**延迟一帧销毁**则是因为：关闭请求很可能发生在"正在遍历某个列表/正在派发事件"的过程中，边遍历边删对象是经典崩法，所以统一推到下一帧的 `Update` 里做。
 
-**⑤ 怎么用：先保持默认，确需切换时再设置**
+### 3.5 一次打开里的五个"异步边界"
 
-新项目**不用写任何 Canvas 架构配置**，`Single` 就是默认值；所有面板照常声明层级、打开和关闭。下面是**在第二步优化后仍不达标**的项目才需要的可选配置和画布划分：
+读完上面，就能理解为什么这套框架里"打开"不是一个瞬时动作。源码里一共有五处会让时序"跨帧"：
 
-```csharp
-// 仅确认单 Canvas 的合批开销是瓶颈后，在第一次打开面板前设置；不设 = Single
-RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split;
+| 边 | 在哪里 | 什么时候会真的异步 |
+|---|---|---|
+| A | 预制体加载 | 资源不在缓存里时（真机首次）= 后续帧完成；缓存命中时同步完成 |
+| B | 面板自定的打开转场 `PlayOpenTransition` | 你重写了这个钩子并自己做了动画时；默认实现是**立刻回调**（不拖帧） |
+| C | 面板预设的显示动画 | 用了一行预设动画时；用 `None` 则同步完成 |
+| D | 预制体级 Part 的创建 | Part 自己的预制体要加载时 |
+| E | 实例销毁 | 总是延迟一帧（避免遍历中删除） |
 
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Scene, CanvasType = RevUICanvasType.Static)]
-public sealed class MainBgPanel : RevUIPanel { ... }        // 主界面背景、固定框体
+> **写代码时的实际影响（一句话）**
+> 凡是"打开之后我要立刻对新数据/新控件做点什么"的需求，**都要放在打开回调里**，不要写成"调用下一行" —— 因为 A/B/C 任意一处跨了帧，"下一行"就会早于面板真正就绪。
 
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Scene, CanvasType = RevUICanvasType.Dynamic)]
-public sealed class BattleHudPanel : RevUIPanel { ... }     // 倒计时、血条、飘字、摇杆
+---
 
-[RevUIPanel(RevResPath.UI_Panel, RevUILayer.Normal)]        // 不写 CanvasType = 常用画布
-public sealed class BagPanel : RevUIPanel { ... }
+## 四、生命周期：四个状态 + 一组钩子
+
+### 4.1 四个状态：为什么不是"开 / 关"两个
+
+```text
+不存在 ──创建──▶ Opening ──转场结束──▶ Opened ──调 Close──▶ Closing ──转场+动画结束──▶ Closed
+                    ▲                                                            │
+                    └──────────── 复用再打开（走池，装配不重来）◀────────────────┤
+                                                                                 └─▶（KeepAlive 回池 / 否则下帧销毁）
 ```
 
-| 画布 | 放什么 | 别放什么 |
+| 状态 | 为什么需要它 | 代码里怎么体现 |
 |---|---|---|
-| 静态（`Static`） | 主界面背景、固定框体、装饰、打开后不变的按钮区 | 带倒计时、跳动红点、循环动画的东西 |
-| 动态（`Dynamic`） | HUD 倒计时、血条、飘字、摇杆、跑马灯、循环动画 | 大块静态内容（会被动态内容拖着一起重算） |
-| 常用（`Common`，默认） | 其余全部：二级界面、弹窗、Toast、引导、Loading、系统层 | — |
+| `Opening` | 打开要经历"转场 + 动画"，中间的每一刻都**既不是没开、也不是已就绪**。没有这个状态，就会出现"动画还没播完，业务回调已经拿它当已打开用了"。 | 状态设为 `Opening` 后才激活物体；转场回调里先做**状态守卫**再往下走 |
+| `Opened` | 真正的"可用"时刻：**此时数据已画、动画已播完**，业务可以对它做任何事。 | `OnOpen` 与业务回调都在进入这个状态之后触发 |
+| `Closing` | 关闭也跨帧（转场 + 隐藏动画）。它同时是一个**安全阀**：正在关闭的实例不会被拿来复用，避免"关到一半又被打开"的错乱。 | 发起关闭**立刻**从管理器索引里摘掉；期间再打开同面板会走池/新建，而不是复用这个正在关闭的 |
+| `Closed` | 一个明确的终点，决定它去哪：回池待命，还是被销毁。 | 管理器按缓存模式收尾：回池 / 挂进待销毁队列 |
 
-> 同一套面板代码两种架构都能跑：单 Canvas 下 `CanvasType` 直接忽略（不告警）。
-> 一个主界面里既有静态背景又有动态 HUD 时，把它拆成两个 Scene 层面板（一个 Static、一个 Dynamic）一起打开即可。
+### 4.2 钩子清单：谁在什么时候被调、调几次
 
-**⑥ 代价与边界**
+钩子指的是"框架在固定时机回头调用你的方法"。下面这张表是完整清单（**按真实调用顺序**）：
 
-| 项 | 说明 |
+| 钩子 | 什么时机 | 调几次 | 为什么需要它 |
+|---|---|---|---|
+| `OnBindView()` | 装配末尾（首次创建时） | 一次 / 实例 | **必写**。只做表现装配：拿控件引用、挂交互。因为它是抽象方法，你不可能"忘了写" |
+| `OnInit()` | 紧接着 `OnBindView` | 一次 / 实例 | 放"一辈子只做一次"的初始化（比如订阅一个长期服务）。**复用时不会再调** |
+| `OnReuse()` | 从池里取出、即将再打开时 | 每次复用 | 清界面残留（滚动位置、页签、输入框、选中态）。框架已经把**数据**替你清了，界面残留只有你知道怎么清 |
+| `OnOpen()` | 转场结束、状态已是 `Opened` | 每次打开 | 放"每次打开都要做的事"：发请求、启动倒计时。此时界面已就绪，能安全操作 |
+| `OnRefreshView()` | 打开时必调；`SetData` 时按需 | 多次 | 带数据的界面里它是**抽象方法**：强制你写清"数据怎么落到界面上"。它只许落屏，不许发请求 |
+| `OnDataChanged(old, new)` | 每次 `SetData` | 多次 | 知道"变了什么"，做增量更新（改一个数字就不必整屏重画） |
+| `OnCovered(bool)` | 被上层遮罩盖住 / 恢复时 | 状态变化时 | 让"被挡住"的界面可以省掉自己的开销（停特效、停动画、暂停刷新）。**状态没变不会调**，所以不会反复触发 |
+| `OnClose()` | 关闭转场结束、摘事件之前 | 每次关闭 | 收尾：停计时器、提交未保存的输入 |
+| `OnRelease()` | 真正销毁前 | 一次 / 实例 | 只有"确定不再复用"时才来。放不可逆的清理 |
+| `PlayOpenTransition` / `PlayCloseTransition` | 打开 / 关闭中 | 每次 | 把转场做成**可插拔钩子**：默认什么都不做、立刻回调；想加自己的动画就重写它（因此框架不依赖任何缓动库） |
+| `OnClick` / `OnToggleChanged` / `OnSliderChanged` / `OnInputChanged` / `OnInputEndEdit` / `OnDropdownChanged` / `OnScrollChanged` / `OnLongPress` / `OnLoosen` | 对应控件发生交互时 | 每次交互 | 按**节点名**分发的交互入口：控件改名字/换结构时，改的是预制体，代码里的分支字符串一眼可见（比硬编码 `Find` 路径好查） |
+| `OnPartChanged(part)` | Part 通知宿主时 | 按需 | 让 Part 通过宿主与外界沟通，而不是 Part 之间互相引用（决策 4） |
+
+### 4.3 四条容易被误解的规则
+
+| 现象 | 为什么是这样设计的 |
 |---|---|
-| 切换时机 | 根节点创建时读一次；运行中要换架构，先 `RevUI.ShutdownAll()` 再打开面板 |
-| 常用画布里的高频内容 | 弹窗里的倒计时、Toast、Loading 条仍会让常用画布重算 —— 这是"最多 3 个 Canvas"的取舍；它们多是短时出现，影响有限 |
-| 静态面板的开关动画 | 打开 / 关闭时的 `PopIn` 等动画同样会让静态画布重算，但只在那一瞬；静态画布里**别放常驻循环动画** |
-| 其它 Overlay Canvas | 框架占用 `[根 − 2, 根]`（默认 98 ~ 100）：项目里别的 Overlay Canvas（调试面板、SDK 弹窗）请避开这几个数 |
-| 验收方法 | Profiler 的 UI 模块看 `Canvas.BuildBatch`（合批）与 `Canvas.SendWillRenderCanvases`（重建 / 布局）切换前后的耗时，Frame Debugger 看 Draw Call 数 —— 别凭感觉 |
-
-**本节结论**
-
-| 问题 | 答案 |
-|---|---|
-| 默认推荐哪种架构？ | **单 Canvas**。动态 UI 或面板较多都不是切换的充分理由，满足目标设备的帧预算就保持单 Canvas |
-| 何时才切换？ | 先在目标设备实测并优化单 Canvas；若 `Canvas.BuildBatch` 仍是主要瓶颈且项目帧时间仍超预算，再设置 `RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Split` 做对照测试 |
-| 三个 Canvas 分别放什么？ | 常用（默认，所有层级）/ 静态（Scene 层不变的内容）/ 动态（Scene 层高频变化的内容） |
-| 三个画布谁在上面？ | 静态 < 动态 < 常用 —— 常用画布在最上面，弹窗遮罩和系统层才能盖住并挡住一切 |
-| 为什么静态 / 动态只收 Scene 层？ | 它们整体排在常用画布之下；放别的层会被常用画布里的界面盖住，框架自动放回常用画布并告警 |
-| 业务代码要改多少？ | 一行配置 + 面板特性里一个 `CanvasType`；不写就是常用画布，两种架构同一份代码 |
+| 复用时**不会**再调 `OnBindView` / `OnInit` | 它们管的是"结构"（控件引用、一次性订阅），复用并没有换结构。重新绑一遍是白花性能，也把"一次性初始化"重复执行了两次 |
+| `OnReuse` 在**取出时**调，而不是关闭时 | 越贴近"再次打开"越安全：关闭到再次打开之间可能还有别的逻辑在读这个面板的数据；在关闭时就清，会把这些逻辑打断 |
+| 还没打开时 `SetData` **不会立刻重画** | 数据先存着，等 `OnOpen` 之后统一画一次。否则"设数据 → 立刻重画（界面还没就绪）→ 打开又重画"白干一次 |
+| 打开一个**已经打开**的面板，不会重走 `OnOpen` | 它本来就是开的。合理行为是"置顶 + 刷新数据"；如果每次都重跑打开流程，业务里的"初始化请求"就会被重复发 |
 
 ---
 
-## 五、必须知道的八个坑
+## 五、关键设计决策（源码为什么这样写）
 
-1. **预制体名和类名不一致**：默认约定是"预制体名 = 面板类名"。不一致时用特性第三参数写清楚，否则会报"预制体根节点上没有 XxxPanel 组件"。
-2. **复用时忘了清残留**：控件引用不会重置、滚动位置不会自己回到顶部。写 `OnReuse()` —— 框架只替你清**数据**，界面上的残留只有你知道怎么清。
-3. **事件没用 `owner: this` 注册**：框架关闭时会 `RemoveAllByOwner(this)`，但它只能摘"登记在你名下的"。用别的 owner 注册的（如某个服务）框架摘不掉，那类监听要自己按生命周期管。
-4. **在 `OnRefreshView` 里发请求 / 改数据**：那就不是"落屏"而是逻辑了，会出现"刷新一次发一次请求"的死循环。请求放 `OnOpen` / 交互回调里。
-5. **面板里直接 `Destroy(gameObject)`**：绕过管理器会让索引、池、资源引用对不上。关自己请用 `CloseSelf()`（= `RevUI.Close(this)`）。
-6. **把飘字放在参与返回栈的层**：`Toast` 层不参与 `Back()`；如果自定义了面板又希望它不被返回键关掉，设 `InBackStack = false`。
-7. **遮罩把不该挡的挡住了**：想"看一眼但不打断操作"的浮层，把 `Mask = RevUIMaskMode.None` 写清楚（`Auto` 在 Popup/Guide/Top 层默认是挡的）。
-8. **池里实例占内存**：`KeepAlive` 的界面会一直留着一份实例（连同它端的 prefab 引用）。大界面（战斗内的全屏界面）用 `CacheMode = DestroyOnClose`，或把 `MaxCachedPanels` 调小。
+这一章是全篇的重点：挑出这套框架里"看起来怪、其实有理由"的十个写法，每个都说清**不这么做会怎样**、**源码里怎么体现**、**代价是什么**。行号对应 `Assets\Revolution\Runtime\RevUISystem\`。
 
----
+### 决策 1：用"特性 + 反射"声明，而不是代码生成
 
-## 六、API 速查
+**问题：** UI 绑定天然有个两难 —— 手写 `Find("Panel/Panel/Btn")` 是硬编码，改名就悄悄变 null；而"代码生成"（参考实现那套 `UI_BINDING`）虽然编译期就能报错，但要多一整套生成流程：改预制体要重新生成、生成物要入库、生成器和手写代码要分工。
 
-**门面 `RevUI`（业务唯一入口）**
+**做法：** 把"意图"写成**声明**（`[RevUIPanel]` 说清资源在哪、放哪层；`[RevBind]` 说清字段绑哪个节点），运行时读一次、缓存起来。这条路把"多一道流程"换成了"第一次运行就报错"。
 
-| 分类 | API |
-|---|---|
-| 打开 | `Open<T>()`、`Open<T>(onOpened)`、`Open<T, TData>(data, onOpened)`、`OpenAsync<T>()`、`OpenAsync<T, TData>(data)` |
-| 关闭 | `Close(panel)`、`Close<T>()`、`CloseAll(layer?)`、`CloseGroup(group)`、`Back()`、`ShutdownAll()` |
-| 查询 | `Get<T>()`、`IsOpen<T>()`、`TopOf(layer)` |
-| 预热 | `Preload<T>(onLoaded)` |
-| 扩展 / 诊断 | `RegisterAutoEvent<T>(bind)`、`DumpStats()` |
+**源码里长这样：** `Core\RevUIAttributes.cs:105-108` 明写了"为什么不学那套代码生成"；`Support\RevUIPanelMeta.cs:84-86`、`:104-117` 规定解析失败必须**报错**而不是静默猜路径；`Support\RevUIBinder.cs:107-111`、`:200-215` 在找不到节点时把"根节点下真实存在的节点名"全列出来，直接告诉你该改成什么。
 
-**面板 `RevUIPanel` / `RevUIPanel<TData>`**
+**代价：** ① 错误从"编译期"推迟到"运行期第一次"，所以框架必须把这句错误写得足够好（这就是决策 1 里花最多代码的部分）；② 反射本身有开销 —— 所以有了决策 2。
 
-| 分类 | 成员 |
-|---|---|
-| 元数据 | `Meta`、`PanelKey`、`PrefabRoot`、`PrefabName`、`Layer`、`CanvasType`、`State`、`IsOpened`、`IsCovered` |
-| 数据 | `DataObject`、`SetData(object)`；泛型版：`Data`、`SetData(TData)` |
-| 必写钩子 | `OnBindView()`；泛型版另加 `OnRefreshView()` |
-| 可选钩子 | `OnInit` / `OnOpen` / `OnReuse` / `OnDataChanged` / `OnCovered` / `OnClose` / `OnRelease` |
-| 交互回调 | `OnClick` / `OnToggleChanged` / `OnSliderChanged` / `OnInputChanged` / `OnInputEndEdit` / `OnDropdownChanged` / `OnScrollChanged` |
-| 转场 | `PlayOpenTransition(onDone)` / `PlayCloseTransition(onDone)` |
-| 便捷 | `RefreshView()`、`CloseSelf()`、`FindPart<T>()`、`RefreshParts()` |
+### 决策 2：绑定计划 —— 每个类型只反射一次
 
-**Part `RevUIPart`**
+**问题：** 反射慢，但 UI 实例化很频繁（同一个面板可能开开关关几十次）。如果每次实例化都去"扫字段、读特性、按名字找节点"，开销会翻倍；如果每次都全量扫一遍所有子控件（早期版本那样），更浪费。
 
-| 分类 | 成员 |
-|---|---|
-| 元数据 | `Meta`、`PartKey`、`Host`、`HostPanel`、`IsOpened`、`IsPrefabPart` |
-| 钩子 | `OnPartInit` / `OnBindView`（必写）/ `OnPartOpen` / `OnPartRefresh` / `OnPartClose` |
-| 交互 | 与面板同名的七个回调；`NotifyHost()` 通知宿主 |
-| 创建 / 关闭 | `RevUIPart.Create<T>(host, parent, onCreated)`、`ClosePart(destroy = true)` |
+**做法：** 把"这个类型该怎么绑"算成一份**计划**（`RevUIBindPlan`）：字段表、规范化后的节点名、以及**需要哪些控件事件**（`WantsClick` / `WantsScroll`…）。计划按**业务类型**缓存，运行时只做"字符串 → 找节点 → 取组件 → 赋值"。
 
-**声明**
+**源码里长这样：** `Support\RevUIBindPlan.cs:90` 的缓存表以 `Type` 为键，`:100-109` 是"命中就用、没有才算"，`:116-143` 是唯一的计算点；`Support\RevUIBinder.cs:13-19` 说明它相对旧做法改了三处（全量扫 → 按需扫、每按钮闭包 → 继电器、每次重挂 → 挂一次）。
 
-| 特性 | 用在哪 |
-|---|---|
-| `[RevUIPanel(root, layer, name?)]` | 面板类（必写；`root` 是资源根目录段） |
-| `[RevUIPart(root, name?)]` | Part 类（只在"独立预制体、要跨面板复用"时写） |
-| `[RevBind(path?)]` | 面板/Part 的字段（不写路径就按字段名找节点） |
+**代价：** 缓存是按类型算的，所以"某个具体实例的字段要不要绑"不能靠计划决定 —— 这没问题，因为绑什么本来就由类型决定。**真正的代价在诚实版里**：走方法特性（如 `[RevButtonClick]`）派发时，每次触发会有一点点小分配（反射调用 + 参数数组），所以高频事件（滚动、输入）建议用重写回调 —— 这句代价明写在 `Core\RevUIWidgetEvents.cs:40-44`。
 
----
+### 决策 3：一个面板只有一个脚本 —— 分层靠"钩子职责"，不靠拆类
 
-## 七、验证结果
+**问题：** 参考实现把界面拆成 `View / Logic / System / BusinessLogic` 四层，干净但一个界面要写好几个文件、还要跨语言。要不要照抄？
 
-分两层验：**纯逻辑内核在工程外跑真断言**，**整程序集用 Unity 真实引用编译**。
+**做法：** 不拆类，改成"**一个类，但每个钩子只许干一件事**"：`OnBindView` 只装配、`OnRefreshView` 只落屏、`OnClick` 等交互回调只做业务转发。**用结构约束，而不是靠注释约定** —— 带数据的界面里 `OnRefreshView` 是抽象方法，不写就编译不过。
 
-| 验证项 | 结果 |
-|---|---|
-| 工程外行为断言（路径解析 / 资源名默认 / 遮罩按层推断 / 字段名→节点名 / 显式路径 / 继承字段收集 / "只挂重写的回调" / 元数据与绑定计划缓存 / 忘了写特性的报错文案 …） | **65 项全部通过** |
-| 整个 `Revolution.Runtime` + `Revolution.Editor` 程序集（Unity 真实引用 + `UNITY_EDITOR`） | **0 错误 0 新增警告** |
-| `LangVersion 9.0`（对齐 Unity 2022.3） | 编译通过 |
-| 三 Canvas 改动：`Revolution.Runtime` 用 Unity 2022.3 引擎引用重编（玩家配置 + `UNITY_EDITOR` 两套） | **0 错误**，UI 模块 0 警告 |
-| 画布归属与排序规则工程外断言（单 Canvas 一律常用 / Scene 层静态动态生效 / 其它层放回常用并标记告警 / 未知枚举兜底 / 排序号 根−2 < 根−1 < 根 / 常用画布在最上） | **12 项全部通过** |
+**源码里长这样：** `Core\RevUIPanel.cs:6-18` 是这段取舍的原文；`:93-98` 与 `:110-114` 用注释把三个钩子的边界钉死；`Core\RevUIPanel.Generic.cs:28-30`、`:51` 把"有数据就必须写清数据怎么落屏"变成编译期强制。
 
-> 三 Canvas 的**运行期收益**取决于具体界面，需要在 Unity 里按 4.12 第 ⑥ 条的方法用 Profiler 对比验收。
+**代价：** 逻辑量大的面板会变胖。这是**刻意接受**的：补救办法不是提前拆类，而是"什么时候该抽出去"有明确信号（见第七章）。
 
-**断言跑在"要提交的那份源码"上**（通过 csproj 直接链接真实文件，不是复制品），它验的都是"写的时候看不错、跑起来才知道"的规则：
+### 决策 4：Part 只认"宿主接口" —— 可复用单元的解耦
 
-- 特性里写 `"UI/Panel/"`、`"\\UI\\Panel\\"`、`"  UI/Panel  "` → **都得到 `UI/Panel`**（不会拼出双斜杠）；
-- 省略资源名 → 取**类名**；显式写了 → 以显式为准；`Key` = `根目录 + 资源名`；
-- `Popup` 层默认 `ClickBlock`、`Toast` 层默认不挡；显式声明永远优先；
-- `_btnClose` / `m_title` / `__x` → 节点名 `btnClose` / `title` / `x`；全是下划线时原样返回（不会给出空名字）；
-- 只重写了 `OnScrollChanged` → **只**挂滚动监听（`WantsClick == false`），一个都没重写 → 连扫子节点都省了；
-- 基类与派生类里的 `[RevBind]` 字段**都**会被收集，且不重复；
-- 元数据与绑定计划**被缓存**（每类型只解析/反射一次）。
+**问题：** 一个界面里经常有"能整块搬去别处"的东西（背包格子、奖励条目、页签组）。如果它就是面板里的一个节点，搬不走；如果做成"小面板"，又会牵扯层级、遮罩、独立开关一堆它不需要的东西。
 
-**这一轮验证各抓到 1 个真错误**（都已修）：
+**做法：** 引入 `RevUIPart`：**依附于宿主**的可复用单元，生命周期完全跟随宿主（宿主开它就开、宿主关它就关），并且只通过一个**四成员接口**与宿主沟通，所以能跨面板复用。它有两种形态：摆在宿主预制体里的**节点级**（零加载），和独立预制体的**预制体级**（可跨面板复用）。
 
-1. 断言工程编译时就报了 `CS0103`：绑定条目里调 `RevUIBindPlan` 的静态方法漏写类名 —— 纯内核抽出来后，**Unity 还没打开就先红了一次**；
-2. Unity 引用编译时报 `RevTaskSource<>` 类型不存在：`RevTask<T>.CreateSource()` 返回的是 `RevTaskCompletionSource<T>` —— 门面里我按印象写错了类型名，编译把它拦下了。
+**源码里长这样：** `Core\RevUIPart.cs:6-11` 定义"Panel 与 Part 的区别"；`Interfaces\IRevUIPartHost.cs:6-15`、`:22-38` 是那四个成员（拿挂点 / 宿主开着吗 / 请求关闭 / 通知宿主）；`Support\RevUIPanelMeta.cs:161` 用"有没有写 root"来判定是哪种形态；Part 与 Part 之间不直接通信，必须经宿主中转。
 
----
+**代价：** 宿主侧要负责"刷新哪些 Part"（框架不自动刷全部 Part，否则一次页签变化会带出整屏重绘）；另外 Part 的关闭是**同步**的，所以给它配"隐藏动画"通常没意义。
 
-## 八、附：关键文件索引
+### 决策 5：层级靠"结构"决定，遮罩由框架自动铺
 
-| 文件 | 职责 |
-|---|---|
-| `Runtime\RevUISystem\Core\RevUIDefine.cs` | 公共词汇：层级 / 状态 / 缓存模式 / 遮罩模式 / Canvas 架构与画布类型（**纯 C#**，遮罩按层推断、面板进哪个画布、画布排序号的规则也在这） |
-| `Runtime\RevUISystem\Core\RevUIAttributes.cs` | 声明式特性：`[RevUIPanel]` / `[RevUIPart]` / `[RevBind]`（**纯 C#**） |
-| `Runtime\RevUISystem\Core\RevUIPanel.cs` | **面板基类**：生命周期、状态、绑定触发、数据入口、自动摘事件、转场钩子 |
-| `Runtime\RevUISystem\Core\RevUIPanel.Generic.cs` | `RevUIPanel<TData>`：强类型数据 + 强制实现 `OnRefreshView` |
-| `Runtime\RevUISystem\Core\RevUIPart.cs` | **Part 基类**：依附单元、宿主契约、预制体 Part 的创建/销毁与资源引用配对 |
-| `Runtime\RevUISystem\Interfaces\IRevUIPartHost.cs` | Part 的宿主契约（Part 因此能跨面板复用） |
-| `Runtime\RevUISystem\Interfaces\IRevUIUserEvents.cs` | 控件事件 → 宿主回调 的内部转发口 |
-| `Runtime\RevUISystem\Facade\RevUI.cs` | **业务唯一入口**：打开 / 关闭 / 查询 / 预热 / 扩展 / 诊断 |
-| `Runtime\RevUISystem\Implementation\RevUIManager.cs` | 管理器：五级查找、在途合并、面板进哪个画布、层级排序（先按画布再按打开顺序）、互斥组、返回栈、遮罩与"被盖住"、诊断 |
-| `Runtime\RevUISystem\Implementation\RevUIPanelPool.cs` | **UI 专用实例池**（不套用通用对象池）+ 池快照 |
-| `Runtime\RevUISystem\Implementation\RevUIRoot.cs` | UI 根节点：代码建 Canvas/六层挂点/遮罩宿主 + 延迟销毁 + 每帧维护 |
-| `Runtime\RevUISystem\Implementation\RevUIPopupMask.cs` | 弹窗遮罩：按层自动铺透明挡板、自动摆位、点遮罩关顶层 |
-| `Runtime\RevUISystem\Support\RevUIPanelMeta.cs` | 面板/Part 元数据解析（**纯 C#**，带缓存；报错文案也在这） |
-| `Runtime\RevUISystem\Support\RevUIBindPlan.cs` | 绑定计划（**纯 C#**）：字段↔节点↔类型、"这个类重写了哪些回调" |
-| `Runtime\RevUISystem\Support\RevUIBinder.cs` | 绑定器：按计划赋值控件、安装按节点名分发的监听、自定义控件扩展口 |
-| `Runtime\RevUISystem\Support\RevUISetting.cs` | 全局配置 + 统一日志出口（含异常隔离 `Guard`） |
-| `Runtime\RevUISystem\Support\RevUIUnityHooks.cs` | 进 Play 前清索引（关掉"域重载"时也能正常反复运行） |
-| `Runtime\RevUISystem\Animation\RevUIEase.cs` | 缓动曲线（**纯 C#**）：17 种，边界恒等 / 单调（可脱机断言） |
-| `Runtime\RevUISystem\Animation\RevUIAnimSpec.cs` | 动画规格与预设（**纯 C#**）：三通道掩码（透明度 / 缩放 / 位移）+ 14 个预设（Fade · Pop · Scale · Slide×四方向；另有 `None` = 不做动画） |
-| `Runtime\RevUISystem\Animation\RevUIAnimEngine.cs` | **动画内核**（**纯 C#**）：采样模型 + 帧余量结转 + 循环往返 + 运行时对象池 + 版本号句柄 |
-| `Runtime\RevUISystem\Animation\RevUIAnimTarget.cs` | 采样落点：CanvasGroup 自动补、基准值只取一次、透明度 / 缩放 / 位移写入 |
-| `Runtime\RevUISystem\Animation\RevUIAnimDriver.cs` | 每帧推进（复用 `RevMono`；`unscaledDeltaTime` = 暂停也能播；全局倍速 `GlobalSpeed`） |
-| `Runtime\RevUISystem\Animation\RevUIWidgetFeedback.cs` | 控件反馈：悬停放大 + 按下缩小（旧框架 `AddButtonAnimation` 的同款能力） |
-| `Runtime\RevUISystem\Animation\RevUIAnim.cs` | **动画门面**：FadeIn / PopIn / SlideIn / ScaleTo / Breathe / AddHoverFeedback / StopAllOf |
-| `Resources\RevUIPrefab\RevUICanvas.prefab` | **相机模式**的根节点模板（Canvas + Scaler + Raycaster；`RevUISetting.CanvasPrefabPath` 用） |
-| `Resources\RevUIPrefab\RevUICamera.prefab` | **相机模式**的 UI 相机模板（正交 / Depth clear / depth 100 / 只渲染 UI 层；`RevUISetting.UICameraPrefabPath` 用） |
+**问题：** 弹窗要挡住下面的点击，这是 UI 最常见的需求，也是最容易做乱的地方：每个弹窗自己摆一块遮罩、自己设 `sortingOrder`，最后没人说得清"现在谁在最上面"。
 
----
+**做法：** 把"位置"变成**结构**：六个层从下到上固定；层内顺序 = 打开顺序；"谁提供本层遮罩"由层级规则推断（例如 `Popup` / `Guide` / `Top` 层默认挡），挡板由框架自动插到那个面板正下方。
 
-## 九、本期没做的（可后续扩展）
+**源码里长这样：** `Core\RevUIDefine.cs:20-41` 明确要求"枚举值必须是从下到上的连续序号"，管理器按它建挂点、推遮罩、排序；`Implementation\RevUIRoot.cs:29-30` 点明"层间关系靠子节点顺序，**不让每个面板自己设 sortingOrder**"；`Implementation\RevUIPopupMask.cs:36` 是"**一层一块**挡板"（不是每面板一块、也不是全局唯一），`:64` 把它插到对应面板正下方。
 
-| 项 | 说明 |
-|---|---|
-| 面板清单窗口（编辑器工具） | 列出所有面板的"类名 / 资源路径 / 层级 / 缓存方式"，一键校验"类名 ↔ 预制体"是否对得上、路径是否真的存在（可复用打包工具那套扫描） |
-| 按模板一键创建面板脚本 | 从选定目录生成"面板类 + 数据类 + 基础骨架"，省掉手写特性与钩子 |
-| MessageBox（按参考实现那份文档的结论做） | 队列 + 优先级 + 去重 + "按钮只转发事件"；它是标准 `Panel`（独立遮罩与层级），自定义内容用"空壳 + Content 插槽"的装饰器做法 |
-| 常用 Part | 无限滚动列表、页签组、通用奖励格（都是"写一次多处复用"的典型） |
-| 面板资源分组可配 | 现在面板预制体统一走 `RevResGroup.UI`；将来可以按面板声明自己的资源分组 |
-| 打开优先级 | 现在打开是即时的；可以加 `RevUI.OpenAsync` 的优先级参数，让"读条期预加载"与"临时弹窗"排队更合理 |
+> **一个细节值得单独说：挡板不是"全屏透明 Image"**
+> 透明 Image 虽然看不见，但仍然会生成网格、参与绘制，全屏就是一笔白白多出来的 overdraw。这里的挡板用的是**不生成任何顶点**的 Graphic（`RevUIRaycastBlocker`，`Implementation\RevUIPopupMask.cs:18-20`）：**射线照样命中，GPU 零开销**。
 
----
+**代价：** 想让某个浮层"看一眼但不打断操作"，必须显式声明（`Mask = None`）；不然它会按层级默认规则挡住下面。
 
-## 十、System / BusinessLogic 这两层要不要做、能不能合并
+### 决策 6：UI 专用实例池 + 清理契约（不套通用对象池）
 
-> 问题：王者的 UI 是 `View / Logic / System / BusinessLogic` 四层，本框架把它们收成了一层（**一个面板 = 一个脚本 + 职责钩子**）。
-> 那 **System** 与 **BusinessLogic** 还有没有必要单独做？能不能合成一层？
-> 结论：**不要新增这两个类，但要把它们各自"解决的问题"落在框架已有的两个地方** —— 这才是"合并"的正确姿势。
+**问题：** 界面关掉就销毁 → 下次打开要重新加载 + 实例化，明显卡顿；关掉不销毁、下次直接用 → 快，但"上次的东西还在"。更微妙的是：**能不能用框架里现成的通用对象池？**
 
-### 10.1 先看清这两层各自解决什么
+**做法：** 做专用的 `RevUIPanelPool`。理由很实在：界面复用需要重置的东西远多于普通对象（控件引用、监听、数据、滚动位置、选中态、输入内容、倒计时…），通用池只懂"失活 / 激活"，管不了这些。**所以复用必须是"有契约的路径"**：池只负责存取，清理由必被调用的 `OnReuse()` 负责，而框架先替你把数据清掉。
 
-（不同项目叫法略有差别，职责大体如此）
+**源码里长这样：** `Implementation\RevUIPanelPool.cs:6-12` 明确写了"不要用通用 `GameObjectPool`"的结论；`:44-48` 说明为什么 `OnReuse` 放在"取出时"调；`Support\RevUISetting.cs:41-45` 的 `MaxCachedPanels` **默认是 1** —— 一个面板同时只会开一份，多出来的回收掉，避免"池变成内存黑洞"。
 
-| 层 | 职责 | 生命周期 | 复用范围 | 典型内容 |
-|---|---|---|---|---|
-| **System** | **跨界面 / 跨模块的业务能力封装**：界面通过它拿数据、发请求，不直接碰游戏内核的各 Manager | 跟"一局 / 一个模块"同级，**比界面长** | 被**多个界面**共用 | `IBagService.GetItems()` · `IMailService.Claim()` · `ICombatContext` |
-| **BusinessLogic** | **某一屏 / 某一模块的业务流程编排**：打开时拉什么、点了走什么流程、失败怎么提示 | 跟**界面**同生共死 | 通常只服务**一屏** | `背包打开 → 拉数据 → 组装 → 通知视图刷新` |
+**代价：** 每个面板都要写清"复用时哪些残留要清"。框架把能替你做的都做了（清数据、兜底摘事件），但界面上的残留只有你懂。
 
-关键差别一句话：**生命周期与复用范围完全不同**（一个"长期共享"，一个"随界面生灭"）。
-于是结论分两半：
-- ❌ **把这两个类合成一个类**是错的 —— 本该随界面释放的逻辑会活到共享层，变成悬空状态 + 事件泄漏；
-- ✅ **把"层次感"消掉、只留两个落点**是对的 —— 这正是下面 10.3 的做法。
+### 决策 7：异步安全 —— 状态守卫、在途合并、延迟一帧销毁
 
-### 10.2 我们这边为什么不需要这两层（王者那三条约束都不在）
+**问题：** UI 的时序是"异步 + 并发"的高发区：连点两次打开、加载还没回来就被关掉、关闭动画播到一半又被打开、遍历列表时删对象……每一种都会变成偶发 bug。
 
-| 王者必须有这两层的约束 | 本框架的现状 |
-|---|---|
-| ① **热更边界**：View / Logic / BusinessLogic 在 TS（可热更），System 在 C#（不可热更）—— 分层就是"能不能热更"的分界线 | ❌ 不存在：本框架不做代码热更；资源热更走"大版本锚定"，与代码分层无关 |
-| ② **跨语言边界**：Puerts 桥接有成本，分层是为减少跨语言调用与传参 | ❌ 不存在：全 C#，一次方法调用而已 |
-| ③ **组织边界**：界面同学（表现）与逻辑同学（内核）分工，接口层是契约 | ⚠️ 弱化：中小团队/单人，"契约"用**接口**表达就够，不需要"一层" |
-| ④ **界面与游戏内核解耦**（唯一与热更无关的那条价值） | ✅ **仍然需要** —— 但框架已经备好落点：**服务定位器** |
+**做法：** 四条具体的防线：
 
-### 10.3 结论：不做两层，但要保留两个落点
-
-| 王者的层 | 在本框架里落到哪 | 现成机制 |
+| 防线 | 不设它会怎样 | 源码体现 |
 |---|---|---|
-| **System** | **业务服务接口 + 服务定位器**（`RevServiceLocator`） | `RevServiceLocator.Create().AddSingleton<IBagService, BagService>().Build()` → 界面里 `Services.GetRequired<IBagService>()`。自带：组合根装配（`Build()` 之后改不了）、单例/作用域两种生命周期、逆序释放、循环依赖检测、`RevITickable` 每帧驱动 |
-| **BusinessLogic** | **面板自己的数据对象 + 钩子**（`RevUIPanel<TData>`） | `OnBindView` 只装配、`OnRefreshView` 只落屏、`OnClick` 只转发；数据走 `SetData → OnDataChanged → RefreshView` 单向流。复杂流程才另抽"流程对象"，且放**业务侧**、不进面板基类 |
+| **在途合并** | 连点两次 → 加载两次、创建出两个实例，两个回调各拿一个（业务以为只有一个界面） | `Implementation\RevUIManager.cs:113-118`：命中在途请求就把回调并进去，只加载一次 |
+| **状态守卫** | 关闭动画播到一半又点打开 → 打开的回调按"已关闭"的实例继续跑，状态错乱 | `Core\RevUIPanel.cs:299-306`、`:335-340`、`:348-352`：每个异步回调里先验状态，变了就放弃这一步 |
+| **延迟一帧销毁** | 在事件派发/列表遍历中途销毁对象 → 空引用或"集合被修改" | `Implementation\RevUIRoot.cs:501-505`、`:544`：只挂进待销毁队列，下一帧 `Update` 统一处理 |
+| **根节点可重建** | 根被销毁（切场景/上层代码误删）后，管理器还拿着死引用 | `Implementation\RevUIManager.cs:108`、`:577-590`：每次打开前确认根可用，不可用就清索引重建；加载回来发现根没了就只还资源引用 |
 
-分工规则（一句可执行）：
+**代价：** 代码里到处能看到"先判断再做事"的守卫（读起来啰嗦一点，但每条守卫都对应一个曾经会偶发的事故）。另外业务必须接受"打开完成要用回调"这件事（见 3.5）。
+
+### 决策 8：动画自己写 —— 采样模型 + 余量结转 + 不受暂停影响
+
+**问题：** 界面动效通常第一反应是引一个缓动库（早期版本就是硬依赖 DOTween，扩展写了 1000+ 行）。但依赖会带来三个约束：包体与版本、暂停时的行为、以及"每帧零分配"这个性能底线能不能保证。
+
+**做法：** 自研一个小内核，三条铁律：**①采样模型**（用"已过时长 / 总时长"算缓动系数，不是每帧累加，掉帧不改变总时长、不累积误差）；**②帧余量结转**（延迟、循环、往返时把超出部分带进下一段，不丢时间）；**③零 GC 热路径**（运行时对象池 + 句柄带版本号，防止"停错动画"）。时间源用**不受时间缩放影响**的 `unscaledDeltaTime`。
+
+**源码里长这样：** `Animation\RevUIAnimEngine.cs:11-17` 就是这三条铁律的原文；`Animation\RevUIAnimDriver.cs:6-13` 说明"复用 `RevMono` 驱动、不新起隐藏宿主"和"用 `unscaledDeltaTime` 所以暂停时 UI 照样能播"；`Animation\RevUIAnim.cs:264-265` 规定"同一控件只留一个动画"（新动画顶掉旧的），避免两个动画抢同一个属性。
+
+**代价：** 自己维护一套缓动与内核（约 7 个文件）；能力上也刻意收窄（不做"缓动强度混合"那类进阶参数）—— 换来的是零依赖、暂停时行为可控、以及全局关掉动画时业务一行都不用改。
+
+### 决策 9：事件防泄漏做成"机制"，而不是"纪律"
+
+**问题：** 面板注册了全局事件，面板关了却忘了退订 —— 这是 UI 最常见的内存/空引用来源，而且"靠人记得"必然会在某个赶工的下午失守。
+
+**做法：** 注册事件时带上 `owner: this`，面板关闭/释放时框架**一行代码**把"登记在它名下的事件"全部摘掉。复用时再兜一次。
+
+**源码里长这样：** `Core\RevUIPanel.cs:27-29` 就是这条设计的注释（"机制而非纪律"）；关闭流程里 `RevEvent.RemoveAllByOwner(this)` 是固定步骤；`OnDestroy` 里还有一次兜底。
+
+**代价：** 只有"登记在面板名下"的事件才摘得掉 —— 用别的 owner 注册的监听（例如挂在某个长期服务上）仍需自己按生命周期管。
+
+### 决策 10：Canvas / EventSystem / 图层由框架自建，但不抢项目的
+
+**问题：** 接进任何一个工程，第一道坎都是"UI 根在哪"。让业务自己建 → 每个项目一套摆法、升级框架要重摆；框架强行接管 → 和项目已有的 Canvas / EventSystem 打架。
+
+**做法：** 折中：**优先用可替换的预制体**（设了路径就加载），**载不到就用代码建**并给一句警告；EventSystem **只在场景里一个都没有时**才兜底创建；图层名统一成一个（默认 `UI`），框架自己建的东西都归到这一层。
+
+**源码里长这样：** `Implementation\RevUIRoot.cs:96-137`（预制体优先、代码兜底）、`:229-237` 与 `:239-254`（EventSystem 只兜底、不抢）、`Support\RevUISetting.cs:93-99`（默认预制体路径）、`:114-120`（图层名）。
+
+> **一个很能说明"设计水平"的细节**
+> EventSystem 的输入模块优先用**反射**去找新输入系统的 `InputSystemUIInputModule`，找不到才退回旧的 `StandaloneInputModule`。原因是：新输入系统是**可选包**，如果直接 `using` 它，没装那个包的工程**会编译不过**（`Implementation\RevUIRoot.cs:256-260`、`:262-290`）。框架的存在不能给工程增加"必须装什么"的前提。
+
+**代价：** 配置项变多（渲染模式、画布架构、相机、图层、EventSystem 开关…），但你可以在不改代码的前提下适配自己的工程。
+
+### 决策 11：默认单 Canvas，只有必要时才"动静分离"
+
+**问题：** Unity 的 UI 有一个绕不开的性能特性：**同一块 Canvas 上只要有一个元素发生变化，整块 Canvas 的网格就会重建**。于是"界面一多就卡"的常见对策是把 Canvas 拆开 —— 常驻不变的放一块、频繁变化的放另一块，让变化不要波及静态内容。要不要默认就这么拆？
+
+**做法：** 默认**单 Canvas**（简单、少一层心智负担；绝大多数界面根本到不了这个瓶颈），同时提供"三 Canvas 动静分离"作为**可选架构**：常用（根画布）/ 静态 / 动态三块，面板可以用属性声明自己进哪块。并且明确一条纪律：**拆分要靠 Profiler 实测决定，不达标就退回单 Canvas**。
+
+**源码里长这样：** `Core\RevUIDefine.cs:129-147` 是画布架构与画布类型的定义；`:204-221` 规定"动静分离时，静态 / 动态子画布**只收 `Scene` 层**，其余层一律放回常用画布" —— 否则弹窗会被常用画布里的界面盖住；`Implementation\RevUIRoot.cs:199-218` 给每个子画布都挂上射线组件（不挂就点不到）；`Implementation\RevUIRoot.cs:73`、`:178` 说明这个配置**只在根节点创建时读一次**，之后不再变。
+
+**代价：** ① 拆分不是免费的：弹窗 / 引导层必须留在最上层画布，混合了静态与动态内容的预制体要自己拆成两个面板才会真的分离；② 收益完全取决于具体界面，**必须用 Profiler 对比验收**；③ 配置只在第一次打开面板前有效，运行中改没用。
+
+> **这条设计最能体现"默认值要开箱即用"**
+> 默认单 Canvas = 所有人都不需要理解这套拆分就能开工；真撞上瓶颈的人，才去读那三行配置与验收方法。用法见《UI 系统 · 使用说明》的"什么时候才切换到三 Canvas"。
+
+> **把这一章收成一句话**
+> 这套框架里所有"看起来怪"的写法，都在回答同一个问题：**怎么让"一个界面 = 一个脚本 + 一个预制体"这件事在真机异步、随时关闭、随时复用、还可能被上层打断的情况下，依然不泄漏、不串状态、不静默失败。**
+> 于是就有了：三层"每类型只算一次"的类型缓存（元数据 / 绑定计划 / 事件特性）、状态机 + 状态守卫保住的异步安全、池 + `OnReuse` + 一行摘事件保住的复用安全、脏标记 + `LateUpdate` 保住的重排安全、`unscaledTime` + 自研采样引擎保住的动效安全。
+
+---
+
+## 六、刻意的取舍与边界
+
+一个框架的成熟度，往往体现在它**明确不做什么**上。下面这些"故意不这么做"，每一条都能在源码注释里找到原文：
+
+| 刻意不做 / 不这样写 | 为什么 | 代价或边界 |
+|---|---|---|
+| **不做代码生成**（不学参考实现那套 `UI_BINDING`） | 少一道流程：改预制体不用重新生成、不用管生成物入库与分工 | 错误从编译期推迟到"第一次运行"，所以报错文案必须够好（决策 1） |
+| **不拆** `View / Logic / System / BusinessLogic` 多类 | 那样切是为了热更边界与跨语言边界（TS），这里两者都不存在 | 大面板会变胖 → 用第七章的信号决定何时抽服务 |
+| **界面不用通用对象池**（`RevPool`） | 界面复用要重置的东西远多于普通对象，通用池只懂"失活 / 激活" | 多了一个专用池要维护（约 117 行），换来的是清理契约成立 |
+| **遮罩不用全屏透明 Image** | 透明仍会生成网格、全屏就是一笔白花的 overdraw | 要自己写一个"不生成顶点"的 Graphic（约 100 行的挡板组件） |
+| **不让每个面板自己设排序号**（`sortingOrder`） | 排序只能有一个地方做，否则早晚互相打架 | "想插到某人上面"只能用层级 + 打开顺序表达，不能随手调数字 |
+| **EventSystem 只兜底、输入模块用反射找** | 不抢项目自己的；且新输入系统是可选包，直接 `using` 会让没装包的工程编译不过 | 反射代码略长；模块类型改名时要跟着改 |
+| **预留参数 `LayerStep` 没接入** | 当前架构层间靠子节点顺序，不靠排序号步进 | **改它没有任何效果** —— 别被名字骗了（源码里写明了） |
+| **解析失败直接报错**，不静默猜路径 | 静默猜路径 = 把问题推到"图怎么不出现"那一刻，更难查 | 首次接入时报错更"硬"，得照着文案改 |
+| **名字规范化只做两条例外**，其余严格匹配 | 规范化规则越多越难推理，隐藏 bug 越多 | `_btnClose` / `m_title` 这类命名要按约定来 |
+| **只扫"你确实要用"的控件**，每个交互节点一个继电器**不写闭包** | 全量扫 + 每按钮闭包 = 白花性能与 GC（旧框架的写法） | 框架要能准确判断"你要用哪些"（靠"重写了哪些回调 + 有没有方法特性"） |
+| **输入框的两个事件分开挂** | 旧框架混在一起，导致每敲一个字都触发一次"结束编辑" | 业务要分两个回调写（`OnInputChanged` / `OnInputEndEdit`） |
+| **长按不用 `Update` 轮询**，且在"抬起时"派发 | 轮询白耗；抬起时派发才能保证一次操作最多"长按 + 松开"，不与点击抢瞬间 | 需要一个 UGUI 指针事件继电器（多一个小文件） |
+| **不自动刷新所有 Part** | 否则一次页签变化会带出整屏重绘 | 宿主自己决定刷哪个（`RefreshParts()` 或指定 Part） |
+| **Part 的关闭是同步的** | 依附单元的价值是"跟着宿主"，不是独立演一段离场 | 给 Part 配 `HideAnimation` 通常没意义 |
+| **关域重载时只清运行时索引，不清类型缓存** | 缓存里是 `Type` / `FieldInfo` / 字符串，不引用场景对象，清了纯属白花 | 需要分清"什么该清、什么可以留"（这条本身就是一次 bug 的产物） |
+
+---
+
+## 七、System / BusinessLogic 要不要做
+
+> **问题与结论**
+> 参考实现的 UI 是四层，本框架收成了一层（一个面板 = 一个脚本 + 职责钩子）。那 **System**（跨界面共享的业务能力）与 **BusinessLogic**（单屏流程编排）还有没有必要单独做？
+> **结论：不新增这两个类**，而是把它们各自解决的问题，落在框架已有的两个机制上。
+
+### 7.1 为什么不需要（那三条约束都不在）
+
+| 参考实现必须有这两层的约束 | 这里的情况 |
+|---|---|
+| ① **热更边界**：界面逻辑在 TS（可热更）、系统逻辑在 C#（不可热更），分层就是"能不能热更"的分界线 | 不存在：本框架不做代码热更（资源热更与大版本锚定，和代码分层无关） |
+| ② **跨语言边界**：Puerts 桥接有成本，分层是为了减少跨语言调用与传参 | 不存在：全 C#，一次普通方法调用而已 |
+| ③ **组织边界**：界面同学与逻辑同学分工，接口层是契约 | 弱化：中小团队 / 单人时，"契约"用**接口**表达就够，不需要"一层" |
+| ④ **界面与游戏内核解耦**（唯一与热更无关、仍然成立的价值） | **仍然需要** —— 但框架已经备好落点：服务定位器 |
+
+### 7.2 那两个"落点"是什么
+
+| 参考实现的层 | 在本框架里落到哪 | 现成机制 |
+|---|---|---|
+| **System** | **业务服务接口 + 服务定位器** | `RevServiceLocator`：组合根装配（`Build()` 之后改不了）、单例 / 作用域两种生命周期、逆序释放、循环依赖检测、可每帧驱动 |
+| **BusinessLogic** | **面板自己的数据对象 + 钩子** | `RevUIPanel<TData>`：装配 / 落屏 / 业务三个钩子各管一件事，数据走单向流 `SetData → OnDataChanged → RefreshView` |
+
+> **分工规则（一句可执行）**
 > **跨界面复用的 = 服务；只属于这一屏的 = 面板自己的。**
 > 判断方法：这段逻辑"关掉这个界面之后还该活着吗"？该 → 服务；不该 → 面板里。
 
-### 10.4 分档落地（按复杂度选，不要一律上重装）
-
-| 档 | 典型界面 | 逻辑放哪 | 文件数 | 例子 |
-|---|---|---|---|---|
-| 简单 | 设置页、说明页、加载页 | 全在面板类 | 1 | `OnBindView` + `OnClick` |
-| 中等 | 背包、商店、邮件列表 | 面板类 + `TData` 数据对象；数据从服务取 | 2 | `BagPanel` + `BagData` |
-| 复杂 | 战斗结算、活动、跨界面流程 | 面板只管"装配 / 落屏 / 转发"；规则与流程抽成**业务服务**（纯 C#）；必要时再加流程对象 | 3~4 | `ResultPanel` + `IResultService` + `ResultFlow` |
-
-### 10.5 什么时候必须重新拆（诚实的边界）
+### 7.3 什么时候必须重新拆（诚实的边界）
 
 | 信号 | 怎么做 |
 |---|---|
 | 同一套流程被 **≥2 个界面**复用（如"购买流程"被商城 / 背包 / 英雄详情共用） | 抽成领域服务（`IPurchaseService`）注册到服务定位器 —— **不是**新增 UI 层 |
-| 逻辑要"**无 UI 也能跑**"（单测 / 离线算 / 与服务端同规则） | 必须是**纯 C#、不引用 UnityEngine** 的类，放服务层（`RevServiceLocator` 模块本身就是纯 C#，可丢进普通 .NET 工程跑断言） |
+| 逻辑要"**无 UI 也能跑**"（单测 / 离线算 / 与服务端同规则） | 写成**纯 C#、不引用 UnityEngine** 的类放服务层；服务定位器模块本身就是这样，能丢进普通 .NET 工程跑断言 |
 | 单屏逻辑 > 500 行，或状态机复杂（多分支、可中断、可回退） | 抽 `XxxFlow` 流程类；面板只剩"调用 + 落屏" |
-| 将来真要上**代码热更** | 那时才需要"可热更逻辑 vs 不可热更表现"的物理分层；地基可以直接用"大版本锚定"那条纪律 |
+| 将来真的要上**代码热更** | 那时才需要"可热更逻辑 vs 不可热更表现"的物理分层 —— 这是唯一会让结论翻转的条件 |
 
-### 10.6 面板里出现这些，就该抽走（自查清单）
+### 7.4 代价对照（"不做两层"不是偷懒）
 
-协议 / HTTP 请求 · 配置表读取与解析 · 跨面板共享的状态 · 计时器与长任务 · 纯计算（公式 / 排序 / 筛选规则） · 存档读写 · 跨模块事件路由。
-
-出现任意一条 → 抽到服务；**抽的时候不要去改面板基类**（改基类等于把"特例"变成"所有人的负担"）。
-
-### 10.7 代价对照（"不做两层"不是偷懒）
-
-| | 新增 System + BusinessLogic 两层 | 用"服务 + 面板"（本框架） |
+| | 再加 System + BusinessLogic 两层 | 服务 + 面板（本框架） |
 |---|---|---|
 | 每屏文件数 | 3~4 | 1~2（面板 + 可选数据对象） |
-| 20 个界面估算 | ~70 个文件、每屏约 30 行"搬运 + 转发"代码 | ~30 个文件、无搬运代码 |
 | 数据流 | 视图 ← Logic ← BusinessLogic ← System（4 跳，改一处要顺链找） | 面板 ← 服务（1 跳） |
-| 能换实现 / 能单测 | ✅（靠接口） | ✅（同样靠接口；且服务是纯 C#，更好测） |
 | 生命周期 | 要额外管"两层各自的生灭与释放" | 面板关了就没了；服务由容器统一释放 |
-| 真正的代价 | 多一层跳转与状态双份；出错时排查路径长 | 逻辑量大时面板会变胖 → 按 10.5 的信号及时抽服务 |
+| 真正的代价 | 多一层跳转、状态可能存两份，排查路径变长 | 逻辑量大时面板会变胖 → 按 7.3 的信号及时抽服务 |
 
-### 10.8 一句话
-
-> **王者的 `System` / `BusinessLogic` 是"热更 + 跨语言 + 大团队"三条约束逼出来的最优解，不是普适最优解。
-> 我们没有这三条约束，所以正确答案既不是"照抄两层"，也不是"把两个类揉成一个类"，而是 ——
-> **跨界面复用的能力交给服务（`RevServiceLocator`），只属于这一屏的流程留在面板（`TData` + 钩子）；复杂了再按 10.5 的信号抽出去。**
-
-### 10.9 结论：框架要不要做这两层？—— 不做
-
-| 判定项 | 结论 |
-|---|---|
-| **能力上缺不缺** | **不缺**。跨界面共享 → 服务定位器；单屏流程 → 面板 + 数据对象；界面间通信 → `RevEvent` + Part 宿主中转（`IRevUIPartHost.NotifyPartChanged`）；数据更新 → `SetData` + `OnDataChanged`。**这两层能做的事，现成机制一件都没漏** |
-| **框架要不要提供基类** | **不要**。框架给"机制"（容器 + 面板基类），分层是"约定"；把约定做成基类 = 让所有人付代价、换一小部分人的便利 |
-| **做了的成本** | 每屏 3~4 个文件、4 跳数据流、两套生命周期要管、排查路径变长（10.7） |
-| **结论** | ✅ **框架层面不做这两层**；值得做的是"约定 + 工具"，不是"新层" |
-
-**框架层面真正值得做（都不是新层）**：
-
-| # | 做什么 | 为什么是它 |
-|---|---|---|
-| 1 | **面板模板生成器**（编辑器生成"面板类 + 数据类 + 钩子骨架"） | 分层本来想省的就是"样板时间"，而生成器直接省掉它，且**零运行时成本**（已在《九、本期没做的》清单里） |
-| 2 | **一页纪律写进使用说明**："跨界面 = 服务 / 单屏 = 面板 / 复杂了抽流程类" | 本章 10.3~10.6 就是它；分层能带来的"秩序"靠约定同样拿得到 |
-| 3 | **两段示例代码**：面板里怎么取服务（`GameServices.Locator.GetRequired<IBagService>()`）、怎么把数据喂给 `SetData` | 示例比抽象更能统一写法，且不会绑死结构 |
-
-> 曾经考虑过"给面板基类加一个 `Services` 便捷属性"，**结论是不加**：那需要一个"全局默认容器"的概念，
-> 正是 `RevServiceBuilder` 注释里批判过的那条老路（"组合根之外到处赋值 / 202 个谁都能改的静态字段"）。
-> 业务自己包一层显式入口（`GameServices.Bag`）更清楚，也更符合"依赖显式化"。
-
-**什么情况下结论翻转**（出现再改，不必提前造）：
-
-| 触发条件 | 那时需要什么 |
-|---|---|
-| 框架要支持**代码热更**（HybridCLR 等） | "可热更逻辑 vs 不可热更表现"的**物理边界**（分层变成硬需求） |
-| 目标用户变成**几十人的多团队项目组** | 接口契约层（System 那类）成为刚需 —— 但仍然是"**接口 + 约定**"，不是基类 |
-| 要做 **View 代码自动生成**（王者那套 `UI_BINDING`） | "生成物 vs 手写逻辑"必须分离 —— 落点是**工具链**，仍然不是"运行时分层" |
-
-> 换个角度看王者那四层：`View` 是**工具产物**（生成的绑定代码）、`System` 与 `BusinessLogic` 是**约束的产物**（跨语言 / 热更边界）、
-> 真正"运行时必需"的只有**表现与逻辑的分离** —— 而这一层本框架已经有了（`OnBindView` / `OnRefreshView` / `OnClick` 三个钩子各管一件事）。
+> **框架层面真正值得做的是"约定 + 工具"，不是"新层"**
+> ① 面板模板生成器（省掉样板时间，零运行时成本）；② 把"跨界面 = 服务 / 单屏 = 面板 / 复杂了抽流程类"写进使用说明；③ 给两段示例（面板里怎么取服务、怎么把数据喂给 `SetData`）。
+> **唯一值得写进框架的**是"面板基类加一个 Services 便捷属性"这类便利 —— 而它被明确否决了：那需要"全局默认容器"的概念，正是服务定位器注释里批判过的老路（到处赋值、谁都能改）。业务自己包一层显式入口更清楚。
 
 ---
 
-*对应代码版本：`Assets\Revolution\Runtime\RevUISystem\`（26 个 `.cs` / 5,992 行；其中动画库 7 个在 `Animation\` 下）。*
+## 八、验证结果
+
+这套框架的验证分两层：**纯逻辑内核在工程外跑真断言**（不开 Unity），**整个程序集用 Unity 真实引用编译**。
+
+| 验证项 | 结果 |
+|---|---|
+| 工程外行为断言：目录规范化 / 资源名默认取类名 / 遮罩按层推断 / 字段名 → 节点名 / 显式路径优先 / 继承字段收集 / "只挂重写的回调" / 元数据与绑定计划缓存 / 忘了写特性的报错文案 … | **65 项全部通过** |
+| 画布归属与排序规则断言：单 Canvas 一律常用 / 静态与动态子画布只收 `Scene` 层 / 其它层放回常用并告警 / 未知枚举兜底 / 排序号 根−2 < 根−1 < 根 / 常用画布在最上 | **12 项全部通过** |
+| 整程序集编译：`Revolution.Runtime` 与 `Revolution.Editor`（Unity 2022.3 真实引用 + `UNITY_EDITOR`） | **0 错误 0 警告**（本篇成文时重跑复核） |
+| 语言版本 `LangVersion 9.0`（对齐 Unity 2022.3） | 编译通过 |
+| 三 Canvas 改动后用引擎引用重编（玩家配置 + `UNITY_EDITOR` 两套） | **0 错误**，UI 模块 0 警告 |
+
+断言跑在"**要提交的那份源码**"上（工程直接链接真实文件，不是复制品）。它验的都是"写的时候看不错、跑起来才知道"的规则，例如：
+
+- 特性里写 `"UI/Panel/"`、`"\\UI\\Panel\\"`、`"  UI/Panel  "` → 都得到 `UI/Panel`（不会拼出双斜杠）；
+- 省略资源名 → 取**类名**；显式写了 → 以显式为准；资源键 = 根目录 + 资源名；
+- `Popup` 层默认挡、`Toast` 层默认不挡；显式声明永远优先；
+- `_btnClose` / `m_title` / `__x` → 节点名 `btnClose` / `title` / `x`（全是下划线时原样返回，不会给出空名字）；
+- 只重写了 `OnScrollChanged` → **只**挂滚动监听；一个都没重写 → 连扫子节点都省了；
+- 基类与派生类里的 `[RevBind]` 字段都会被收集，且不重复。
+
+> **这套做法抓到的真错误（都已修）**
+> ① 断言工程编译时先报 `CS0103`：绑定计划里调静态方法漏写类名 —— 纯内核抽出来后，**Unity 还没打开就先红了一次**；
+> ② 用 Unity 引用编译时报类型不存在：门面里把异步源的返回类型名按印象写错了，编译器把它拦下。
+> 这两条正好说明"能脱机验证 + 真引用编译"的价值：**它们都是肉眼不容易发现、但一跑就炸的错**。
+
+---
+
+## 九、附：关键文件索引
+
+路径均在 `Assets\Revolution\Runtime\RevUISystem\` 下。**标注"纯 C#"**的文件不引用 `UnityEngine`，可脱机验证。
+
+| 文件 | 职责 |
+|---|---|
+| `Facade\RevUI.cs` | **业务唯一入口**：打开 / 关闭 / 返回 / 查询 / 预热 / 诊断；只转发 + 失败时给人话文案 |
+| `Implementation\RevUIManager.cs` | **唯一状态中心**：五级查找、在途合并、互斥组、返回栈、层级重排、池与资源引用配对、诊断 |
+| `Implementation\RevUIRoot.cs` | **常驻场景根**：建 Canvas / 子画布 / 六层挂点 / 挡板 / EventSystem / UI 相机；`Update` 处理延迟销毁，`LateUpdate` 触发重排 |
+| `Implementation\RevUIPanelPool.cs` | **面板实例专用池**（按面板分桶、后进先出、上限 `MaxCachedPanels`）；不套用通用对象池 |
+| `Implementation\RevUIPopupMask.cs` | **弹窗挡板**：每层一块、不生成顶点（零 overdraw）、自动插到对应面板下方、点它关该层最上面的弹窗 |
+| `Core\RevUIPanel.cs` | **面板基类**：生命周期钩子、状态、绑定触发、数据入口、自动摘事件、转场钩子 |
+| `Core\RevUIPanel.Generic.cs` | `RevUIPanel<TData>`：强类型数据入口 + 强制实现 `OnRefreshView` |
+| `Core\RevUIPart.cs` | **Part 基类**：依附单元、节点级 / 预制体级两种形态、异步创建、资源引用配对释放 |
+| `Core\RevUIDefine.cs`（纯 C#） | 公共词汇与规则：六层顺序、状态、缓存模式、遮罩模式、画布架构 / 画布类型、画布排序号 |
+| `Core\RevUIAttributes.cs`（纯 C#） | 声明式特性：`[RevUIPanel]` / `[RevUIPart]` / `[RevBind]`；含"为什么不代码生成"的理由 |
+| `Core\RevUIWidgetEvents.cs`（纯 C#） | 方法特性路径（9 类控件事件）：按类型扫描 + 缓存 + 参数形状校验 + 派发 |
+| `Support\RevUIPanelMeta.cs`（纯 C#） | 特性 → 元数据解析与缓存（目录规范化、资源名默认取类名、拼资源键）；报错文案也在这 |
+| `Support\RevUIBindPlan.cs`（纯 C#） | 绑定计划：字段 ↔ 节点名 ↔ 控件类型、"这个类重写了哪些回调"（`WantsXxx`） |
+| `Support\RevUIBinder.cs` | 装配执行者：按计划赋值控件、按需装 UGUI 监听、自定义控件的自动事件注册口 |
+| `Support\RevUIButtonPressRelay.cs` | 交互节点的"按住 / 松开"继电器（UGUI 不报这两个事件），阈值用不受暂停影响的时间 |
+| `Support\RevUISetting.cs` | 全局配置 + 统一日志出口（含异常隔离 `Guard`）：适配 / 排序 / 缓存 / 遮罩 / 动画开关 / 渲染模式 / 图层 |
+| `Support\RevUIUnityHooks.cs` | 进 Play 前清管理器运行时索引（关掉"域重载"时也能反复运行） |
+| `Interfaces\IRevUIPartHost.cs` | Part 的宿主契约（四成员）—— Part 能跨面板复用的关键 |
+| `Interfaces\IRevUIUserEvents.cs` | 控件事件 → 宿主回调的内部转发口（让绑定器 / 继电器只写一份） |
+| `Animation\RevUIAnim.cs` | **动画门面**：预设一行播、`ScaleTo` / `FadeTo` / `Breathe`、悬停反馈、停止与恢复 |
+| `Animation\RevUIAnimEngine.cs`（纯 C#） | **动画内核**：采样推进 + 帧余量结转 + 循环往返 + 运行时对象池 + 带版本号的句柄 |
+| `Animation\RevUIAnimSpec.cs`（纯 C#） | 动画规格与预设：三通道掩码（透明度 / 缩放 / 位移）+ 一组现成预设（位移用"自身宽高比例"，换分辨率不穿帮） |
+| `Animation\RevUIAnimTarget.cs` | 采样落点：把系数写进 `CanvasGroup` / `RectTransform`；没 CanvasGroup 自动补，基准值只取一次 |
+| `Animation\RevUIAnimDriver.cs` | 每帧推进（复用 `RevMono`，不新起隐藏宿主；用不受暂停影响的时间） |
+| `Animation\RevUIEase.cs`（纯 C#） | 缓动曲线纯函数（边界恒等、可脱机断言） |
+| `Animation\RevUIWidgetFeedback.cs` | 控件反馈：悬停放大 + 按下缩小（走"目标值动画"，连点不会越缩越小） |
+
+> **配套资源（可选，默认路径）**：`Resources\RevUIPrefab\RevUICanvas`（根节点模板，用于相机模式 / 自定义根）与 `Resources\RevUIPrefab\RevUICamera`（UI 相机模板）。
+> **两者都载不到时框架会退回"代码自建 + 一句警告"**，所以不放这两个资源也能跑。
+
+---
+
+## 十、本期没做的（可后续扩展）
+
+| 项 | 说明 |
+|---|---|
+| 面板清单窗口（编辑器工具） | 列出所有面板的"类名 / 资源路径 / 层级 / 缓存方式"，一键校验"类名 ↔ 预制体"是否对得上、路径是否真的存在（可复用打包工具那套扫描） |
+| 按模板一键创建面板脚本 | 从选定目录生成"面板类 + 数据类 + 骨架"，省掉手写特性与钩子（第七章说的"值得做的工具"） |
+| MessageBox（消息框） | 按参考文档的结论做：队列 + 优先级 + 去重，按钮只转发事件不处理业务；它是标准面板，自定义内容用"空壳 + 内容插槽"的做法 |
+| 常用 Part | 无限滚动列表、页签组、通用奖励格 —— 都是"写一次、多处复用"的典型 |
+| 面板资源分组可配 | 现在面板预制体统一走一个资源分组；将来可以按面板声明自己的分组，便于按功能卸资源 |
+| 打开优先级 | 现在打开是即时的；可以给异步打开加优先级参数，让"读条期预加载"与"临时弹窗"排队更合理 |
+
+---
+
+> 对应代码版本：`Assets\Revolution\Runtime\RevUISystem\` —— **26 个 `.cs` / 6,107 行**
+> （`Core\` 1,783 · `Animation\` 1,498 · `Implementation\` 1,493 · `Support\` 1,083 · `Facade\` 174 · `Interfaces\` 76）。
+> 本篇只讲"设计与写法上的为什么"；**具体怎么用**（写面板 / 传数据 / 层级遮罩 / 动画 / API 对照表）见同目录《UI 系统 · 使用说明》。
+
+

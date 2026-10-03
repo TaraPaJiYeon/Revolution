@@ -249,7 +249,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 - ✅ **声明式配置**：`[RevUIPanel(root, layer)]` 一个特性搞定层级与根节点
 - ✅ **控件事件三种接法**：九种事件（点击 / 长按 / 松开 / Toggle / Slider / 输入框 / 结束编辑 / Dropdown / 滚动）都能用**方法特性**一行接上（`[RevButtonClick("btnStart")]` · `[RevToggleChanged("tglSound")]` · `[RevScrollChanged("scrollList")]` …）；也可重写 `OnClick(节点名)` 这类回调集中处理，或 `[RevBind]` 字段 + 自己挂监听（最灵活）
 - ✅ **内置 UI 动画库**（不依赖 DOTween）：面板 / Part 一行预设 `ShowAnimation => RevUIAnimPreset.PopIn`（显示隐藏动画**播完才回调**）；控件一行 `RevUIAnim.FadeIn / SlideIn / ScaleTo / Breathe / AddHoverFeedback`；引擎走采样模型 + 帧余量结转（掉帧不改变动画总时长），600 帧稳态零 GC
-- ✅ **Canvas 架构按需选择**：**主推单 Canvas（默认、零配置）**；只有目标设备的 Profiler 证明 UI 合批成为瓶颈、常规优化仍不达标，才启用常用 / 静态 / 动态三 Canvas。并非有动态 UI 就必须拆，详见 [架构解析 4.12](Revolution.Document/UI系统/UI系统架构解析.md)
+- ✅ **Canvas 架构按需选择**：**主推单 Canvas（默认、零配置）**；只有目标设备的 Profiler 证明 UI 合批成为瓶颈、常规优化仍不达标，才启用常用 / 静态 / 动态三 Canvas。并非有动态 UI 就必须拆，详见 [架构解析 · 决策 11](Revolution.Document/UI系统/UI系统架构解析.md)
 - ✅ **与对象池联动**：关闭即回收，重复打开不重建
 - ✅ **纯代码路径可用**：没有 `Resources` 时 Canvas 用代码建（降级不崩）
 
