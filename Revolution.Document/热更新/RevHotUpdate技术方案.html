@@ -99,7 +99,7 @@
   <div class="wrap">
     <span class="kicker">技术方案 · 已实现</span>
     <h1>RevHotUpdate · 资源热更新系统技术方案</h1>
-    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/Revolution.HotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3177 行 + 编辑器 2 个 <code>.cs</code> / 406 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（本文写作时这个目录叫 <code>Assets/RevHotUpdate/</code>，后来按框架命名规范改名为 <code>Revolution.HotUpdate</code>；正文已统一用新路径）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
+    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/Revolution.HotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3309 行 + 编辑器 2 个 <code>.cs</code> / 427 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（本文写作时这个目录叫 <code>Assets/RevHotUpdate/</code>，后来按框架命名规范改名为 <code>Revolution.HotUpdate</code>；正文已统一用新路径）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
   </div>
 </header>
 
@@ -1776,13 +1776,13 @@ RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生�
 ③ 然后写下载器（先单文件跑通，再加并发/重试/多源/续传）
 ④ 最后接框架钩子（此时"文件已经到位"，钩子只是把路径指过去 —— 最不容易出问题）
 ⑤ 编辑器工具放在 ④ 之后（此时清单格式已经冻结，工具只是"填数据"）</pre>
-    <p><em>对应代码版本：框架 <code>Assets/Revolution/Runtime/RevResourceSystem/</code>（<code>RevABLoader.cs</code> / <code>RevResBootstrap.cs</code> / <code>RevResManager.cs</code> / <code>RevABResPolicy.cs</code>）+ 打包工具 <code>Assets/Revolution/Editor/RevResourceSystem/ABTool/</code>；<b>RevHotUpdate 已实现</b>（<code>Assets/Revolution.HotUpdate/</code>，运行时 18 个文件 / 3177 行 + 编辑器 2 个文件 / 406 行）。本文档保留"方案阶段"的完整论证（含现状盘点里的 ❌ 标记与钩子草案），实现后的落地情况与差异见《RevHotUpdate 架构解析》第七、九章。</em></p>
+    <p><em>对应代码版本：框架 <code>Assets/Revolution/Runtime/RevResourceSystem/</code>（<code>RevABLoader.cs</code> / <code>RevResBootstrap.cs</code> / <code>RevResManager.cs</code> / <code>RevABResPolicy.cs</code>）+ 打包工具 <code>Assets/Revolution/Editor/RevResourceSystem/ABTool/</code>；<b>RevHotUpdate 已实现</b>（<code>Assets/Revolution.HotUpdate/</code>，运行时 18 个文件 / 3309 行 + 编辑器 2 个文件 / 427 行）。本文档保留"方案阶段"的完整论证（含现状盘点里的 ❌ 标记与钩子草案），实现后的落地情况与差异见《RevHotUpdate 架构解析》第七、九章。</em></p>
   </section>
 
 </main>
 
 <footer>
-  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3177 行 · 编辑器 2 个 <code>.cs</code> / 406 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3309 行 · 编辑器 2 个 <code>.cs</code> / 427 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
   权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate技术方案.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 

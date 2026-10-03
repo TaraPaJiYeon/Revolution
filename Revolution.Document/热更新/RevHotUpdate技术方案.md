@@ -7,7 +7,7 @@
 > 本文回答两个问题：**① 这事能不能干（可行性）；② 具体怎么干（实现方案）**。
 > 所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。
 >
-> ★ **实施状态：已按本文第十五章的"最优方案"实现**（运行时 18 个 `.cs` / 3177 行 + 编辑器 2 个 `.cs` / 406 行），
+> ★ **实施状态：已按本文第十五章的"最优方案"实现**（运行时 18 个 `.cs` / 3309 行 + 编辑器 2 个 `.cs` / 427 行），
 > 代码落在 `Assets/Revolution.HotUpdate/`（本文写作时这个目录叫 `Assets/RevHotUpdate/`，后来按框架命名规范改名为 `Revolution.HotUpdate`；正文已统一用新路径）。
 > 怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。
 
@@ -1544,4 +1544,4 @@ internal sealed class RevHotUrlSink  : IRevHotSink { ... }    // WebGL / 小游�
 
 ---
 
-*对应代码版本：框架 `Assets/Revolution/Runtime/RevResourceSystem/`（`RevABLoader.cs` / `RevResBootstrap.cs` / `RevResManager.cs` / `RevABResPolicy.cs`）+ 打包工具 `Assets/Revolution/Editor/RevResourceSystem/ABTool/`；**RevHotUpdate 已实现**（`Assets/Revolution.HotUpdate/`，运行时 18 个文件 / 3177 行 + 编辑器 2 个文件 / 406 行）。本文档保留"方案阶段"的完整论证（含现状盘点里的 ❌ 标记与钩子草案），实现后的落地情况与差异见《RevHotUpdate 架构解析》第七、九章。*
+*对应代码版本：框架 `Assets/Revolution/Runtime/RevResourceSystem/`（`RevABLoader.cs` / `RevResBootstrap.cs` / `RevResManager.cs` / `RevABResPolicy.cs`）+ 打包工具 `Assets/Revolution/Editor/RevResourceSystem/ABTool/`；**RevHotUpdate 已实现**（`Assets/Revolution.HotUpdate/`，运行时 18 个文件 / 3309 行 + 编辑器 2 个文件 / 427 行）。本文档保留"方案阶段"的完整论证（含现状盘点里的 ❌ 标记与钩子草案），实现后的落地情况与差异见《RevHotUpdate 架构解析》第七、九章。*

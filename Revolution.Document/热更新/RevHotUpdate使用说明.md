@@ -476,5 +476,5 @@ RevHotUpdateResult result = await RevHotUpdate.UpdateAsync(check, p => bar.Set(p
 
 ---
 
-*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3177 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 406 行）· 框架侧两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`，默认 `null`）。*
+*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3309 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 427 行）· 框架侧两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`，默认 `null`）。*
 *demo：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（示例工程在 `demo` 分支：`git clone -b demo https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo`）。*

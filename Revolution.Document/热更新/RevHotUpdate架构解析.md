@@ -51,7 +51,7 @@ Editor         清单生成 + 自检 + 工具窗口
 
 ## 一、文件职责表
 
-### 运行时（18 个文件 / 3177 行）
+### 运行时（18 个文件 / 3309 行）
 
 | 文件 | 职责 | 关键点 |
 |---|---|---|
@@ -74,7 +74,7 @@ Editor         清单生成 + 自检 + 工具窗口
 | `Integration/RevHotResBridge.cs` | 装钩子 + 按序重装资源策略 | `ShutdownAll → 切版本 → Init`，绝不在包被使用时覆盖文件 |
 | `Support/RevHotUpdateUnityHooks.cs` | 进 Play 复位内存状态 | 关 Domain Reload 时静态字段不清空，必须手动复位（磁盘数据不动） |
 
-### 编辑器（2 个文件 / 406 行）
+### 编辑器（2 个文件 / 427 行）
 
 | 文件 | 职责 | 关键点 |
 |---|---|---|
@@ -304,4 +304,4 @@ DownloadPlanAsync      整批 = N 个工人从共享游标领任务
 
 ---
 
-*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3177 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 406 行）· 框架侧钩子 `RevABLoader.BundlePathResolver` 与 `RevResBootstrap.ResMapOverride`（各十几行，默认 `null`）。*
+*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3309 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 427 行）· 框架侧钩子 `RevABLoader.BundlePathResolver` 与 `RevResBootstrap.ResMapOverride`（各十几行，默认 `null`）。*
