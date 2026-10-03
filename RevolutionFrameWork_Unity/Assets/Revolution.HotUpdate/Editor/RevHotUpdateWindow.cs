@@ -9,6 +9,7 @@
 //   ③ 点「自检」—— 有问题当场拦下（缺包 / 大小不符 / 依赖缺失）
 //   ④ 点「打开目录」→ 把整个目录上传到 CDN（★ 先传内容、最后传 RevHotManifest.txt）
 // ============================================================
+using Revolution.Editor;
 using System.IO;
 using UnityEditor;
 using UnityEngine;

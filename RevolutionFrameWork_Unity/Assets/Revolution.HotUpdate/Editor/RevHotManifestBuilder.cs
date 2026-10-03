@@ -17,6 +17,7 @@
 //   unityHash / unityCrc：同一段文本里的 AssetFileHash / CRC（小游戏上交给引擎做缓存与校验）。
 //   ★ Unity 的 .manifest 是文本，跨平台可读 —— 不需要"加载另一个平台的 AB"才能拿到依赖。
 // ============================================================
+using Revolution.Editor;
 using System;
 using System.Collections.Generic;
 using System.IO;

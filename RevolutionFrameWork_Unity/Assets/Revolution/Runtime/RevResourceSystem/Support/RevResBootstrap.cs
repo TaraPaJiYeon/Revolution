@@ -14,6 +14,7 @@
 //   · AB 模式：真机自动使用；编辑器下需手动开启
 //     （菜单 Revolution.Tools/资源/AB 加载模式（编辑器），或代码设 UseABInEditor = true）。
 // ============================================================
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
