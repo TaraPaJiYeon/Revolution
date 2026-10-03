@@ -106,7 +106,9 @@
     <span class="kicker">架构解析</span>
     <h1>事件系统 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\RevEventSystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能独立完成"定义事件名 → 定义参数结构体 → 注册监听 → 派发 → 正确反注册"，并且知道它和早期版本的每一处差别、每处差别为什么这么改</p>
+    <p class="meta"><b>本篇只讲"为什么"</b>：为什么这么设计、为什么这么写代码、每个决策换来了什么、代价是什么、边界画在哪。<br>
+      <b>想学怎么用</b> → 看同目录的《使用说明》，那里是手把手，本篇不重复。<br>
+      <b>面向小白</b>：用大白话讲"不这么做会怎样"，不复述代码。</p>
   </div>
 </header>
 
@@ -114,7 +116,8 @@
 
   <nav class="toc">
     <ol>
-      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#origin">设计起源：为什么要做这个模块</a></li>
+      <li><a href="#s0">〇、三句话速览（完整用法见《使用说明》）</a></li>
       <li><a href="#s1">一、事件系统解决什么问题</a></li>
       <li><a href="#s2">二、当前实现 vs 早期版本</a></li>
       <li><a href="#s3">三、运用了参考实现的哪些设计哲学</a></li>
@@ -128,8 +131,28 @@
   </nav>
 
   <!-- ==================== 〇 ==================== -->
+  <!-- ==================== 设计起源 ==================== -->
+  <section id="origin">
+    <h2><span class="num">源</span>设计起源 · 为什么要做这个模块</h2>
+
+    <div class="callout">
+      <span class="t">一句话</span>
+      游戏里到处是"一个地方发生、很多地方要响应"（获得皮肤 → 商城刷新 + 英雄界面刷新 + 弹窗 + 埋点）。事件系统就是让"发的只管发，谁关心谁自己听"。
+    </div>
+
+    <ul>
+      <li><b>没它会怎样</b>：发事件的那段代码得认识所有接收者：每加一个响应方，就要回去改它一次。系统越大，这种"顺手改一下"越贵。</li>
+      <li><b>早期做法一：出错是静默的</b>：派发时做类型转换，类型对不上就得到空值 —— 不报错、不打日志、不崩，事件就这么消失了。表现是"某个功能偶尔不刷新"，排查方向还被带偏。</li>
+      <li><b>早期做法二：改着改着就崩</b>：派发过程中有回调反注册了自己或别人，正在遍历的监听者列表被改短，于是漏调用、重复调用甚至越界崩溃。</li>
+      <li><b>早期做法三：漏一处就是泄漏</b>：界面注册了 5 个事件、销毁时漏掉一个，事件系统就一直攥着已销毁的界面对象：回收不掉，下次派发还会执行到它。</li>
+      <li><b>换来了什么</b>：签名对不上会明确报出两侧类型；派发中增删监听者变得可预期；常规注册/反注册路径零 GC 分配 —— 原来靠运气的地方，现在都有明确结果。</li>
+    </ul>
+
+    <p><b>本篇只讲为什么；怎么用见同目录《使用说明》。</b></p>
+  </section>
+
   <section id="s0">
-    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <h2><span class="num">0</span>三句话速览（完整用法见《使用说明》）</h2>
     <pre><span class="n">①</span> 事件名      业务侧集中定义静态常量：<span class="k">public const string</span> HeroSkinAdd = <span class="s">"Hero.Skin.Add"</span>;
 <span class="n">②</span> 参数        定义一个结构体：<span class="k">public readonly struct</span> HeroSkinAddArgs { ... }
 <span class="n">③</span> 注册/派发   RevEvent.AddEventListener&lt;HeroSkinAddArgs&gt;(GameEventId.HeroSkinAdd, OnSkinAdd, owner: <span class="k">this</span>);

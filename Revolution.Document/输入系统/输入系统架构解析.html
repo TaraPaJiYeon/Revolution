@@ -106,7 +106,9 @@
     <span class="kicker">架构解析</span>
     <h1>输入系统 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\RevInput\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Implementation\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能说清"分层怎么切 → 一帧到底做了什么 → 每个决定放弃了什么"，适合要改这套输入、要做技术选型、要给同事讲清取舍的人</p>
+    <p class="meta"><b>本篇只讲"为什么"</b>：为什么这么设计、为什么这么写代码、每个决策换来了什么、代价是什么、边界画在哪。<br>
+      <b>想学怎么用</b> → 看同目录的《使用说明》，那里是手把手，本篇不重复。<br>
+      <b>面向小白</b>：用大白话讲"不这么做会怎样"，不复述代码。</p>
   </div>
 </header>
 
@@ -114,7 +116,8 @@
 
   <nav class="toc">
     <ol>
-      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#origin">设计起源：为什么要做这个模块</a></li>
+      <li><a href="#s0">〇、三句话速览（完整用法见《使用说明》）</a></li>
       <li><a href="#s1">一、定位：通用输入系统，不是帧同步输入</a></li>
       <li><a href="#s2">二、分层与文件地图</a></li>
       <li><a href="#s3">三、一帧到底做了什么</a></li>
@@ -126,8 +129,27 @@
   </nav>
 
   <!-- ==================== 〇 ==================== -->
+  <!-- ==================== 设计起源 ==================== -->
+  <section id="origin">
+    <h2><span class="num">源</span>设计起源 · 为什么要做这个模块</h2>
+
+    <div class="callout">
+      <span class="t">一句话</span>
+      一套框架要同时伺候键盘 / 鼠标 / 触屏 / 手柄，还要能改键、能被弹窗挡住、手感参数还得可调 —— 输入系统就是把这些"杂事"统一收口，业务只用动作名读输入。
+    </div>
+
+    <ul>
+      <li><b>先说清边界：它是通用输入，不是帧同步输入</b>：帧同步那套要求输入变成可序列化的帧命令、精度量化成整数、按帧号算节拍，还要 seq + 确认 + 补发；通用项目没有那个同步层，本地输入也没有丢包，照搬只会凭空多出间接层和纯成本。可复用的是"机制"（设备抽象、采集与判定分离、零分配、手感参数化），不可复用的是"为确定性付出的代价"。</li>
+      <li><b>没有它，每处输入都要自己处理一堆杂事</b>：改键、屏蔽、缓冲、多指抢占、切后台复位……全都散在业务里。本模块把它们收进一个内核，业务只认动作名、不认键位（改键 / 屏蔽 / 缓冲都在同一个抽象上做，业务代码里没有键位字面量）。</li>
+      <li><b>参考实现缺什么，这里就补什么</b>：键盘 / 鼠标支持、多点触控的 id 出口、多种手势 + 八向滑动、输入缓冲窗口、失焦 / 切后台复位、可精确到指针的屏蔽栈、可断言的内核、绑定文本往返 + 冲突检测。</li>
+      <li><b>为什么坚持纯 C# 内核 + 热路径零分配</b>：死区、双击窗口、滑动阈值、多指抢占这些"最容易写错"的手感参数必须能脱机断言；而输入是逐帧热路径，零分配是硬指标，所以就地 try/catch、不传 lambda（否则每次都要分配一个闭包）。</li>
+    </ul>
+
+    <p><b>本篇只讲为什么；怎么用见同目录《使用说明》。</b></p>
+  </section>
+
   <section id="s0">
-    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <h2><span class="num">0</span>三句话速览（完整用法见《使用说明》）</h2>
     <pre><span class="n">①</span> 绑定     RevInput.Bind(<span class="s">"Jump"</span>, RevKey.Space, RevKey.JoystickButton0);   <span class="c">// 业务只认动作名，不认键位</span>
 <span class="n">②</span> 订阅     RevInput.OnPressed(<span class="s">"Jump"</span>, Jump, owner: <span class="k">this</span>);               <span class="c">// 或 AddListener(this) 一次收全部</span>
 <span class="n">③</span> 退订     RevInput.OffAllOf(<span class="k">this</span>);                                    <span class="c">// 事件 + 屏蔽一起清</span></pre>

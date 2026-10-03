@@ -107,7 +107,8 @@
     <span class="kicker">架构解析</span>
     <h1>UI 系统 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\RevUISystem\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Implementation\</code> + <code>Interfaces\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能独立完成"写一个面板 → 声明预制体路径 → 打开/关闭 → 数据刷新 → 复用与释放"，并且知道它和早期版本的每一处差别、每处差别为什么这么改，以及从参考实现 UI 框架里取了哪些设计、砍掉了哪些复杂度。</p>
+    <p class="meta"><b>本篇只回答"为什么"</b>：这套 UI 框架为什么这么设计、为什么这么写代码、每个决策换来了什么、代价是什么、边界画在哪。<br>
+      <b>想学怎么用</b>（写面板 / 摆预制体 / 打开关闭 / 传数据 / Part / 动画 / 层级与遮罩）→ 看同目录的《UI 系统 · 使用说明》；本篇是<b>面向小白</b>的论证，用大白话讲"不这么做会怎样"，不复述代码。</p>
   </div>
 </header>
 
@@ -115,12 +116,13 @@
 
   <nav class="toc">
     <ol>
-      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#origin">设计起源：为什么要重写一套 UI 框架</a></li>
+      <li><a href="#s0">〇、这份文档怎么读</a></li>
       <li><a href="#sp">★、设计哲学：一条主线</a></li>
       <li><a href="#s1">一、UI 系统解决什么问题</a></li>
       <li><a href="#s2">二、当前实现 vs 早期版本（为什么这么设计）</a></li>
       <li><a href="#s3">三、运用了参考实现的哪些设计哲学</a></li>
-      <li><a href="#s4">四、新版 UI 系统怎么用</a></li>
+      <li><a href="#s4">四、设计要点对应的写法（不是教程）</a></li>
       <li><a href="#s5">五、必须知道的八个坑</a></li>
       <li><a href="#s6">六、API 速查</a></li>
       <li><a href="#s7">七、验证结果</a></li>
@@ -130,13 +132,64 @@
     </ol>
   </nav>
 
+  <!-- ==================== 设计起源 ==================== -->
+  <section id="origin">
+    <h2><span class="num">源</span>设计起源：为什么要重写一套 UI 框架</h2>
+
+    <div class="callout">
+      这一节是作者的第一人称自述，讲清"这套东西为什么会存在"。只想看设计结论的，可以直接跳到下一节《设计哲学》。
+    </div>
+
+    <h3>起点：写一个界面要写五个脚本</h3>
+    <p>作者在项目组里用的那套 UI 框架极其复杂 —— 写一个 UI 功能要写好几个脚本，各管一段：</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>脚本</th><th>它管什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>ViewData</code></td><td>UI 界面的数据</td></tr>
+          <tr><td><code>FromView</code></td><td>UGUI 控件绑定</td></tr>
+          <tr><td><code>FromLogic</code></td><td>控件逻辑绑定</td></tr>
+          <tr><td><code>System</code></td><td>网络消息收发处理</td></tr>
+          <tr><td><code>BusinessLogic</code></td><td>业务总控：负责注册、启动、销毁这个业务功能</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>写一个界面，就要在五个文件之间来回跳。<b>太复杂了。</b> 而且这套东西是用 TypeScript（puerts）写的 ——
+    在 Unity 工程里用 TS 写 UI 很别扭、很丑陋：编译链、类型、调试、和 C# 侧的边界，全是额外的心智负担。</p>
+
+    <h3>更关键的矛盾：分这么多层只是为了热更，而热更本身又只是"半套"</h3>
+    <p>把界面切成这么多层，唯一的正当理由是<b>热更新</b> —— 界面逻辑放进 TS，就能不发版改界面。但项目里的实际情况是：</p>
+    <ul>
+      <li><b>只有大版本之内的小更新</b>才走热更；</li>
+      <li><b>一整个大版本更新，必须重新打包发版</b>。</li>
+    </ul>
+    <p>那这笔账就不划算了：为了"偶尔一次小更新"，长期付出"每个界面五个脚本 + 一整套 TS 工具链"的成本。
+    既然大版本反正要重新发版，<b>还不如全量上 HybridCLR 这类 C# 热更方案</b> —— 语言统一在 C#，
+    分层也可以顺着 C# 的习惯重新设计，不必为了 TS 的边界把界面切得那么碎。</p>
+
+    <h3>于是想到：留下真正值得复用的部分，其余按自己的方式重写</h3>
+    <ol>
+      <li><b>留下真正有复用价值的东西</b> —— 比如 <code>ViewData</code>（数据与界面分离）、<code>Part</code>（可复用的界面单元）这类"结构上就对"的设计；</li>
+      <li><b>融合作者跟唐老师学到的 UI 框架</b>里的做法（面板 + 钩子 + 声明式绑定这一路）；</li>
+      <li>目标就三个词：<b>高复用、易用、傻瓜式</b> —— 写一个界面 = 一个脚本 + 一个预制体，不该先学会一套分层学说才能动手。</li>
+    </ol>
+
+    <div class="callout good">
+      <span class="t">这三条不是口号，它们直接决定了后面的每个设计决策</span>
+      让复用<b>安全</b>（复用既是性能，也是 bug 温床）、让失败<b>可见</b>（UI 的问题几乎都是静默失败）、
+      让分层<b>靠结构</b>而不是靠自觉（钩子职责分离，但仍然只有一个脚本）。
+      下一节《设计哲学》就是这三条的展开。
+    </div>
+  </section>
+
   <!-- ==================== 〇 ==================== -->
   <section id="s0">
-    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
-    <pre><span class="n">①</span> 写面板      [RevUIPanel(RevResPath.UI_Panel)] 面板类继承 RevUIPanel（资源名默认 = 类名）
-<span class="n">②</span> 摆预制体    预制体名 = 面板类名，放在资源根目录下的 UI/Panel，并设好 AB 名
-<span class="n">③</span> 打开        RevUI.Open&lt;BagPanel&gt;(panel =&gt; { ... });        <span class="c">// 关闭：panel.CloseSelf()</span></pre>
-    <p>就这三步。剩下的都是这三步的细节。</p>
+    <h2><span class="num">0</span>这份文档怎么读</h2>
+    <pre><span class="n">①</span> 想搞懂"为什么这么设计"   → 往下读（本篇）
+<span class="n">②</span> 想学"怎么写一个界面"     → 看同目录《UI 系统 · 使用说明》
+<span class="n">③</span> 想知道"和早期版本的差别" → 第二章「当前实现 vs 早期版本」
+<span class="n">④</span> 想知道"要不要 System / BusinessLogic 层" → 第十章（直接给了结论）</pre>
+    <p>本篇的篇幅都花在<b>论证</b>上：每个决策都说清"为什么这样最稳、不这样会怎样、代价是什么"。</p>
   </section>
 
   <!-- ==================== ★ 设计哲学 ==================== -->
@@ -292,7 +345,12 @@
 
   <!-- ==================== 四 ==================== -->
   <section id="s4">
-    <h2><span class="num">4</span>新版 UI 系统怎么用</h2>
+    <h2><span class="num">4</span>设计要点对应的写法（<b>不是教程</b>：完整用法见《使用说明》）</h2>
+
+    <div class="callout warn">
+      <span class="t">★ 本章保留"每个设计点在代码里长什么样"，方便你把设计与写法对上号</span>
+      一步步的用法（API 对照表、传数据、层级遮罩、动画、常见坑）在《UI 系统 · 使用说明》，本章不重复教。
+    </div>
 
     <h3>4.1 一个面板长什么样</h3>
 

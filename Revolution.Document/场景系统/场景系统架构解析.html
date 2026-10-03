@@ -145,7 +145,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
     <span class="kicker">架构解析 · 设计与实现论证</span>
     <h1>场景系统 · 架构解析</h1>
     <p>这份文档回答"<b>为什么这么设计</b>"：每个决策换来了什么、代价是什么、边界画在哪。</p>
-    <p class="meta">想学怎么用请看同目录的《使用说明》</p>
+    <p class="meta"><b>本篇只讲"为什么"</b>：为什么这么设计、每个决策换来了什么、代价是什么、边界画在哪。<br>
+      <b>想学怎么用</b> → 看同目录的《使用说明》，那里是手把手，本篇不重复。</p>
   </div>
   <div class="deco"></div>
 </header>
@@ -154,7 +155,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
 
   <nav class="toc">
     <ol>
-      <li><a href="#s0">〇、先看最短路径</a></li>
+      <li><a href="#origin">设计起源：为什么要做这个模块</a></li>
+      <li><a href="#s0">〇、三句话速览（完整用法见《使用说明》）</a></li>
       <li><a href="#s1">一、它解决什么问题</a></li>
       <li><a href="#s2">二、四个关键设计决策（含代价）</a></li>
       <li><a href="#s3">三、"轻量"具体体现在哪</a></li>
@@ -165,8 +167,29 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
     </ol>
   </nav>
 
+  <!-- ==================== 设计起源 ==================== -->
+  <section id="origin">
+    <h2><span class="num">源</span>设计起源 · 为什么要做这个模块</h2>
+
+    <div class="callout">
+      <span class="t">一句话</span>
+      切场景是"看起来简单、做起来到处是坑"的典型 —— Unity 只给了 <code>SceneManager.LoadSceneAsync</code>，剩下的全靠自己；这个模块就是把那些坑一次填掉。
+    </div>
+
+    <ul>
+      <li><b>没它会怎样：进度条先卡在 90%，再往回跳</b>：Unity 的 <code>AsyncOperation.progress</code> 在激活前最高只到 0.9，采样值本身还会抖动 —— 于是"卡在 90% 不动"和"进度条回跳"成了两件家常便饭，玩家看到的就是"卡住了"。</li>
+      <li><b>小场景会"闪一下"</b>：几十毫秒就加载完的场景，进度条一闪而过、画面突然切换 —— <code>minSeconds</code> 让进度按时间节奏走，到点才激活。</li>
+      <li><b>重复请求会互相踩</b>：两个 <code>LoadSceneAsync</code> 叠着跑就是黑屏 —— 所以正在切换时<b>忽略 + 告警</b>，而不是排队或硬切。</li>
+      <li><b>场景名写错会一路黑到底</b>：<code>LoadSceneAsync</code> 返回 <code>null</code> 而不是抛异常，很容易一路走到黑 —— 所以当场判掉，并报人话原因。</li>
+      <li><b>旧场景的残留会跟过来</b>：池化实例、画面残留跟着新场景走 —— 所以默认清对象池（<code>AutoClearPool</code>）。</li>
+      <li><b>换来了什么</b>：进度只增不减、到 100% 才放行；<code>await</code> 直接可用（或挂 <code>OnProgress</code> / <code>OnLoadStart</code> 事件）；每条失败都给得出人话原因。</li>
+    </ul>
+
+    <p><b>本篇只讲为什么；怎么用见同目录《使用说明》。</b></p>
+  </section>
+
   <section id="s0">
-    <h2><span class="num">〇</span>先看最短路径（三句话能跑起来）</h2>
+    <h2><span class="num">〇</span>三句话速览（完整用法见《使用说明》）</h2>
     <pre style="margin:10px 0 6px"><span class="n">①</span> 切场景      <span class="k">await</span> RevScene.LoadAsync(<span class="s">"Battle"</span>);                  <span class="c">// 异步（推荐）</span>
 <span class="n">②</span> 接进度      RevScene.OnProgress += p =&gt; bar.value = p;            <span class="c">// 挂一次，全局生效</span>
 <span class="n">③</span> 收摊子      RevScene.OnLoadStart += _ =&gt; RevUI.ShutdownAll();    <span class="c">// 对象池框架已默认清</span></pre>

@@ -106,7 +106,9 @@
     <span class="kicker">架构解析</span>
     <h1>对象池 · 架构解析</h1>
     <p>覆盖：<code>Assets\Revolution\Runtime\ObjectPool\</code>（<code>Core\</code> + <code>Facade\</code> + <code>Support\</code>）</p>
-    <p class="meta">目标：看完能独立完成"一行取出对象 → 归还 → 正确释放"，并且知道它和早期版本的每一处差别、每处差别为什么这么改</p>
+    <p class="meta"><b>本篇只讲"为什么"</b>：为什么这么设计、为什么这么写代码、每个决策换来了什么、代价是什么、边界画在哪。<br>
+      <b>想学怎么用</b> → 看同目录的《使用说明》，那里是手把手，本篇不重复。<br>
+      <b>面向小白</b>：用大白话讲"不这么做会怎样"，不复述代码。</p>
   </div>
 </header>
 
@@ -114,7 +116,8 @@
 
   <nav class="toc">
     <ol>
-      <li><a href="#s0">〇、最短路径（三句话）</a></li>
+      <li><a href="#origin">设计起源：为什么要做这个模块</a></li>
+      <li><a href="#s0">〇、三句话速览（完整用法见《使用说明》）</a></li>
       <li><a href="#s1">一、对象池解决什么问题</a></li>
       <li><a href="#s2">二、当前实现 vs 早期版本</a></li>
       <li><a href="#s3">三、运用了参考实现的哪些设计哲学</a></li>
@@ -128,8 +131,27 @@
   </nav>
 
   <!-- ==================== 〇 ==================== -->
+  <!-- ==================== 设计起源 ==================== -->
+  <section id="origin">
+    <h2><span class="num">源</span>设计起源 · 为什么要做这个模块</h2>
+
+    <div class="callout">
+      <span class="t">一句话</span>
+      子弹、特效、飘字、列表项这些对象，一局游戏要反复"造了毁、毁了造"，既费性能又造成卡顿。对象池让它们"不用了先收起来，下次接着用"。
+    </div>
+
+    <ul>
+      <li><b>没它会怎样</b>：频繁新建 / 销毁会带来 GC 压力和帧内卡顿；销毁之后还会留下 GC 尖峰 —— 表现就是"打起来一卡一卡的"。</li>
+      <li><b>池化不是免费的：它一上手就带来三个风险</b>：① 归还时忘了清状态 → 对象带着上次的数据被复用（最难查的一类 bug）；② 取一次还两次、或还错池 → 两个使用者拿到同一个实例互相踩；③ 池变成"内存黑洞" → 忘记清理、无限囤积。</li>
+      <li><b>早期做法在这三点上全都不设防</b>：重复归还直接往栈里压，池里出现两份、之后两次取出的是同一实例；池里没空闲时，它会把一个"正在被别人使用"的对象抢过来，而原来那个使用者毫无通知；清空池只清字典，池里的对象既不销毁也不回收。</li>
+      <li><b>换来了什么</b>：把"归还清理"做成写类时躲不开的必填接口、把"重复归还"当场拒绝并报错、把"池该多大"变成上限加命中率统计 —— 原来靠自觉和运气的事，现在躲不开也看得见。</li>
+    </ul>
+
+    <p><b>本篇只讲为什么；怎么用见同目录《使用说明》。</b></p>
+  </section>
+
   <section id="s0">
-    <h2><span class="num">0</span>先看最短路径（三句话能跑起来）</h2>
+    <h2><span class="num">0</span>三句话速览（完整用法见《使用说明》）</h2>
     <p><b>Unity 对象（GameObject / 组件）</b></p>
     <pre><span class="n">①</span> 取     GameObject bullet = RevPool.Get(RevResPath.Battle_Bullet, <span class="s">"Blue"</span>, firePoint, RevResGroup.Battle);
           Bullet b         = RevPool.Get&lt;Bullet&gt;(RevResPath.Battle_Bullet, <span class="s">"Blue"</span>, firePoint);   <span class="c">// 直接拿组件</span>
