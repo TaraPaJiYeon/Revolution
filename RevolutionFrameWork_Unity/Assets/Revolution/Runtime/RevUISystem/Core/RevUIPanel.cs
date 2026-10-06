@@ -491,7 +491,10 @@ namespace Revolution
         /// 被外部销毁时的兜底：至少把事件摘干净，别让监听表里挂着已销毁对象。
         /// （正常路径由管理器调 InternalRelease/InternalClose 处理，这里只是保险。）
         /// </summary>
-        protected virtual void OnDestroy() => RevEvent.RemoveAllByOwner(this);
+        protected virtual void OnDestroy()
+        {
+            RevEvent.RemoveAllByOwner(this);
+        }
 
         public override string ToString() => Meta == null ? GetType().Name : $"{GetType().Name}[{Meta.Key}]";
     }

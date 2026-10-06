@@ -19,5 +19,7 @@ namespace Revolution
     public static class RevResPath
     {
         public const string Data = "Data/";
+        public const string RevHotDemo = "RevHotDemo/";
+        public const string RevUIDemo = "RevUIDemo/";
     }
 }
