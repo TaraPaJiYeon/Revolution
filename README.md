@@ -7,13 +7,13 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
 [![Issues](https://img.shields.io/github/issues/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution/issues)
 [![Top Language](https://img.shields.io/github/languages/top/Yokino337088/Revolution?style=flat-square)](https://github.com/Yokino337088/Revolution)
-[![Runtime](https://img.shields.io/badge/Runtime%20模块-17%20个%20·%202.97%20万行-brightgreen?style=flat-square)](#-核心模块)
+[![Runtime](https://img.shields.io/badge/Runtime%20模块-19%20个%20·%203.03%20万行-brightgreen?style=flat-square)](#-核心模块)
 
 ---
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**17 个运行期模块 + 2 套编辑器工具**（Runtime 179 个 `.cs` / 约 2.97 万行），
+**Revolution** 是一套**从零手写**的 Unity 游戏框架：**19 个运行期模块 + 2 套编辑器工具**（Runtime 184 个 `.cs` / 约 3.03 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
 
 > ⚠️ **先说清楚：框架本体不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
@@ -31,6 +31,7 @@
 - 🚀 **一行就能用** - 播放音效、延迟 2 秒、每帧回调、分级日志都是**一行调用**，零配置（不摆物体、不挂脚本）
 - 🧪 **可脱离 Unity 验证** - 内核是纯 C#，`dotnet run` 就能跑断言（误差契约 / 代际失效 / 异常隔离都钉死过）
 - 🛡 **防漏防崩** - 句柄代际校验（过期句柄不会误伤别人）、循环计时器 `owner` / 作用域一行清理、逐回调异常隔离
+- 🚫 **推荐关闭代码裁剪** - 反射 / 泛型 / 场景里挂的原生组件这三类代码，`link.xml` 覆盖不全，漏一个就是"编辑器正常、真机失效"（刚体不响应重力、面板空白、没声音）。关掉的代价只有包体，而包体多少 **3 分钟就能自己测准** → [《代码裁剪 · 使用说明》](Revolution.Document/代码裁剪/代码裁剪使用说明.md)
 - 📉 **性能有数字** - 1000 个计时器每帧 0.0139ms；10 万条日志 0 分配；对象池 10 万次创建 <4KB
 - 🔍 **失败必带原因** - 框架不吞错误：失败一律给**原因枚举**（外加统一日志系统，可静默可按模块关）
 - 📦 **编辑器工具齐** - RevAB 打包窗口（对标 AssetBundle Browser：包树 + 资源表拖拽分包 / 目标平台可选 / Project 窗口包名角标 / 体积依赖漏标检查 / 布局快照对比）+ 导表工具（Unity 编辑器版：拖入 Excel 一键导出，改表自动重读、只写有变化的文件，**仅数据 / 全量两种导出模式**——只改数值不动表结构时不生成代码、不触发脚本编译；另有不依赖 Unity 的 WPF 版）
@@ -126,7 +127,7 @@ git clone https://github.com/Yokino337088/Revolution.git
 | AB **本机**加载 | ✅ 有 | 从 `StreamingAssets` 读；编辑器直读 / AB 两条后端自动切换 |
 | AB **远程下载** + 版本管理 + 差量更新 | ✅ **扩展包提供** | 官方扩展包 **RevHotUpdate**（`Assets/Revolution.HotUpdate`，分支 `hotupdate`）：清单驱动版本比对 / 差量下载 / 断点续传 / 多源降级 / 尺寸+SHA-256 校验 / 版本目录原子切换与回滚 / 首包落地（Android）/ URL 模式（小游戏）。**不装 = 与从前逐字节一致** |
 | **代码热更新**（HybridCLR / ILRuntime / xLua） | ❌ **没有** | 全仓库 0 处相关代码（扩展包也不做） |
-| 运行框架本体（17 个模块：资源 / UI / 序列 / 状态机 / 音效 / 计时器 / 日志 …） | ✅ 有 | 与热更**解耦**：热更接上之后这些模块照常工作，业务代码不用改 |
+| 运行框架本体（19 个模块：资源 / UI / 序列 / 状态机 / 音效 / 计时器 / 日志 …） | ✅ 有 | 与热更**解耦**：热更接上之后这些模块照常工作，业务代码不用改 |
 
 > 源码里就是这么写的（`Runtime/RevResourceSystem/Implementation/RevABLoader.cs` 头部注释原文）：
 > 「① 从 `streamingAssetsPath` 加载 AB（**本框架不做热更新，没有 `persistentDataPath` 覆盖路径**）」。
@@ -182,7 +183,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ### 方案 B：接入 YooAsset 等第三方资源框架（要真上线的项目推荐）
 
-**思路**：把「打包 + 版本 + 下载 + 更新」整块交给 YooAsset，只写一层**适配**把它接进本框架的资源层 —— 上层 17 个模块与全部业务代码不动 ✓。
+**思路**：把「打包 + 版本 + 下载 + 更新」整块交给 YooAsset，只写一层**适配**把它接进本框架的资源层 —— 上层 19 个模块与全部业务代码不动 ✓。
 
 步骤（本质就是方案 A，只是"你的实现"变成"调用 YooAsset"）：
 
@@ -352,35 +353,38 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ### 模块一览
 
-**运行期**（`Assets/Revolution/Runtime/`，17 个模块 / 179 个 `.cs` / 29,692 行）
+**运行期**（`Assets/Revolution/Runtime/`，19 个模块 / 184 个 `.cs` / 30,258 行）
 
 | 模块 | 一句话 | 规模 |
 |---|---|---|
-| `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查 | 17 / 2,646 |
-| `RevScene` | 场景加载：一行切换（await 或挂事件）、进度永远 0~1（不卡 90%）、最短展示时长、切前按约定清理（默认清对象池） | 5 / 494 |
-| `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,643 |
-| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **优先单 Canvas、性能瓶颈时按需启用三 Canvas** / 内置 UI 动画库（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 约 6,000 |
-| `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 22 / 2,234 |
-| `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,577 |
-| `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表 | 10 / 1,651 |
-| `RevTimer` | 计时器：四时间域、句柄代际、作用域、秒表 | 10 / 1,414 |
-| `RevLog` | 日志：分级（Debug 编译期零成本）、tag 静默、重复抑制、环形缓冲、异步落盘、上报 | 8 / 1,053 |
-| `RevPublicMono` | 公共 Mono：给纯 C# 类每帧回调与协程宿主 | 6 / 662 |
-| `RevEventSystem` | 事件：强类型事件 + 订阅句柄 | 5 / 1,093 |
-| `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 11 / 1,023 |
-| `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,037 |
-| `RevDataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 714 |
-| `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 702 |
-| `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 639 |
+| `RevResourceSystem` | 资源加载：编辑器直读 + AB 两条后端、引用计数、自动卸载、失败原因可查；URL 型平台（小游戏）带失败重试 / 超时兜底 / 引擎缓存标识（hash·crc） | 18 / 3,139 |
+| `RevScene` | 场景加载：一行切换（await 或挂事件）、进度永远 0~1（不卡 90%）、最短展示时长、切前按约定清理（默认清对象池） | 5 / 541 |
+| `RevInput` | 输入：事件驱动接入（监听者 / 轴 / 连发事件）/ 动作名绑定 / 键鼠触屏手柄 / 7 种手势 / 屏蔽栈 / 可断言内核 | 15 / 3,733 |
+| `RevUISystem` | UI：面板声明式配置 / 层级 / 控件事件三种接法（九个方法特性 · 节点名分发 · 字段绑定）/ **优先单 Canvas、性能瓶颈时按需启用三 Canvas** / 内置 UI 动画库（预设一行加动效 · 不依赖 DOTween）/ 与资源池联动 | 26 / 6,110 |
+| `RevActionSequence` | 动作序列：一行 DSL 表达"播放 → 等待 → 并行 → 嵌套"，含取消收尾契约 | 24 / 3,145 |
+| `RevStateMachine` | 状态机：轻量流程 / 重量级 AI 两种形态 | 10 / 1,598 |
+| `RevSoundSystem` | 音效：一行播放、BGM、音量总线、作用域、音效表；小游戏 / WebGL 的音频约束查 `RevSoundPlatform` | 11 / 1,718 |
+| `RevAppLifecycle` | 应用生命周期：前后台 / 焦点 / 退出事件（零配置自动就位；Pause 与 Focus 双触发自动去重，后台时长可查） | 2 / 175 |
+| `RevStripGuard` | 代码裁剪自检：进游戏自动确认"物理 / UI / 动画这些关键类型还在不在"，被裁就报出【缺什么 + 什么症状 + 怎么修】 | 1 / 128 |
+| `RevTimer` | 计时器：四时间域、句柄代际、作用域、秒表 | 10 / 1,440 |
+| `RevLog` | 日志：分级（Debug 编译期零成本）、tag 静默、重复抑制、环形缓冲、异步落盘、上报；WebGL / 小游戏自动禁用文件通道 | 8 / 1,117 |
+| `RevPublicMono` | 公共 Mono：给纯 C# 类每帧回调与协程宿主 | 6 / 682 |
+| `RevEventSystem` | 事件：强类型事件 + 订阅句柄 | 5 / 1,167 |
+| `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 12 / 1,077 |
+| `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,073 |
+| `RevDataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 758 |
+| `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 738 |
+| `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 652 |
 | `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |
 
-**编辑器**（`Assets/Revolution/Editor/`，3 套工具 / 41 个 `.cs` / 12,181 行）
+**编辑器**（`Assets/Revolution/Editor/`，3 套工具 + 平台辅助 / 43 个 `.cs` / 12,738 行）
 
 | 工具 | 一句话 | 规模 |
 |---|---|---|
-| `RevResourceSystem` | **RevAB 打包工具**（原名 LiteAB，对标 AssetBundle Browser）：包树 + 资源表（拖拽建包 / 换包、F2 改名、Delete、右键）/ 目标平台可选 / Project 窗口包名角标 / 依赖 / 体积 / 漏标检查（一键处理）/ 布局快照对比；生成 `ResMap.txt` 与路径常量 | 27 / 7,039 |
-| `RevExcelTool` | **导表工具（编辑器版）**：拖入 Excel → 预览 / 逐行校验 → 一键导出代码 + 数据；Excel 开着也能读、改表自动重读、只写有变化的文件、新增表自动生成映射；生成物与 WPF 版逐字节一致；带 CI 入口 | 12 / 4,322 |
-| `RevGMCommand` | GM 指令的编辑器面板 | 2 / 820 |
+| `RevResourceSystem` | **RevAB 打包工具**（原名 LiteAB，对标 AssetBundle Browser）：包树 + 资源表（拖拽建包 / 换包、F2 改名、Delete、右键）/ 目标平台可选（小游戏目标自动归一到 WebGL 目录）/ Project 窗口包名角标 / 依赖 / 体积 / 漏标检查（一键处理）/ 布局快照对比；生成 `ResMap.txt` 与路径常量 | 27 / 7,095 |
+| `RevExcelTool` | **导表工具（编辑器版）**：拖入 Excel → 预览 / 逐行校验 → 一键导出代码 + 数据；Excel 开着也能读、改表自动重读、只写有变化的文件、新增表自动生成映射；生成物与 WPF 版逐字节一致；带 CI 入口 | 12 / 4,407 |
+| `RevGMCommand` | GM 指令的编辑器面板 | 2 / 856 |
+| `RevPlatform` | **平台辅助工具**：IL2CPP 裁剪保护生成（`link.xml`，防 UI 反射绑定被裁）、首包体积审计（扫 `Resources` 目录，小游戏首包预算用） | 2 / 380 |
 
 ---
 
@@ -390,7 +394,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 Revolution/
 ├── RevolutionFrameWork_Unity/            Unity 工程
 │   ├── Assets/Revolution/                  ★ 框架本体（包分支的仓库根就是它）
-│   │   ├── Runtime/                            17 个运行期模块（RevScene / RevResourceSystem / RevUISystem / RevInput / …）
+│   │   ├── Runtime/                            19 个运行期模块（RevScene / RevResourceSystem / RevUISystem / RevInput / RevAppLifecycle / RevStripGuard / …）
 │   │   ├── Editor/                             编辑器工具（RevAB 打包 / GM 面板）
 │   │   ├── Generation/                         生成的路径常量（RevResPath.cs）
 │   │   ├── Resources/                          框架自带运行时资源（ResMap、UI 预制体）
@@ -417,6 +421,30 @@ Revolution/
 - **开发环境**：.NET Standard 2.1（Unity 内置）· Visual Studio 2022 / Rider / VS Code
 - **第三方依赖**：**无**（导表工具是独立 WPF 工程，可选）
 - **内核验证环境**（可选）：.NET 8 SDK —— 用来跑纯 C# 断言，不装也能正常用框架
+
+---
+
+## 🚫 出包设置：建议关闭代码裁剪
+
+**主推建议：把 `Project Settings → Player → Other Settings → Managed Stripping Level` 改成 `Disabled`（或至少 `Minimal`），然后重新出包。**
+
+**省的是什么**：包体 —— 但对**安卓原包**来说，体积大头是贴图 / 音频 / 模型，代码占比并不高。
+
+**赔的是什么**：**"编辑器好好地、真机突然瘸"**，而且**不报错** —— 刚体不响应重力、`Physics.Raycast` 恒返回 false、面板空白、动画不动、没声音。这种故障十有八九想不到是裁剪干的，等发现时往往已经发版。
+
+关键在于：业务里有三类代码 `link.xml` **天然覆盖不全**：
+
+1. **反射** —— UI 的 `[RevBind]` 字段、事件方法、`[RevUIPanel]` 特性；
+2. **泛型** —— `RevUIPanel<TData>` / `RevSingleton<T>` 这类；
+3. **场景里挂的原生组件** —— 刚体 / 碰撞体 / Animator 的真实现 native，托管 wrapper 会被一起裁掉，而场景里那半边还好好挂着。
+
+所以护栏只能"**降低故障概率**"，不构成"可以放心开裁剪"的许可证。
+
+> 关掉裁剪的代价**只有包体**，而这个数字 **3 分钟就能自己测准**：保持当前设置出一包 → 改成 `Disabled` 再出一包 → **差值就是你的真实代价**。
+
+框架仍配了三层护栏，**万一确实要开裁剪**时用：框架 `link.xml` 固定保住物理 / UI / 动画 / 音频 / 粒子 · 菜单一键生成业务侧 `link.xml` · `RevStripGuard` 进游戏自动自检并报人话。
+
+**完整说明（含代价实测方法、症状反查表）→ [《代码裁剪 · 使用说明》](Revolution.Document/代码裁剪/代码裁剪使用说明.md)**
 
 ---
 

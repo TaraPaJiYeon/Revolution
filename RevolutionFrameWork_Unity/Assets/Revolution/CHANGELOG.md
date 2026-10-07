@@ -4,6 +4,22 @@
 
 ### 新增
 
+- **安卓 / 微信小游戏 / 抖音小游戏 投产适配（一批）**：
+  - **`RevAppLifecycle`（新模块）**：前后台 / 焦点 / 退出事件（`Paused` / `Resumed` / `Quitting`）+ `IsBackground` / `LastBackgroundSeconds` / `PauseCount`。零配置自动就位（`RuntimeInitializeOnLoadMethod` 建隐藏宿主），并对移动端"Pause 与 Focus 同时到达"做状态去重（同一轮只派发一次）。
+  - **IL2CPP 裁剪保护**：新增框架侧 `link.xml`（保 UI 反射装配链与单例反射构造），并新增编辑器工具 **`Revolution.Tools/平台/生成 IL2CPP 裁剪保护 (link.xml)`** —— 扫描工程内所有 `RevUIPanel` / `RevUIPart` / `RevSingleton` 派生类，生成业务侧 `Assets/link.xml`（已存在手写文件时弹窗确认，不静默覆盖）。
+  - **WebGL / 小游戏自动禁用文件日志**：新增 `RevFileSink.SupportsBackgroundWriter`（WebGL 默认 false）—— 小游戏是单线程，`new Thread` 会直接抛异常，而原先的"目录可写探测"在虚拟文件系统上会误判为可用。
+  - **平台名三处对齐**：`RevABLoader.MainName` / `RevHotPlatform.Name` 补小游戏宏分支（统一归 `WebGL`）；`ABBuildSetting.GetPlatformName` 把 `XxxMiniGame` 构建目标也归一到 `WebGL`（按名字判断而非枚举，避免老引擎没有该枚举时编译不过），消除"产物目录名 ≠ 运行时主包名"造成的首屏 404。
+  - **AB 加载健壮性**：失败重试（`MaxAttempts` / `RetryDelayMs`）、超时兜底（`AttemptTimeoutSeconds` —— WebGL 上 `UnityWebRequest.timeout` 不生效，改为按帧轮询 + `Abort`）、**引擎缓存标识**（新增 `RevABLoader.BundleCacheKeyResolver` 钩子与 `RevBundleCacheKey` 类型；热更包从清单取 `unityHash` / `unityCrc` 注入，小游戏不再每次进游戏重下全部 AB）。
+  - **热更**：`Concurrency` 默认按平台（小游戏 2 / 其余 3）；小游戏 / WebGL 上禁止明文 http（不受 `AllowHttp` 影响）、并发 > 4 在配置期直接报错；`SetActiveBundleKeys` 与"切版本"同步（换版本必换 hash 表）。
+  - **首包体积审计**：新增编辑器工具 **`Revolution.Tools/平台/首包体积审计 (Resources)`** —— 列出所有 `Resources` 目录的文件数与体积（按体积排序，含最占地方的 10 个文件），供小游戏首包预算对照。
+  - **音效平台能力表**：新增 `RevSoundPlatform`（`AudioManagedByPlatform` / `NeedsUserGestureUnlock` / `Note`），把"首次播放需用户手势、AudioClip 必须 Decompress On Load、切后台打断需重播"三条小游戏约束写进代码而不是口口相传。
+  - **AB 打包选项**：新增 `deterministic`（默认开）与 `stripUnityVersion`（默认关；开了就要记住"换 Unity 版本先强制重打"），打包窗口同步暴露两个勾选框。
+  - **文档**：新增《应用生命周期 · 使用说明》（md + html）。`RevAppLifecycle` 暂未配 Demo 场景。
+- **代码裁剪（IL2CPP managed stripping）：主推关掉，另配三层护栏**（完整说明见新增文档《代码裁剪 · 使用说明》md & html）：
+  - **主推**：把 `Player Settings → Managed Stripping Level` 改成 `Disabled`（或至少 `Minimal`），然后重新出包。理由：代码裁剪省的是包体，赔的是"编辑器好好地、真机突然瘸"的不报错故障；而关掉的代价只有包体，**3 分钟就能自己测准**（出两包比差值）。
+  - **框架 `link.xml` 固定保住 Unity 原生模块**（万一要开裁剪时的护栏）：`PhysicsModule` / `Physics2DModule` / `UIModule` / `AnimationModule` / `AudioModule` / `ParticleSystemModule`。这些模块真实现都在引擎原生侧（C++），托管层只是 wrapper —— 业务没直接调就会被裁掉，而场景里挂的组件还好好留着，于是变成最难查的一类故障：**编辑器一切正常，真机上刚体变"空壳"（不报错就是不响应）、`Physics.Raycast` 恒返回 false、动画不动、没声音**。注释里同时列出了其它同类模块（NavMesh / Terrain / VFX / Timeline / TMP / Input System…）的加法。
+  - **新增 `RevStripGuard`（自检）**：进游戏（首个场景之前）逐个 `Type.GetType` 问引擎"这个类型还在吗"，缺了就用 `RevLog.Error` 报出【缺什么 + 什么症状 + 怎么修】，把"沉默的故障"变成"启动时一条明确的错误"。可手动调 `RevStripGuard.Check()`（出包配置变了 / 升级 Unity 后建议主动验一次）。★ 本文件刻意只用字符串查询、不直接引用被检查的类型 —— 直接引用会让裁剪器认为"有人用"，自检就永远通过了。
+  - **生成工具自动补全**：菜单「生成 IL2CPP 裁剪保护 (link.xml)」现在除业务类型外，还会**扫一遍工程源码**，把代码里用到的原生模块（NavMesh / Terrain / 粒子 / VFX / TMP / Input System…）自动写进 `Assets/link.xml`；只写"本工程真的加载得到"的程序集，避免 link.xml 引用不存在的程序集导致构建失败。
 - **导表工具（Unity 编辑器版）**：菜单 `Revolution.Tools/配置表/导表工具`（另有「快速导出」一步导完、CI 入口 `Revolution.Editor.ExcelTool.RevExcelCI.Export`）。Excel 规则与 WPF 版完全相同，生成的代码与数据逐字节一致（除生成时间）。相比 WPF 版：拖入 Excel 即读、Excel 开着也能读、保存后自动重读并标出改动的表；全量数据预览（运行时解析不了的单元格标色、错误一键定位到行）；输出目录默认进 Generation 程序集 / `<资源根目录>/Data`，并在导出前检查代码目录所属程序集与数据目录是否可被运行时读到；只写内容有变化的文件（仅数据变化时不触发脚本编译）；新增 / 删除表后自动生成资源映射，数据没有 AB 标记时提示并可一键标记；导出会移除上次导出过的表时先确认，旧数据文件可一键清理。输出设置存 `ProjectSettings/`（团队共享），Excel 来源存 `UserSettings/`（个人）。
 - **`ABMapGenerator`**：「仅生成映射」的唯一实现，打包窗口与导表工具共用。
 - **动作序列：易用性**

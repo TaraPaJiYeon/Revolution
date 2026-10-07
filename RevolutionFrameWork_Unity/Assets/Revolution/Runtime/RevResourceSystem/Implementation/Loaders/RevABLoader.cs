@@ -1,12 +1,14 @@
 // ============================================================
 // RevABLoader.cs —— AB 加载器
-// 承担三件事：
+// 承担四件事：
 //   ① 从 streamingAssetsPath 加载 AB（默认行为；装了 RevHotUpdate 扩展包时由 BundlePathResolver 钩子重定向到
 //      persistentDataPath 的版本目录或 CDN 的版本化 URL —— 本框架自身永不设置这个钩子，所以默认行为不变）
 //      · Android：包在 APK 内，File.Exists 不可用 → 直接 LoadFromFile
-//      · WebGL （含微信/QQ 小游戏）：不能阻塞 + 路径是 URL → 同步加载不可用，必须走 LoadAsync
+//      · WebGL （含微信/抖音小游戏）：不能阻塞 + 路径是 URL → 同步加载不可用，必须走 LoadAsync
 //   ② 主包 Manifest 依赖解析
 //   ③ 包级引用计数（归零卸载）
+//   ④ ★ 失败重试 + 超时兜底（MaxAttempts / RetryDelayMs / AttemptTimeoutSeconds），
+//      以及 URL 型平台的"引擎缓存标识"（BundleCacheKeyResolver → hash/crc，让引擎不用每次重下）
 // 资源级引用计数不在这里，由 RevResManager 统一管。
 //
 // 异步统一用自研 RevTask（见 Runtime\RevTask），不依赖 UniTask、也不用协程。
@@ -65,20 +67,25 @@ namespace Revolution
         /// 主包名 = 打包产物目录名。
         /// Unity 会用 BuildAssetBundles 的输出目录名给 Manifest 主包命名，
         /// 而目录名由 ABBuildSetting.GetPlatformName(target) 决定
-        /// —— ★ 两边必须一致，改这里要同步改那边。
-        ///   iOS / Android / WebGL（微信、QQ 等小游戏同为 WebGL 构建）
+        /// —— ★ 两边必须一致，改这里要同步改那边（还有热更包的 RevHotPlatform.Name）。
+        ///   iOS / Android / WebGL（微信、抖音等小游戏同为 WebGL 构建）
         ///   桌面 Windows / macOS / Linux → 统一叫 "PC"
+        ///
+        /// ★ 小游戏为什么归到 "WebGL" 这一档：它们的资源格式与 WebGL 完全相同，
+        ///   打包侧也会把小游戏构建目标（XxxMiniGame）归一到 "WebGL"（见 ABBuildSetting.GetPlatformName）。
+        ///   所以这里把小游戏宏与 UNITY_WEBGL 并列判断 —— 即便某个引擎版本不定义 UNITY_WEBGL，
+        ///   只要是已知的小游戏平台，名字依然对得上。
         /// </summary>
         private static string MainName
         {
             get
             {
-#if UNITY_IOS
+#if UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_WEBGL
+                return "WebGL";
+#elif UNITY_IOS
                 return "iOS";
 #elif UNITY_ANDROID
                 return "Android";
-#elif UNITY_WEBGL
-                return "WebGL";
 #else
                 return "PC";        // 桌面（Windows / macOS / Linux）统一 PC；其他平台按需在此补分支
 #endif
@@ -105,6 +112,37 @@ namespace Revolution
             string custom = resolver == null ? null : resolver(abName);
             return string.IsNullOrEmpty(custom) ? StreamingRoot + abName : custom;
         }
+
+        /// <summary>
+        /// 包缓存标识钩子（可选，默认 null）：参数 = 包名，返回 = 该包的 hash / crc。
+        /// <para>★ 只对"按 URL 下载"的平台有意义（WebGL / 微信小游戏 / 抖音小游戏）：
+        ///   引擎正是靠这个标识判断"本地缓存过没有、要不要重新下载"。</para>
+        /// <para>★ 热更包从清单里查到 UnityHash / UnityCrc 后设置它；不设置时会退化为"无缓存标识"
+        ///   —— 功能照常，但**每次进游戏都会重新下载全部 AB**（流量与首屏时间双输）。</para>
+        /// </summary>
+        public static Func<string, RevBundleCacheKey> BundleCacheKeyResolver { get; set; }
+
+        // ============================================================
+        // 加载策略（可按项目调整；都是"全局一次"的旋钮，不改默认行为）
+        // ============================================================
+
+        /// <summary>
+        /// 一次加载最多尝试几次（含首次，默认 2）。
+        /// ★ 为什么要重试：小游戏与移动网络下"偶发失败"是常态（切网 / DNS / CDN 抖动），
+        ///   失败一次就把首屏判死刑，玩家看到的就是"进不去"。
+        /// ★ 为什么不上限重试：网络真不通时，要让业务**尽快**拿到失败自己决定（提示重进 / 走弱网兜底）。
+        /// </summary>
+        public static int MaxAttempts { get; set; } = 2;
+
+        /// <summary>两次尝试之间的等待（毫秒，按尝试次数线性递增：base、base×2…）。</summary>
+        public static int RetryDelayMs { get; set; } = 300;
+
+        /// <summary>
+        /// 单次尝试的超时秒数（&lt;= 0 = 不限时；默认 30 秒）。
+        /// ★ 为什么不用 UnityWebRequest.timeout：WebGL / 小游戏的底层是浏览器 XHR，那个属性在那边不生效 ——
+        ///   请求一旦卡住就会一直挂着，玩家看到"一直在加载"，而代码里连失败都拿不到。
+        /// </summary>
+        public static float AttemptTimeoutSeconds { get; set; } = 30f;
 
         // ==================== 同步路径 ====================
 
@@ -457,23 +495,49 @@ namespace Revolution
         }
 
         /// <summary>
-        /// 从 StreamingAssets 异步加载指定 AB 包（平台分派：WebGL 走 UnityWebRequest，其余走 LoadFromFileAsync）。
+        /// 异步加载指定 AB 包（带重试；平台分派：WebGL 走 UnityWebRequest，其余走 LoadFromFileAsync）。
         ///
         /// 失败一律返回 null、不抛异常 —— 由调用方统一记成 BundleLoadFail，
         /// 让"文件不存在 / 下载失败 / 平台不匹配"在业务层是同一种可预期结果。
         /// 这里也不做 File.Exists 预判：WebGL 没有本地文件概念，Android 的包在 APK 内同样查不到。
+        ///
+        /// 【为什么这里要重试】小游戏 / 移动网络下"偶发失败"很常见（切网、DNS、CDN 抖动），
+        ///   失败一次就把首屏判死刑，玩家看到的就是"进不去"。
+        ///   次数与间隔见 MaxAttempts / RetryDelayMs；每次重试都**新建请求**
+        ///   （被超时 Abort 过的 UnityWebRequest 不能复用）。
         /// </summary>
         private static async RevTask<AssetBundle> LoadBundleAsync(string abName)
         {
+            int attempts = MaxAttempts < 1 ? 1 : MaxAttempts;
+
+            for (int i = 0; ; i++)
+            {
+                AssetBundle bundle = await LoadBundleOnceAsync(abName);
+                if (bundle != null) { return bundle; }
+                if (i >= attempts - 1) { return null; }
+
+                // 重试前先把"失败了、还要再试"报到日志：真机上排查网络问题时，这条是关键线索
+                RevLog.Warn($"[Res] 加载 AB 包失败，准备重试（第 {i + 2}/{attempts} 次）：{abName}", "Res");
+
+                int delay = RetryDelayMs * (i + 1);
+                if (delay > 0) { await RevTask.Delay(delay); }
+            }
+        }
+
+        /// <summary>加载一个包（单次尝试，不含重试）。</summary>
+        private static async RevTask<AssetBundle> LoadBundleOnceAsync(string abName)
+        {
 #if UNITY_WEBGL && !UNITY_EDITOR
             // WebGL（含小游戏）：streamingAssetsPath 是 URL/虚拟路径，只能用 UnityWebRequest 下载。
-            // await 直接吃 UnityWebRequestAsyncOperation（它继承 AsyncOperation，见 RevTaskUnityExtensions）。
-            // ★ 走钩子：小游戏的"热更"就是把 URL 换成 CDN 的版本地址 —— 引擎会按 URL 做缓存与校验。
-            using (UnityWebRequest www = UnityWebRequestAssetBundle.GetAssetBundle(ResolveBundlePath(abName)))
+            // ★ 走钩子：小游戏的"热更"就是把 URL 换成 CDN 的版本地址。
+            // ★ 不直接 await SendWebRequest()：要自己按帧轮询才能在卡住时超时 Abort（见 WaitWithTimeoutAsync）。
+            using (UnityWebRequest www = CreateBundleRequest(abName))
             {
-                await www.SendWebRequest();
-                if (www.result != UnityWebRequest.Result.Success) return null;   // 上层报 BundleLoadFail
-                return DownloadHandlerAssetBundle.GetContent(www);              // using 释放后 bundle 依然有效
+                UnityWebRequestAsyncOperation op = www.SendWebRequest();
+
+                if (!await WaitWithTimeoutAsync(www, op)) { return null; }          // 超时：Abort 已在等待里做过
+                if (www.result != UnityWebRequest.Result.Success) { return null; }  // 上层报 BundleLoadFail
+                return DownloadHandlerAssetBundle.GetContent(www);                  // using 释放后 bundle 依然有效
             }
 #else
             //调用unity官方的API来异步加载ab包（★ 同样先走钩子：热更包会重定向到持久化目录）
@@ -482,6 +546,56 @@ namespace Revolution
             return req.assetBundle;
 #endif
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        /// <summary>
+        /// 建一个 AB 下载请求；能从钩子拿到缓存标识（hash / crc）就带上。
+        ///
+        /// ★ 带上它的意义：引擎据此决定"这份包本地缓存过没有、要不要重新下载" ——
+        ///   不传就是每次进游戏把全部 AB 重新下一遍。清单里本来就有这两列（Unity 构建时算好的），
+        ///   热更包通过 BundleCacheKeyResolver 把它交过来。
+        /// </summary>
+        private static UnityWebRequest CreateBundleRequest(string abName)
+        {
+            string url = ResolveBundlePath(abName);
+
+            Func<string, RevBundleCacheKey> resolver = BundleCacheKeyResolver;   // 先取快照（与路径钩子同一条纪律）
+            RevBundleCacheKey key = resolver == null ? default : resolver(abName);
+
+            if (key.IsValid)
+            {
+                return UnityWebRequestAssetBundle.GetAssetBundle(url, key.Hash, key.Crc);
+            }
+
+            return UnityWebRequestAssetBundle.GetAssetBundle(url);
+        }
+
+        /// <summary>
+        /// 按帧等请求完成；超过 AttemptTimeoutSeconds 就 Abort 并返回 false。
+        ///
+        /// ★ 为什么不能直接 `await op`：WebGL / 小游戏上卡住的请求会**永远挂着**
+        ///   （底层是浏览器 XHR，UnityWebRequest.timeout 在那边不生效），
+        ///   那样连"失败"都拿不到，业务只能一直转圈。
+        /// </summary>
+        private static async RevTask<bool> WaitWithTimeoutAsync(UnityWebRequest www, UnityWebRequestAsyncOperation op)
+        {
+            float timeout = AttemptTimeoutSeconds;
+            float deadline = timeout > 0 ? Time.realtimeSinceStartup + timeout : float.MaxValue;
+
+            while (!op.isDone)
+            {
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    www.Abort();            // 中断：请求以失败收场，using 块会正常释放
+                    return false;
+                }
+
+                await RevTask.Yield();
+            }
+
+            return true;
+        }
+#endif
 
         /// <summary>
         /// 取用「单个」AB 包（同步版 AcquireSingle 的异步版），多了一层"并发合并"。

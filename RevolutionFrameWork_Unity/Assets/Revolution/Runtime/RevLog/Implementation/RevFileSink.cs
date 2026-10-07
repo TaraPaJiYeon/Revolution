@@ -15,7 +15,10 @@
 // 【行为约定】
 //   · 默认不启用：要不要落盘是产品决策（手机存储、隐私、性能预算都相关）；
 //   · Flush() 会等后台排空（最多 1 秒），超时后自己把剩下的写掉 —— 崩溃前不会丢在队列里；
-//   · Dispose() 停线程 + 排空 + 关句柄（Unity 下由 RevLogUnityHooks 在退出/进 Play 时调）。
+//   · Dispose() 停线程 + 排空 + 关句柄（Unity 下由 RevLogUnityHooks 在退出/进 Play 时调）；
+//   · ★ 平台能力：WebGL / 微信小游戏 / 抖音小游戏是单线程的（new Thread 直接抛异常），
+//       且那边的"文件系统"是内存虚拟盘 —— 本通道在这些平台上**自动禁用**并明确报到
+//       RevLog.SinkErrors（见 SupportsBackgroundWriter），不会假死、也不会静默不写。
 // ============================================================
 using System;
 using System.Collections.Generic;
@@ -28,6 +31,30 @@ namespace Revolution
     /// <summary>把日志异步写到文件（定长队列 + 后台线程 + 大小/份数轮转）。</summary>
     public sealed class RevFileSink : IRevLogSink
     {
+        /// <summary>
+        /// 本平台能不能跑"后台线程 + 真实文件系统"这套写盘机制（默认按平台判定，可手动覆盖）。
+        ///
+        /// 【为什么必须有这个开关】
+        ///   ★ WebGL / 微信小游戏 / 抖音小游戏是**单线程**的：`new Thread(...)` 一调用就抛
+        ///     PlatformNotSupportedException。而这类平台偏偏能过掉前置的"目录可写"探测 ——
+        ///     persistentDataPath 在那边是内存里的虚拟文件系统（IDBFS），试写**会成功**。
+        ///     也就是说光靠探测拦不住，必须在建线程之前就把整条通道关掉，否则是"启动即崩"。
+        ///
+        ///   ★ 做成本类自己的开关、而不是直接 #if 关掉整段代码，是为了保住"纯 C#、可脱离 Unity 单测"：
+        ///     工程外测试可以手动把它设成 false，把"无后台线程"这条分支也测到。
+        /// </summary>
+        public static bool SupportsBackgroundWriter { get; set; } = DetectBackgroundWriterSupport();
+
+        /// <summary>默认判定：只有 WebGL（含各类小游戏）不支持；其余平台与工程外纯 C# 都支持。</summary>
+        private static bool DetectBackgroundWriterSupport()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return false;          // WebGL / 小游戏：单线程，建线程即崩
+#else
+            return true;
+#endif
+        }
+
         private readonly string _directory;
         private readonly string _prefix;
         private readonly long _sizeLimit;
@@ -60,6 +87,16 @@ namespace Revolution
             _prefix = string.IsNullOrEmpty(prefix) ? "revlog" : prefix;
             _sizeLimit = sizeLimit > 0 ? sizeLimit : RevLogLimits.FileSizeLimit;
             _keepCount = keepCount > 0 ? keepCount : RevLogLimits.FileKeepCount;
+
+            // ★ 顺序不能反：先判"平台能力"，再探"目录可写"。
+            //   WebGL / 小游戏上目录探测会"成功"（IDBFS 虚拟文件系统），先探就一定会走到
+            //   下面的 new Thread 那一步 —— 在单线程平台上那是直接抛异常。
+            if (!SupportsBackgroundWriter)
+            {
+                Enabled = false;
+                RevLog.ReportSinkError("当前平台（WebGL / 小游戏）是单线程且没有真实文件系统，文件日志通道已禁用");
+                return;
+            }
 
             Enabled = ProbeDirectory();                       // 试写一次：不可写就禁用，绝不让游戏跟着出问题
 

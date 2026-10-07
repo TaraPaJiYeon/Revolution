@@ -44,6 +44,12 @@ namespace Revolution.HotUpdate
         // URL 型平台（WebGL/小游戏）没有本地文件，"热更映射表"放在内存里，资源系统 Init 时取走
         private static Dictionary<string, string> _memoryResMap;
 
+        // URL 型平台：当前版本每个包的"引擎缓存标识"（unityHash / unityCrc）。
+        // ★ 为什么也要寄存在内存里：那边的 AB 是按 URL 下载的，引擎判断"本地缓存过没有"全靠
+        //   调用方把 hash/crc 传进 UnityWebRequestAssetBundle.GetAssetBundle —— 不传就是每次进游戏重下全部包。
+        //   清单每次 Check 都会拉下来，顺手把这两列抽出来放着即可（文件型平台用不上，保持 null）。
+        private static Dictionary<string, RevBundleCacheKey> _bundleKeys;
+
         private const string PlayerPrefsKeyPrefix = "RevHotUpdate.Current.";
 
         // ============================================================
@@ -74,6 +80,55 @@ namespace Revolution.HotUpdate
         public static void SetActiveResMap(Dictionary<string, string> resMap)
         {
             _memoryResMap = resMap;
+        }
+
+        /// <summary>
+        /// URL 型平台：把"生效清单里每个包的引擎缓存标识（unityHash / unityCrc）"抽出来寄存进内存。
+        ///
+        /// ★ 为什么必须在"切版本"时同步做：这个表是**版本相关**的 —— 换了资源版本，
+        ///   同一个包名对应的 hash 也变了；漏更新会让引擎拿着旧 hash 去校验新包，直接加载失败。
+        ///
+        /// ★ 只对 WebGL / 小游戏有意义（文件型平台的包在本地磁盘，加载不走这套缓存机制）；
+        ///   老清单里没有这两列时整表留空 —— 退化为"无缓存标识"，加载照常，只是引擎不缓存。
+        /// </summary>
+        public static void SetActiveBundleKeys(RevHotManifest manifest)
+        {
+            if (RevHotPlatform.IsWebGL == false) { _bundleKeys = null; return; }
+            if (manifest == null || manifest.Bundles.Count == 0) { _bundleKeys = null; return; }
+
+            var keys = new Dictionary<string, RevBundleCacheKey>(manifest.Bundles.Count);
+            for (int i = 0; i < manifest.Bundles.Count; i++)
+            {
+                RevHotBundleInfo bundle = manifest.Bundles[i];
+                if (string.IsNullOrEmpty(bundle.UnityHash)) { continue; }   // 老清单没这两列：跳过
+
+                Hash128 hash;
+                try
+                {
+                    hash = Hash128.Parse(bundle.UnityHash);
+                }
+                catch (Exception e)
+                {
+                    // 清单是外部数据：一条坏 hash 只跳过这一条，绝不让整个版本切换失败
+                    RevLog.Warn("包的 UnityHash 解析失败，该包本轮不做引擎缓存：" + bundle.Name + "（" + e.Message + "）", LogTag());
+                    continue;
+                }
+
+                keys[bundle.Name] = new RevBundleCacheKey
+                {
+                    Hash = hash,
+                    Crc = ParseCrc(bundle.UnityCrc),      // 空 / 非法 → 0（0 = 不做加载期 CRC 校验，缓存仍然生效）
+                    IsValid = true,
+                };
+            }
+
+            _bundleKeys = keys.Count > 0 ? keys : null;
+        }
+
+        private static uint ParseCrc(string text)
+        {
+            if (string.IsNullOrEmpty(text)) { return 0; }
+            return uint.TryParse(text, out uint crc) ? crc : 0;
         }
 
         /// <summary>
@@ -182,6 +237,21 @@ namespace Revolution.HotUpdate
                 RevLog.Warn("热更映射表读取失败，本次继续用内置表：" + e.Message, LogTag());
                 return null;
             }
+        }
+
+        // ============================================================
+        // ★ 钩子三：AB 的引擎缓存标识（RevABLoader.BundleCacheKeyResolver 的实现）
+        // ============================================================
+
+        /// <summary>
+        /// 给出某个包的 hash / crc（引擎缓存与校验用）。
+        /// ★ 查不到就返回 default（IsValid = false）—— 缓存标识只是**优化**，
+        ///   缺失时必须让加载照常进行，绝不能因此失败。
+        /// </summary>
+        public static RevBundleCacheKey ResolveBundleCacheKey(string bundleName)
+        {
+            if (_bundleKeys != null && _bundleKeys.TryGetValue(bundleName, out RevBundleCacheKey key)) { return key; }
+            return default;
         }
 
         // ============================================================

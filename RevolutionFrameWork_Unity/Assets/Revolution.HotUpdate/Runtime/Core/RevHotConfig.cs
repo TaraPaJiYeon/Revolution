@@ -115,8 +115,13 @@ namespace Revolution.HotUpdate
         // 下载行为
         // ============================================================
 
-        /// <summary>同时下载的文件数。手机上别超过 4：抢 IO、发热，还容易触发 CDN 限速。</summary>
-        public int Concurrency = 3;
+        /// <summary>
+        /// 同时下载的文件数。
+        /// ★ 默认值按平台给：小游戏（微信 / 抖音）的请求走浏览器 XHR 那一套，并发上限低、
+        ///   多开的请求往往挤在一条连接上 —— 给 2 就够，开大了整体反而更慢；
+        ///   手机 App 3 个（抢 IO、发热、CDN 限速都还压得住），桌面随意但别超 8。
+        /// </summary>
+        public int Concurrency = RevHotPlatform.IsWebGL ? 2 : 3;
 
         /// <summary>单个请求的超时秒数（覆盖 UnityWebRequest.timeout）。</summary>
         public int TimeoutSeconds = 30;
@@ -188,9 +193,24 @@ namespace Revolution.HotUpdate
                 return "RemoteRoot 必须是 http(s) 地址，实际收到：「" + RemoteRoot + "」";
             }
 
+            // ★ 小游戏 / WebGL 上比其它平台更严：那边的请求由浏览器的 XHR 发出，
+            //   明文 http 会被平台直接拦掉（微信、抖音只放行在后台登记过的 https 合法域名），
+            //   所以不看 AllowHttp —— 允许了也只会得到真机上一片"网络错误"，不如配置期就说清。
+            if (RevHotPlatform.IsWebGL && root.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                return "小游戏 / WebGL 平台不允许明文 http（只放行已登记的 https 合法域名），RemoteRoot 请改用 https";
+            }
+
             if (Concurrency < 1 || Concurrency > 8)
             {
                 return "Concurrency 应在 1~8 之间（手机上并发太大会抢 IO 并触发 CDN 限速）";
+            }
+
+            // ★ 小游戏并发上限：XHR 的并发能力远不如原生网络栈，开大了只会互相排队、还要触发平台限流。
+            //   默认值是 2（见字段注释）；这里只拦"明显开大"的情况，避免有人从别的平台抄配置过来。
+            if (RevHotPlatform.IsWebGL && Concurrency > 4)
+            {
+                return "小游戏 / WebGL 平台的 Concurrency 不能超过 4（建议保持默认的 2），当前是 " + Concurrency;
             }
 
             if (RetryCount < 0)

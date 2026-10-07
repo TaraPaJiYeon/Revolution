@@ -495,6 +495,10 @@ namespace Revolution.Editor
 
             EditorGUILayout.PropertyField(so.FindProperty("forceRebuild"),
                 new GUIContent("强制全部重打", "关闭 = 增量打包：只重打内容变化了的包（推荐）"));
+            EditorGUILayout.PropertyField(so.FindProperty("deterministic"),
+                new GUIContent("确定性打包", "相同输入产出相同字节：CI 可缓存、团队 diff 干净、热更差异比对更准（推荐开）"));
+            EditorGUILayout.PropertyField(so.FindProperty("stripUnityVersion"),
+                new GUIContent("去掉 Unity 版本号", "省一点包体；开了就要记住：换 Unity 版本必须先「强制全部重打」"));
             EditorGUILayout.PropertyField(so.FindProperty("cleanOutputBeforeBuild"),
                 new GUIContent("打包前清空输出目录", "排查问题时勾；会让增量打包失效"));
 

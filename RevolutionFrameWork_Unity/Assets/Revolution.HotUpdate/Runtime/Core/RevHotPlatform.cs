@@ -25,12 +25,16 @@ namespace Revolution.HotUpdate
         /// <summary>
         /// 平台目录名：既是"远端下载路径里的一段"，也要与打包工具的输出目录名一致。
         /// 桌面（Windows / macOS / Linux）统一叫 PC；其余平台按 Unity 的目标平台命名。
+        ///
+        /// ★ 小游戏（微信 / 抖音…）归到 "WebGL" 这一档：资源格式与 WebGL 相同，
+        ///   打包侧（ABBuildSetting.GetPlatformName）也会把 XxxMiniGame 目标归一到 "WebGL"，
+        ///   运行时 RevABLoader.MainName 同样如此 —— 三处必须一起改，名字差一个字符就是 404。
         /// </summary>
         public static string Name
         {
             get
             {
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_WEBGL) && !UNITY_EDITOR
                 return "WebGL";
 #elif UNITY_IOS && !UNITY_EDITOR
                 return "iOS";

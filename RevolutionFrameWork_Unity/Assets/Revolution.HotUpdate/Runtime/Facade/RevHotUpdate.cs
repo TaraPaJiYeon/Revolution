@@ -306,6 +306,7 @@ namespace Revolution.HotUpdate
                 RevHotStore.MarkVersionComplete(resVersion);
                 RevHotStore.WriteCurrentVersion(resVersion);
                 RevHotStore.SetActiveVersion(resVersion);
+                RevHotStore.SetActiveBundleKeys(remote);          // ★ 必须与版本同步：小游戏的引擎缓存就靠这份 hash 表命中
                 _localResVersion = resVersion;
                 RevHotStore.DeleteOldVersions(config.KeepVersions + 1, resVersion);
 
@@ -411,6 +412,7 @@ namespace Revolution.HotUpdate
             }
 
             RevHotStore.SetActiveVersion(_localResVersion);
+            RevHotStore.SetActiveBundleKeys(check.RemoteManifest);    // ★ 同上：无更新时也要把 hash 表钉到当前版本
             RevHotResBridge.ReinitResourceSystem();
 
             _state = RevHotState.Ready;

@@ -70,7 +70,18 @@ namespace Revolution.Editor
         /// <summary>
         /// 平台名：既是产物目录名，也是运行时主包名
         /// （Unity 用输出目录名给 AssetBundleManifest 主包命名）。
-        /// ★ 必须与运行时 RevABLoader.MainName 一致。
+        ///
+        /// ★★ 必须与运行时两侧保持一致，改这里就要同步改：
+        ///      · Revolution.Runtime  → RevABLoader.MainName
+        ///      · Revolution.HotUpdate → RevHotPlatform.Name
+        ///    它们一个是编译期宏（运行时）、一个是 target 参数（编辑器），没法共用一份代码，
+        ///    只能靠这条注释互相指路 —— 名字差一个字符 = 首屏全 BundleLoadFail。
+        ///
+        /// ★ 小游戏（微信 / 抖音…）的约定：**一律用 WebGL 构建目标打 AB**，
+        ///   资源格式与 WebGL 完全相同，运行时的平台段也统一是 "WebGL"。
+        ///   若用了引擎自带的小游戏构建目标（WeixinMiniGame / ByteDanceMiniGame…），
+        ///   这里也会归一到 "WebGL" —— 否则产物目录名（WeixinMiniGame）与运行时找的目录名
+        ///   （WebGL）对不上，真机上一片 404。
         /// </summary>
         public static string GetPlatformName(UnityEditor.BuildTarget target)
         {
@@ -81,8 +92,28 @@ namespace Revolution.Editor
                 case UnityEditor.BuildTarget.StandaloneOSX:
                 case UnityEditor.BuildTarget.StandaloneLinux64:
                     return "PC";                        // 桌面统一 PC
+
+                case UnityEditor.BuildTarget.Android:
+                    return "Android";
+
+                case UnityEditor.BuildTarget.iOS:
+                    return "iOS";
+
+                case UnityEditor.BuildTarget.WebGL:
+                    return "WebGL";
+
                 default:
-                    return target.ToString();           // iOS / Android / WebGL ...
+                    // ★ 小游戏目标归一到 WebGL：用字符串判断而不是 case 枚举 ——
+                    //   小游戏枚举是否存在取决于引擎版本 / 发行版（团结引擎、Unity 中国版…），
+                    //   写死枚举名在老版本引擎上直接编译不过；按名字含 "MiniGame" 识别则永远安全。
+                    if (target.ToString().IndexOf("MiniGame", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return "WebGL";
+                    }
+
+                    // 其余平台（tvOS / Switch…）框架暂未适配：仍然按枚举名出目录，
+                    // 但运行时的 MainName 没有对应分支（会落到 PC），务必先补运行时再打这个平台。
+                    return target.ToString();
             }
         }
 

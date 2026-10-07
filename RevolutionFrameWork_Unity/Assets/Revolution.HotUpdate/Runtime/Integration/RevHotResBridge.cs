@@ -1,11 +1,12 @@
 // ============================================================
-// RevHotResBridge.cs —— 与框架资源系统的唯一接缝（整个热更包只碰这两个钩子）
+// RevHotResBridge.cs —— 与框架资源系统的唯一接缝（整个热更包只碰这三个钩子）
 //
 // 位置：Assets\Revolution.HotUpdate\Runtime\Integration\
 //
 // 【接缝】（框架侧各只有几行，默认 null，不装热更包零影响）
-//   RevABLoader.BundlePathResolver  ← RevHotStore.ResolveBundlePath   （包从哪读）
-//   RevResBootstrap.ResMapOverride  ← RevHotStore.LoadHotResMap       （映射表用热更的）
+//   RevABLoader.BundlePathResolver     ← RevHotStore.ResolveBundlePath      （包从哪读）
+//   RevABLoader.BundleCacheKeyResolver ← RevHotStore.ResolveBundleCacheKey  （URL 型平台：引擎缓存标识 hash/crc）
+//   RevResBootstrap.ResMapOverride     ← RevHotStore.LoadHotResMap          （映射表用热更的）
 //
 // 【为什么 Install 不触发资源系统 Init】
 //   钩子是静态委托，设好后对"之后每一次 Init"都生效；
@@ -16,7 +17,7 @@ using Revolution;
 
 namespace Revolution.HotUpdate
 {
-    /// <summary>框架桥：负责装/卸两个钩子，并按正确时序重装资源策略。</summary>
+    /// <summary>框架桥：负责装/卸三个钩子，并按正确时序重装资源策略。</summary>
     internal static class RevHotResBridge
     {
         private const string LogTag = "HotUpdate";
@@ -26,7 +27,7 @@ namespace Revolution.HotUpdate
         /// <summary>钩子是否已装载。</summary>
         public static bool IsInstalled { get { return _installed; } }
 
-        /// <summary>装载钩子（幂等：重复调用只是把同一对委托再设一遍）。</summary>
+        /// <summary>装载钩子（幂等：重复调用只是把同一组委托再设一遍）。</summary>
         public static void Install()
         {
             if (_installed) return;
@@ -34,10 +35,11 @@ namespace Revolution.HotUpdate
             // ★ 直接用方法组（不写 lambda）：没有闭包，就不会在"关闭 Domain Reload"的第二次
             //   Play 里持有已失效的对象引用 —— 这是框架里其它静态钩子的同款纪律。
             RevABLoader.BundlePathResolver = RevHotStore.ResolveBundlePath;
+            RevABLoader.BundleCacheKeyResolver = RevHotStore.ResolveBundleCacheKey;
             RevResBootstrap.ResMapOverride = RevHotStore.LoadHotResMap;
             _installed = true;
 
-            RevLog.Info("热更钩子已装载（BundlePathResolver / ResMapOverride）", LogTag);
+            RevLog.Info("热更钩子已装载（BundlePathResolver / BundleCacheKeyResolver / ResMapOverride）", LogTag);
         }
 
         /// <summary>
