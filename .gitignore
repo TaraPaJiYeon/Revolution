@@ -66,3 +66,6 @@ obj/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# demo 工具装配的本地假 CDN 内容（生成产物，不进仓库）
+/RevolutionFrameWork_Unity/LocalCDN/
