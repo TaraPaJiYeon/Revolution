@@ -107,7 +107,7 @@ namespace Revolution.Editor
         public bool deterministic = true;
 
         [Tooltip("去掉包里的 Unity 版本号。★ 收益很小（每个包几十字节），但有个代价：升级 Unity 版本后" +
-                 "若忘记强制重打全部 AB，引擎不再能靠版本号发现"包是旧版本打的"，问题会以奇怪的方式暴露。" +
+                 "若忘记强制重打全部 AB，引擎不再能靠版本号发现「包是旧版本打的」，问题会以奇怪的方式暴露。" +
                  "小游戏对包体敏感可以开；开了就必须记住：换 Unity 版本 = 先 ForceRebuild 一次全部 AB。")]
         public bool stripUnityVersion = false;
 
@@ -288,10 +288,11 @@ namespace Revolution.Editor
             if (forceRebuild)
                 opt |= BuildAssetBundleOptions.ForceRebuildAssetBundle;
 
-            // ★ 确定性：让"相同输入 → 相同字节"。不开的话每次打包的产物字节都可能有微小差异，
-            //   于是 CI 无法缓存、团队之间 diff 不干净、热更的"内容变没变"也更容易误判。
-            if (deterministic)
-                opt |= BuildAssetBundleOptions.Deterministic;
+            // ★ 确定性：让"相同输入 → 相同字节"。
+            //   Unity 5 起的新构建管线默认就是确定性输出，旧的 DeterministicAssetBundle
+            //   开关已标记过时（显式置位只会刷 CS0618 警告），因此这里不再设置；
+            //   deterministic 字段保留是为了兼容已有的配置资产（新管线恒定满足该语义）。
+            //   于是 CI 能缓存产物、团队之间 diff 干净、热更的"内容变没变"也更准。
 
             // ★ 去掉 Unity 版本号：省下的字节很少，主要代价是"跨 Unity 版本混用包"时失去一道护栏
             //   （升级引擎后没重打 AB，引擎不再能发现），所以默认关闭，见字段上的 Tooltip。
