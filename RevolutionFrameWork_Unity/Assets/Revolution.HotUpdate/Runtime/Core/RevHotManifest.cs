@@ -126,8 +126,13 @@ namespace Revolution.HotUpdate
                   .Append('|').Append(b.Size)
                   .Append('|').Append(string.Join(",", b.Dependencies.ToArray()))
                   .Append('|').Append(string.Join(",", b.Tags.ToArray()));
-                if (!string.IsNullOrEmpty(b.UnityHash)) sb.Append('|').Append(b.UnityHash);
-                if (!string.IsNullOrEmpty(b.UnityCrc)) sb.Append('|').Append(b.UnityCrc);
+                // ★ 这两列必须成对输出：UnityHash 为空时 UnityCrc 单独输出会顶到第 7 段，
+                //   解析侧会把它错认成 UnityHash（列错位）。CRC 依赖 Hash 才有意义，跟着 Hash 一起走。
+                if (!string.IsNullOrEmpty(b.UnityHash))
+                {
+                    sb.Append('|').Append(b.UnityHash);
+                    if (!string.IsNullOrEmpty(b.UnityCrc)) sb.Append('|').Append(b.UnityCrc);
+                }
                 sb.AppendLine();
             }
 
@@ -152,6 +157,7 @@ namespace Revolution.HotUpdate
 
             RevHotManifest manifest = new RevHotManifest();
             int lineNumber = 0;
+            int declaredBundleCount = -1;      // @bundleCount 声明的包数（清单没写时为 -1，跳过截断自检）
 
             string[] lines = text.Split('\n');
             for (int i = 0; i < lines.Length; i++)
@@ -176,7 +182,18 @@ namespace Revolution.HotUpdate
                     case "env": manifest.Env = Value(fields); continue;
                     case "hashAlgo": manifest.HashAlgo = Value(fields); continue;
                     case "builtAt": manifest.BuiltAt = Value(fields); continue;
-                    case "bundleCount": continue;                          // 只是给人看的，行数即真相
+                    case "bundleCount":
+                    {
+                        // 不再"只是给人看"：上传一半 / 被 CDN 截断的清单，实际包行会比声明少 ——
+                        // 不拦的话，缺失的包会被差量计算误判成"远端已删除"，残缺版本照样打上完成标记。
+                        if (int.TryParse(Value(fields), NumberStyles.Integer, CultureInfo.InvariantCulture, out declaredBundleCount) == false
+                            || declaredBundleCount < 0)
+                        {
+                            error = ParseError(lineNumber, line, "bundleCount 不是合法数字：「" + Value(fields) + "」");
+                            return null;
+                        }
+                        continue;
+                    }
 
                     case "resmap":
                     {
@@ -227,6 +244,15 @@ namespace Revolution.HotUpdate
             // ---- 完整性自检：没有版本号 / 没有包，等于清单不可用 ----
             if (string.IsNullOrEmpty(manifest.ResVersion)) { error = "清单缺少 @resVersion（资源版本）"; return null; }
             if (string.IsNullOrEmpty(manifest.AppVersion)) { error = "清单缺少 @appVersion（大版本锚点）"; return null; }
+
+            // ---- 截断自检：声明数与实际数对不上 = 清单不完整（老清单没有 @bundleCount 时不校验，向前兼容） ----
+            if (declaredBundleCount >= 0 && declaredBundleCount != manifest.Bundles.Count)
+            {
+                error = "清单不完整：@bundleCount 声明 " + declaredBundleCount + " 个包，实际解析到 " + manifest.Bundles.Count
+                        + " 个（多半是上传了一半或被 CDN 截断）";
+                return null;
+            }
+
             return manifest;
         }
 

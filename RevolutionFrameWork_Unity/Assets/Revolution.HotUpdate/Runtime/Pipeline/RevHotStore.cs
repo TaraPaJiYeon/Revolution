@@ -50,6 +50,17 @@ namespace Revolution.HotUpdate
         //   清单每次 Check 都会拉下来，顺手把这两列抽出来放着即可（文件型平台用不上，保持 null）。
         private static Dictionary<string, RevBundleCacheKey> _bundleKeys;
 
+        // 文件型平台的"历史版本回退链"（新 → 旧，只含带 .stamp 的完整版本目录的 bundles 路径）。
+        // ★ 为什么必须回退：差量更新只把"新增 / 变更"的包写进新版本目录，未变化的包还留在旧版本目录里 ——
+        //   加载只认当前版本目录的话，热更一次后其余包全部加载失败（这是差量方案能够成立的前提）。
+        //   WebGL 不需要它：那边的引擎缓存以 Hash128 为 key，hash 相同就命中缓存，URL 变了也无所谓。
+        private static string[] _fallbackBundleDirs = Array.Empty<string>();
+
+        // 当前生效的资源清单（SetActiveBundleKeys 时一并钉住，所有平台都需要）。
+        // ★ 用途：给 RevABLoader.DependenciesOverride 提供依赖图 —— 主包 Manifest 是出包时的静态快照，
+        //   不认识热更新增的包、记不住变更包的新依赖；没有这份清单，新增/变更包的依赖闭包不会被自动加载。
+        private static RevHotManifest _activeManifest;
+
         private const string PlayerPrefsKeyPrefix = "RevHotUpdate.Current.";
 
         // ============================================================
@@ -74,6 +85,49 @@ namespace Revolution.HotUpdate
         public static void SetActiveVersion(string resVersion)
         {
             _activeResVersion = resVersion ?? string.Empty;
+            RebuildFallbackChain();
+        }
+
+        /// <summary>
+        /// 重建历史版本回退链：当前版本之外、带 .stamp 的完整版本目录，按版本号新 → 旧排好。
+        /// ★ 只认完整版本：半截目录（.stamp 还没打上）里的包没经过校验，绝不能进回退链。
+        /// </summary>
+        private static void RebuildFallbackChain()
+        {
+            _fallbackBundleDirs = Array.Empty<string>();
+            if (RevHotPlatform.SupportsLocalFiles == false) return;
+            if (_configured == false || string.IsNullOrEmpty(_activeResVersion)) return;
+
+            try
+            {
+                string appDir = AppVersionDir();
+                if (Directory.Exists(appDir) == false) return;
+
+                List<string> versions = new List<string>(Directory.GetDirectories(appDir));
+
+                Comparison<string> newestFirst = delegate(string a, string b)
+                {
+                    return RevHotVersion.Compare(Path.GetFileName(b), Path.GetFileName(a));
+                };
+                versions.Sort(newestFirst);
+
+                List<string> dirs = new List<string>(versions.Count);
+                for (int i = 0; i < versions.Count; i++)
+                {
+                    string name = Path.GetFileName(versions[i]);
+                    if (string.Equals(name, _activeResVersion, StringComparison.Ordinal)) continue;   // 当前版本永远第一优先，不进回退链
+                    if (File.Exists(Path.Combine(versions[i], ".stamp")) == false) continue;          // 不完整 = 不可信
+
+                    dirs.Add(Path.Combine(versions[i], "bundles"));
+                }
+
+                _fallbackBundleDirs = dirs.ToArray();
+            }
+            catch (Exception e)
+            {
+                // 链建不起来就退化为"只用当前版本 + 首包"：加载仍能走，只是未变化包可能要等下次重建
+                RevLog.Warn("历史版本回退链构建失败（忽略）：" + e.Message, LogTag());
+            }
         }
 
         /// <summary>URL 型平台：把"下载阶段拿到的热更映射表"先寄存在内存里（资源系统 Init 时取走）。</summary>
@@ -81,6 +135,12 @@ namespace Revolution.HotUpdate
         {
             _memoryResMap = resMap;
         }
+
+        /// <summary>
+        /// URL 型平台：内存映射表是否已就位。★ 静态字段在重启 / 快速进入 Play 时会被清空 ——
+        /// 每个新会话都必须重新拉一次表，否则热更新增的资源加载不到（门面用它在收尾时补拉）。
+        /// </summary>
+        public static bool HasMemoryResMap { get { return _memoryResMap != null; } }
 
         /// <summary>
         /// URL 型平台：把"生效清单里每个包的引擎缓存标识（unityHash / unityCrc）"抽出来寄存进内存。
@@ -93,6 +153,9 @@ namespace Revolution.HotUpdate
         /// </summary>
         public static void SetActiveBundleKeys(RevHotManifest manifest)
         {
+            // ★ 清单本身所有平台都要存（依赖解析钩子用），必须在平台分支之前赋值
+            _activeManifest = manifest;
+
             if (RevHotPlatform.IsWebGL == false) { _bundleKeys = null; return; }
             if (manifest == null || manifest.Bundles.Count == 0) { _bundleKeys = null; return; }
 
@@ -173,8 +236,9 @@ namespace Revolution.HotUpdate
         /// <summary>
         /// 解析一个 AB 包从哪读：
         /// ① 当前资源版本目录里有 → 用它（热更生效）；
-        /// ② 首包落地目录里有 → 用它（没更新过的内置包，Android 全靠这一层）；
-        /// ③ 都没有 → 返回 null，让框架走默认的 StreamingAssets（PC / iOS 的内置包就在那）。
+        /// ② 历史完整版本目录里有 → 用它（★ 差量更新后"未变化的包"只在旧版本目录里 —— 没有这一级，热更一次其余包全挂）；
+        /// ③ 首包落地目录里有 → 用它（没更新过的内置包，Android 全靠这一层）；
+        /// ④ 都没有 → 返回 null，让框架走默认的 StreamingAssets（PC / iOS 的内置包就在那）。
         /// </summary>
         public static string ResolveBundlePath(string bundleName)
         {
@@ -186,9 +250,18 @@ namespace Revolution.HotUpdate
                 return RevHotUrlBuilder.BundleUrl(_config, _config.RemoteRoot, _activeResVersion, bundleName);
             }
 
-            // ---------- 文件型平台：两级根，顺序固定 ----------
+            // ---------- 文件型平台：当前版本 → 历史完整版本 → 首包落地，顺序固定 ----------
             string hot = Path.Combine(BundlesDir(_activeResVersion), bundleName);
             if (File.Exists(hot)) return hot;
+
+            // ★ 回退链：差量更新的另一半。新版本目录只有"新增 / 变更"的包，
+            //   未变化的包还留在旧版本目录里 —— 不回退查找，热更一次后其余包全部加载失败。
+            string[] fallback = _fallbackBundleDirs;
+            for (int i = 0; i < fallback.Length; i++)
+            {
+                string older = Path.Combine(fallback[i], bundleName);
+                if (File.Exists(older)) return older;
+            }
 
             if (string.IsNullOrEmpty(_builtinDir) == false)
             {
@@ -255,6 +328,27 @@ namespace Revolution.HotUpdate
         }
 
         // ============================================================
+        // ★ 钩子四：依赖解析（RevABLoader.DependenciesOverride 的实现）
+        // ============================================================
+
+        /// <summary>
+        /// 给出某个包的依赖列表（依赖闭包加载用）。
+        /// ★ 数据源是"当前生效清单"—— 它和落盘的包严格同批生成，比出包时的主包 Manifest 新鲜：
+        ///   主包 Manifest 不认识热更新增的包、记不住变更包的新依赖，用它解析热更包的依赖必然漏加载。
+        /// 清单里查不到该包（主包本身、或清单与磁盘不一致）→ 返回 null 回退主包 Manifest（默认行为）。
+        /// </summary>
+        public static string[] ResolveDependencies(string bundleName)
+        {
+            RevHotManifest manifest = _activeManifest;
+            if (manifest == null) return null;
+
+            RevHotBundleInfo bundle = manifest.Find(bundleName);
+            if (bundle == null) return null;
+
+            return bundle.Dependencies.ToArray();
+        }
+
+        // ============================================================
         // 版本指针（current.txt / PlayerPrefs）
         // ============================================================
 
@@ -294,7 +388,8 @@ namespace Revolution.HotUpdate
 
             string path = CurrentPath();
             string tmp = path + ".tmp";
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string dir = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(dir) == false) Directory.CreateDirectory(dir);
             File.WriteAllText(tmp, (resVersion ?? string.Empty) + "\n");
 
             if (File.Exists(path))
@@ -574,7 +669,7 @@ namespace Revolution.HotUpdate
                 // 幂等：已在且大小一致 → 跳过（二次启动 / 断点续装都靠这一条）
                 if (File.Exists(target) && new FileInfo(target).Length == bundle.Size)
                 {
-                    progress.CompleteFile(bundle.Size);
+                    progress.CompleteFile("内置/" + bundle.Name, bundle.Size);
                     continue;
                 }
 
@@ -587,7 +682,7 @@ namespace Revolution.HotUpdate
                     await RevHotVerifier.VerifyAsync(target, bundle.Size, bundle.Sha256, config.VerifyMode, config, token);
                 }
 
-                progress.CompleteFile(bundle.Size);
+                progress.CompleteFile("内置/" + bundle.Name, bundle.Size);
             }
 
             // ---------- 映射表也一并落地（Android 没有它，"未热更的客户端"读不到表） ----------
@@ -668,6 +763,7 @@ namespace Revolution.HotUpdate
             dirs.Sort(newestFirst);
 
             int kept = 0;
+            bool deleted = false;
             for (int i = 0; i < dirs.Count; i++)
             {
                 string name = Path.GetFileName(dirs[i]);
@@ -689,6 +785,7 @@ namespace Revolution.HotUpdate
                 {
                     Directory.Delete(dirs[i], true);
                     RevLog.Info("清理旧资源版本：" + name, LogTag());
+                    deleted = true;
                 }
                 catch (Exception e)
                 {
@@ -696,6 +793,10 @@ namespace Revolution.HotUpdate
                     RevLog.Warn("清理旧版本失败（忽略）：" + name + "，" + e.Message, LogTag());
                 }
             }
+
+            // ★ 有目录被删就要重建回退链：链是"切版本时"的快照，刚删掉的目录还挂在链上，
+            //   虽然加载端 File.Exists 实时查询不会真用到已删目录，但链脏了不如重建（幂等、零成本）。
+            if (deleted) RebuildFallbackChain();
         }
 
         // ============================================================
@@ -711,6 +812,9 @@ namespace Revolution.HotUpdate
             _builtinDir = "";
             _activeResVersion = "";
             _memoryResMap = null;
+            _bundleKeys = null;              // ★ 必须一起清：关闭 Domain Reload 的二次 Play 里，
+            _fallbackBundleDirs = Array.Empty<string>();   //   残留的旧版本 hash 表 / 回退链会让加载用错版本的数据
+            _activeManifest = null;          //   残留的旧清单会让依赖解析给出过期的依赖图
             _configured = false;
         }
 

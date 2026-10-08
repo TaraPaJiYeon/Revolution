@@ -78,6 +78,7 @@ namespace Revolution.HotUpdate.Editor
                 if (name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;       // 框架的 BuildManifest.json
                 if (name.StartsWith("RevHot", StringComparison.OrdinalIgnoreCase)) continue;    // 我们自己的产物（防二次生成互相污染）
                 if (string.Equals(name, mainBundleName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.Equals(name, ResMapFileName, StringComparison.OrdinalIgnoreCase)) continue;   // ★ 上次 WriteOutputs 拷进来的映射表副本 —— 不排除会被二次扫成"AB 包"进清单
                 if (name.StartsWith(".", StringComparison.Ordinal)) continue;                   // 隐藏文件
 
                 var bundle = new RevHotBundleInfo

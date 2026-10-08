@@ -8,6 +8,7 @@
 //   聚合器做了 120ms 节流：UI 拿到的进度足够顺滑，日志也不会刷屏。
 // ============================================================
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
@@ -97,10 +98,14 @@ namespace Revolution.HotUpdate
         private double _speed;
 
         private long _doneBytes;
-        private long _currentDone;
         private string _currentFile = "";
         private int _fileIndex;
         private RevHotProgress _last;
+
+        // ★ 进行中文件的字节按"文件名"分账：并发工人（最多 8 个）同时下载时，
+        //   单字段互相覆盖会把进度显示成"只有最后一个工人的字节"（约 1/N），每完成一个文件才跳一截。
+        //   RevTask 是主线程模型，所有调用都在主线程 —— 无需加锁。
+        private readonly Dictionary<string, long> _activeBytes = new Dictionary<string, long>(8);
 
         public RevHotProgressAggregator(RevHotState phase, long totalBytes, int fileCount, Action<RevHotProgress> sink, string logTag)
         {
@@ -111,27 +116,28 @@ namespace Revolution.HotUpdate
             _logTag = logTag;
         }
 
-        /// <summary>开始处理某个文件（name 用于日志与"卡在哪个包"排查）。</summary>
+        /// <summary>开始处理某个文件（name 用于分账与"卡在哪个包"排查；并发时显示最后开始的一个）。</summary>
         public void BeginFile(string name)
         {
             _fileIndex++;
             _currentFile = name;
-            _currentDone = 0;
+            _activeBytes[name] = 0;
             Report(true);
         }
 
-        /// <summary>当前文件已下载/已处理的字节（由下载循环每帧喂进来）。</summary>
-        public void SetFileBytes(long bytes)
+        /// <summary>某个进行中文件已下载/已处理的字节（由下载循环每帧按名字喂进来）。</summary>
+        public void SetFileBytes(string name, long bytes)
         {
-            _currentDone = bytes;
+            if (_activeBytes.ContainsKey(name) == false) return;   // 保险：完成后的迟到上报直接忽略
+            _activeBytes[name] = bytes;
             Report(false);
         }
 
-        /// <summary>一个文件彻底完成（尺寸参数用于累计）。</summary>
-        public void CompleteFile(long size)
+        /// <summary>一个文件彻底完成（尺寸参数用于累计；名字用于把它的"进行中"账清掉）。</summary>
+        public void CompleteFile(string name, long size)
         {
+            _activeBytes.Remove(name);
             _doneBytes += size;
-            _currentDone = 0;
             Report(true);
         }
 
@@ -142,17 +148,23 @@ namespace Revolution.HotUpdate
 
             // 节流：非强制上报时，两次间隔至少 120ms（loading 条 8 帧/秒足够顺滑）
             if (force == false && now - _lastReportMs < 120) return;
+
+            // ★ 先存上一次的上报时刻，再更新 —— 速度 = 字节增量 / 两次上报的间隔。
+            //   （旧实现先覆盖 _lastReportMs 再算 dt，dt 恒为 0，速度永远显示 0。）
+            long lastMs = _lastReportMs;
             _lastReportMs = now;
 
-            long done = _doneBytes + _currentDone;
+            long active = 0;
+            foreach (KeyValuePair<string, long> kv in _activeBytes) active += kv.Value;
+            long done = _doneBytes + active;
             double percent = _totalBytes <= 0 ? 100.0 : done * 100.0 / _totalBytes;
 
-            long dt = now - _lastReportMs;
+            long dt = now - lastMs;
             if (dt > 0)
             {
                 double inst = (done - _lastBytes) * 1000.0 / dt;
                 // 平滑一下（50/50），避免瞬时抖动让速度数字来回跳
-                _speed = _lastReportMs == long.MinValue ? inst : (_speed + inst) * 0.5;
+                _speed = lastMs == long.MinValue ? inst : (_speed + inst) * 0.5;
             }
 
             _lastBytes = done;

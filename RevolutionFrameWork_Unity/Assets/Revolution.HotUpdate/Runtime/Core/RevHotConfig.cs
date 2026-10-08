@@ -218,6 +218,23 @@ namespace Revolution.HotUpdate
                 return "RetryCount 不能是负数";
             }
 
+            if (TimeoutSeconds < 1)
+            {
+                // timeout ≤ 0 时 UnityWebRequest 视为"不限时"——弱网下单个请求会永远挂住，整个热更流程跟着卡死
+                return "TimeoutSeconds 必须 ≥ 1（0 / 负数 = 请求没有超时兜底，网络异常时热更会永远卡住）";
+            }
+
+            if (RetryBackoffMs < 0)
+            {
+                return "RetryBackoffMs 不能是负数（重试退避基数，毫秒）";
+            }
+
+            if (RetryBackoffMs > 60000)
+            {
+                // 退避按指数翻倍（500ms → 1s → 2s…），基数太大玩家要干等很久
+                return "RetryBackoffMs 过大（上限 60000ms）：重试等待按指数翻倍，基数太大会让玩家等很久";
+            }
+
             // ★ Android 的 StreamingAssets 在 APK 内（jar: 路径），AssetBundle.LoadFromFile 读不了，
             //   所以"直读 StreamingAssets"在 Android 上等于内置资源全部加载失败 —— 配置期就拦下。
             if (RevHotPlatform.NeedsBuiltinCopy && FirstPackageMode == RevHotFirstPackageMode.ReadFromStreamingAssets)

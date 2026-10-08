@@ -1,11 +1,12 @@
 // ============================================================
-// RevHotResBridge.cs —— 与框架资源系统的唯一接缝（整个热更包只碰这三个钩子）
+// RevHotResBridge.cs —— 与框架资源系统的唯一接缝（整个热更包只碰这四个钩子）
 //
 // 位置：Assets\Revolution.HotUpdate\Runtime\Integration\
 //
 // 【接缝】（框架侧各只有几行，默认 null，不装热更包零影响）
 //   RevABLoader.BundlePathResolver     ← RevHotStore.ResolveBundlePath      （包从哪读）
 //   RevABLoader.BundleCacheKeyResolver ← RevHotStore.ResolveBundleCacheKey  （URL 型平台：引擎缓存标识 hash/crc）
+//   RevABLoader.DependenciesOverride   ← RevHotStore.ResolveDependencies    （依赖图用热更清单的 —— 主包 Manifest 是出包时的静态快照）
 //   RevResBootstrap.ResMapOverride     ← RevHotStore.LoadHotResMap          （映射表用热更的）
 //
 // 【为什么 Install 不触发资源系统 Init】
@@ -17,7 +18,7 @@ using Revolution;
 
 namespace Revolution.HotUpdate
 {
-    /// <summary>框架桥：负责装/卸三个钩子，并按正确时序重装资源策略。</summary>
+    /// <summary>框架桥：负责装/卸四个钩子，并按正确时序重装资源策略。</summary>
     internal static class RevHotResBridge
     {
         private const string LogTag = "HotUpdate";
@@ -36,10 +37,11 @@ namespace Revolution.HotUpdate
             //   Play 里持有已失效的对象引用 —— 这是框架里其它静态钩子的同款纪律。
             RevABLoader.BundlePathResolver = RevHotStore.ResolveBundlePath;
             RevABLoader.BundleCacheKeyResolver = RevHotStore.ResolveBundleCacheKey;
+            RevABLoader.DependenciesOverride = RevHotStore.ResolveDependencies;
             RevResBootstrap.ResMapOverride = RevHotStore.LoadHotResMap;
             _installed = true;
 
-            RevLog.Info("热更钩子已装载（BundlePathResolver / BundleCacheKeyResolver / ResMapOverride）", LogTag);
+            RevLog.Info("热更钩子已装载（BundlePathResolver / BundleCacheKeyResolver / DependenciesOverride / ResMapOverride）", LogTag);
         }
 
         /// <summary>

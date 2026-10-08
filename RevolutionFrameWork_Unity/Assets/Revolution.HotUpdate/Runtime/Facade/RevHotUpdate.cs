@@ -63,8 +63,10 @@ namespace Revolution.HotUpdate
         // ============================================================
 
         /// <summary>
-        /// 只检查：不下任何东西。返回"有没有更新 / 要下多少 / 是否需要更新客户端"。
+        /// 只检查：不做网络下载。返回"有没有更新 / 要下多少 / 是否需要更新客户端"。
         /// 适合先弹窗问玩家（WIFI 提示、大包确认）再决定要不要下。
+        /// <para>唯一例外：首包落地（把 StreamingAssets 的内置包拷到本地，纯磁盘操作、幂等）——
+        /// Android 不落地的话，检查后不更新直接进游戏也读不到内置资源。</para>
         /// </summary>
         public static RevTask<RevHotCheckResult> CheckAsync(RevHotConfig config, Action<RevHotProgress> onProgress = null, RevCancellationToken token = null)
         {
@@ -138,6 +140,7 @@ namespace Revolution.HotUpdate
             _initTask = default;
             _lastResult = null;
             _hasResult = false;
+            Progress = null;        // ★ 清订阅者：业务只订阅不退订时，二次 Play 会经静态事件持有已销毁的对象
         }
 
         // ============================================================
@@ -147,6 +150,13 @@ namespace Revolution.HotUpdate
         private static async RevTask<RevHotCheckResult> RunCheckAsync(RevHotConfig config, Action<RevHotProgress> onProgress, RevCancellationToken token)
         {
             token = token ?? new RevCancellationToken();
+            if (config == null)
+            {
+                // 不让 NRE 混进"预期外异常"：配置缺失是配置问题，要在第一步就给人话
+                return Fail(onProgress, RevHotError.Of(RevHotErrorCode.ConfigInvalid,
+                    "配置为 null：CheckAsync 需要一个填好 RemoteRoot 的 RevHotConfig"));
+            }
+
             _activeConfig = config;
             _state = RevHotState.Checking;
             Report(onProgress, RevHotState.Checking, "正在检查更新…");
@@ -174,6 +184,17 @@ namespace Revolution.HotUpdate
                 {
                     // 调试语义：指定资源版本 = "本地状态作废"，按空基线重新全量拉该版本
                     RevLog.Warn("ResVersionOverride=" + config.ResVersionOverride + "：忽略本地基线，按全量更新处理", config.LogTag);
+                }
+
+                // ---------- ②′ 首包落地（Android 的命门） ----------
+                // ★ 把 StreamingAssets 里的内置包拷到 persistentDataPath：APK 内的包对 LoadFromFile
+                //   不是文件路径，不落地就永远读不到内置资源（这条链路此前断了：方法存在但无人调用）。
+                //   放在"检查"阶段是因为内置包是首包基线的一部分，与"是否执行更新"无关；
+                //   幂等 —— 已落地且大小一致的直接跳过，二次启动零成本。WebGL 在方法内部直接跳过。
+                if (localBaseline != null
+                    && (RevHotPlatform.NeedsBuiltinCopy || config.FirstPackageMode == RevHotFirstPackageMode.CopyToLocal))
+                {
+                    await RevHotStore.CopyBuiltinPackagesAsync(localBaseline, config, onProgress, token);
                 }
 
                 // ---------- ③ 拉远端清单（多源 + 重试；失败保持当前版本，玩家照常玩） ----------
@@ -216,10 +237,33 @@ namespace Revolution.HotUpdate
                         RemoteResVersion = remote.ResVersion,
                         LocalResVersion = _localResVersion,
                         ManifestText = manifestText,
+                        Config = config,
                     };
                 }
 
                 // ---------- ⑤ 版本比对 ----------
+                // ★ WebGL / 小游戏短路：那边没有文件系统，存不下清单副本，本地基线永远退化为内置清单 ——
+                //   若不短路，二次启动仍会拿"内置基线 vs 远端清单"判出"有更新"，白白重拉一遍映射表、
+                //   重打一遍完成标记。资源 URL 带版本段、内容不可变：上次生效版本 == 远端版本 = 什么都不用拉。
+                if (RevHotPlatform.IsWebGL
+                    && string.IsNullOrEmpty(config.ResVersionOverride)
+                    && RevHotVersion.AreEqual(remote.ResVersion, _localResVersion))
+                {
+                    RevHotPlan unchanged = new RevHotPlan();
+                    _state = RevHotState.Idle;
+                    return new RevHotCheckResult
+                    {
+                        Success = true,
+                        HasUpdate = false,
+                        LocalResVersion = _localResVersion,
+                        RemoteResVersion = remote.ResVersion,
+                        Plan = unchanged,
+                        RemoteManifest = remote,
+                        ManifestText = manifestText,
+                        Config = config,
+                    };
+                }
+
                 RevHotPlan plan = RevHotPlanner.Build(remote, localBaseline);
                 _state = RevHotState.Idle;
 
@@ -236,6 +280,7 @@ namespace Revolution.HotUpdate
                     Plan = plan,
                     RemoteManifest = remote,
                     ManifestText = manifestText,
+                    Config = config,
                 };
             }
             catch (RevOperationCanceledException)
@@ -266,7 +311,19 @@ namespace Revolution.HotUpdate
                 return Fail(onProgress, RevHotError.Of(RevHotErrorCode.ConfigInvalid, "UpdateAsync 需要 CheckAsync 的成功结果（先检查、再更新）"), clock);
             }
 
-            RevHotConfig config = _activeConfig;
+            // ★ 配置优先用 check 自带的（与生成计划时的配置严格配对）；
+            //   旧数据没有携带时回退门面记录，再没有就只能明确失败，绝不能拿 null 往下走。
+            RevHotConfig config = check.Config ?? _activeConfig;
+            if (config == null)
+            {
+                return Fail(onProgress, RevHotError.Of(RevHotErrorCode.ConfigInvalid,
+                    "更新配置缺失：请把 CheckAsync 的结果原样传给 UpdateAsync（期间不要复位热更会话）"), clock);
+            }
+
+            // ★ 必须装钩子：UpdateAsync 是公开 API，"CheckAsync → 弹窗确认 → UpdateAsync"这条
+            //   业务主路径不经过 InitializeAsync —— 不装的话，更新成功了但加载路径钩子没挂上，
+            //   随后加载资源走的还是 StreamingAssets 旧路径（热更"成功"却读不到新内容）。幂等，重复装无害。
+            RevHotResBridge.Install();
             RevHotManifest remote = check.RemoteManifest;
             string resVersion = remote.ResVersion;
 
@@ -284,13 +341,13 @@ namespace Revolution.HotUpdate
                     await RevHotDownloader.DownloadPlanAsync(check.Plan, config, resVersion, onProgress, token);
                 }
 
-                // URL 型平台：把"热更映射表"拉下来寄存在内存里（资源系统 Init 时通过钩子取走）
-                if (RevHotPlatform.IsWebGL && check.Plan.ResMapChanged)
-                {
-                    Func<RevHotSource, string> resMapUrl = delegate(RevHotSource source) { return RevHotUrlBuilder.ResMapUrl(config, source.Root, resVersion); };
-                    string resMapText = await RevHotDownloader.FetchTextAsync(config, resMapUrl, token);
-                    RevHotStore.SetActiveResMap(RevHotStore.ParseResMapText(resMapText));
-                }
+                // URL 型平台：确保"热更映射表"已在内存里（资源系统 Init 时通过钩子取走）。
+                // ★ 不能只在 ResMapChanged 时拉：重启后的新会话内存表必然为空 —— 那时就算本版本
+                //   的表没变，也必须补拉一次，否则热更新增的资源在本次会话全部加载不到。
+                // strict=true：首次安装/更新语义 —— 新版本的表拉不到就算更新失败（可重试）。
+                // force=ResMapChanged：表变了就必须重拉 —— 同一会话的第二次热更时内存里还是旧表，
+                // "已就位就跳过"会让新版本的新增资源全部加载不到（这是文件平台没有的坑：那边的表落盘按版本隔离）。
+                await EnsureWebGLResMapAsync(config, resVersion, true, check.Plan.ResMapChanged, token);
 
                 // ---------- ③ 版本目录补齐（清单副本 + 映射表） ----------
                 _state = RevHotState.Applying;
@@ -393,6 +450,13 @@ namespace Revolution.HotUpdate
             {
                 // 需要更新客户端：资源层保持"出包基线"可用（旧版本照常能玩），
                 // 怎么引导玩家（跳商店 / 公告 / 整包下载）由业务在 OnForceUpdateRequired 回调里决定。
+                // ★ 说了"照常能玩"就得真的能玩：钩子已装，资源系统必须初始化一次，
+                //   否则首次启动 + 强更的场景下没人调过 Init，"基线可用"只是纸面承诺。
+                if (string.IsNullOrEmpty(_localResVersion) == false)
+                {
+                    RevHotStore.SetActiveVersion(_localResVersion);
+                }
+                RevHotResBridge.ReinitResourceSystem();
                 _state = RevHotState.Ready;
                 return RevHotUpdateResult.Ok(check.ForceUpdate.Message, _localResVersion, clock.Elapsed.TotalSeconds);
             }
@@ -413,12 +477,49 @@ namespace Revolution.HotUpdate
 
             RevHotStore.SetActiveVersion(_localResVersion);
             RevHotStore.SetActiveBundleKeys(check.RemoteManifest);    // ★ 同上：无更新时也要把 hash 表钉到当前版本
+            // ★ WebGL 重启后走这里：静态内存表已清空，必须补拉映射表（strict=false，内置表兜底），
+            //   否则"版本相等短路"会让热更新增的资源在本次会话全部加载不到。
+            //   force=false：能走到这里说明远端版本没变 —— 内存里已有的表就是当前版本的，不必重拉。
+            await EnsureWebGLResMapAsync(config, check.RemoteManifest.ResVersion, false, false, token);
             RevHotResBridge.ReinitResourceSystem();
 
             _state = RevHotState.Ready;
             string okMessage = "已是最新版本 " + _localResVersion;
             RevLog.Info(okMessage, config.LogTag);
             return RevHotUpdateResult.Ok(okMessage, _localResVersion, clock.Elapsed.TotalSeconds);
+        }
+
+        // ============================================================
+        // WebGL / 小游戏：热更映射表的内存供给
+        // ============================================================
+
+        /// <summary>
+        /// 确保"热更映射表"已在内存里（那边没有文件系统，表只能放内存，资源系统 Init 时经钩子取走）。
+        /// ★ 每个新会话（重启 / 快速进入 Play）静态内存都是空的 —— 已就位时直接跳过（同会话零成本）。
+        /// <para>strict=true：拉不到就抛（更新语义：新版本的表必须到位，失败可整体重试）；</para>
+        /// <para>strict=false：拉不到只警告（无更新/重启补拉语义：内置表兜底，游戏至少能跑）；</para>
+        /// <para>force=true：无视"已就位"直接重拉（更新语义下表变了 —— 内存里那份是旧版本表的残留）。</para>
+        /// </summary>
+        private static async RevTask EnsureWebGLResMapAsync(RevHotConfig config, string resVersion, bool strict, bool force, RevCancellationToken token)
+        {
+            if (RevHotPlatform.IsWebGL == false) return;
+            if (force == false && RevHotStore.HasMemoryResMap) return;
+
+            Func<RevHotSource, string> resMapUrl = delegate(RevHotSource source) { return RevHotUrlBuilder.ResMapUrl(config, source.Root, resVersion); };
+            try
+            {
+                string resMapText = await RevHotDownloader.FetchTextAsync(config, resMapUrl, token);
+                RevHotStore.SetActiveResMap(RevHotStore.ParseResMapText(resMapText));
+            }
+            catch (RevOperationCanceledException)
+            {
+                throw;
+            }
+            catch (RevHotException e)
+            {
+                if (strict) throw;
+                RevLog.Warn("热更映射表补拉失败，本次使用内置表兜底（新增资源可能加载不到）：" + e.Error.Message, config.LogTag);
+            }
         }
 
         // ============================================================
@@ -431,6 +532,10 @@ namespace Revolution.HotUpdate
         /// </summary>
         private static async RevTask<RevHotManifest> ReadLocalBaselineAsync(RevHotConfig config, string localVersion, RevCancellationToken token)
         {
+            // WebGL / 小游戏没有本地文件：清单副本根本存不下来，基线永远走内置清单
+            // （不拦的话每次启动都会对不存在的路径 File.ReadAllText 抛一次异常、打一条误导性警告）
+            if (RevHotPlatform.IsWebGL) return null;
+
             if (string.IsNullOrEmpty(localVersion) == false && RevHotStore.IsVersionComplete(localVersion))
             {
                 RevHotManifest fromDisk = TryParseFile(RevHotStore.ManifestPath(localVersion));

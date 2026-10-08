@@ -15,6 +15,7 @@
 // ============================================================
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using Revolution;
@@ -66,7 +67,7 @@ namespace Revolution.HotUpdate
                     {
                         last = e;
                         RevLog.Warn("清单拉取失败（" + sources[s] + "，第 " + (attempt + 1) + " 次）：" + e.Error.Message, config.LogTag);
-                        await RevTask.Delay(BackoffMs(config, attempt));
+                        await BackoffDelayAsync(BackoffMs(config, attempt), token);
                     }
                 }
 
@@ -132,6 +133,11 @@ namespace Revolution.HotUpdate
 
             await RevTask.WhenAll(tasks);
 
+            // ★ 取消必须在这里显式上抛：WhenAll 只计数完成、不看异常 —— 工人抛出的
+            //   RevOperationCanceledException 到这里已经丢了。不补抛的话，"取消下载"会
+            //   被当成"更新成功"继续走完 stamp / 切版本，半截版本直接上线。
+            if (session.Cancelled) throw new RevOperationCanceledException();
+
             // 全部工人结束后：有失败就上抛（第一个错误最有诊断价值）
             if (session.FirstError != null) throw session.FirstError;
         }
@@ -147,6 +153,13 @@ namespace Revolution.HotUpdate
             public readonly object Gate = new object();
             public RevHotException FirstError;
             public bool Stop;
+
+            /// <summary>
+            /// 取消专用标志（与 Stop 分开：Stop 复用于"失败也停"，
+            /// 聚合处要区分"该报失败"还是"该报取消"—— RevTask 的 WhenAll 不传播异常，取消只能靠它带出来）。
+            /// </summary>
+            public bool Cancelled;
+
             private int _cursor;
 
             public DownloadSession(List<WorkItem> items)
@@ -234,10 +247,11 @@ namespace Revolution.HotUpdate
                 try
                 {
                     await DownloadOneAsync(item, config, resVersion, progress, token);
-                    progress.CompleteFile(item.Size);
+                    progress.CompleteFile(item.Name, item.Size);
                 }
                 catch (RevOperationCanceledException)
                 {
+                    session.Cancelled = true;                  // ★ 先记账：这个异常到 WhenAll 聚合处会被吞，只能靠标志带出去
                     session.Stop = true;                       // 取消：让别的工人也别再领新任务
                     throw;
                 }
@@ -285,7 +299,7 @@ namespace Revolution.HotUpdate
                     {
                         last = e;
                         RevLog.Warn(item.Name + " 下载失败（" + sources[s] + "，第 " + (attempt + 1) + " 次）：" + e.Error.Message, config.LogTag);
-                        await RevTask.Delay(BackoffMs(config, attempt));  // 指数退避：给 CDN / 网络喘口气
+                        await BackoffDelayAsync(BackoffMs(config, attempt), token);   // 指数退避：给 CDN / 网络喘口气（可取消）
                     }
                 }
 
@@ -330,7 +344,7 @@ namespace Revolution.HotUpdate
                 while (op.isDone == false)
                 {
                     token.ThrowIfCancelled();
-                    progress.SetFileBytes(offset + (long)www.downloadedBytes);
+                    progress.SetFileBytes(item.Name, offset + (long)www.downloadedBytes);
                     await RevTask.Yield();
                 }
 
@@ -383,11 +397,31 @@ namespace Revolution.HotUpdate
             }
         }
 
+        /// <summary>单次退避的硬上限（配置值异常大时也最多等这么久）。</summary>
+        private const int MaxBackoffMs = 30_000;
+
         /// <summary>指数退避：500ms → 1s → 2s → 4s（封顶左移 4 位，避免重试几十次后等几十秒）。</summary>
         private static int BackoffMs(RevHotConfig config, int attempt)
         {
-            int shift = Math.Min(attempt, 4);
-            return config.RetryBackoffMs << shift;
+            // 先升 long 再移位：int 移位在基数大时会把符号位移成负数（等待时间变 0 甚至更糟）
+            long wait = (long)config.RetryBackoffMs << Math.Min(attempt, 4);
+            if (wait > MaxBackoffMs) wait = MaxBackoffMs;
+            return wait < 0 ? 0 : (int)wait;
+        }
+
+        /// <summary>
+        /// 可取消的退避等待。★ 不用 RevTask.Delay：它不带取消令牌，玩家在退避期间取消，
+        /// 还要白等满一次退避时长才响应 —— 改成逐帧检查，取消立刻生效。
+        /// </summary>
+        private static async RevTask BackoffDelayAsync(int milliseconds, RevCancellationToken token)
+        {
+            if (milliseconds <= 0) return;
+            Stopwatch clock = Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < milliseconds)
+            {
+                token.ThrowIfCancelled();
+                await RevTask.Yield();
+            }
         }
     }
 }

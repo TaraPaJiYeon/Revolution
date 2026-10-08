@@ -122,6 +122,29 @@ namespace Revolution
         /// </summary>
         public static Func<string, RevBundleCacheKey> BundleCacheKeyResolver { get; set; }
 
+        /// <summary>
+        /// 依赖解析覆盖钩子（可选，默认 null）：参数 = 包名，返回 = 该包的依赖包名列表。
+        /// <para>★ 返回 null → 回退主包 Manifest 的 GetAllDependencies（默认行为，不装热更包零影响）。</para>
+        /// <para>★ 为什么需要它：主包 Manifest 是**出包时**的静态依赖快照 —— 它不认识热更新增的包，
+        ///   也记不住热更变更包的新依赖。没有这个钩子，热更新增/变更包的依赖闭包不会被自动加载，
+        ///   表现为资产加载失败 / missing，且"依赖包恰好被别的资源加载过"时侥幸通过 —— 时好时坏最难排查。
+        ///   热更包用"当前生效清单"的 Dependencies 列提供新鲜的依赖图。</para>
+        /// </summary>
+        public static Func<string, string[]> DependenciesOverride { get; set; }
+
+        /// <summary>
+        /// 解析一个包的依赖列表：先问覆盖钩子，钩子不接（返回 null）再走主包 Manifest。
+        /// ★ 加载（AcquireBundle）与释放（ReleaseBundle）必须走同一个来源，+1/-1 才能配对。
+        /// </summary>
+        private string[] ResolveDependencies(string abName)
+        {
+            Func<string, string[]> source = DependenciesOverride;        // 先取快照：属性可能在别的时机被清空
+            string[] custom = source == null ? null : source(abName);
+            if (custom != null) return custom;
+            if (_manifest == null) return Array.Empty<string>();         // 主包未就绪（理论上调用方已 EnsureManifest）
+            return _manifest.GetAllDependencies(abName);
+        }
+
         // ============================================================
         // 加载策略（可按项目调整；都是"全局一次"的旋钮，不改默认行为）
         // ============================================================
@@ -196,7 +219,7 @@ namespace Revolution
 
             // 依赖加载是一个事务：任何依赖或目标包失败，都归还本次已经取得的依赖引用。
             var acquiredDependencies = new List<string>();
-            foreach (string dep in _manifest.GetAllDependencies(abName))
+            foreach (string dep in ResolveDependencies(abName))
             {
                 if (AcquireSingle(dep) == null)
                 {
@@ -246,8 +269,8 @@ namespace Revolution
         {
             if (_bundles.Count == 0) return;              // ReleaseAll 已清账时，不能为一次迟到 Release 重载主包
             if (!EnsureManifest()) return;
-            //先去释放这个包的依赖包
-            foreach (string dep in _manifest.GetAllDependencies(abName))
+            //先去释放这个包的依赖包（与 Acquire 走同一个依赖来源，+1/-1 才能配对）
+            foreach (string dep in ResolveDependencies(abName))
                 ReleaseSingle(dep);
 
             ReleaseSingle(abName);
@@ -387,7 +410,7 @@ namespace Revolution
                 }
                 token?.ThrowIfCancelled();
 
-                foreach (string dep in _manifest.GetAllDependencies(parts[0]))
+                foreach (string dep in ResolveDependencies(parts[0]))
                 {
                     if (await AcquireSingleAsync(dep) == null)
                     {

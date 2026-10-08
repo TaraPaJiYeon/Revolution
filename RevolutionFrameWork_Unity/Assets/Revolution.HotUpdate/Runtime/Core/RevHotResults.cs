@@ -51,6 +51,12 @@ namespace Revolution.HotUpdate
         /// <summary>远端清单原文（更新时原样存进版本目录，作为下次差量计算的基线）。</summary>
         internal string ManifestText = "";
 
+        /// <summary>
+        /// 发起这次检查时的配置。★ 更新阶段从这里取配置，而不是从门面的"最近一次配置"取 ——
+        /// 若 Check 与 Update 之间会话被复位（或被另一次 Check 覆盖），check 自带的配置仍然正确配对。
+        /// </summary>
+        internal RevHotConfig Config;
+
         /// <summary>失败结果。</summary>
         public static RevHotCheckResult Fail(RevHotError error)
         {
