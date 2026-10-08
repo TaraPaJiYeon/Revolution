@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Revolution.Could</AssemblyName>
+    <RootNamespace>Revolution.Could</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Tencent.QCloud.Cos.Sdk" Version="5.4.51" />
+    <Compile Remove="Tests/**/*.cs" />
+  </ItemGroup>
+</Project>
