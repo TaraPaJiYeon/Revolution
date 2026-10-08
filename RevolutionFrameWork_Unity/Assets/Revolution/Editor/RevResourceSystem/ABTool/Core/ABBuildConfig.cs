@@ -298,7 +298,7 @@ namespace Revolution.Editor
             //   （升级引擎后没重打 AB，引擎不再能发现），所以默认关闭，见字段上的 Tooltip。
 #if UNITY_2018_3_OR_NEWER
             if (stripUnityVersion)
-                opt |= BuildAssetBundleOptions.StripUnityVersion;
+                opt |= BuildAssetBundleOptions.AssetBundleStripUnityVersion;
 #endif
 
             return opt;
