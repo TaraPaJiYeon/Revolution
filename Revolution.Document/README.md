@@ -37,6 +37,7 @@
 | 🎮 状态机 | [网页](https://yokino337088.github.io/Revolution/状态机/状态机使用说明.html) · [md](状态机/状态机使用说明.md) | [网页](https://yokino337088.github.io/Revolution/状态机/状态机架构解析.html) · [md](状态机/状态机架构解析.md) · [网页](https://yokino337088.github.io/Revolution/状态机/状态机Demo示例讲解.html) · [md](状态机/状态机Demo示例讲解.md) |
 | 🔊 音效系统 | [网页](https://yokino337088.github.io/Revolution/音效系统/音效系统使用说明.html) · [md](音效系统/音效系统使用说明.md) | — |
 | 📣 事件系统 | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统使用说明.html) · [md](事件系统/事件系统使用说明.md) | [网页](https://yokino337088.github.io/Revolution/事件系统/事件系统架构解析.html) · [md](事件系统/事件系统架构解析.md) |
+| 🧩 作用域系统 | [网页](https://yokino337088.github.io/Revolution/作用域系统/作用域系统使用说明.html) · [md](作用域系统/作用域系统使用说明.md) | — |
 | 📦 对象池 | [网页](https://yokino337088.github.io/Revolution/对象池/对象池使用说明.html) · [md](对象池/对象池使用说明.md) | [网页](https://yokino337088.github.io/Revolution/对象池/对象池架构解析.html) · [md](对象池/对象池架构解析.md) |
 | 🧭 服务定位器 | [网页](https://yokino337088.github.io/Revolution/服务定位器/服务定位器使用说明.html) · [md](服务定位器/服务定位器使用说明.md) | [网页](https://yokino337088.github.io/Revolution/服务定位器/依赖注入vs服务定位器.html) |
 | 🕹 GM指令 | [网页](https://yokino337088.github.io/Revolution/GM指令/GM指令使用说明.html) · [md](GM指令/GM指令使用说明.md) | — |
@@ -67,6 +68,7 @@
 
 1. **日志系统** → 2. **计时器系统** → 3. **公共 Mono 模块**（这三篇决定"怎么观察、怎么排时序"）
 2. **资源加载系统** → **UI 系统** → **动作序列**（业务天天要用的三件套）
-3. 其余按需：对象池 / 事件系统 / 服务定位器 / GM 指令 / 状态机 / 音效 / 导表工具
+3. **作用域系统**（一行代码收干净一局的所有脚本/事件/计时器，规模变大后建议尽早看）
+4. 其余按需：对象池 / 事件系统 / 服务定位器 / GM 指令 / 状态机 / 音效 / 导表工具
 
 > 文档与代码**同仓库**：改代码时顺手改文档；新增模块请同时补一份《使用说明》。

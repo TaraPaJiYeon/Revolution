@@ -68,10 +68,18 @@ namespace Revolution
         internal readonly Action Action;
         internal readonly object Owner;
 
-        internal RevMonoListener(Action action, object owner)
+        /// <summary>
+        /// ★ 作用域门：只有"调用方没写 owner、由当前域兜底"的监听者才带它（其余为 null）。
+        /// 每帧派发时看一眼 <c>Scope.TickOn</c>：域被暂停（RevScope.SetTickEnabled(域, false)）就跳过。
+        /// 显式写了 owner 的监听者不带它 —— "显式永远优先，域不插手"。
+        /// </summary>
+        internal readonly RevScopeHandle Scope;
+
+        internal RevMonoListener(Action action, object owner, RevScopeHandle scope)
         {
             Action = action;
             Owner = owner;
+            Scope = scope;
         }
     }
 }

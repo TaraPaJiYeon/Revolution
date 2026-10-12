@@ -70,12 +70,13 @@ namespace Revolution
         // ==================== 注册 / 反注册 ====================
 
         /// <summary>加入一个监听者。<paramref name="seq"/> 由派发引擎发号，用于同优先级时保持注册顺序。</summary>
-        internal void Add(Delegate handler, object owner, int priority, int seq)
+        internal void Add(Delegate handler, object owner, int priority, int seq, object scope)
         {
             RevEventListener node = RevEventListener.Rent();
             node.Handler = handler;
             // 不传 owner 时用委托的目标对象：注册实例方法就能被 RemoveAllByOwner 批量移除
             node.Owner = owner ?? handler.Target;
+            node.Scope = scope;                  // 作用域标记（没有域 / 显式写了 owner 时为 null）
             node.Priority = priority;
             node.Seq = seq;
             _listeners.Add(node);
@@ -121,7 +122,9 @@ namespace Revolution
             {
                 RevEventListener node = _listeners[i];
                 if (node.IsAbandoned) continue;
-                if (!ReferenceEquals(node.Owner, owner)) continue;
+
+                // ★ 两把钥匙任一匹配都摘：Owner（对象销毁时摘）或 Scope（域关闭时摘，传进来的 owner 是域本身）
+                if (!ReferenceEquals(node.Owner, owner) && !ReferenceEquals(node.Scope, owner)) continue;
 
                 RemoveAt(i);
                 removed++;

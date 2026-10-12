@@ -69,3 +69,8 @@ desktop.ini
 
 # demo 工具装配的本地假 CDN 内容（生成产物，不进仓库）
 /RevolutionFrameWork_Unity/LocalCDN/
+
+# ---------------- 本机草稿（评审通过前不进仓库） ----------------
+# 作用域系统设计稿：评审期间的内部论证稿，不进仓库（已实现，落地产物是《使用说明》，见下方已登记的目录）。
+/Revolution.Document/作用域系统/作用域系统设计稿.md
+/Revolution.Document/作用域系统/作用域系统设计稿.html

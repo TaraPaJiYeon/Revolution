@@ -1,5 +1,5 @@
 // ============================================================
-// RevHeavyFsm.cs —— 重量级状态机（泛型状态枚举 + 宿主行为接口）
+// RevHeavyFSM.cs —— 重量级状态机（泛型状态枚举 + 宿主行为接口）
 //
 // 位置：Runtime\RevStateMachine\Heavyweight\
 //
@@ -9,13 +9,13 @@
 //   面向：战斗场景的怪物 AI / Boss AI，以及步骤多、要严格时序的重量级业务。
 //
 // 【保留了原框架的什么（骨架）】
-//   · 泛型双参数：TStateEnum 状态枚举 + TOwner 宿主行为接口（RevIHeavyFsmOwner）；
+//   · 泛型双参数：TStateEnum 状态枚举 + TOwner 宿主行为接口（RevIHeavyFSMOwner）；
 //   · 状态注册表（枚举 → 状态实例）、ChangeState 切换、Update/FixedUpdate/LateUpdate 三路驱动；
 //   · IsEnabled 开关、状态历史、Reset、Dispose、GetState / HasState / RemoveState。
 //
 // 【砍掉了什么（臃肿部分）】
 //   · 分层状态机（HierarchicalStateMachine / ParentState / ChildStateMachine / GetRootStateMachine）
-//     —— 需要嵌套请"组合多台 RevHeavyFsm"（如 Boss 一台管阶段、技能一台管吟唱），而不是状态里套状态机；
+//     —— 需要嵌套请"组合多台 RevHeavyFSM"（如 Boss 一台管阶段、技能一台管吟唱），而不是状态里套状态机；
 //   · Activator 反射创建状态 —— 改为显式 new（IL2CPP/AOT 安全、无隐藏开销、无魔数构造约定）；
 //   · 每个 public 方法都包 try/catch + 每步打 Info 日志 —— 改为只在"状态回调边界"做异常隔离，
 //     诊断日志 [Conditional("UNITY_EDITOR")]（正式包零开销）；
@@ -62,7 +62,7 @@ namespace Revolution
     /// 一次状态切换的历史记录（调试用："它是怎么走到现在这步的"）。
     /// </summary>
     /// <typeparam name="TStateEnum">状态枚举</typeparam>
-    public readonly struct RevHeavyFsmTransition<TStateEnum>
+    public readonly struct RevHeavyFSMTransition<TStateEnum>
     {
         /// <summary>从哪个状态切出（第一个状态时为空值）</summary>
         public readonly TStateEnum From;
@@ -76,7 +76,7 @@ namespace Revolution
         /// <summary>切换发生的时刻（Time.time）</summary>
         public readonly float Time;
 
-        public RevHeavyFsmTransition(TStateEnum from, TStateEnum to, string reason)
+        public RevHeavyFSMTransition(TStateEnum from, TStateEnum to, string reason)
         {
             From = from;
             To = to;
@@ -94,23 +94,23 @@ namespace Revolution
     /// 重量级状态机的日志出口（跟随框架 <c>RevPoolLog</c> 的做法：
     /// 出口可被业务接管；诊断日志 <c>[Conditional("UNITY_EDITOR")]</c>，正式包里连字符串拼接都被编译器移除）。
     /// </summary>
-    public static class RevHeavyFsmLog
+    public static class RevHeavyFSMLog
     {
         /// <summary>日志出口（业务可替换成自己的日志系统；为空时走 UnityEngine.Debug）</summary>
         public static Action<string> Sink;
 
         /// <summary>告警（用法可疑但还能跑：重复注册、移除当前状态…）</summary>
-        public static void Warning(string message) => Write("[RevHeavyFsm] " + message, isError: false);
+        public static void Warning(string message) => Write("[RevHeavyFSM] " + message, isError: false);
 
         /// <summary>错误（用法错误，必须修：状态未注册、回调里切状态…）</summary>
-        public static void Error(string message) => Write("[RevHeavyFsm][错误] " + message, isError: true);
+        public static void Error(string message) => Write("[RevHeavyFSM][错误] " + message, isError: true);
 
         /// <summary>
         /// 诊断日志（注册、切换流水）：<c>[Conditional("UNITY_EDITOR")]</c> 让它在正式包里被编译器<b>完全移除</b>
         /// （连参数求值都不发生）—— 王者"调试代码零开销"的做法，不需要运行时开关。
         /// </summary>
         [Conditional("UNITY_EDITOR")]
-        public static void Debug(string message) => Write("[RevHeavyFsm][诊断] " + message, isError: false);
+        public static void Debug(string message) => Write("[RevHeavyFSM][诊断] " + message, isError: false);
 
         private static void Write(string message, bool isError)
         {
@@ -131,7 +131,7 @@ namespace Revolution
     /// 重量级状态机：泛型状态枚举 + 宿主行为接口。
     /// <para>典型用法（怪物 AI / Boss AI）：</para>
     /// <code>
-    /// var fsm = new RevHeavyFsm&lt;BossStateType, IBossObj&gt;(this);
+    /// var fsm = new RevHeavyFSM&lt;BossStateType, IBossObj&gt;(this);
     /// fsm.AddState(BossStateType.Idle,   new BossIdleState(fsm));
     /// fsm.AddState(BossStateType.Combat, new BossCombatState(fsm));
     /// fsm.ChangeState(BossStateType.Idle, reason: "初始化");
@@ -145,23 +145,23 @@ namespace Revolution
     /// </summary>
     /// <typeparam name="TStateEnum">状态枚举（值类型，查询/比较无 GC）</typeparam>
     /// <typeparam name="TOwner">宿主行为接口</typeparam>
-    public class RevHeavyFsm<TStateEnum, TOwner>
+    public class RevHeavyFSM<TStateEnum, TOwner>
         where TStateEnum : struct, Enum
-        where TOwner : class, RevIHeavyFsmOwner
+        where TOwner : class, RevIHeavyFSMOwner
     {
         // ── 注册表（"仓库"）与当前状态（"现场"）──────────────────
-        private readonly Dictionary<TStateEnum, RevHeavyFsmState<TStateEnum, TOwner>> _states =
-            new Dictionary<TStateEnum, RevHeavyFsmState<TStateEnum, TOwner>>();
+        private readonly Dictionary<TStateEnum, RevHeavyFSMState<TStateEnum, TOwner>> _states =
+            new Dictionary<TStateEnum, RevHeavyFSMState<TStateEnum, TOwner>>();
 
-        private RevHeavyFsmState<TStateEnum, TOwner> _current;  // 当前状态（异步交割前仍是旧状态）
-        private RevHeavyFsmState<TStateEnum, TOwner> _pending;  // 在途异步切换的目标（null = 没有事务在进行）
+        private RevHeavyFSMState<TStateEnum, TOwner> _current;  // 当前状态（异步交割前仍是旧状态）
+        private RevHeavyFSMState<TStateEnum, TOwner> _pending;  // 在途异步切换的目标（null = 没有事务在进行）
         private float _stateTime;                               // 进入当前状态的累计秒数
         private bool _duringTransition;                         // 防重入标记
         private int _version;                                   // 切换代次：不匹配的在途切换一律作废
         private RevCancellationTokenSource _asyncCts;           // 在途异步切换的取消源
 
         // ── 历史 ───────────────────────────────────────────────
-        private readonly Queue<RevHeavyFsmTransition<TStateEnum>> _history = new Queue<RevHeavyFsmTransition<TStateEnum>>();
+        private readonly Queue<RevHeavyFSMTransition<TStateEnum>> _history = new Queue<RevHeavyFSMTransition<TStateEnum>>();
         private int _maxHistorySize = 10;
 
         /// <summary>宿主对象（AI 本体）</summary>
@@ -171,7 +171,7 @@ namespace Revolution
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>当前状态实例（未切换过为 null；异步交割前是旧状态）</summary>
-        public RevHeavyFsmState<TStateEnum, TOwner> CurrentState => _current;
+        public RevHeavyFSMState<TStateEnum, TOwner> CurrentState => _current;
 
         /// <summary>当前状态枚举（未切换过为 default）</summary>
         public TStateEnum CurrentStateType { get; private set; }
@@ -195,14 +195,14 @@ namespace Revolution
         public float StateTime => _stateTime;
 
         /// <summary>已注册状态的只读视图（枚举 → 状态实例）</summary>
-        public IReadOnlyDictionary<TStateEnum, RevHeavyFsmState<TStateEnum, TOwner>> States => _states;
+        public IReadOnlyDictionary<TStateEnum, RevHeavyFSMState<TStateEnum, TOwner>> States => _states;
 
         /// <summary>状态变化事件（旧枚举, 新枚举, 原因）—— 在新状态 OnEnter 之后触发，供外部系统订阅解耦</summary>
         public event Action<TStateEnum, TStateEnum, string> StateChanged;
 
-        public RevHeavyFsm(TOwner owner)
+        public RevHeavyFSM(TOwner owner)
         {
-            Owner = owner ?? throw new ArgumentNullException(nameof(owner), "RevHeavyFsm 的宿主对象不能为空");
+            Owner = owner ?? throw new ArgumentNullException(nameof(owner), "RevHeavyFSM 的宿主对象不能为空");
         }
 
         // ============================================================
@@ -213,40 +213,40 @@ namespace Revolution
         /// 注册状态（显式实例化 —— 刻意不做 Activator 反射创建：IL2CPP/AOT 安全、无隐藏开销）。
         /// <code>fsm.AddState(BossStateType.Idle, new BossIdleState(fsm));</code>
         /// </summary>
-        public void AddState(TStateEnum type, RevHeavyFsmState<TStateEnum, TOwner> state)
+        public void AddState(TStateEnum type, RevHeavyFSMState<TStateEnum, TOwner> state)
         {
             if (state == null)
             {
-                RevHeavyFsmLog.Error($"注册状态 {type} 失败：实例为 null");
+                RevHeavyFSMLog.Error($"注册状态 {type} 失败：实例为 null");
                 return;
             }
             if (_states.ContainsKey(type))
             {
-                RevHeavyFsmLog.Warning($"状态 {type} 已注册过，忽略重复注册");
+                RevHeavyFSMLog.Warning($"状态 {type} 已注册过，忽略重复注册");
                 return;
             }
             if (!ReferenceEquals(state.Machine, this))
             {
-                RevHeavyFsmLog.Error($"状态 {state.GetType().Name} 属于另一台状态机，不能注册到本机");
+                RevHeavyFSMLog.Error($"状态 {state.GetType().Name} 属于另一台状态机，不能注册到本机");
                 return;
             }
             if (!EqualityComparer<TStateEnum>.Default.Equals(state.StateType, type))
             {
-                RevHeavyFsmLog.Warning($"状态 {state.GetType().Name}.StateType = {state.StateType}，与注册键 {type} 不一致（以注册键为准）");
+                RevHeavyFSMLog.Warning($"状态 {state.GetType().Name}.StateType = {state.StateType}，与注册键 {type} 不一致（以注册键为准）");
             }
 
             _states.Add(type, state);
-            RevHeavyFsmLog.Debug($"注册状态 {type}（{state.GetType().Name}）");
+            RevHeavyFSMLog.Debug($"注册状态 {type}（{state.GetType().Name}）");
         }
 
         /// <summary>移除状态（不能移除当前正在使用的状态 —— 先切走再移除）</summary>
         public bool RemoveState(TStateEnum type)
         {
-            if (!_states.TryGetValue(type, out RevHeavyFsmState<TStateEnum, TOwner> state)) return false;
+            if (!_states.TryGetValue(type, out RevHeavyFSMState<TStateEnum, TOwner> state)) return false;
 
             if (ReferenceEquals(state, _current))
             {
-                RevHeavyFsmLog.Warning($"不能移除正在使用的当前状态 {type}（请先切到其他状态）");
+                RevHeavyFSMLog.Warning($"不能移除正在使用的当前状态 {type}（请先切到其他状态）");
                 return false;
             }
             if (IsTransitioning && ReferenceEquals(state, _pending))
@@ -255,7 +255,7 @@ namespace Revolution
             }
 
             _states.Remove(type);
-            RevHeavyFsmLog.Debug($"移除状态 {type}");
+            RevHeavyFSMLog.Debug($"移除状态 {type}");
             return true;
         }
 
@@ -263,9 +263,9 @@ namespace Revolution
         public bool HasState(TStateEnum type) => _states.ContainsKey(type);
 
         /// <summary>取指定状态实例（强类型）</summary>
-        public TState GetState<TState>(TStateEnum type) where TState : RevHeavyFsmState<TStateEnum, TOwner>
+        public TState GetState<TState>(TStateEnum type) where TState : RevHeavyFSMState<TStateEnum, TOwner>
         {
-            return _states.TryGetValue(type, out RevHeavyFsmState<TStateEnum, TOwner> state) ? state as TState : null;
+            return _states.TryGetValue(type, out RevHeavyFSMState<TStateEnum, TOwner> state) ? state as TState : null;
         }
 
         // ============================================================
@@ -283,7 +283,7 @@ namespace Revolution
         {
             if (!IsEnabled) return false;
             if (RejectIfInCallback(target)) return false;
-            if (!TryGetState(target, out RevHeavyFsmState<TStateEnum, TOwner> targetState)) return false;
+            if (!TryGetState(target, out RevHeavyFSMState<TStateEnum, TOwner> targetState)) return false;
 
             // 同步请求的规则是“现在就决定，不等异步准备”。所以即使目标就是当前状态，也要先取消正在准备去其他状态的旧请求，
             // 否则旧请求稍后完成仍会把状态机带走。取消后当前状态已经正确，无需再对同一实例重复执行 OnExit/OnEnter。
@@ -306,7 +306,7 @@ namespace Revolution
         {
             if (!IsEnabled) return RevTask.Completed;
             if (RejectIfInCallback(target)) return RevTask.Completed;
-            if (!TryGetState(target, out RevHeavyFsmState<TStateEnum, TOwner> targetState)) return RevTask.Completed;
+            if (!TryGetState(target, out RevHeavyFSMState<TStateEnum, TOwner> targetState)) return RevTask.Completed;
             if (ReferenceEquals(targetState, _current))
             {
                 // 当前枚举对应的状态对象已经激活。若先前异步请求正在准备切走，新请求等于撤销那次离开；取消旧请求后就应留在原地。
@@ -323,7 +323,7 @@ namespace Revolution
             IsTransitioning = true;
             int version = ++_version;
 
-            RevHeavyFsmLog.Debug($"发起异步切换 {CurrentStateType} → {target}（{reason}）");
+            RevHeavyFSMLog.Debug($"发起异步切换 {CurrentStateType} → {target}（{reason}）");
             return RunAsyncTransition(targetState, reason, version, cts.Token);
         }
 
@@ -379,7 +379,7 @@ namespace Revolution
         }
 
         /// <summary>取切换历史（从老到新，带原因与时刻）—— 排查"AI 怎么走到这步的"用</summary>
-        public RevHeavyFsmTransition<TStateEnum>[] GetHistory() => _history.ToArray();
+        public RevHeavyFSMTransition<TStateEnum>[] GetHistory() => _history.ToArray();
 
         /// <summary>
         /// 重置到初始状态：取消在途事务、退出当前状态、清空历史（<b>保留</b>已注册的状态），再切到初始状态。
@@ -421,7 +421,7 @@ namespace Revolution
         ///   旧状态 PrepareExitAsync → 新状态 PrepareEnterAsync → Commit
         /// 每跨过一次 await 都验一次代次：发现自己已被更新的请求取代，就静默退出、不交割。
         /// </summary>
-        private async RevTask RunAsyncTransition(RevHeavyFsmState<TStateEnum, TOwner> target, string reason,
+        private async RevTask RunAsyncTransition(RevHeavyFSMState<TStateEnum, TOwner> target, string reason,
                                                 int version, RevCancellationToken token)
         {
             try
@@ -440,7 +440,7 @@ namespace Revolution
             catch (RevOperationCanceledException)
             {
                 // 本次切换被取消（被更新的请求取代 / 主动取消）：状态保持原样，不交割、不抛给 await 方
-                RevHeavyFsmLog.Debug($"异步切换 {CurrentStateType} → {target.StateType} 被取消（未交割）");
+                RevHeavyFSMLog.Debug($"异步切换 {CurrentStateType} → {target.StateType} 被取消（未交割）");
             }
             finally
             {
@@ -464,13 +464,13 @@ namespace Revolution
             {
                 IsTransitioning = false;
                 _pending = null;
-                RevHeavyFsmLog.Debug($"取消一次进行中的异步切换（{CurrentStateType} 保持不变）");
+                RevHeavyFSMLog.Debug($"取消一次进行中的异步切换（{CurrentStateType} 保持不变）");
             }
             cts?.Cancel();                              // ② 再通知业务（可能同步唤醒在途 await）
         }
 
         /// <summary>真正交割：旧 OnExit → 换、清零 → 新 OnEnter → 历史 → 广播（同步/异步两条路共用）</summary>
-        private void Commit(RevHeavyFsmState<TStateEnum, TOwner> target, string reason)
+        private void Commit(RevHeavyFSMState<TStateEnum, TOwner> target, string reason)
         {
             TStateEnum from = CurrentStateType;
 
@@ -496,7 +496,7 @@ namespace Revolution
             }
 
             RecordHistory(from, target.StateType, reason);                                // ④ 历史
-            RevHeavyFsmLog.Debug(new RevHeavyFsmTransition<TStateEnum>(from, target.StateType, reason).ToString());
+            RevHeavyFSMLog.Debug(new RevHeavyFSMTransition<TStateEnum>(from, target.StateType, reason).ToString());
             StateChanged?.Invoke(from, target.StateType, reason ?? string.Empty);         // ⑤ 广播（监听器异常不隔离）
         }
 
@@ -518,10 +518,10 @@ namespace Revolution
         }
 
         /// <summary>取状态实例；未注册时记错误并返回 false</summary>
-        private bool TryGetState(TStateEnum type, out RevHeavyFsmState<TStateEnum, TOwner> state)
+        private bool TryGetState(TStateEnum type, out RevHeavyFSMState<TStateEnum, TOwner> state)
         {
             if (_states.TryGetValue(type, out state)) return true;
-            RevHeavyFsmLog.Error($"切换失败：状态 {type} 没有注册");
+            RevHeavyFSMLog.Error($"切换失败：状态 {type} 没有注册");
             return false;
         }
 
@@ -535,17 +535,17 @@ namespace Revolution
 
 #if DEBUG
             throw new InvalidOperationException(
-                $"[RevHeavyFsm] 不能在 OnEnter/OnExit 回调里切换状态（{CurrentStateType} 的回调里请求切到 {target}）。" +
+                $"[RevHeavyFSM] 不能在 OnEnter/OnExit 回调里切换状态（{CurrentStateType} 的回调里请求切到 {target}）。" +
                 "请把切换延迟到回调结束后（比如下一帧 Update 里）。");
 #else
-            RevHeavyFsmLog.Error($"不能在状态回调里切换状态（{CurrentStateType} → {target} 已拒绝）。请延迟到下一帧。");
+            RevHeavyFSMLog.Error($"不能在状态回调里切换状态（{CurrentStateType} → {target} 已拒绝）。请延迟到下一帧。");
             return true;
 #endif
         }
 
         private void RecordHistory(TStateEnum from, TStateEnum to, string reason)
         {
-            _history.Enqueue(new RevHeavyFsmTransition<TStateEnum>(from, to, reason));
+            _history.Enqueue(new RevHeavyFSMTransition<TStateEnum>(from, to, reason));
             while (_history.Count > _maxHistorySize) _history.Dequeue();
         }
 
@@ -564,7 +564,7 @@ namespace Revolution
             }
             catch (Exception e)
             {
-                RevHeavyFsmLog.Error($"{where} 抛异常：{e}");
+                RevHeavyFSMLog.Error($"{where} 抛异常：{e}");
             }
 #endif
         }

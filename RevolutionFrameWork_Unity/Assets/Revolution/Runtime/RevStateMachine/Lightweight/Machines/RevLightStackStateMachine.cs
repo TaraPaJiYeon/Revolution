@@ -1,5 +1,5 @@
 // ============================================================
-// RevLightStackStateMachine.cs —— 轻量级泛型栈状态机
+// RevLightStackFSM.cs —— 轻量级泛型栈状态机
 //
 // 位置：Runtime\RevStateMachine\Lightweight\Machines\
 //
@@ -27,7 +27,7 @@
 //
 // 【注册（可选）—— 同单机：类型当键】
 //   启动时 Register(状态实例) 一次，之后可用 Push<TState>() / Change<TState>() 按类型操作：
-//     · 键用「类型」而不是枚举（要"枚举 + 条件判断"请用重量级 RevHeavyFsm）；
+//     · 键用「类型」而不是枚举（要"枚举 + 条件判断"请用重量级 RevHeavyFSM）；
 //     · 注册的实例是复用的，但【同一个实例不能同时出现在栈里两层】——
 //       无论栈顶还是更深层，Push 都会直接拒绝（Pop 时序会错乱）；
 //       确需压多层，请用工厂注册：Register<TState>(() => new TState())；
@@ -36,8 +36,8 @@
 //
 // 【为什么不支持异步切换】
 //   王者也没有"栈 + 异步"的组合：Push/Pop 是结构性变化，异步交割的语义在栈上并不清晰。
-//   需要"等资源就绪再切"的业务，请用 RevLightStateMachine<T>（await ChangeToAsync）
-//   或重量级 RevHeavyFsm（await ChangeStateAsync）—— 它们用 RevTask 表达异步准备。
+//   需要"等资源就绪再切"的业务，请用 RevLightFSM<T>（await ChangeToAsync）
+//   或重量级 RevHeavyFSM（await ChangeStateAsync）—— 它们用 RevTask 表达异步准备。
 //   本机只做同步的栈操作。
 //
 // 【纯 C#】不依赖 UnityEngine，可以脱离引擎做单元测试。
@@ -54,7 +54,7 @@ namespace Revolution
     /// <typeparam name="T">状态类型（编译期类型安全）</typeparam>
     /// <example>
     /// <code>
-    /// var sm = new RevLightStackStateMachine&lt;RevLightStateBase&gt;();
+    /// var sm = new RevLightStackFSM&lt;RevLightStateBase&gt;();
     /// sm.Push(new LobbyState());     // 进大厅
     /// sm.Push(new BattleState());    // 进战斗（大厅 OnSuspend）
     /// sm.Pop();                      // 回大厅（大厅 OnResume）
@@ -63,7 +63,7 @@ namespace Revolution
     /// sm.Push&lt;BagState&gt;();
     /// </code>
     /// </example>
-    public sealed class RevLightStackStateMachine<T> where T : class, RevILightStackState
+    public sealed class RevLightStackFSM<T> where T : class, RevILightStackState
     {
         private readonly Stack<T> _stack = new Stack<T>(4);   // 栈本体：LIFO，只有 Push/Pop 两个改动点
         private Dictionary<Type, Func<T>> _registered;        // 注册表（类型 → 取实例的方式）；不注册就不分配
@@ -127,7 +127,7 @@ namespace Revolution
             //   Pop 时会出现"对同一对象先 OnExit、再 OnResume/再 OnExit"的错乱时序。
             if (ContainsInstance(state))
                 throw new InvalidOperationException(
-                    $"[RevLightStackStateMachine] {state.GetType().Name} 已经在栈里（栈顶或更深层），不能把同一个实例再压一次" +
+                    $"[RevLightStackFSM] {state.GetType().Name} 已经在栈里（栈顶或更深层），不能把同一个实例再压一次" +
                     "（栈里会出现同一个对象多份，Pop 时序会错乱）。" +
                     "确需压多层请用工厂注册：Register<TState>(() => new TState())。");
 
@@ -182,7 +182,7 @@ namespace Revolution
             // 下层那份 A 也会变成错误的活动对象。Change 只替换栈顶，因此目标已在下层时必须拒绝。
             if (ContainsInstance(state))
                 throw new InvalidOperationException(
-                    $"[RevLightStackStateMachine] {state.GetType().Name} 已在当前栈的下层，不能用 Change 再放到栈顶；请使用新的状态实例或工厂注册。");
+                    $"[RevLightStackFSM] {state.GetType().Name} 已在当前栈的下层，不能用 Change 再放到栈顶；请使用新的状态实例或工厂注册。");
             BeginTransition(nameof(Change));
 
             T old = Current;
@@ -303,7 +303,7 @@ namespace Revolution
             _registered ??= new Dictionary<Type, Func<T>>();
             if (_registered.ContainsKey(type))
                 throw new InvalidOperationException(
-                    $"[RevLightStackStateMachine] 状态类型 {type.Name} 已经注册过了（重复注册通常是复制粘贴漏改）。");
+                    $"[RevLightStackFSM] 状态类型 {type.Name} 已经注册过了（重复注册通常是复制粘贴漏改）。");
 
             _registered.Add(type, getInstance);
         }
@@ -315,19 +315,19 @@ namespace Revolution
                 return getInstance();
 
             throw new InvalidOperationException(
-                $"[RevLightStackStateMachine] 状态类型 {typeof(TState).Name} 没有注册。" +
+                $"[RevLightStackFSM] 状态类型 {typeof(TState).Name} 没有注册。" +
                 $"请先在初始化时 sm.Register(new {typeof(TState).Name}())（或 Register<{typeof(TState).Name}>(工厂)），" +
                 "或改用 Push(实例) / Change(实例) 直接传入。");
         }
 
         // ── 防重入 ─────────────────────────────────────────────
         // 在 OnEnter/OnExit/OnSuspend/OnResume 里再改变栈 = 程序错误，立刻抛。
-        // 王者只在 DEBUG 抛；这里 Release 也抛（与 RevLightStateMachine 同一原则：错了就该立刻发现）。
+        // 王者只在 DEBUG 抛；这里 Release 也抛（与 RevLightFSM 同一原则：错了就该立刻发现）。
         private void BeginTransition(string op)
         {
             if (_duringTransition)
                 throw new InvalidOperationException(
-                    $"[RevLightStackStateMachine] 不能在状态回调里执行 {op}" +
+                    $"[RevLightStackFSM] 不能在状态回调里执行 {op}" +
                     "（OnEnter/OnExit/OnSuspend/OnResume 中不允许改变栈）。请把操作延迟到回调结束后。");
             _duringTransition = true;
         }

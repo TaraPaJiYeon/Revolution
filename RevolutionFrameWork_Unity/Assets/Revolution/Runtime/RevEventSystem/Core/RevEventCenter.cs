@@ -66,7 +66,12 @@ namespace Revolution
                 _groups[name] = group;
             }
 
-            group.Add(handler, owner, priority, ++_seq);
+            // ★ 作用域：没写 owner 时，看看有没有"当前域"，有就记下来（域关闭时按它整批摘）。
+            //   没有域（RevScope.DefaultNode 为 null）时 scope 就是 null —— 行为与没有作用域系统时逐字一致。
+            //   写了显式 owner 就不记：显式永远优先，域不插手。
+            object scope = owner == null ? RevScope.DefaultNode : null;
+
+            group.Add(handler, owner, priority, ++_seq, scope);
         }
 
         /// <summary>反注册：移除该事件上这个委托的全部注册。返回是否真的移除了。</summary>

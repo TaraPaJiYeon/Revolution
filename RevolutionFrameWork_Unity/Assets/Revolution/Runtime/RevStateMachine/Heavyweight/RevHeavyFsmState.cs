@@ -1,5 +1,5 @@
 // ============================================================
-// RevHeavyFsmState.cs —— 重量级状态基类（泛型枚举 + 宿主行为接口）
+// RevHeavyFSMState.cs —— 重量级状态基类（泛型枚举 + 宿主行为接口）
 //
 // 位置：Runtime\RevStateMachine\Heavyweight\
 //
@@ -28,7 +28,7 @@
 //         await RevResManager.LoadAsync<GameObject>("Boss", token);   // 加载完才允许交割
 //     }
 //
-//   状态机 await 完双方才交割（详见 RevHeavyFsm 的文件头注释）；token 在本次切换被取代/取消时 Cancel。
+//   状态机 await 完双方才交割（详见 RevHeavyFSM 的文件头注释）；token 在本次切换被取代/取消时 Cancel。
 // ============================================================
 using System;
 using System.Collections.Generic;
@@ -40,12 +40,12 @@ namespace Revolution
     /// </summary>
     /// <typeparam name="TStateEnum">状态枚举</typeparam>
     /// <typeparam name="TOwner">宿主行为接口</typeparam>
-    public abstract class RevHeavyFsmState<TStateEnum, TOwner>
+    public abstract class RevHeavyFSMState<TStateEnum, TOwner>
         where TStateEnum : struct, Enum
-        where TOwner : class, RevIHeavyFsmOwner
+        where TOwner : class, RevIHeavyFSMOwner
     {
         /// <summary>所属状态机（构造时传入）</summary>
-        public RevHeavyFsm<TStateEnum, TOwner> Machine { get; }
+        public RevHeavyFSM<TStateEnum, TOwner> Machine { get; }
 
         /// <summary>宿主对象（原框架的 AIObj）—— 状态通过它读写 AI 的行为与数据</summary>
         protected TOwner Owner => Machine.Owner;
@@ -59,7 +59,7 @@ namespace Revolution
         /// <summary>进入本状态多久了（秒，状态机交割时清零）—— 做超时/阶段计时用</summary>
         protected float StateTime => Machine.StateTime;
 
-        protected RevHeavyFsmState(RevHeavyFsm<TStateEnum, TOwner> machine)
+        protected RevHeavyFSMState(RevHeavyFSM<TStateEnum, TOwner> machine)
         {
             Machine = machine ?? throw new ArgumentNullException(nameof(machine));
         }
@@ -115,7 +115,7 @@ namespace Revolution
         }
 
         /// <summary>取另一个状态的实例（跨状态读数据用，如读"巡逻状态"的路径点）</summary>
-        protected TState GetState<TState>(TStateEnum type) where TState : RevHeavyFsmState<TStateEnum, TOwner>
+        protected TState GetState<TState>(TStateEnum type) where TState : RevHeavyFSMState<TStateEnum, TOwner>
         {
             return Machine.GetState<TState>(type);
         }

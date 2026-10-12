@@ -1,13 +1,13 @@
 // ============================================================
-// RevLightStateMachine.cs —— 轻量级泛型单状态机
+// RevLightFSM.cs —— 轻量级泛型单状态机
 //
 // 位置：Runtime\RevStateMachine\Lightweight\Machines\
 //
 // 【定位】
 //   给轻量业务用：UI 流程、玩法阶段、输入模式、新手引导、简单流程控制。
 //   任何时刻只有一个激活状态，字段最少、无栈容器（默认零额外分配）。
-//   需要"记住来路"（UI 界面栈）请用同目录的 RevLightStackStateMachine<T>；
-//   怪物 AI / Boss AI 等重量业务请用 Heavyweight 目录的 RevHeavyFsm（枚举 + 行为接口）。
+//   需要"记住来路"（UI 界面栈）请用同目录的 RevLightStackFSM<T>；
+//   怪物 AI / Boss AI 等重量业务请用 Heavyweight 目录的 RevHeavyFSM（枚举 + 行为接口）。
 //
 // 【吸收了王者的什么】
 //   · 泛型类型安全（②③）：状态用泛型类，不用字符串名注册 —— 拼错在编译期就拦住；
@@ -23,7 +23,7 @@
 //   默认用法是直接传实例（ChangeTo(new LobbyState())）；状态集合固定时，也可以启动时注册一次，
 //   之后按类型切换（ChangeTo<LobbyState>()）：
 //     · 键用「类型」而不是枚举 —— 不需要维护"枚举 ↔ 类型"两套东西。
-//       真要"枚举 + 条件判断/查表/存档"的场景，请用重量级 RevHeavyFsm（它才是为这个设计的）；
+//       真要"枚举 + 条件判断/查表/存档"的场景，请用重量级 RevHeavyFSM（它才是为这个设计的）；
 //     · 注册的实例是复用的 → 天然避开"每次 new 导致每次都被判成新状态、反复 Exit/Enter"的坑
 //       （ChangeTo 判"是否已在该状态"用的是引用相等）；
 //     · 注册与直接传实例【可以混用】：注册只是给固定状态集省样板，
@@ -62,7 +62,7 @@ namespace Revolution
     /// <typeparam name="T">状态类型（编译期类型安全）</typeparam>
     /// <example>
     /// <code>
-    /// var sm = new RevLightStateMachine&lt;RevLightStateBase&gt;();
+    /// var sm = new RevLightFSM&lt;RevLightStateBase&gt;();
     /// sm.ChangeTo(new LobbyState());          // 立即切
     /// await sm.ChangeToAsync(new BattleState());   // 等加载完再切
     /// void Update() =&gt; sm.Update(Time.deltaTime);
@@ -71,7 +71,7 @@ namespace Revolution
     /// sm.ChangeTo&lt;BattleState&gt;();
     /// </code>
     /// </example>
-    public sealed class RevLightStateMachine<T> where T : class, RevILightState
+    public sealed class RevLightFSM<T> where T : class, RevILightState
     {
         private T _current;                    // 当前状态
         private T _pending;                    // 异步切换的目标（null = 没有事务在进行）
@@ -229,7 +229,7 @@ namespace Revolution
             _registered ??= new Dictionary<Type, Func<T>>();
             if (_registered.ContainsKey(type))
                 throw new InvalidOperationException(
-                    $"[RevLightStateMachine] 状态类型 {type.Name} 已经注册过了（重复注册通常是复制粘贴漏改）。");
+                    $"[RevLightFSM] 状态类型 {type.Name} 已经注册过了（重复注册通常是复制粘贴漏改）。");
 
             _registered.Add(type, getInstance);
         }
@@ -241,7 +241,7 @@ namespace Revolution
                 return getInstance();
 
             throw new InvalidOperationException(
-                $"[RevLightStateMachine] 状态类型 {typeof(TState).Name} 没有注册。" +
+                $"[RevLightFSM] 状态类型 {typeof(TState).Name} 没有注册。" +
                 $"请先在初始化时 sm.Register(new {typeof(TState).Name}())（或 Register<{typeof(TState).Name}>(工厂)），" +
                 "或改用 ChangeTo(实例) 直接传入。");
         }
@@ -323,7 +323,7 @@ namespace Revolution
         {
             if (!_duringTransition) return;
             throw new InvalidOperationException(
-                $"[RevLightStateMachine] 不能在 OnEnter/OnExit 回调里切换状态" +
+                $"[RevLightFSM] 不能在 OnEnter/OnExit 回调里切换状态" +
                 $"（{_current?.GetType().Name} 的回调里请求切到 {target?.GetType().Name}）。" +
                 "嵌套切换是程序错误：请把切换延迟到回调结束后（比如下一帧 Update 里）。");
         }

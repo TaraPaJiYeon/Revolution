@@ -21,7 +21,7 @@ namespace Revolution
 {
     /// <summary>
     /// 轻量级栈状态接口：在 <see cref="RevILightState"/> 之上，增加"被压住 / 重新露出"的栈语义。
-    /// <para>被 <see cref="RevLightStackStateMachine{T}"/> 驱动的状态实现它。</para>
+    /// <para>被 <see cref="RevLightStackFSM{T}"/> 驱动的状态实现它。</para>
     /// </summary>
     public interface RevILightStackState : RevILightState
     {

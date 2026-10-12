@@ -51,16 +51,18 @@ namespace Revolution
         /// </summary>
         /// <param name="seconds">时长（秒）。传 0 = "下一帧"（见 <see cref="NextFrame"/>）</param>
         /// <param name="domain">时间域：UI 倒计时/超时请传 <see cref="RevTimeDomain.Unscaled"/></param>
-        /// <param name="owner">所有者：随对象销毁时用 <see cref="CancelAllOf"/> 一行清干净（可选）</param>
+        /// <param name="owner">所有者：随对象销毁时用 <see cref="CancelAllOf"/> 一行清干净（可选）。
+        /// ★ 不写 owner 时：如果当前开着一个作用域（<see cref="RevScope"/>），计时器自动归这个域，域关闭时一起停；
+        /// 没有域时和从前完全一样（没人管，只能靠句柄 / Clear 停）。</param>
         public static RevTimerHandle After(float seconds, Action callback,
             RevTimeDomain domain = RevTimeDomain.Scaled, object owner = null)
             => Core.Add(domain, seconds, interval: 0d, repeats: 1, absolute: false,
-                targetUtc: default, callback, repeatCallback: null, owner);
+                targetUtc: default, callback, repeatCallback: null, owner ?? RevScope.DefaultNode);
 
         /// <summary>下一帧做一件事（等价于 <c>After(0f, ...)</c>）。</summary>
         public static RevTimerHandle NextFrame(Action callback, object owner = null)
             => Core.Add(RevTimeDomain.Scaled, 0d, 0d, repeats: 1, absolute: false,
-                targetUtc: default, callback, repeatCallback: null, owner);
+                targetUtc: default, callback, repeatCallback: null, owner ?? RevScope.DefaultNode);
 
         /// <summary>
         /// 每 <paramref name="interval"/> 秒一次（<paramref name="times"/> = -1 表示无限，必须记得 Stop）。
@@ -70,7 +72,7 @@ namespace Revolution
         public static RevTimerHandle Every(float interval, Action callback, int times = -1,
             RevTimeDomain domain = RevTimeDomain.Scaled, object owner = null)
             => Core.Add(domain, interval, interval, times, absolute: false,
-                targetUtc: default, callback, repeatCallback: null, owner);
+                targetUtc: default, callback, repeatCallback: null, owner ?? RevScope.DefaultNode);
 
         /// <summary>
         /// 每 <paramref name="interval"/> 秒一次，回调带"第几次"（从 1 开始）。
@@ -79,7 +81,7 @@ namespace Revolution
         public static RevTimerHandle Every(float interval, Action<int> callback, int times = -1,
             RevTimeDomain domain = RevTimeDomain.Scaled, object owner = null)
             => Core.Add(domain, interval, interval, times, absolute: false,
-                targetUtc: default, callback: null, repeatCallback: callback, owner);
+                targetUtc: default, callback: null, repeatCallback: callback, owner ?? RevScope.DefaultNode);
 
         /// <summary>
         /// 到某个**服务器绝对时刻**做一件事（防改设备时间、挂起无关）。
@@ -88,7 +90,7 @@ namespace Revolution
         /// </summary>
         public static RevTimerHandle At(DateTime serverUtc, Action callback, object owner = null)
             => Core.Add(RevTimeDomain.Server, duration: 0d, interval: 0d, repeats: 1, absolute: true,
-                targetUtc: serverUtc, callback, repeatCallback: null, owner);
+                targetUtc: serverUtc, callback, repeatCallback: null, owner ?? RevScope.DefaultNode);
 
         // ============================================================
         // 秒表（和计时器共用同一套时间源，不用自己算时间）

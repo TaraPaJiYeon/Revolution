@@ -8,13 +8,13 @@
 //   · 状态机每帧 Update —— 每个状态在 OnUpdate 里做自己的事（日志能看到）。
 //
 // 【本示例演示什么】
-//   ① 轻量状态机 RevLightStateMachine<T>：T = 业务的状态基类（三个状态共享的抽象基类）；
+//   ① 轻量状态机 RevLightFSM<T>：T = 业务的状态基类（三个状态共享的抽象基类）；
 //   ② 状态三件套：OnEnter / OnExit / OnUpdate（继承 RevLightStateBase，只重写关心的）；
 //   ③ 切换：ChangeTo<TState>()（旧状态 OnExit → 新状态 OnEnter）；重复切到当前状态被框架拦下；
 //   ④ StateTime：在当前状态待了多久（AI 决策的常用输入）；
 //   ⑤ StateChanged 事件：谁关心"状态变了"就订阅谁。
 //
-// 【什么时候用轻量 / 什么时候用重量级（RevHeavyFsm）】
+// 【什么时候用轻量 / 什么时候用重量级（RevHeavyFSM）】
 //   纯逻辑轮换（AI 小状态、UI 流程）用轻量版；需要异步准备 / 分层的大型角色控制器用重量级。
 // ============================================================
 using System.Collections.Generic;
@@ -80,8 +80,8 @@ namespace Revolution.Demo.StateMachine
         private Vector2 _scroll;
 
         /// <summary>状态机实例（供各状态反查 StateTime 与切换 —— 真实项目里由持有者传入）。</summary>
-        internal Revolution.RevLightStateMachine<DemoAiState> Machine { get; } =
-            new Revolution.RevLightStateMachine<DemoAiState>();
+        internal Revolution.RevLightFSM<DemoAiState> Machine { get; } =
+            new Revolution.RevLightFSM<DemoAiState>();
 
         /// <summary>给各状态写日志用的出口（真实项目走 RevLog）。</summary>
         internal void Log(string line)

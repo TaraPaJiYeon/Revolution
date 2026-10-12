@@ -27,9 +27,9 @@
 //   业务可以 token.Register(...) 中断在途的加载，不做无用功。
 //
 // 【注意】
-//   · 只有 RevLightStateMachine<T> 会 await 本接口；
-//     重量级 RevHeavyFsm<TStateEnum, TOwner> 用的是自己那套
-//     （RevHeavyFsmState.PrepareEnterAsync / PrepareExitAsync，签名一致）；
+//   · 只有 RevLightFSM<T> 会 await 本接口；
+//     重量级 RevHeavyFSM<TStateEnum, TOwner> 用的是自己那套
+//     （RevHeavyFSMState.PrepareEnterAsync / PrepareExitAsync，签名一致）；
 //   · 用了 RevTask 就别再混协程，两套时序混在一起很难推理；
 //   · 不想手写空实现的，继承 Base 目录下的 RevLightAsyncStateBase。
 // ============================================================

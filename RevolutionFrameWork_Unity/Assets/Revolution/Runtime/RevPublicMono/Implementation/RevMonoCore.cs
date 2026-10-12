@@ -27,7 +27,9 @@ namespace Revolution
     internal sealed class RevMonoCore
     {
         private readonly List<RevMonoListener>[] _lists = new List<RevMonoListener>[3];
-        private readonly Action[][] _snapshots = new Action[3][];
+
+        // 快照里存整个监听者结构（而不只是委托）：派发时还要看它有没有"作用域门"（域暂停就跳过）。
+        private readonly RevMonoListener[][] _snapshots = new RevMonoListener[3][];
         private readonly bool[] _dirty = { true, true, true };
 
         /// <summary>
@@ -77,7 +79,18 @@ namespace Revolution
                 return false;
             }
 
-            list.Add(new RevMonoListener(action, owner));
+            // ★ 作用域兜底：调用方没写 owner 时，看看有没有"当前域"。
+            //   有 → 把这个域当成 owner（域关闭时 RemoveAllOf(域) 一并清掉），并记下它当"暂停开关"；
+            //   没有 → scope 为 null、owner 保持 null，行为与没有作用域系统时逐字一致。
+            //   ★ 显式写了 owner 的不进这个分支：域不插手（也不会被域暂停）。
+            RevScopeHandle scope = null;
+            if (owner == null)
+            {
+                scope = RevScope.DefaultNode;
+                owner = scope;
+            }
+
+            list.Add(new RevMonoListener(action, owner, scope));
             _dirty[(int)phase] = true;
 
             // ★ 零配置：第一次用到就喊一声，让宿主适配层把隐藏驱动挂起来
@@ -169,13 +182,17 @@ namespace Revolution
             // 这样不会用错误数字访问监听列表并抛越界异常，也不会影响后续正常帧。
             if (!IsValidPhase(phase)) return;
             int index = (int)phase;
-            Action[] snapshot = Snapshot(index);
+            RevMonoListener[] snapshot = Snapshot(index);
             if (snapshot.Length == 0) return;
 
             for (int i = 0; i < snapshot.Length; i++)
             {
-                Action action = snapshot[i];
+                Action action = snapshot[i].Action;
                 if (action == null) continue;
+
+                // ★ 域被暂停就跳过（只有"归域兜底"的监听者带 Scope；无域 / 显式 owner 的永远是 null，一次判空就过）
+                RevScopeHandle scope = snapshot[i].Scope;
+                if (scope != null && !scope.TickOn) continue;
 
                 try
                 {
@@ -217,13 +234,13 @@ namespace Revolution
         }
 
         /// <summary>取快照（脏了才重建：稳态零分配；派发期间列表被改动不影响本次快照）。</summary>
-        private Action[] Snapshot(int index)
+        private RevMonoListener[] Snapshot(int index)
         {
             if (!_dirty[index] && _snapshots[index] != null) return _snapshots[index];
 
             List<RevMonoListener> list = _lists[index];
-            var snapshot = new Action[list.Count];
-            for (int i = 0; i < list.Count; i++) snapshot[i] = list[i].Action;
+            var snapshot = new RevMonoListener[list.Count];
+            for (int i = 0; i < list.Count; i++) snapshot[i] = list[i];
 
             _snapshots[index] = snapshot;
             _dirty[index] = false;

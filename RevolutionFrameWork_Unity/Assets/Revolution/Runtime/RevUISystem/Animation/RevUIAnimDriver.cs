@@ -45,7 +45,10 @@ namespace Revolution
             if (_installed) return;
             _installed = true;
 
-            RevMono.AddUpdate(Tick);            // 框架自带的隐藏宿主，不用我们新建
+            // ★ 显式传 owner（一个不会被任何域管到的对象）：不传的话，第一次播放动画若恰好发生在某个作用域里，
+            //   这条框架自己的基础设施驱动会被当成那个域的东西、域关闭时被摘掉，而 _installed 仍是 true ——
+            //   之后所有 UI 动画都不再被推进，且毫无报错。
+            RevMono.AddUpdate(Tick, typeof(RevUIAnimDriver));   // 框架自带的隐藏宿主，不用我们新建
             RevUILog.Info("UI 动画驱动已挂上（跟随 RevMono 每帧推进）");
         }
 

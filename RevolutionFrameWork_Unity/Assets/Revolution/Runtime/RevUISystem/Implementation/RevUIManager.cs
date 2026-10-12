@@ -320,6 +320,10 @@ namespace Revolution
 
         private void Register(RevUIPanel panel)
         {
+            // ★ 作用域：有域开着，就把面板登记到域上 —— 域关闭时框架会替你把它关掉（RevScope 第 2 步）。
+            //   没有域时什么也不做（行为与没有作用域系统时一致）。池里复用的实例每次打开都会重新登记（"最近一次的域说了算"）。
+            RevScope.AttachSilently(panel);
+
             _opened[panel.PanelKey] = panel;
             _openOrder.Add(panel);
 
@@ -814,6 +818,9 @@ namespace Revolution
 
             Unregister(panel);
             _pool.Forget(panel);
+
+            // 面板彻底销毁：从它所在的域里摘掉（否则域会一直攥着一个已销毁的对象，直到域关闭才放手）
+            RevScope.Detach(panel);
 
             if (_panelResourceLeases.TryGetValue(panel.GetInstanceID(), out ClosingResourceLease lease))
             {

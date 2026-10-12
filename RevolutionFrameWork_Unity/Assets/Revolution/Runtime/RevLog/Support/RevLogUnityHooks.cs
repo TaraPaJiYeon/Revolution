@@ -54,7 +54,7 @@ namespace Revolution
 
             // ④ 哪些模块**不需要**在这里接管（避免重复接线，也避免"两套出口"）：
             //    · 事件 / 对象池 / 计时器：各自的 Support\*UnityHooks 已经把出口指向 RevLog；
-            //    · UI / 状态机：默认实现本身就走 RevLog（见 RevUISetting / RevHeavyFsm）；
+            //    · UI / 状态机：默认实现本身就走 RevLog（见 RevUISetting / RevHeavyFSM）；
             //    · 音效 / 资源加载：它们的设计是"失败带原因码 + Failed 事件 / handle.ErrorReason"，
             //      业务订阅即可 —— 框架不额外打日志（这是它们的契约，不是遗漏）。
         }

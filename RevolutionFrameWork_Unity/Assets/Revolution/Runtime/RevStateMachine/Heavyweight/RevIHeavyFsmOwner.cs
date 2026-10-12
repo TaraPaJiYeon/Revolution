@@ -1,5 +1,5 @@
 // ============================================================
-// RevIHeavyFsmOwner.cs —— 重量级状态机的宿主行为接口
+// RevIHeavyFSMOwner.cs —— 重量级状态机的宿主行为接口
 //
 // 位置：Runtime\RevStateMachine\Heavyweight\
 //
@@ -18,20 +18,20 @@ namespace Revolution
 {
     /// <summary>
     /// 重量级状态机的宿主行为接口（标记接口，本身无成员）。
-    /// <para>用法：业务定义自己的行为接口继承它，然后以它为 <c>RevHeavyFsm</c> 的第二个泛型参数：</para>
+    /// <para>用法：业务定义自己的行为接口继承它，然后以它为 <c>RevHeavyFSM</c> 的第二个泛型参数：</para>
     /// <code>
-    /// public interface IBossObj : RevIHeavyFsmOwner
+    /// public interface IBossObj : RevIHeavyFSMOwner
     /// {
     ///     float Health { get; }
     ///     bool  IsPlayerInAttackRange();
     ///     void  MoveTowardsPlayer();
     /// }
     ///
-    /// var fsm = new RevHeavyFsm&lt;BossStateType, IBossObj&gt;(boss);
+    /// var fsm = new RevHeavyFSM&lt;BossStateType, IBossObj&gt;(boss);
     /// </code>
     /// <para>状态类里通过 <c>Owner</c> 属性访问这些行为（强类型，不用拆箱/转型）。</para>
     /// </summary>
-    public interface RevIHeavyFsmOwner
+    public interface RevIHeavyFSMOwner
     {
     }
 }

@@ -52,6 +52,15 @@ namespace Revolution
         /// <summary>归属对象：<c>RemoveAllByOwner</c> 的匹配依据；未显式指定时为 <c>Handler.Target</c>。</summary>
         public object Owner;
 
+        /// <summary>
+        /// ★ 作用域标记：注册时"没写 owner"且当时开着一个域，这里记下那个域（域关闭时按它整批摘除）。
+        /// 为什么不直接把域塞进 <see cref="Owner"/>：没写 owner 时 Owner 本来是 <c>Handler.Target</c>，
+        /// 业务（或界面基类）靠 <c>RemoveAllByOwner(this)</c> 摘自己的监听 —— 偷换成域就会让这条老路失效。
+        /// 所以两个维度分开记：Owner 管"对象销毁时摘"，Scope 管"域关闭时摘"，谁先到谁先摘，互不干扰。
+        /// 显式写了 owner 的监听 Scope 为 null（显式永远优先，域不插手）。
+        /// </summary>
+        internal object Scope;
+
         /// <summary>优先级：数值越大越先执行（同优先级按注册顺序）。</summary>
         public int Priority;
 
@@ -93,6 +102,7 @@ namespace Revolution
         {
             Handler = null;
             Owner = null;
+            Scope = null;
             Priority = 0;
             Seq = 0;
             IsAbandoned = false;

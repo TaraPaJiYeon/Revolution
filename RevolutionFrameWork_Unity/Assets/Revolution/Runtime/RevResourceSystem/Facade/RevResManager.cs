@@ -83,9 +83,21 @@ namespace Revolution
         /// 【为什么不允许覆盖已有归属？】
         ///   见 RevResHandle.Group 的注释：覆盖会让先加载的分组 Shutdown 时点名不到它。
         /// </summary>
+        /// <summary>
+        /// ★ 作用域兜底：调用方没传分组（Unknown）时，看看有没有"当前域"（RevScope）并且它配置了回收分组，有就用它。
+        /// 这是资源和对象池共用的"唯一漏斗"：对象池取 prefab 也是走 RevResManager.Load，所以池也自动归域。
+        /// 没有域时 DefaultGroup 恒为 Unknown，返回值与传入值一致 —— 行为与没有作用域系统时逐字一致。
+        /// </summary>
+        private static RevResGroup EffectiveGroup(RevResGroup group)
+            => group == RevResGroup.Unknown ? RevScope.DefaultGroup : group;
+
         private static void AssignGroup(RevResHandle handle, RevResGroup group)
         {
             if (handle == null) return;
+
+            // 规则不变：只在"句柄还没有归属"时才补，已有归属的永远不动（不会把别人先定好的组抢过来）。
+            group = EffectiveGroup(group);
+
             if (group == RevResGroup.Unknown) return;                    // 没传 → 不动
             if (handle.Group != RevResGroup.Unknown) return;             // 已有归属 → 不动（关键）
             handle.Group = group;                                     // 唯一允许的写入时机
@@ -220,7 +232,7 @@ namespace Revolution
                         Key = key,
                         StandardPath = standardPath,
                         ContentType = contentType,
-                        Group = group,
+                        Group = EffectiveGroup(group),             // ★ 新建句柄也要过作用域兜底（见 EffectiveGroup）
                         RefCount = 1,
                         Flags = RevResInstanceFlag.NeedCache
                     };
@@ -370,7 +382,7 @@ namespace Revolution
                 Key = key,
                 StandardPath = standardPath,
                 ContentType = contentType,
-                Group = group,
+                Group = EffectiveGroup(group),                     // ★ 新建句柄也要过作用域兜底（见 EffectiveGroup）
                 RefCount = 1,
                 Flags = RevResInstanceFlag.NeedCache | RevResInstanceFlag.InAsyncLoading
             };
