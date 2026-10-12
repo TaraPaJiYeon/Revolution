@@ -1,6 +1,6 @@
-# 模块速查（一）：日志 / 计时 / 公共Mono / 对象池 / 事件 / 服务定位器 / 异步 / 场景 / 输入
+# 模块速查（一）：日志 / 计时 / 公共Mono / 对象池 / 事件 / 服务定位器 / 异步 / 场景 / 输入 / 启动 / 生命周期
 
-> 9 个模块的门面**全部在 `namespace Revolution`**；路径相对 `Assets/Revolution/Runtime/`。
+> 11 个模块的门面**全部在 `namespace Revolution`**；路径相对 `Assets/Revolution/Runtime/`。
 > 这里只列"最常用 + 最容易写错"的部分；完整 API 看源码 Facade 与对应《使用说明》（`references/docs-map.md`）。
 > **阅读顺序建议**：写代码前先看该节"铁律"，再照"最小示例"写。
 
@@ -114,11 +114,25 @@ private void OnDestroy() { RevMono.RemoveAllOf(this); }
 - 常用 API：
 
 ```csharp
+// ★ 推荐：按类型取（路径写在预制体脚本的 [RevPoolPrefab] 特性上；取用与清理都不写路径字符串）
+[RevPoolPrefab("Battle/Bullet", "Bullet_Normal", Group = RevResGroup.Battle)]   // 名字省略 = 类名；特性不继承；同一预制体只能一个类声明
+public class Bullet : MonoBehaviour { }
+Bullet b = RevPool.Get<Bullet>(parent);                                   // 同步（池里有 / 已加载）
+RevResHandle h = RevPool.GetAsync<Bullet>(b => b.transform.position = muzzle.position);   // 真机首次 / WebGL 必须用这个
+int n = RevPool.Clear<Bullet>();           bool ok = RevPool.DestroyPool<Bullet>();      // 清空空闲实例 / 销毁整条池
+// 类型上没写特性 → 报错（提示怎么加）并返回 null / 0 / false；回调版回调收到 null
+
+// 手填路径的老写法仍可用（预制体上没有脚本、临时取一下时）
 GameObject go = RevPool.Get("Battle/Bullet/Blue", firePoint);     // (rootPath, resName, parent, group)
 T comp = RevPool.Get<T>(rootPath, resName, parent, group);        // 取组件
-RevResHandle h = RevPool.GetAsync(rootPath, resName, onFinished: go => {...});   // WebGL 必须用这个
-bool RevPool.Return(GameObject item, int delayFrames = -1)        // delay=等 N 帧再回收（特效播完）
-int RevPool.Clear(rootPath, resName) / ClearAll() / ClearGroup(group)
+GameObject go2 = RevPool.Get(prefab, parent);                     // 持有 prefab 引用时（热路径更快；池不持有资源引用，prefab 生命周期由你保证）
+RevResHandle h2 = RevPool.GetAsync(rootPath, resName, onFinished: go => {...});
+
+bool RevPool.Return(GameObject item, int delayFrames = -1)        // delay=等 N 帧再回收（特效播完）；也有 Return(Component)
+int RevPool.Clear(rootPath, resName) / ClearAll() / ClearGroup(group)       // 清空"空闲实例"，池与 prefab 引用保留
+bool RevPool.DestroyPool(rootPath, resName) / DestroyPool(prefab)           // 销毁整条池 + 还掉 prefab 引用
+int RevPool.DestroyGroup(group)       void RevPool.DestroyAll()              // 退出业务域 / 回登录用；DestroyGroup 后再 Shutdown(group)
+int RevPool.MaxIdlePerPool { get; set; }   int RevPool.TrimAll(int keepCount)  // 空闲上限（默认 64，同时管 RevRefPool）/ 一次性收缩
 RevPoolStats RevPool.GetStats(rootPath, resName)                  string RevPool.DumpStats()
 
 T msg = RevRefPool.Get<ChatMessage>();                            // where T : class, IRevPoolable, new()
@@ -128,7 +142,7 @@ RevRefPool.Return(msg);      RevRefPool.Clear<T>() / ClearAll()      RevRefPool.
 - 最小示例：
 
 ```csharp
-var bullet = RevPool.Get("Battle/Bullet/Blue", firePoint);
+var bullet = RevPool.Get<Bullet>(firePoint);
 RevPool.Return(bullet, delayFrames: 5);
 
 var msg = RevRefPool.Get<ChatMessage>();
@@ -138,9 +152,11 @@ RevRefPool.Return(msg);        // OnPoolReturn 里必须把字段清干净
 
 - 铁律 / 坑：
   1. **`OnPoolReturn` 必须把字段清干净**：池对象既不销毁也不重置，"上次的数据还在"是池化最常见事故。
-  2. **取用成对、类型/variant 一致**：找不到池多半是 variant 不一致（两个池）。
+  2. **取用成对、类型/variant 一致**：找不到池多半是 variant 不一致（两个池）。按类型取时 `Get<T>` / `Clear<T>` / `DestroyPool<T>` 解析的是**同一条池**。
   3. **WebGL（含小游戏）同步加载不可用 → 必须 `GetAsync`**。
   4. 池内部按**引用相等**匹配（业务别重写 `Equals`）；只允许主线程。
+  5. **`Clear` ≠ `DestroyPool`**：`Clear*` 只清空闲实例（池保留，之后继续用）；`DestroyPool*` / `DestroyGroup` / `DestroyAll` 连借出中的实例、延迟回收中的实例、prefab 引用一起收。退出业务域按"先 `DestroyGroup`，再 `RevResBootstrap.Instance.Shutdown(group)`"的顺序。
+  6. `RevScene` 切场景前默认自动清对象池（`AutoClearPool = true`），不用手动调。
 - 文档：`Revolution.Document/对象池/对象池使用说明.md`、`对象池架构解析.md`
 
 ---
@@ -335,4 +351,56 @@ RevInput.ResetAll("换场景");                                     // 宿主已
   2. 切后台 / 失焦宿主已自动复位，换场景再调 `RevInput.ResetAll("换场景")`。
   3. **弹窗用屏蔽、不要停模块**：`RevInput.OpenScope()` + `scope.Block()`；停模块会把 ESC / 返回键一起停掉。
   4. 不要用本模块点 UI（UI 走 UI 系统），用 `RevInput.IsPointerOverUI()` 分流。
+  5. **`SetRepeat(action, delay, interval)` 里 `delay <= 0` = 关连发**（不是"立即开始连发"）；`SaveBindings ⇄ LoadBindings` 现已无损往返连发配置（文本格式有 `repeat:延迟/间隔`）。
+  6. 屏蔽 `World` 期间**轴读数一并归零**（弹窗里角色不会继续移动），但按下时间仍记录（输入缓冲不丢）。
 - 文档：`Revolution.Document/输入系统/输入系统使用说明.md`、`输入系统架构解析.md` · 模块 README：`Runtime/RevInput/README.md`
+
+---
+
+## 10. RevInitialize —— 统一启动门面
+
+- 门面：`Revolution.RevInitialize`（static）· `RevInitialize/RevInitialize.cs`
+- 职责：在启动入口调一次，**装配资源系统策略**；幂等；失败回滚为"未初始化"并重新抛出（修好原因可重试）。
+- 常用 API：
+
+```csharp
+void RevInitialize.Initialize(Action beforeResourceInitialization = null)   // 前置回调：资源策略注册前装配扩展钩子（如热更），仅第一次成功初始化时执行
+bool RevInitialize.IsInitialized { get; }
+```
+
+- 最小示例：`RevInitialize.Initialize();`（放在 Boot 脚本的 `Awake` / `Start`；完整骨架见 `templates/RevBoot.cs.txt`）
+- 铁律 / 坑：
+  1. 只管资源系统；**不要**期待它初始化所有模块（其它模块自动就位，手动重复启动反而清监听）。
+  2. 前置回调里**不能递归调 `Initialize()`**（抛 `InvalidOperationException`）。
+  3. 新代码别再直接调 `RevResBootstrap.Instance.Init()`。
+  4. 关闭 Domain Reload 时，每次新 Play 会话会自动复位门面状态（`SubsystemRegistration` 钩子）。
+- 文档：`Revolution.Document/一键初始化/一键初始化说明.html`（仅 html）· 详见 `startup-and-platform.md` §1
+
+---
+
+## 11. RevAppLifecycle —— 应用生命周期（前后台 / 焦点 / 退出）
+
+- 门面：`Revolution.RevAppLifecycle`（static）· `RevAppLifecycle/Facade/RevAppLifecycle.cs`；零配置自动建隐藏宿主。
+- 职责：把 Unity 的应用级回调收敛成 3 个 `RevEvent` 事件 + 3 个只读状态；对"Pause 与 Focus 同时到达"去重。
+- 常用 API：
+
+```csharp
+const string RevAppLifecycle.Paused  = "App.Paused"       // 进后台 / 失焦（0 参数事件）
+const string RevAppLifecycle.Resumed = "App.Resumed"      // 回前台
+const string RevAppLifecycle.Quitting = "App.Quitting"    // 正在退出（★ 移动端不保证触发）
+bool IsBackground { get; }   float LastBackgroundSeconds { get; }   int PauseCount { get; }
+```
+
+- 最小示例：
+
+```csharp
+RevEvent.AddEventListener(RevAppLifecycle.Resumed, OnResumed, owner: this);       // owner 让销毁时自动摘
+private void OnResumed() { if (RevAppLifecycle.LastBackgroundSeconds > 60f) { Reconnect(); } }
+```
+
+- 铁律 / 坑：
+  1. 去重已内置，**业务别自己写 `OnApplicationPause` / `OnApplicationFocus`**（会重复触发重连逻辑）。
+  2. `Quitting` 不可靠 → 数据随存随写；后台时长用 `UtcNow`（引擎时间在后台停走）。
+  3. `SetBackground` / `NotifyQuitting` / `ResetForNewSession` 是给宿主调的。
+  4. 暂无 Demo 场景。
+- 文档：`Revolution.Document/应用生命周期/应用生命周期使用说明.md` · 详见 `startup-and-platform.md` §2

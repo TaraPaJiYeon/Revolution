@@ -90,6 +90,15 @@ if (result.Success == false) { RevLog.Warn(result.Error.Message, "HotUpdate"); }
 存储选型（技术方案第十八章）：**对象存储 + CDN，首选腾讯云 COS + CDN**（与微信同生态），次选阿里云 OSS + CDN；
 客户端只认"一个 HTTPS 域名 + 路径模板"，**不引任何云 SDK**（换家只改配置）；小游戏要在公众平台配"服务器域名"（备案 + HTTPS）。
 
+## 7.1 小游戏 / WebGL 的配置硬约束（`RevHotConfig.Validate()` 在配置期就会拦）
+
+- `Concurrency` **默认按平台**（小游戏 2 / 其余 3）；小游戏上并发 > 4 直接报错。
+- 小游戏 / WebGL 上**禁止明文 http**（**不受 `AllowHttp` 影响**）：必须 https。
+- 热更包从清单里的 `unityHash` / `unityCrc` 注入引擎缓存标识（`RevABLoader.BundleCacheKeyResolver` 钩子 + `RevBundleCacheKey`），否则小游戏每次进游戏都重下全部 AB；`SetActiveBundleKeys` 与"切版本"同步（**换版本必换 hash 表**）。
+- 平台名：小游戏构建目标（`XxxMiniGame`）统一归 `WebGL`（`RevHotPlatform.Name` / `RevABLoader.MainName` / `ABBuildSetting.GetPlatformName` 三处对齐）；渠道段（微信 / 抖音）不硬编码，交由 `BundlePathResolver` 钩子按需处理。
+- 发布侧工具：`Revolution.Could/`（腾讯云 COS 热更发布 WPF 可视化工具）与 `UploadToCos` / `UploadToOss` 命令行脚本（`Assets/Revolution.Demo/RevHotUpdate.Demo/`，给 CI 用）——都按"内容先传、清单最后传"发布，同版本路径内容不同**拒绝覆盖**。
+- 完整平台约束清单见 `startup-and-platform.md` §4。
+
 ## 8. 装法与分支
 
 ```text

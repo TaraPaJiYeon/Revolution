@@ -331,7 +331,8 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 
 ### 🕹 GM 指令（RevGMCommand）
 
-- ✅ **一行注册**：给方法加个特性就行 —— `[RevGMEntry("给道具：give 1001 5")] static void Give(int id, int count)`
+- ✅ **一行注册**：`RevGM.Register("经济/加金币", "给当前玩家加金币", args => AddGold(args.Int(0, 1000)), RevGMArg.Int("数量", 1000));`
+- ✅ **编辑器里不进 Play 也能看命令清单**：给"注册方法"（静态、只做注册）加 `[RevGMEntry("说明")]` 即可；命令本身仍靠 `RevGM.Register` 注册
 - ✅ 游戏内控制台 + 编辑器面板共用同一套指令
 
 ### 📊 配置表（RevDataLoad）

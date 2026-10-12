@@ -20,6 +20,8 @@
 - [ ] 每个 `RevEvent.AddEventListener` 都有对应移除：`RemoveAllByOwner(owner)` 或字段保存的委托（**匿名 lambda 按委托移除无效**）。
 - [ ] 每个 `RevResManager.Load/LoadAsync` 都有对应 `Release`。
 - [ ] 池对象：`OnPoolReturn` 清空字段；`Return` 后不再访问该对象；WebGL 用 `GetAsync`。
+- [ ] 池按类型取：预制体主脚本写了 `[RevPoolPrefab]`（子类自己写、同一预制体只一个类声明）；清理区分对：`Clear*` 只清空闲实例，退出业务域用 `DestroyGroup` / `DestroyPool`（再 `Shutdown(group)`）。
+- [ ] 生命周期类监听（`RevAppLifecycle.Resumed` 等）用 `owner: this` 注册，销毁时 `RemoveAllByOwner(this)`。
 - [ ] `MonoBehaviour` 的 `OnEnable/OnDisable` 订阅与退订**成对且对称**（别在 `OnEnable` 订阅、在 `OnDestroy` 退订）。
 - [ ] 静态字段/静态容器在关闭 Domain Reload 的场景下有复位钩子（照 `Support/*UnityHooks.cs`）。
 - [ ] 服务定位器：`AddScoped` 的服务放进 `CreateScope()` 的 `using`；`AddSingleton(instance)` 的实例有人释放。
@@ -37,7 +39,11 @@
 
 - [ ] 面板有 `[RevUIPanel(root, layer)]`，root 用常量；`[RevBind]` 字段名与节点名对得上。
 - [ ] `OnBindView` 只装配、`OnRefreshView` 只落屏、`OnClick` 只转发（没有在视图钩子里做业务/发请求）。
-- [ ] 有数据的面板走 `SetData` 单向流；`OnRefreshView` 只读 `Data`。
+- [ ] 有数据的面板走 `SetData` 单向流；`OnRefreshView` 只读 `Data`，且用 `Data` 前**判空**（`SetData(null)` / 回池复用会清成 null）。
+- [ ] **刷新时机**：原地改了数据内容（`Data.X++` / `Items.Add`）→ 有手动 `RefreshView()`；换数据走 `SetData`；`OnDataChanged` 里**没有**多余的手动 `RefreshView()`（会画两遍）；`struct` 数据没有"原地改 Data"的写法（读到的是拷贝）。
+- [ ] `SetData` / `Open<T,TData>` 写在**业务侧数据产生处**（点击回调 / 网络回包），不是写在面板里。
+- [ ] 控件事件：控件名与节点名一致（写错装配时就报错）；高频事件（滚动 / 每次敲键）用重写回调而不是方法特性；同一件事不在"重写回调"和"方法特性"两处都做。
+- [ ] 动画：传了 `owner: this`；重写 `PlayOpenTransition` / `PlayCloseTransition` 的在结束时调了 `onDone`。
 - [ ] 打开用 `Open<T>(onOpened)` / `OpenAsync<T>`；没有在真机路径上用"同步 `Open<T>()` 并假设它会加载"。
 - [ ] 弹窗/常驻 HUD 正确设置 `InBackStack`；`ExclusiveGroup` 按语义设置；`RevUICacheMode` 与 `KeepAlive` 一致。
 - [ ] 面板里没有"跨界面复用"的重逻辑（该抽成服务）；面板没有缓存未在 `OnReuse` 里重置的状态。
@@ -89,7 +95,16 @@
 - [ ] 没有新增分层 / 第二套 API（`System` / `BusinessLogic` / 自己的资源加载入口）。
 - [ ] 文档（md + html）与 README 统计数字已同步。
 
-## 10. 对照示例（反例 → 正例）
+## 10. 启动 / 生命周期 / 真机适配（RevInitialize · RevAppLifecycle · 代码裁剪）
+
+- [ ] 启动入口**只调一次** `RevInitialize.Initialize()`；没有直接调 `RevResBootstrap.Instance.Init()`，也没有"手动初始化一圈模块"。
+- [ ] 异步入口（`async void`）整体 `try/catch` + `RevLog.Exception`；服务装配只在组合根一处。
+- [ ] 切后台 / 回前台用 `RevAppLifecycle` 事件，**没有**自己写 `OnApplicationPause` / `OnApplicationFocus`；长连接 / 计时 / 体力类逻辑按 `LastBackgroundSeconds` 处理了回前台；数据**随存随写**（不依赖 `Quitting`）。
+- [ ] 小游戏 / WebGL 目标：没有 `Thread` / `Task.Run` / `System.Threading.Tasks.Task`；没有同步 `Load` / 同步 `Open<T>()` 的假设；音频首次播放有用户手势；热更用 https。
+- [ ] 代码裁剪：已确认 `Managed Stripping Level`（主推 `Disabled`）；开了裁剪的已生成 `Assets/link.xml` 并看过真机 `RevStripGuard` 输出；`RevStripGuard` 的 `WatchedTypes` 新增条目保持**字符串写法**（不直接引用被检查类型）。
+- [ ] 平台名对齐：小游戏目标产物目录 / 主包名 / 热更平台段都归 `WebGL`；编辑器里验证热更前 `UseABInEditor = true`。
+
+## 11. 对照示例（反例 → 正例）
 
 ### 例 1：事件订阅
 
@@ -142,4 +157,45 @@ return Path.Combine(localRoot, bundleName);
 // ✓ 覆盖式：持久化有就用、没有回退首包、都没有才交还框架默认
 if (File.Exists(local)) { return local; }
 return null;      // null = 让框架走 StreamingAssets/<平台>/<包名>
+```
+
+### 例 6：UI 数据刷新
+
+```csharp
+// ✗ 原地改了内容却指望界面自己动（框架不监听数据对象）；在 OnDataChanged 里又手动刷导致画两遍
+Data.Count++;
+protected override void OnDataChanged(Detail o, Detail n) { RefreshView(); }
+
+// ✓ 原地改后手动刷；或换新对象走 SetData（面板开着自动刷，OnDataChanged 只做增量）
+Data.Count++; RefreshView();
+SetData(new Detail { Id = Data.Id, Count = Data.Count + 1 });
+protected override void OnRefreshView() { if (Data == null) { return; } _count.text = Data.Count.ToString(); }
+```
+
+### 例 7：切后台
+
+```csharp
+// ✗ 自己写 OnApplicationPause / OnApplicationFocus：移动端两个回调前后脚到达，重连逻辑被触发两遍
+private void OnApplicationPause(bool pause) { if (!pause) { Reconnect(); } }
+private void OnApplicationFocus(bool focus) { if (focus) { Reconnect(); } }
+
+// ✓ 订阅框架事件：只在"前后台状态真翻转"时派发一次，且能拿到后台时长
+RevEvent.AddEventListener(RevAppLifecycle.Resumed, OnResumed, owner: this);
+private void OnResumed() { if (RevAppLifecycle.LastBackgroundSeconds > 60f) { Reconnect(); } }
+```
+
+### 例 8：启动与小游戏异步
+
+```csharp
+// ✗ 到处手动初始化 + 用 Task 写异步（小游戏单线程会直接崩）+ async void 不兜异常
+RevResBootstrap.Instance.Init();
+private async void OnStart() { await System.Threading.Tasks.Task.Delay(100); await Load(); }
+
+// ✓ 只调一次 RevInitialize；异步用 RevTask；async void 入口整体 try/catch
+RevInitialize.Initialize();
+private async void OnStart()
+{
+    try { await RevTask.Delay(100); await Load(); }
+    catch (Exception e) { RevLog.Exception(e, "启动失败", "Boot"); }
+}
 ```

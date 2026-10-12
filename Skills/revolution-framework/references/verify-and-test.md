@@ -12,6 +12,36 @@
 | ④ **工程外纯 C# 断言** | 改了框架**内核**（路径/槽位表/池/日志/计时/解析/规则） | 链接那些不引用 UnityEngine 的文件到普通 .NET 工程，`dotnet run -c Release` 跑断言（见下） |
 | ⑤ 真机 + 破坏性测试 | 资源/UI/热更等"只有真机才暴露"的改动 | Android 真机跑首包落地 + 增量更新；热更按第 4 节的破坏性测试逐项过 |
 
+### 1.1 快速编译检查（不开 Unity 窗口也能看有没有编译错）
+
+Unity 打开过工程后，仓库里会有 Unity 生成的 `*.sln` / `*.csproj`（**不入库**，在 `.gitignore` 里）。有它们时可以直接：
+
+```text
+dotnet build <工程目录>/RevolutionFrameWork_Unity.sln --no-restore -v minimal
+```
+
+- 看末尾的"0 个错误"即可；大量 `MSB3277` 程序集版本冲突警告是**既有噪音**，与你的改动无关。
+- 只能证明"C# 语法 + 类型引用"成立；Unity 侧行为（生命周期、真加载、真机路径）仍靠 demo 场景与真机。
+- `.csproj` 里没有的新文件要等 Unity 重新生成工程文件后才会被 `dotnet build` 看到（新增文件后先让 Unity 刷新一次，或在 Unity 里直接看 Console）。
+
+### 1.2 "最近的 demo"在哪（18 个场景）
+
+路径统一 `Assets/Revolution.Demo/<模块>.Demo/<模块>Demo.unity`（索引 `RevDemoSceneList.txt`）；演示脚本是 OnGUI：左侧按钮逐个点，右侧步骤日志。
+
+| 模块 | Demo | 模块 | Demo |
+|---|---|---|---|
+| RevLog | `RevLog.Demo` | RevInput | `RevInput.Demo` |
+| RevTimer | `RevTimer.Demo` | RevDataLoad | `RevDataLoad.Demo` |
+| RevPublicMono | `RevPublicMono.Demo` | RevSoundSystem | `RevSoundSystem.Demo` |
+| RevObjectPool | `RevObjectPool.Demo` | RevStateMachine | `RevStateMachine.Demo` |
+| RevEventSystem | `RevEventSystem.Demo` | RevResourceSystem | `RevResourceSystem.Demo` |
+| RevServiceLocator | `RevServiceLocator.Demo` | RevSingleton | `RevSingleton.Demo` |
+| RevTask | `RevTask.Demo` | RevUISystem | `RevUISystem.Demo`（一个场景演了使用说明每一章：三种接法 / 生命周期 / 全部 API / 带数据 / 六层与遮罩 / 动画 / Part） |
+| RevScene | `RevScene.Demo` | RevActionSequence | `RevActionSequence.Demo` |
+| RevGMCommand | `RevGMCommand.Demo` | RevHotUpdate | `RevHotUpdate.Demo`（需先跑菜单"一键：打包 + 清单 + 装配本地 CDN"） |
+
+**没有 Demo 的**：`RevInitialize` / `RevAppLifecycle` / `RevStripGuard`（验证靠真机或手动切焦点；`RevStripGuard` 在编辑器下不跑，可手动 `RevStripGuard.Check()`）。
+
 ## 2. 能进工程外断言的文件（框架已有清单）
 
 `README.md`（仓库根）「工程外验证」一节列了这些**不引用 `UnityEngine`** 的文件，可直接链接进 .NET 控制台工程：
@@ -68,7 +98,10 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 ## 5. 文档站与分支（交付验证）
 
 - 改了 `Revolution.Document/**` → 推 `main` 后 `pages.yml` 重新部署，在线站可见（https://yokino337088.github.io/Revolution/ ）；
-- 改了 `Assets/Revolution/**` / `Assets/Revolution.Demo/**` / `Assets/Revolution.HotUpdate/**` → 对应生成分支（`package` / `demo` / `hotupdate`）自动整份重建，可 `git fetch origin <分支>` 核对提交与文件数。
+- 改了 `Assets/Revolution/**` / `Assets/Revolution.Demo/**` / `Assets/Revolution.HotUpdate/**` / `Skills/**` → 对应生成分支（`package` / `demo` / `hotupdate` / `skill`）自动整份重建，可 `git fetch origin <分支>` 核对提交与文件数。
+- **推送目标**：工作副本配了多个远程（个人 fork + 原仓库）时，先 `git remote -v` 确认要推哪一个再推，别默认 `origin`。
+- 提交信息统一中文；PowerShell 下用 `git commit -F <UTF-8 文件>`，**不要** `-m "多行中文"`（会乱码 / 解析失败，已踩过）；临时信息文件提交后删掉，别被 `git add -A` 误带入。
+- 修已推送提交的信息需要 `commit --amend` + `push --force-with-lease`——**属于改写历史，先得到人的明确同意**，并先核对该提交的作者是不是本人。
 
 ## 6. 收尾习惯
 

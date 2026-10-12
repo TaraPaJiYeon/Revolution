@@ -23,6 +23,9 @@ Revolution.Document/
 
 | 模块（门面） | 文档 |
 |---|---|
+| 启动 `RevInitialize` | `一键初始化/一键初始化说明.html`（**仅 html，无 md**） |
+| 应用生命周期 `RevAppLifecycle` | `应用生命周期/应用生命周期使用说明.md`（md + html；暂无 Demo） |
+| 代码裁剪 `RevStripGuard` / `link.xml` | `代码裁剪/代码裁剪使用说明.md`（含"代价怎么自己测"与症状反查表） |
 | 日志 `RevLog` | `日志系统/日志系统使用说明.md`（另有模块 README：`Runtime/RevLog/README.md`） |
 | 计时器 `RevTimer` | `计时器系统/计时器系统使用说明.md` · README：`Runtime/RevTimer/README.md` |
 | 公共 Mono `RevMono` | `公共Mono模块/公共Mono模块使用说明.md` |
@@ -43,6 +46,17 @@ Revolution.Document/
 | 热更（扩展包）`RevHotUpdate` | `热更新/RevHotUpdate使用说明.md`、`RevHotUpdate架构解析.md`、`RevHotUpdate技术方案.md` · README：`Assets/Revolution.HotUpdate/README.md` + `Assets/Revolution.Demo/RevHotUpdate.Demo/README.md` |
 
 **有模块级 README 的只有 7 个**：`RevLog`、`RevTimer`、`RevInput`、`RevServiceLocator`、`RevSoundSystem`、`RevActionSequence`、`RevGMCommand`（其余模块的说明只在 `Revolution.Document` 下）。
+
+**模块文档之外的"全局文档"**（找背景 / 现状 / 决策时读）：
+
+| 文档 | 位置 | 内容 |
+|---|---|---|
+| 更新日志 | `Assets/Revolution/CHANGELOG.md` | "未发布"段按 新增 / 修复 / 变更 分类；**动框架前先扫一遍** |
+| Bug 修复日志（6 份） | `Revolution.Document/bug修复日志/` | UI / 输入 / 计时器 / 热更 / 对象池-公共Mono-资源 / 场景-服务定位器-音效-状态机-RevTask；每处带成因与复现断言 |
+| 投产评估 | `Revolution.Document/Revolution 投产评估（安卓 + 微信抖音小游戏）.md` | 平台就绪度、P0/P1/P2 修复状态（哪些**已修**、哪些**未做**） |
+| 框架总览 | 仓库根 `README.md` | 模块表 / 规模统计 / 热更决策 / 工程外验证 / 出包设置建议 |
+| Demo 索引 | `Assets/Revolution.Demo/README.md` + `RevDemoSceneList.txt` | 18 个可运行场景 |
+| 在线文档站 | https://yokino337088.github.io/Revolution/ | 所有模块一页看全，带搜索与阅读顺序建议 |
 
 ## 3. 仓库与安装（交付面）
 
@@ -68,10 +82,13 @@ UPM 安装注意：包目录只读时，`RevResPath.cs` / `ResMap.txt` / 音效�
 
 ```text
 RevolutionFrameWork_Unity/Assets/
-├── Revolution/                 框架本体（Runtime 17 模块 + Editor 工具 + Generation/Resources）
-│   ├── Runtime/<模块>/{Core,Facade,Implementation,Interfaces,Support}
-│   ├── Editor/RevResourceSystem/ABTool/…  RevAB 打包工具（打包/分包/依赖/体积/检查/快照）
-│   ├── Editor/RevDataLoad/…               导表工具
+├── Revolution/                 框架本体（Runtime 20 个目录 + Editor 工具 + Generation/Resources + link.xml + CHANGELOG.md）
+│   ├── Runtime/<模块>/{Core,Facade,Implementation,Interfaces,Support}   （RevInitialize / RevStripGuard 等小模块是单文件，无分层目录）
+│   ├── Editor/RevResourceSystem/ABTool/…  RevAB 打包工具（Core/Pipeline/CodeGen/Snapshot/Integration/Window 六个子目录）
+│   ├── Editor/RevExcelTool/…              导表工具（编辑器版）
+│   ├── Editor/RevPlatform/…               平台工具（link.xml 生成 / 首包体积审计）
+│   ├── Editor/RevUISystem/…               UI 面板代码生成器
+│   ├── Editor/RevGMCommand/…              GM 指令面板
 │   ├── Generation/RevResPath.cs           生成的资源路径常量（勿手改）
 │   └── Resources/ResourceSystem/ResMap.txt 引导映射表（勿手改）
 ├── Revolution.HotUpdate/       扩展包：资源热更（独立程序集，可整体删除）
@@ -80,6 +97,8 @@ RevolutionFrameWork_Unity/Assets/
 └── StreamingAssets/<平台>/      打包产物拷贝目标（首包基线；由打包工具自动拷）
 
 <仓库根>/Revolution.Document/   文档（md 权威 + html 站点）
+<仓库根>/Revolution.ExcelTool/  导表工具（WPF 版，独立工程）
+<仓库根>/Revolution.Could/      腾讯云 COS 热更发布工具（WPF，独立工程）
 <仓库根>/Skills/                给 AI Agent 用的技能包（本文件所在处）
 <仓库根>/README.md              框架总览（模块表 / 工程外验证 / 热更决策）
 ```

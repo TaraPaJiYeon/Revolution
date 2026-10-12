@@ -81,9 +81,11 @@ namespace Revolution.Demo.ActionSequence
 
         /// <summary>
         /// 采集前等"服务器确认"再发奖 —— <b>推荐写法</b>（定义可缓存 + 可复用，策略有效）。
-        /// <para><b>为什么用 <c>DoBlocking</c> 而不是 <c>WaitTask</c></b>：序列模板是加载期构建一次、运行期复用的，
-        /// 而 <c>WaitTask</c> 的载荷（那个 task 对象）也是构建期固定的 —— "每次请求都要等不同的回包"根本没法缓存进定义。
-        /// 于是把"等待"改造成 <b>服务状态 + 每帧问一次</b>：请求的 pending 与结果都放在业务服务里，定义照样缓存。</para>
+        /// <para><b>为什么这里用 <c>DoBlocking</c>，而不是 <c>WaitTask</c></b>：两种写法<b>都能缓存清单</b>
+        /// （<c>WaitTask</c> 传的是工厂 <c>ctx =&gt; 任务</c>，任务在运行时才创建），区别在<b>"等待的状态由谁持有"</b>：
+        /// 这里的 pending 与回包结果都放在<b>业务服务</b>里（<b>服务状态 + 每帧问一次</b>），
+        /// 适合"请求发出去、结果由业务自己管"的场合；如果你手上直接就有一个异步 API 返回的 <see cref="RevTask"/>，
+        /// 用下面的 <see cref="WaitTaskDemo"/> 更省事。</para>
         /// <para><b>为什么 RejectPerSource</b>：同一次采集请求期间连点，不重复发请求（也就不会重复发奖）。</para>
         /// </summary>
         public static readonly RevSequenceDefinition GatherWithServerConfirm =
@@ -106,9 +108,10 @@ namespace Revolution.Demo.ActionSequence
         /// 可以 <c>static readonly</c> 缓存，而且连"同源拒绝"策略都能正常生效。</para>
         /// <para>和上面那条（等业务服务状态）的区别：这条直接等一个 <see cref="RevTask"/>，
         /// 适合"任务本身就是异步 API 的返回值"的场合（资源加载、网络回包）。</para>
-        /// <para>★ <c>WaitTask</c> 只吃<b>无返回值</b>的 <see cref="RevTask"/> —— <c>RevTask</c> 与
-        /// <c>RevTask&lt;T&gt;</c> 是两个独立结构体（刻意不做隐式转换）；带返回值的回调式接口先用
-        /// <see cref="RevTaskCompletionSource"/> 包一层（见 <see cref="RequestGatherConfirm"/>）。</para>
+        /// <para>★ <c>RevTask</c> 与 <c>RevTask&lt;T&gt;</c> 是两个独立结构体（刻意不做隐式转换），所以 <c>WaitTask</c> 有<b>两个重载</b>：
+        /// 无返回值的任务用 <c>.WaitTask(ctx =&gt; 任务)</c>（本例）；<b>要拿到结果</b>的用
+        /// <c>.WaitTask(ctx =&gt; 带返回值的任务, (ctx, 结果) =&gt; …)</c>。老的回调式接口先用
+        /// <see cref="RevTaskCompletionSource"/> 包成任务（见 <see cref="RequestGatherConfirm"/>），再交给 <c>WaitTask</c>。</para>
         /// </summary>
         public static readonly RevSequenceDefinition WaitTaskDemo =
             RevSequence.Create("次元\\灵果采集（等异步任务）", RevSequenceConcurrency.RejectPerSource)

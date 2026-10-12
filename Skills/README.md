@@ -11,37 +11,45 @@
 - 按本框架的**硬规范**生成或检查代码（`Rev` 前缀、方法括号不换行、方法必须带大括号、核心处写小白向注释）；
 - 把"编辑器直读 vs AB 模式""引用计数与分组卸载""面板池与 Back 语义""事件/计时器清理""热更覆盖式语义"这些**只有踩过才知道**的点提前说清；
 - 提供**权威文档索引**（`Revolution.Document` 每个模块的《使用说明》《架构解析》），避免"照着过时记忆写代码"；
-- 给出一致的**验证手段**：编译 → demo 场景（18 个）→ GM 面板 → 工程外纯 C# 断言 → 真机/破坏性测试。
+- 给出一致的**验证手段**：编译 → demo 场景（18 个）→ GM 面板 → 工程外纯 C# 断言 → 真机/破坏性测试；
+- 把**已修复缺陷的现行契约**写成速查（避免 AI 给"早已修好的 bug"写绕过代码），并覆盖**启动 / 切后台 / 代码裁剪 / 小游戏适配**这类真机才暴露的问题。
 
 ## 覆盖范围
 
 | 主题 | 覆盖内容 |
 |---|---|
-| 运行期模块（17 个） | 日志 `RevLog` · 计时器 `RevTimer` · 公共 Mono `RevMono` · 对象池 `RevPool`/`RevRefPool` · 事件 `RevEvent` · 服务定位器 `RevServiceLocator` · 异步 `RevTask` · 场景 `RevScene` · 输入 `RevInput` · 音效 `RevSound` · 状态机（轻量/栈/重量）· 资源 `RevResManager` · 单例（三种） · UI `RevUI`/`RevUIPanel` · 动作序列 `RevSequence` · GM `RevGM` · 配置表 `RevDataTableManager` |
-| 扩展包 | 资源热更 `RevHotUpdate`（清单 / 差量下载 / 版本目录 / 两个钩子 / 覆盖式语义 / 大版本锚定 / 本地假 CDN demo） |
-| 编辑器工具 | RevAB 打包工具（打包/分包/依赖/体积/检查/快照）、导表工具、GM 指令面板、热更清单窗口、热更 demo 工具、生成物（`RevResPath` / `ResMap.txt` / `RevSoundPath`） |
-| 工程面 | 三条生成分支（`package` / `demo` / `hotupdate`）与安装方式、文档站、目录分层约定、`.meta` 规矩 |
-| 工程化 | 代码/注释规范、审查清单、坑位集、工程外断言（可链接的纯 C# 文件清单 + 实测数字）、破坏性测试清单 |
+| 运行期模块（20 个目录：19 个功能模块 + 启动门面） | 启动 `RevInitialize` · 生命周期 `RevAppLifecycle` · 裁剪自检 `RevStripGuard` · 日志 `RevLog` · 计时器 `RevTimer` · 公共 Mono `RevMono` · 对象池 `RevPool`（含 `[RevPoolPrefab]` 按类型取）/`RevRefPool` · 事件 `RevEvent` · 服务定位器 `RevServiceLocator` · 异步 `RevTask` · 场景 `RevScene` · 输入 `RevInput` · 音效 `RevSound` · 状态机（轻量/栈/重量）· 资源 `RevResManager` · 单例（三种） · UI `RevUI`/`RevUIPanel`（含数据刷新时机、控件事件方法特性、动画库、Canvas 架构）· 动作序列 `RevSequence` · GM `RevGM` · 配置表 `RevDataTableManager` |
+| 扩展包 | 资源热更 `RevHotUpdate`（清单 / 差量下载 / 版本目录 / 两个钩子 / 覆盖式语义 / 大版本锚定 / 本地假 CDN demo / 小游戏配置硬约束） |
+| 编辑器工具 | RevAB 打包工具（打包/分包/依赖/体积/检查/快照，含 ResMap 一致性检查）、导表工具（编辑器版 + WPF 版）、GM 指令面板、UI 面板代码生成器、平台工具（`link.xml` 生成 / 首包体积审计）、热更清单窗口、热更 demo 工具、生成物（`RevResPath` / `ResMap.txt` / `RevSoundPath` / `link.xml`） |
+| 平台与真机 | 安卓 / 微信抖音小游戏 / WebGL 约束清单、IL2CPP 代码裁剪（主推关闭）、切后台处理、平台名对齐、首包预算 |
+| 工程面 | 四条生成分支（`package` / `demo` / `hotupdate` / `skill`）与安装方式、文档站、目录分层约定、`.meta` 规矩、提交规范（中文信息 + PowerShell 编码坑） |
+| 工程化 | 代码/注释规范、审查清单（含启动 / 真机 / UI 刷新专项）、坑位集（28 条）+ 现行契约速查、工程外断言（可链接的纯 C# 文件清单 + 实测数字）、破坏性测试清单 |
+| **"智能"层**（让 AI 少走弯路） | **任务配方**（按"我要做 X"直达，带 Demo 原样代码）· **选型对照表**（两个模块都像能做时选谁）· **「不存在 / 不做」清单 + 反幻觉协议**（防止凭印象写不存在的 API，如 `AddOnce` / `RevHeavyFsmGroup`）· **症状速查表**（现象 → 原因 → 先查什么）· **渐进式读取**（分诊后只读一个文件，不通读源码） |
 
 ## 目录结构
 
 ```text
 revolution-framework/
-├── SKILL.md                     ← 主入口：技术铁律 + 代码规范 + 行为准则 + 工作流 + 导航
-├── REFERENCE_GUIDELINES.md      ← 代码审查入口：逐条清单（清理/资源/UI/异步/事件/时间/服务/热更/规范）+ 正反例
+├── SKILL.md                     ← 主入口：20 模块总览表 + 30 秒分诊表（先判断是"写功能/选型/查边界/排错/审查"哪一类，再只读一个文件）+ 反幻觉协议 + 技术铁律 + 代码规范 + 工作流
+├── REFERENCE_GUIDELINES.md      ← 代码审查入口：逐条清单（清理/资源/UI/异步/事件/时间/服务/热更/启动与真机/规范）+ 8 组正反例
 ├── references/
-│   ├── modules-core.md          ← 日志/计时/公共Mono/对象池/事件/服务定位器/异步/场景/输入：门面签名 + 示例 + 铁律 + 文档路径
+│   ├── playbooks.md             ← ★ 18 个任务配方（R1~R18）：每个自带"选什么 / Demo 原样标准写法 / 坑 / 抄哪个 Demo / 怎么验"
+│   ├── decision-guide.md        ← ★ 选型对照表（Timer/Mono/Task、事件/服务/直接调用、三种状态机、池…）+「不存在 / 不做」清单（防幻觉）+ 文档承认的已知局限
+│   ├── troubleshooting.md       ← ★ 症状 → 最可能原因 → 先查什么（按模块分组 60+ 条）+ 通用诊断阶梯
+│   ├── modules-core.md          ← 日志/计时/公共Mono/对象池/事件/服务定位器/异步/场景/输入/启动/生命周期：门面签名 + 示例 + 铁律 + 文档路径
 │   ├── modules-content.md       ← 音效/状态机/资源/单例/UI/序列/GM/配置表/热更（同上格式）
-│   ├── resource-and-ab.md       ← 资源链路、策略链与两种模式、ResMap 三列、引用计数与分组、AB 打包、排查顺序
-│   ├── ui-and-layering.md       ← UI 主链路、数据单向流、面板池与 Back、Part/宿主、要不要 System/BusinessLogic（结论：不做）
-│   ├── hot-update.md            ← 热更一行接法、两个钩子、远端目录、版本模型、平台差异、存储选型、装法
-│   ├── pitfalls.md              ← 20 条高频踩坑：现象 → 原因 → 正确做法
+│   ├── startup-and-platform.md  ← 启动入口 RevInitialize、RevAppLifecycle、代码裁剪与 RevStripGuard、小游戏/WebGL/安卓约束清单、上真机自检
+│   ├── resource-and-ab.md       ← 资源链路、策略链与两种模式、ResMap 三列、引用计数与分组、LoadHandle、AB 打包与一致性检查、排查顺序
+│   ├── ui-and-layering.md       ← UI 主链路、数据刷新时机与 SetData 调用权、控件事件三接法、动画库、Canvas 架构、面板池与 Back、Part/宿主、要不要 System/BusinessLogic（结论：不做）
+│   ├── hot-update.md            ← 热更一行接法、两个钩子、远端目录、版本模型、平台差异、小游戏硬约束、存储选型、装法
+│   ├── pitfalls.md              ← 28 条高频踩坑（现象 → 原因 → 正确做法）+ 已修复缺陷的"现行契约速查"
 │   ├── code-style.md            ← 本项目硬规范：括号不换行、必须大括号、注释面向小白、文件头、命名、自检脚本
-│   ├── editor-tools.md          ← 全部菜单路径与用途、打包链顺序、生成物、CI 工作流
-│   ├── verify-and-test.md       ← 五级验证、可链接文件清单、实测数字、破坏性测试 8 项、分支与文档站验证
-│   └── docs-map.md              ← 文档地图（每个模块的使用说明/架构解析路径）+ 仓库与安装速览
+│   ├── editor-tools.md          ← 全部菜单路径与用途（含 UI 面板代码生成器 / 平台工具）、WPF 配套工具、打包链顺序、生成物、CI 工作流
+│   ├── verify-and-test.md       ← 五级验证、快速编译检查、18 个 Demo 场景表、可链接文件清单、实测数字、破坏性测试 8 项、分支/文档站/提交规范
+│   └── docs-map.md              ← 文档地图（每个模块的使用说明/架构解析路径）+ 全局文档（CHANGELOG / bug 修复日志 / 投产评估）+ 仓库与安装速览
 └── templates/
-    ├── RevXxxPanel.cs.txt       ← UI 面板骨架（[RevUIPanel]/[RevBind]/钩子/数据对象/复用与关闭清理）
+    ├── RevBoot.cs.txt           ← 启动入口骨架（RevInitialize → 服务装配 → 生命周期订阅 → 打开首个界面，含 try/catch 与清理）
+    ├── RevXxxPanel.cs.txt       ← UI 面板骨架（[RevUIPanel]/[RevBind]/钩子/数据对象/Data 判空/刷新时机注释/复用与关闭清理）
     ├── RevXxxService.cs.txt     ← 业务服务骨架（接口 + 实现 + 组合根装配 + 失败出口）
     ├── RevXxxDemo.cs.txt        ← 模块 demo 场景脚本骨架（OnGUI：左按钮 + 右步骤日志）
     └── offline-harness/         ← 工程外断言模板（README + csproj + Program：断言形状、零分配实测、固定种子）
@@ -111,6 +119,16 @@ git clone -b skill https://github.com/Yokino337088/Revolution.git ~/.codebuddy/s
 - 热更的"覆盖式语义"是什么意思？为什么不能只从持久化目录读？
 - 我想加一层 System / BusinessLogic，这个框架建议怎么做？
 - 改完框架内核后，我怎么在不开 Unity 的情况下验证？
+- 带数据的面板，数据改了界面为什么没刷新？SetData 应该写在哪里？
+- 游戏启动入口要做什么？要不要手动初始化每个模块？
+- 切后台再回来，连接断了该怎么处理？
+- 编辑器里一切正常，真机上刚体不动 / 面板空白，可能是什么原因？
+- 想上微信小游戏，框架代码有哪些必须注意的约束？
+- RevEvent 有没有 AddOnce？（应回答"没有"，并给出替代做法——这是反幻觉协议的验收题）
+- 弹窗期间我想让 ESC 返回键继续生效，用 Block 可以吗？（应回答"不行，没有系统动作例外"）
+- 计时器 At 前没校准，返回的空句柄是什么原因？
+- 我要做开宝箱演出：该用动作序列还是状态机？
+- 一个面板 Open 之后界面残留了上次的数据，先查什么？
 ```
 
 如果工具命中 `revolution-framework` 并开始按上面的口径回答，就说明安装成功。
@@ -119,7 +137,7 @@ git clone -b skill https://github.com/Yokino337088/Revolution.git ~/.codebuddy/s
 
 1. 保留整个目录结构不变，覆盖 `SKILL.md`、`REFERENCE_GUIDELINES.md`、`references/`、`templates/`；
 2. 项目安装的，和项目一起提交；全局安装的，建议保留版本标签（避免多个项目感知不一致）；
-3. **框架代码/文档改动后请顺手核对本 skill**：新增模块、改了菜单路径、改了 API 签名、改了规范，都要同步到这里；
+3. **框架代码/文档改动后请顺手核对本 skill**：新增模块、改了菜单路径、改了 API 签名、改了规范、修了缺陷改变了契约，都要同步到这里（尤其是 `SKILL.md` 的模块总览表与数字、`pitfalls.md` 的"现行契约速查"、`startup-and-platform.md`）；
 4. 大改后拿真实工程代码做一次 review 验收。
 
 ## 推荐实践

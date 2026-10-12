@@ -104,3 +104,65 @@
 
 - **现象**：文档与代码不一致 → 下一个人（或 AI）照着文档写出错的代码。
 - **做法**：改行为 → 同步该模块《使用说明》；改设计/取舍 → 同步《架构解析》；**md 与 html 都要改**（在线站由 html 发布）；README 里的统计数字（模块数 / 行数）顺手核一遍。
+
+## 21. 数据改了，界面没反应（UI 刷新时机）
+
+- **现象**：`Data.Count++`（或 `Data.Items.Add(...)`）之后界面不变。
+- **原因**：框架**不监听数据对象内容**，不是双向绑定；`OnRefreshView` 只在"打开 / 面板开着时 `SetData` / 手动 `RefreshView()`"三个时机被调。
+- **做法**：原地改内容后手动 `RefreshView()`；或换新对象走 `SetData(new …)`（面板开着会自动刷）。`struct` 数据读 `Data` 是拷贝，只能走换新对象。**`OnDataChanged` 里别再手动 `RefreshView()`**（面板开着时框架随后会自动刷，手动再刷 = 每次换数据画两遍）。详见 `ui-and-layering.md` §1.1。
+
+## 22. `OnRefreshView` 里 `Data` 为 null → NRE
+
+- **原因**：`SetData(null)` 会把强类型 `Data` 清成 null；面板回池再取出时也会被清（防"上次的数据还在"）；打开面板**没传数据**时 `Data` 就是 null。
+- **做法**：`OnRefreshView` 里用 `Data` 前先判空；"打开时必须有数据"的面板一律走 `RevUI.Open<T, TData>(data)`。
+
+## 23. 切后台后"连接断了 / 声音没了 / 活动时间错了"
+
+- **原因**：移动端 / 小游戏切后台会同时带走音频通道、长连接、一大段时间；业务却没人知道发生过。
+- **做法**：订阅 `RevAppLifecycle.Resumed`（`owner: this`），用 `LastBackgroundSeconds` 决定是否重连 / 重算 / 重播 BGM / 重新校准服务器时间。**别自己写 `OnApplicationPause` / `OnApplicationFocus`**（Pause 与 Focus 会前后脚到达，框架已去重，自己写会重复触发重连）。`Quitting` 移动端不保证触发，数据要随存随写。
+
+## 24. 编辑器好好的，真机"静默失效"（刚体不动 / 射线恒 false / 面板空白 / 没声音）
+
+- **原因**：**IL2CPP 代码裁剪**删掉了"编译期看起来没人用"的类；原生模块（物理 / UI / 动画 / 音频 / 粒子）的托管 wrapper 被裁，而场景里挂的原生组件还在 → 不报错只是不工作。编辑器不裁剪，所以看不出。
+- **做法**：**主推 `Managed Stripping Level = Disabled`**（代价只有包体，出两包比差值 3 分钟测准）；必须开裁剪时生成 `Assets/link.xml`（菜单 `Revolution.Tools/平台/生成 IL2CPP 裁剪保护 (link.xml)`），真机看 `RevStripGuard` 的启动自检输出。详见 `startup-and-platform.md` §3。
+
+## 25. 小游戏 / WebGL 上"一启动就崩"或"文件日志不工作"
+
+- **原因**：小游戏**单线程**，`new Thread` 直接抛 `PlatformNotSupportedException`；`persistentDataPath` 是虚拟文件系统，"目录可写探测"会误判可用。
+- **做法**：框架已处理文件日志（`RevFileSink.SupportsBackgroundWriter`，WebGL 默认 false；原因报到 `RevLog.SinkErrors`）；**自己的代码别用 `Thread` / `Task.Run` / `System.Threading.Tasks.Task`**，异步一律 `RevTask`；同步加载在 WebGL 上不可用，一律 `LoadAsync` / `GetAsync` / `OpenAsync`。清单见 `startup-and-platform.md` §4。
+
+## 26. 对象池按类型取时"取不出来 / 取了别的池"
+
+- **原因**：类上没写 `[RevPoolPrefab]`（报错并返回 null）；特性**不继承**，子类要自己写；同一预制体被两个类声明会各取各的池。
+- **做法**：预制体根节点主脚本上写一次 `[RevPoolPrefab(root, name, Group = …)]`；`Get<T>` / `Clear<T>` / `DestroyPool<T>` 三个入口解析的是同一条池。**`Clear*` 只清空闲实例（池保留）；`DestroyPool*` / `DestroyGroup` / `DestroyAll` 才连借出中的实例与 prefab 引用一起收**——退出业务域先 `DestroyGroup`，再 `RevResBootstrap.Instance.Shutdown(group)`。
+
+## 27. 启动时"手动初始化了一圈模块"反而出问题
+
+- **原因**：`RevEvent` / `RevInput` / `RevTimer` / `RevUI` / `RevPool` / `RevAppLifecycle` 等已由各自的 `RuntimeInitializeOnLoadMethod` 钩子或首次使用自动就位；重复手动启动可能清掉监听、取消加载、重复驱动。
+- **做法**：启动入口**只调一次 `RevInitialize.Initialize()`**（只装配资源系统策略，幂等）；服务由业务组合根装配；别在前置回调里递归调 `Initialize()`。骨架 `templates/RevBoot.cs.txt`。
+
+## 28. `async void` 入口里异常"静默消失"
+
+- **原因**：`async void` 的异常不会抛给任何人（按钮 / 事件入口常见）；`RevTask` 不 `await` 也不 `Forget()` 会触发编译器警告。
+- **做法**：入口 `async void` 整体 `try/catch` + `RevLog.Exception(e, …)`；不 await 的任务显式 `.Forget()`；关键节点 `token.ThrowIfCancelled()`。
+
+---
+
+# 已修复缺陷的"现行契约速查"
+
+> 用途：这些缺陷都**已经在框架里修好**。写业务代码时**不要再给它们写绕过代码**，也不要把"旧行为"当成现状。
+> 明细与复现断言：`Assets/Revolution/CHANGELOG.md` 的"未发布"段 · `Revolution.Document/bug修复日志/`（6 份：UI / 输入 / 计时器 / 热更 / 对象池-公共Mono-资源 / 场景-服务定位器-音效-状态机-RevTask）。
+
+| 模块 | 现行契约（修复后） |
+|---|---|
+| **RevUI** | 泛型面板 `Data` 与 `OnRefreshView` 的"只画 Data"契约成立（`OnDataSet` 统一出口）；打开 / 关闭转场完成回调有**状态守卫**（打开途中被关闭不会再收到"打开完成"）；`ClosePart(false)` 关掉的 Part 再打开会重新出现；`ShutdownAll` / 场景卸载后到达的关闭回调不会往空池塞死实例；`TopOf` 与 `CloseTopOf` 规则一致（`Split` 三画布下返回视觉最上层）；`RevUIAnim.RestoreBase` 能停掉正在播的动画 |
+| **RevInput** | `SetRepeat(delay ≤ 0)` = **关连发**；`SaveBindings ⇄ LoadBindings` 无损往返连发配置（`repeat:延迟/间隔`）；屏蔽 World 时**轴读数归零**但按下时间仍记录；`BindAxis` 键与键位 / 轴键**双向冲突检测**；监听者回调里注销自己（`OffAllOf`）安全；`Failed` 订阅不跨局残留 |
+| **RevTimer** | 到期回调里调 `Restart()` **有效**（撤销待回收标记，重试类写法可用）；全局暂停期间 `SyncServerTime` 不丢暂停时长（`At` 不再整体错位） |
+| **RevServiceLocator** | 作用域 `Dispose` 后自摘；根容器释放先摘列表再倒序逐个释放；`OnInit` 失败回滚时对容器拥有的实例补 `Dispose`；**同一实例注册到多个服务类型只挂载一次**（`OnTick` 不会跑两遍、`Dispose` 不会放两遍） |
+| **RevMono** | `RemoveAllOf` 按相位内计数判脏（只动 Update 不会把别的相位标脏、破坏稳态零分配）；进 Play 复位一并放掉 `Failed` 订阅 |
+| **RevScene** | 发起加载抛异常（如 `buildIndex` 越界）会转**统一失败收尾**（`State = Failed` + `OnLoadFailed`），`IsLoading` 不会永久卡 true；同步 `Load` 广播的是**目标场景名**；退出 Play 时的在途加载状态进 Play 会复位 |
+| **RevSequence** | 步骤 / 回调 / await 续体里 `StopAll` / `Clear` / `Dispose` 安全（Tick 按快照遍历）；步骤里 `Stop` 自己后不再执行后续步骤；`RunFinished` 订阅者抛异常不会让 `PlayAsync` 永不完成；等待超时 / 异步任务失败 / 收尾异常**经 RevLog 输出**（tag = `ActionSequence`）；`OnCancel` / `OnCompleted` / `OnCancelled` 多次调用**叠加**；触发者被销毁时序列自动取消；`FinallySteps` 现在表示 `.Finally` 步骤、取消收尾改名 `CancelSteps` |
+| **RevLog** | 文件大小按 **UTF-8 字节**统计（中文日志不会涨到上限约 3 倍才轮转）；主线程 Flush / Dispose 与后台线程写同一 `StreamWriter` 已互斥；WebGL 自动禁用文件通道 |
+| **RevPool / 资源** | 失败句柄在引用归零后允许重新尝试加载；`Clear<T>()` / `DestroyPool<T>()` 按类型清理（见 §26） |
+| **RevHotUpdate** | WebGL 同会话二次热更映射表残留、清单下载聚合器并发互踩等已修（明细见 `热更新框架Bug修复日志.md`）；小游戏上禁明文 http、并发 > 4 在配置期报错 |
+| **配置表 / 打包** | `DataLoad → RevDataLoad`、`LiteAB → RevAB` 已改名（旧名只会出现在历史文档 / 旧生成物里）；ResMap 与 AB 产物一致性检查在「检查」页签 |

@@ -39,6 +39,7 @@ using (RevSoundScope s = RevSound.OpenScope()) { s.Play("battle_bgm"); }    // �
   2. **不提供任何查询**：播完没播出来只能靠 `VoiceFinished` / `Failed` 事件；**框架自身不打日志**（要日志自己接 `Failed`）。
   3. 3D 必须给"挂在哪"：`target` 为 null 会以 `NoTarget` 失败。
   4. 首次播放是异步的（先返回句柄、加载完自动播）；想零延迟先 `Preload`。最终音量 = 单次 × 分类 × 主音量。
+  5. **小游戏 / WebGL 音频约束**查 `RevSoundPlatform`（`AudioManagedByPlatform` / `NeedsUserGestureUnlock` / `Note`）：首次播放需用户手势解锁、`AudioClip` 必须 Decompress On Load、切后台会被打断需重播（订阅 `RevAppLifecycle.Resumed` 重播 BGM）。详见 `startup-and-platform.md` §4。
 - 文档：`Revolution.Document/音效系统/音效系统使用说明.md` · 模块 README：`Runtime/RevSoundSystem/README.md`
 
 ---
@@ -93,7 +94,8 @@ await sm.ChangeToAsync<BattleState>();     // 资源加载完才交割
 - 常用 API：
 
 ```csharp
-T RevResManager.Load<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown) where T : UnityEngine.Object
+T RevResManager.Load<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown) where T : UnityEngine.Object   // ★ 失败静默返回 null（不带原因）
+RevResHandle RevResManager.LoadHandle<T>(string rootPath, string resName, RevResGroup group = RevResGroup.Unknown)           // ★ 要失败原因用这个：h.IsLoaded / h.ErrorReason
 RevResHandle RevResManager.Load(string rootPath, string resName, Type contentType, RevResGroup group = RevResGroup.Unknown)
 RevResHandle RevResManager.LoadAsync<T>(string rootPath, string resName, Action<T> onFinished,
         RevResGroup group = RevResGroup.Unknown, RevResLoadPriority priority = RevResLoadPriority.Normal)
@@ -101,7 +103,8 @@ RevResHandle RevResManager.LoadAsync(string rootPath, string resName, Type conte
 void RevResManager.Release(string rootPath, string resName)      void FlushUnused()      RevResScope OpenScope()
 void RevResManager.UnloadGroup(RevResGroup group, bool force = false)      void UnloadAll()
 RevResHandle RevResManager.Get(string rootPath, string resName)      int GetRefCount(...)      int CachedCount { get; }
-RevResBootstrap.Instance.Init() / Shutdown(group, force = true) / ShutdownAll()
+RevInitialize.Initialize()                                            // ★ 启动入口调这个（不要再直接调 RevResBootstrap.Instance.Init()）
+RevResBootstrap.Instance.Shutdown(group, force = true) / ShutdownAll()
 RevResBootstrap.UseABInEditor      RevResBootstrap.ResMapOverride
 ```
 
@@ -171,6 +174,20 @@ void RevUI.Preload<T>(Action onLoaded = null)     int RevUI.CloseGroup(string gr
 void RevUI.RegisterAutoEvent<T>(Action<RevUIEventDispatch, T> bind) where T : Component
 // 面板内：SetData(object) / RevUIPanel<TData>.SetData(TData) / CloseSelf() / RequestClose() / RefreshView()
 //        FindPart<T>() / RefreshParts()        Part：RevUIPart.Create<T>(host, parent, onCreated)
+int RevUI.ShutdownAll()          // 全清：所有面板 + 实例池 + 根节点（回登录 / 切大版本）
+string RevUI.DumpStats()         // 打开的界面 / 在途加载 / 实例池快照
+
+// ★ 控件事件三种接法（可混用；同一次事件里"重写回调"与"方法特性"两条路都会走到，同一件事只放一处）：
+//   ① 方法特性（九个，标在面板/Part 的任意方法上；控件名 = 节点名，区分大小写，写错当场报错）
+[RevButtonClick("btnStart")] void OnStart() { }        [RevToggleChanged("tglSound")] void OnSound(bool on) { }
+[RevButtonLongPress] [RevButtonLoosen] [RevSliderChanged] [RevInputChanged] [RevInputEndEdit] [RevDropdownChanged] [RevScrollChanged]
+//   ② 重写节点名回调：OnClick(string nodeName) / OnToggleChanged / OnSliderChanged / OnInputChanged / OnScrollChanged（高频事件首选：直调、零分配）
+//   ③ [RevBind] 字段 + 自己 AddListener（最灵活，要用 UGUI 其它回调时）
+
+// ★ 动画（内置库，不依赖 DOTween，零 GC，掉帧不改总时长）
+protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 面板/Part 一行预设；显示动画播完才算"打开完成"
+RevUIAnim.FadeIn(icon) / SlideIn(this, RevUISlideDirection.Top) / ScaleTo(icon, 1.2f, 0.12f) / Breathe(tip) / AddHoverFeedback(btn)
+RevUIAnim.StopAllOf(this)   RevUIAnim.ApplyEnd(panel, 预设)   RevUISetting.UIAnimationsEnabled = false   // 一键关全部动效
 ```
 
 - 最小示例：
@@ -194,6 +211,9 @@ RevUI.Open<BagPanel, BagData>(new BagData { UseCellLayout = true });
   3. **面板池是 UI 专用池**：关闭优先进池（`KeepAlive`），池满 / `DestroyOnClose` 才销毁（上限 `RevUISetting.MaxCachedPanels`）；取出必须走 `OnReuse` 钩子。
   4. **Back 只关"参与返回栈（`InBackStack = true`）的最晚打开面板"**；飘字 / 常驻 HUD 要设 false。
   5. 框架**没有** `System` / `BusinessLogic` 层：跨界面逻辑放服务，单屏逻辑放面板 + `TData`。
+  6. **刷新时机**：`OnRefreshView` 只在"打开 / 面板开着时 `SetData` / 手动 `RefreshView()`"被调，**框架不监听数据对象内容**——原地改字段（`Data.Count++`）必须手动 `RefreshView()`；`SetData` 写在业务侧"数据产生的地方"，不写在面板里；`OnDataChanged` 里别再手动 `RefreshView()`（会画两遍）；`SetData(null)` 与回池复用都会把 `Data` 清成 null，`OnRefreshView` 里先判空。详见 `ui-and-layering.md` §1.1。
+  7. **Canvas 架构默认单 Canvas**（`RevUISetting.CanvasArchitecture = Single`，零配置）；只有 Profiler 证明 UI 合批是瓶颈、常规优化仍不达标，才在**第一次开面板之前**切 `Split`（Static / Dynamic / Common 三 Canvas，面板上 `CanvasType = ...`）。别因为"有倒计时 / 动画 / 多个面板"就拆。
+  8. **面板代码生成器**：菜单 `Revolution.Tools/UI/面板代码生成器`——选预制体 → 勾选控件与事件 → 生成唯一 `.cs`（只读预制体、绝不覆盖业务代码）；控件事件按节点**名字**分发，绑定字段才用精确路径。
 - 文档：`Revolution.Document/UI系统/UI系统使用说明.md`、`UI系统架构解析.md`（第十章专门回答"要不要做 System / BusinessLogic"）
 
 ---
@@ -212,11 +232,16 @@ RevSequenceBuilder Wait(float seconds) / WaitFrames(int frames)
 RevSequenceBuilder WaitUntil(string name, Func<RevSequenceContext, bool> predicate, float timeoutSeconds = 0f)
 RevSequenceBuilder Tween(string name, float duration, Action<RevSequenceContext, float> update)      // 另有泛型重载
 RevSequenceBuilder Parallel(string name, Action<RevSequenceBuilder> build)      Repeat(string name, int times, Action<RevSequenceBuilder> build)
-RevSequenceBuilder WaitTask(Func<RevSequenceContext, RevTask> taskFactory, string name = "等异步任务")
+RevSequenceBuilder WaitTask(Func<RevSequenceContext, RevTask> taskFactory, string name = "等异步任务", bool cancelOnFailure = false)   // 传的是【工厂】：任务运行时才创建，清单可缓存
 RevSequenceBuilder Finally(Action<RevSequenceBuilder> buildSteps)      OnCancel(Action<RevSequenceBuilder> buildSteps)
-RevSequenceBuilder OnCompleted(Action<RevSequenceRun> cb) / OnCancelled(Action<RevSequenceRun> cb)
+RevSequenceBuilder OnCompleted(Action<RevSequenceRun> cb) / OnCancelled(Action<RevSequenceRun> cb)   // 多次调用是"叠加"（不再后者覆盖前者）
+RevSequenceBuilder WaitTask<T>(Func<RevSequenceContext, RevTask<T>> taskFactory, Action<RevSequenceContext, T> onResult, string name = "等异步任务", bool cancelOnFailure = false)   // 等任务并拿结果
+RevSequenceBuilder If(...)  Log(...)  Publish(ctx => 事件)                         // 运行时分支 / 日志 / 发事件
+RevSequenceBuilder MoveTo / ScaleTo / FadeTo / SetActive                          // Unity 现成步骤
+RevSequenceBuilder Do(ctx => …) / WaitUntil(ctx => …)                              // 省略名字：日志里用"文件名:行号"定位
 RevSequenceDefinition Build()
-// 运行：definition.Play(...) → RevSequenceHandle（.Stop()）
+// 运行（一行）：definition.Play(gameObject) → RevSequenceHandle（.Stop()）；await definition.PlayAsync(gameObject) → RevTask<bool>
+// 上下文：ctx.Require<T>()（必需服务，取不到直接报错并说明怎么注册）/ ctx.SourceAs<T>() / ctx.SourceGameObject() / SourceTransform()
 ```
 
 - 最小示例：
@@ -237,6 +262,9 @@ handle.Stop();
   2. **状态别存在构建期字段里**（用业务服务 / Tween 起始值 / 步骤状态槽），否则两个玩家同时触发会互踩。
   3. 占用了什么（生成的物件、推近的镜头）就在 `.Finally` 里还回去；只在取消时要做的放 `.OnCancel`。
   4. 防连点用 `RevSequenceConcurrency.RejectPerSource`；出错看 Console（tag = ActionSequence，会写明哪条序列第几步）。
+  5. **触发者（Unity 对象）被销毁时序列自动取消**（`runner.StopWhenSourceDestroyed = false` 可关）；暂停时想继续推进用 `RevSequencePlayer.UseUnscaledTime`。
+  6. **同一个步骤实例不能放进两条序列**（会互相覆盖状态槽，`Build()` 时报错）；`.Finally` 里放等待步骤会在 `Build()` 报错。
+  7. 嵌套序列要沿用父序列的触发者 / 服务 / 事件总线，用 `Play(definition, context)` 重载（不然子序列的 `ctx.Source` 会是错的）。
 - 文档：`Revolution.Document/动作序列/动作序列使用说明.md`、`动作序列架构解析.md` · 模块 README：`Runtime/RevActionSequence/README.md`
 
 ---

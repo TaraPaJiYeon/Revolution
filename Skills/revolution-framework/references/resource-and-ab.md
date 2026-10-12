@@ -53,6 +53,15 @@ RevResManager.Load / LoadAsync(根目录, 资源名, 类型, 分组)
 - 只暴露 `Content` / `Data` 两个属性（避免业务乱强转），外加：`IsLoaded`、`State`、`ContentType`、`ErrorReason`、`Group`、`RefCount`、`BundleName`。
 - 失败原因看 `ErrorReason`（**框架本方案不打日志**）：`FileNotExist` / `LoadFail` / `TypeMismatch` 等。
 - 同步 `Load` 在"未缓存 + 真机 AB"下拿不到内容（返回未完成句柄）→ 真机首次一律 `LoadAsync`。
+- **`Load<T>(...)` 失败时静默返回 `null`**（不带原因）。需要原因就用 **`LoadHandle<T>(...)`**（同样泛型、不写 `typeof`，但返回完整句柄）：
+
+```csharp
+RevResHandle h = RevResManager.LoadHandle<Sprite>(RevResPath.Data, "Hero_1001", RevResGroup.UI);
+if (!h.IsLoaded) { RevLog.Error($"加载失败：{h.ErrorReason}", "Res"); }
+```
+
+  业务里**判失败看 `h.ErrorReason`，不要靠 `content == null` 猜**。路径拼错 / 根目录没配置 / 没打标记，都会表现为 null。
+- 失败句柄在**调用方释放且引用数归零后**，下次 `Load` 允许重新尝试（热更补上文件后能恢复）；引用还没归零时一直拿到上次的错误。
 
 ## 6. AB 打包（编辑器工具侧）
 
@@ -64,6 +73,10 @@ RevResManager.Load / LoadAsync(根目录, 资源名, 类型, 分组)
   - `AutoByFolder`：按 resRoot 下**顶层目录名**当包名重打（无子目录 → `default`）。
 - 一键打包链（照抄这个顺序）：`Collect` → `Validate`（`CanBuild=false` 就别打）→ `ABBuilderCore.Build(target)` → 依赖分析 → `WriteResMap` + `WriteBuildManifest` + 布局快照 → `ABResPathGenerator.Generate()`（生成 `RevResPath` 常量）→ `CopyToStreamingAssets` → `AssetDatabase.Refresh()`。
 - 校验会拦：命名非法、逻辑路径冲突、同包重名、空包、**漏标**（resRoot 下有资源没有 AB 标记）。
+- **「检查」页签的 ResMap 一致性检查**（2026-10-08 新增）：选平台一键核对磁盘上的 `ResMap.txt` 与 `AssetBundles/<平台>/` 产物——格式错误、重复逻辑名 / 包内资源名、映射指向不存在的包、与当前资源标记不一致，逐条列出（只读不改）。堵的是"编辑器直读看不出、真机才 `FileNotExist`"的表包不一致。**出包前跑一遍**。
+- **打包选项**：`deterministic`（默认开，同内容同产物）、`stripUnityVersion`（默认关；开了就要记住"换 Unity 版本先强制重打"）；窗口里有对应勾选框。
+- **AB 运行期健壮性**（`RevABLoader`）：失败重试 `MaxAttempts` / `RetryDelayMs`、超时兜底 `AttemptTimeoutSeconds`（WebGL 上 `UnityWebRequest.timeout` 不生效，框架改按帧轮询 + `Abort`）、引擎缓存标识钩子 `BundleCacheKeyResolver`。
+- 「仅生成映射」的唯一实现是 `ABMapGenerator`（打包窗口与导表工具共用）。
 
 ## 7. 写业务的四条硬规则
 

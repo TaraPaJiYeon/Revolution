@@ -1199,7 +1199,6 @@ runner.Play(LingGuoDemoSequences.Gather, source: player);</pre>
               <span style="color:var(--text-sub)">（本框架连"可视化查看"都没有：要看某条序列还在不在跑，用 <code>handle.IsValid</code>）</span></td>
           </tr>
           <tr><td>条件分支 / 跳转 / 数据管道</td><td>刻意不做；需要图结构请用状态机。若未来有高频需求，优先做"子序列库 + 入口处选择"，而不是给序列加 <code>if</code></td></tr>
-          <tr><td><code>WaitTask&lt;T&gt;</code>（带返回值的任务）</td><td><code>RevTask</code> 与 <code>RevTask&lt;T&gt;</code> 是两个独立结构体（无隐式转换），要等带返回值的结果需自己包一层 <code>RevTaskCompletionSource</code>（Demo 有标准写法）</td></tr>
           <tr><td>内置区域检测（空间网格）</td><td>只给契约；"高频穿越小触发器漏检"这类问题由业务的检测方案决定</td></tr>
           <tr><td>全局时间缩放 / 暂停开关</td><td>现在靠调用方传 <code>Tick(dt * scale)</code>；可以加统一便捷入口</td></tr>
           <tr><td>步骤级耗时统计</td><td>框架不打日志：要定位"哪一步最耗时"，请在步骤里自己采样（记 <code>ctx.Elapsed</code> 差值）</td></tr>
