@@ -3,9 +3,11 @@
 //
 // 位置：Assets/<你的工程>/Boot/RevBoot.cs
 //
-// 【它解决什么】新项目"第一步该做什么"：一处完成框架初始化 + 服务装配 + 生命周期订阅 + 打开首个界面。
+// 【它解决什么】新项目"第一步该做什么"：一处完成框架初始化 + 服务注册 + 生命周期订阅 + 打开首个界面。
 // 【怎么用】新建空场景 → 建空物体挂本脚本 → 把场景加进 Build Settings 并放第一个。
-// 【★ 顺序不能乱】① 初始化资源系统 → ② 装配服务（组合根，只此一处）→ ③ 订阅生命周期 → ④ 打开首个界面。
+// 【★ 顺序不能乱】① 初始化资源系统 → ② 注册全局服务（一行一个）→ ③ 订阅生命周期 → ④ 打开首个界面。
+// 【服务不用再写静态类 / static readonly / Build / Tick / Dispose】RevServices 一行注册、直接取、可注销，
+//   实现了 RevITickable 的服务由框架自动驱动。
 // ============================================================
 using Revolution;
 using UnityEngine;
@@ -14,10 +16,6 @@ namespace <你的命名空间>
 {
     public sealed class RevBoot : MonoBehaviour
     {
-        // ★ 组合根：服务装配只写在这一处，Build() 之后任何地方都改不了。
-        //   需要"每帧驱动 + 生命周期 + 逆序释放"的业务能力放这里；一次性工具用静态方法即可。
-        public static RevServiceLocator Services { get; private set; }
-
         private async void Start()
         {
             // 异步入口必须整体 try/catch，否则异常静默（async void 不会抛给任何人）。
@@ -28,10 +26,11 @@ namespace <你的命名空间>
                 //    具体写法以《RevHotUpdate 使用说明》为准（见 references/hot-update.md）。
                 RevInitialize.Initialize();
 
-                // ② 服务装配（示例；换成你自己的接口与实现）。
-                // Services = RevServiceLocator.Create()
-                //     .AddSingleton<IAudioService, AudioService>()
-                //     .Build();
+                // ② 注册全局服务（示例；换成你自己的接口与实现）。★ 全局服务集中在这里注册，别散落在各个业务脚本里。
+                //    第一次被取用时才创建，所以这里注册再多也不会拖慢启动。
+                // RevServices.Register<IAudioService, AudioService>();
+                // RevServices.Register<IConfigService>(Config.Load());           // 已有实例：注销时容器不会 Dispose 它
+                // 跟着某个模块 / 场景走的服务，不要放这里：在那个模块的 Awake 注册、OnDestroy 注销（owner: this）。
 
                 // ③ 生命周期：切后台 / 回前台（owner: this 让对象销毁时自动摘除）。
                 RevEvent.AddEventListener(RevAppLifecycle.Resumed, OnResumed, owner: this);
@@ -56,16 +55,10 @@ namespace <你的命名空间>
             }
         }
 
-        private void Update()
-        {
-            // 服务容器需要每帧驱动时（RevITickable）；没有装配服务就不会走到这里。
-            Services?.Tick(Time.deltaTime);
-        }
-
         private void OnDestroy()
         {
             RevEvent.RemoveAllByOwner(this);        // 一行防泄漏
-            Services?.Dispose();                    // 容器释放"它创建的"服务；你自己 new 的实例由你释放
+            // 全局服务一般随进程结束；需要"回登录就清空"时：RevServices.UnregisterAll();
         }
     }
 }

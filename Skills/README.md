@@ -18,7 +18,7 @@
 
 | 主题 | 覆盖内容 |
 |---|---|
-| 运行期模块（20 个目录：19 个功能模块 + 启动门面） | 启动 `RevInitialize` · 生命周期 `RevAppLifecycle` · 裁剪自检 `RevStripGuard` · 日志 `RevLog` · 计时器 `RevTimer` · 公共 Mono `RevMono` · 对象池 `RevPool`（含 `[RevPoolPrefab]` 按类型取）/`RevRefPool` · 事件 `RevEvent` · 服务定位器 `RevServiceLocator` · 异步 `RevTask` · 场景 `RevScene` · 输入 `RevInput` · 音效 `RevSound` · 状态机（轻量/栈/重量）· 资源 `RevResManager` · 单例（三种） · UI `RevUI`/`RevUIPanel`（含数据刷新时机、控件事件方法特性、动画库、Canvas 架构）· 动作序列 `RevSequence` · GM `RevGM` · 配置表 `RevDataTableManager` |
+| 运行期模块（20 个目录：19 个功能模块 + 启动门面） | 启动 `RevInitialize` · 生命周期 `RevAppLifecycle` · 裁剪自检 `RevStripGuard` · 日志 `RevLog` · 计时器 `RevTimer` · 公共 Mono `RevMono` · 对象池 `RevPool`（含 `[RevPoolPrefab]` 按类型取）/`RevRefPool` · 事件 `RevEvent` · 服务定位器 `RevServices`（一行注册 / 取用 / 注销）+ `RevServiceLocator`（作用域·进阶） · 异步 `RevTask` · 场景 `RevScene` · 输入 `RevInput` · 音效 `RevSound` · 状态机（轻量/栈/重量）· 资源 `RevResManager` · 单例（三种） · UI `RevUI`/`RevUIPanel`（含数据刷新时机、控件事件方法特性、动画库、Canvas 架构）· 动作序列 `RevSequence` · GM `RevGM` · 配置表 `RevDataTableManager` |
 | 扩展包 | 资源热更 `RevHotUpdate`（清单 / 差量下载 / 版本目录 / 两个钩子 / 覆盖式语义 / 大版本锚定 / 本地假 CDN demo / 小游戏配置硬约束） |
 | 编辑器工具 | RevAB 打包工具（打包/分包/依赖/体积/检查/快照，含 ResMap 一致性检查）、导表工具（编辑器版 + WPF 版）、GM 指令面板、UI 面板代码生成器、平台工具（`link.xml` 生成 / 首包体积审计）、热更清单窗口、热更 demo 工具、生成物（`RevResPath` / `ResMap.txt` / `RevSoundPath` / `link.xml`） |
 | 平台与真机 | 安卓 / 微信抖音小游戏 / WebGL 约束清单、IL2CPP 代码裁剪（主推关闭）、切后台处理、平台名对齐、首包预算 |
@@ -123,6 +123,7 @@ git clone -b skill https://github.com/Yokino337088/Revolution.git ~/.codebuddy/s
 - 游戏启动入口要做什么？要不要手动初始化每个模块？
 - 切后台再回来，连接断了该怎么处理？
 - 编辑器里一切正常，真机上刚体不动 / 面板空白，可能是什么原因？
+- 我想一行代码注册一个服务、用的时候直接取、不用了就注销释放内存，怎么写？（应回答 `RevServices.Register / GetRequired / Unregister`，而不是让你写 `static readonly` + 链式 `Build()`）
 - 想上微信小游戏，框架代码有哪些必须注意的约束？
 - RevEvent 有没有 AddOnce？（应回答"没有"，并给出替代做法——这是反幻觉协议的验收题）
 - 弹窗期间我想让 ESC 返回键继续生效，用 Block 可以吗？（应回答"不行，没有系统动作例外"）

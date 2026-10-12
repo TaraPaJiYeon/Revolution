@@ -4,7 +4,7 @@
 // 位置：业务侧（放你自己的程序集；**不要**放进框架 Runtime）
 //
 // 【它解决什么】跨界面 / 跨模块复用的业务能力封装 —— 界面通过它拿数据、发请求，
-//   不让界面直接碰游戏内核（这就是参考实现里 System 层要解决的问题，本框架用"服务 + 服务定位器"承担）。
+//   不让界面直接碰游戏内核（这就是参考实现里 System 层要解决的问题，本框架用"服务 + RevServices"承担）。
 // 【为什么是纯 C#】不引用 UnityEngine 的类可以被链接进普通 .NET 工程跑断言（见 templates/offline-harness/）。
 // 【什么时候不该写服务】只有一屏用、关掉界面就该没的逻辑 → 留在面板里（面板 + TData）。
 // ============================================================
@@ -23,7 +23,7 @@ namespace <你的命名空间>
         int AddGold(int amount, string reason);
     }
 
-    /// <summary>实现：纯 C#、可单测、依赖用构造注入（不要在方法里 new 别的服务）。</summary>
+    /// <summary>实现：纯 C#、可单测、依赖用构造传参（由注册时的工厂递进来；不要在方法里 new 别的服务）。</summary>
     public sealed class RevXxxService : IRevXxxService, IDisposable
     {
         private readonly IRevXxxConfigProvider _config;
@@ -66,19 +66,24 @@ namespace <你的命名空间>
     }
 
     /// <summary>
-    /// 组合根（**装配只写在这一处**）：写完 Build() 之后容器不可改。
-    /// 业务这样取：GameServices.Locator.GetRequired&lt;IRevXxxService&gt;()
+    /// 注册（**全局服务集中在启动入口一处注册**；一行一个，不用静态类 / 缓存字段 / Build）：
+    ///   RevServices.Register&lt;IRevXxxConfigProvider, RevXxxConfigProvider&gt;();
+    ///   RevServices.Register&lt;IRevXxxService&gt;(s =&gt; new RevXxxService(s.GetRequired&lt;IRevXxxConfigProvider&gt;()));   // 要构造参数 → 工厂
+    /// 取用：RevServices.GetRequired&lt;IRevXxxService&gt;().AddGold(10, "任务奖励");
+    /// 不用了（比如这个服务跟着某个模块走）：RevServices.Unregister&lt;IRevXxxService&gt;();  // 实现了 IDisposable → 容器会 Dispose
+    ///
+    /// ★ 注意：RevXxxService 的构造函数有参数，所以不能写 Register&lt;I, T&gt;()（它要求公开无参构造），必须用工厂重载。
+    /// ★ 想要"每局一份"的 IRevCombatContext（作用域）→ 用进阶的 RevServiceLocator.Create().AddScoped&lt;…&gt;().Build()，
+    ///   取的时候放进 using (var battle = Root.CreateScope())。
     /// </summary>
-    public static class GameServices
+    public static class RevXxxServiceInstaller
     {
-        public static readonly RevServiceLocator Locator = RevServiceLocator.Create()
-            .AddSingleton<IRevXxxConfigProvider, RevXxxConfigProvider>()
-            .AddSingleton<IRevXxxService, RevXxxService>()
-            .AddScoped<IRevCombatContext, RevCombatContext>()          // 每局一份 → 取的时候必须放进 using
-            .Build();
-
-        /// <summary>可选：显式入口（比到处 GetRequired 更好读，也更容易替换实现）。</summary>
-        public static IRevXxxService Economy => Locator.GetRequired<IRevXxxService>();
+        /// <summary>在启动入口调一次。</summary>
+        public static void Install()
+        {
+            RevServices.Register<IRevXxxConfigProvider, RevXxxConfigProvider>();
+            RevServices.Register<IRevXxxService>(s => new RevXxxService(s.GetRequired<IRevXxxConfigProvider>()));
+        }
     }
 
     // ---------- 下面两个是占位：真实项目里换成你的实现 ----------

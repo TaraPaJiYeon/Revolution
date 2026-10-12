@@ -24,7 +24,9 @@
 - [ ] 生命周期类监听（`RevAppLifecycle.Resumed` 等）用 `owner: this` 注册，销毁时 `RemoveAllByOwner(this)`。
 - [ ] `MonoBehaviour` 的 `OnEnable/OnDisable` 订阅与退订**成对且对称**（别在 `OnEnable` 订阅、在 `OnDestroy` 退订）。
 - [ ] 静态字段/静态容器在关闭 Domain Reload 的场景下有复位钩子（照 `Support/*UnityHooks.cs`）。
-- [ ] 服务定位器：`AddScoped` 的服务放进 `CreateScope()` 的 `using`；`AddSingleton(instance)` 的实例有人释放。
+- [ ] 服务（`RevServices`）：跟着模块 / 场景走的服务**有注销**——注册带 `owner: this`，`OnDestroy` 里 `UnregisterAllOf(this)`（没有 = 服务一直占内存）；全局服务集中在启动入口注册；没有"先试着 `Unregister` 一下再 `Register`"这种掩盖重复注册的写法。
+- [ ] 服务取用：**没有把 `RevServices.GetRequired<T>()` 的结果长期存成字段**（注销后它是已 `Dispose` 的对象）；`Register<I, T>()` 的 `T` 有公开无参构造（否则用工厂重载）；`owner` 传的是引用类型（通常 `this`）。
+- [ ] 服务（Builder 写法）：只在需要"每局 / 每场景各一份"或单测隔离时才用；`AddScoped` 的服务放进 `CreateScope()` 的 `using`；`AddSingleton(instance)` 的实例有人释放；`Build()` 的结果缓存进 `static readonly`；**没有为了"一行注册"这种需求去手写 `static readonly RevServiceLocator` 再链式 `Build()`**（那是 `RevServices` 的活）。
 
 ## 2. 资源（RevResourceSystem）
 
@@ -98,7 +100,7 @@
 ## 10. 启动 / 生命周期 / 真机适配（RevInitialize · RevAppLifecycle · 代码裁剪）
 
 - [ ] 启动入口**只调一次** `RevInitialize.Initialize()`；没有直接调 `RevResBootstrap.Instance.Init()`，也没有"手动初始化一圈模块"。
-- [ ] 异步入口（`async void`）整体 `try/catch` + `RevLog.Exception`；服务装配只在组合根一处。
+- [ ] 异步入口（`async void`）整体 `try/catch` + `RevLog.Exception`；全局服务集中在启动入口 `RevServices.Register<…>()`（一行一个）。
 - [ ] 切后台 / 回前台用 `RevAppLifecycle` 事件，**没有**自己写 `OnApplicationPause` / `OnApplicationFocus`；长连接 / 计时 / 体力类逻辑按 `LastBackgroundSeconds` 处理了回前台；数据**随存随写**（不依赖 `Quitting`）。
 - [ ] 小游戏 / WebGL 目标：没有 `Thread` / `Task.Run` / `System.Threading.Tasks.Task`；没有同步 `Load` / 同步 `Open<T>()` 的假设；音频首次播放有用户手势；热更用 https。
 - [ ] 代码裁剪：已确认 `Managed Stripping Level`（主推 `Disabled`）；开了裁剪的已生成 `Assets/link.xml` 并看过真机 `RevStripGuard` 输出；`RevStripGuard` 的 `WatchedTypes` 新增条目保持**字符串写法**（不直接引用被检查类型）。

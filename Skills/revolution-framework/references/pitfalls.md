@@ -79,11 +79,25 @@
 - **原因**：名字归一化（`Trim().Trim('/')`）后变成空名（`/`、`///`、`" / "`），第一次注册出一个空名命令，第二次才报重名 —— 真正原因（名字不合法）被盖掉。
 - **做法**：命令名不能为空、**不能含空白字符**、**不能只有分隔符**；分组用 `/`（如 `经济/加金币`）。
 
-## 16. 服务定位器相关三连坑
+## 16. 服务定位器相关的坑
 
-- 组装完成后还想去注册服务 → `Build()` 之后**不可改**（装配只写在一处）；
+**`RevServices`（默认入口：一行注册 / 取用 / 注销）**
+
+- **注册了却忘了注销** → 服务一直占着内存（连同它引用的所有对象）。跟着模块 / 场景走的服务带 `owner: this`，`OnDestroy` 里 `UnregisterAllOf(this)`；`Debug.Log(RevServices.Dump())` 查"谁还占着"。
+- **重进场景 / 重开模块报"已经注册过了"** → 上一次没注销。补注销，**别用"先试着注销一下"掩盖**（会掩盖真正的泄漏）；想换实现先 `Unregister`。
+- **把取到的服务长期存成字段** → 注销后字段指着一个已 `Dispose` 的对象。要用就现取（一次字典查找，0 分配）。
+- **"取不到服务"但明明注册过** → 看错误信息里有没有"★ 它曾经被 Unregister 注销过"：有 = 别处注销了它（查 `Unregister<T>()` / `UnregisterAllOf(...)` 的调用点），不是没注册。
+- **可 Tick 的服务不走 `OnTick`** → 服务是**第一次被取用时才创建**，创建后才被驱动；启动期就要激活，注册后立刻 `Get` 一次。
+- **`owner` 传了值类型 / 临时对象** → `UnregisterAllOf` 返回 0。`owner` 传引用类型且前后是同一个对象（通常 `this`）。
+- **`Register<I, T>()` 编译不过** → `T` 必须有**公开无参构造**；需要构造参数就用工厂重载 `Register<I>(s => new T(...))`。
+- **想要"每局一份"** → `RevServices` 只有全局一份；改用 `RevServiceLocator` 的 `AddScoped` + `CreateScope()`。
+
+**`RevServiceLocator`（Builder 写法：作用域 / 单测隔离）**
+
+- 组装完成后还想去注册 / 注销服务 → `Build()` 之后**不可改**（想注销单个服务请用 `RevServices`）；
 - 在根容器上取 `AddScoped` 的服务 → **直接报错**（必须放进 `CreateScope()` 的 `using`）；
-- `AddSingleton(instance)` 的服务没人释放 → **容器不管你自己创建的实例**（"谁创建谁释放"）。
+- `AddSingleton(instance)` 的服务没人释放 → **容器不管你自己创建的实例**（"谁创建谁释放"）；
+- 忘了缓存 `Build()` 的结果 → 重复 `Build` 报错 / 白付装配成本（放进 `static readonly`）。
 
 ## 17. 异步任务"没跑完就切场景了"
 
@@ -139,7 +153,7 @@
 ## 27. 启动时"手动初始化了一圈模块"反而出问题
 
 - **原因**：`RevEvent` / `RevInput` / `RevTimer` / `RevUI` / `RevPool` / `RevAppLifecycle` 等已由各自的 `RuntimeInitializeOnLoadMethod` 钩子或首次使用自动就位；重复手动启动可能清掉监听、取消加载、重复驱动。
-- **做法**：启动入口**只调一次 `RevInitialize.Initialize()`**（只装配资源系统策略，幂等）；服务由业务组合根装配；别在前置回调里递归调 `Initialize()`。骨架 `templates/RevBoot.cs.txt`。
+- **做法**：启动入口**只调一次 `RevInitialize.Initialize()`**（只装配资源系统策略，幂等）；全局服务在启动入口一行一个 `RevServices.Register<…>()`；别在前置回调里递归调 `Initialize()`。骨架 `templates/RevBoot.cs.txt`。
 
 ## 28. `async void` 入口里异常"静默消失"
 
@@ -159,6 +173,7 @@
 | **RevInput** | `SetRepeat(delay ≤ 0)` = **关连发**；`SaveBindings ⇄ LoadBindings` 无损往返连发配置（`repeat:延迟/间隔`）；屏蔽 World 时**轴读数归零**但按下时间仍记录；`BindAxis` 键与键位 / 轴键**双向冲突检测**；监听者回调里注销自己（`OffAllOf`）安全；`Failed` 订阅不跨局残留 |
 | **RevTimer** | 到期回调里调 `Restart()` **有效**（撤销待回收标记，重试类写法可用）；全局暂停期间 `SyncServerTime` 不丢暂停时长（`At` 不再整体错位） |
 | **RevServiceLocator** | 作用域 `Dispose` 后自摘；根容器释放先摘列表再倒序逐个释放；`OnInit` 失败回滚时对容器拥有的实例补 `Dispose`；**同一实例注册到多个服务类型只挂载一次**（`OnTick` 不会跑两遍、`Dispose` 不会放两遍） |
+| **RevServices** | （新增入口，工程外 55 条断言通过）重复注册当场报错；注销 = 摘表 + 停驱动 + 容器创建的实例 `Dispose`（恰好 1 次，重复注销安全）；你传进来的实例**不 `Dispose`**；`UnregisterAllOf(owner)` 逆创建序、个别 `Dispose` 抛错不影响其余（最后统一 `AggregateException`）；同一实例注册成多个类型：每帧只驱动 1 次、最后一个持有者注销才 `Dispose`；`OnInit` 失败回滚并 `Dispose`、注册保留可重试；注销后取服务报错且提示"曾被注销"；进 Play 复位吞掉上一局 `Dispose` 异常；Tick 由框架自动驱动、单个服务 `OnTick` 抛错只记日志（tag = `Services`）不影响其余 |
 | **RevMono** | `RemoveAllOf` 按相位内计数判脏（只动 Update 不会把别的相位标脏、破坏稳态零分配）；进 Play 复位一并放掉 `Failed` 订阅 |
 | **RevScene** | 发起加载抛异常（如 `buildIndex` 越界）会转**统一失败收尾**（`State = Failed` + `OnLoadFailed`），`IsLoading` 不会永久卡 true；同步 `Load` 广播的是**目标场景名**；退出 Play 时的在途加载状态进 Play 会复位 |
 | **RevSequence** | 步骤 / 回调 / await 续体里 `StopAll` / `Clear` / `Dispose` 安全（Tick 按快照遍历）；步骤里 `Stop` 自己后不再执行后续步骤；`RunFinished` 订阅者抛异常不会让 `PlayAsync` 永不完成；等待超时 / 异步任务失败 / 收尾异常**经 RevLog 输出**（tag = `ActionSequence`）；`OnCancel` / `OnCompleted` / `OnCancelled` 多次调用**叠加**；触发者被销毁时序列自动取消；`FinallySteps` 现在表示 `.Finally` 步骤、取消收尾改名 `CancelSteps` |

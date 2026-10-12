@@ -4,6 +4,15 @@
 
 ### 新增
 
+- **`RevServices`：服务定位器的"一行注册、直接取、可注销"入口**（`Runtime/RevServiceLocator/Facade/RevServices.cs`）：
+  - 解决的痛点：原来的 `RevServiceLocator.Create()…Build()` 要自己写静态类 + `static readonly` 缓存容器 + 链式调用，而且 `Build()` 之后冻结、**没法注销单个服务**，注册过的服务会一直占着内存。
+  - 用法：`RevServices.Register<ISound, Sound>()`（一行；另有"已有实例"和"工厂"两个重载，都可带 `owner: this`）· `RevServices.GetRequired<ISound>()` / `Get` / `TryGet` / `IsRegistered` · `RevServices.Unregister<ISound>()` / `UnregisterAllOf(this)` / `UnregisterAll()` · `RevServices.Dump()`（谁注册了什么、谁还占着）。
+  - 语义：懒创建（第一次取用才 `new`，零反射）· 重复注册**当场报错**（不静默覆盖，换实现先 `Unregister`）· 注销时容器创建的实例 `Dispose`、业务传进来的实例**不碰** · 注销后再取会报错并提示"它曾被注销过" · 同一实例注册成多个类型时每帧只驱动 1 次、最后一个持有者注销才 `Dispose` · `OnInit` 失败回滚并 `Dispose`、注册保留可重试 · 个别 `Dispose` 抛错不影响其余（统一抛 `AggregateException`）。
+  - 每帧驱动：实现了 `RevITickable` 的服务**自动被驱动**（Support 层按需向 `RevMono` 挂回调；没有可 Tick 的服务就一帧都不多跑；单个 `OnTick` 抛错只记日志、不影响其它服务）；进 Play 自动复位（关闭 Domain Reload 时上一局的服务会被清掉）。
+  - 与 Builder 写法的关系：两套语义一致、可混用。**只有"同一个服务类型要每局 / 每个场景各一份（作用域）"或"单测另建隔离容器"才需要 `RevServiceLocator.Create()…Build()`**；`RevServices` 只管全局一份。原 Builder API 完全保留、行为不变。
+  - 取舍（已写进文档 5.6）：`RevServices` 必须能注销，所以不再是"装配后只读"；纪律改为"全局服务集中在启动入口注册、跟着模块 / 场景走的服务谁注册谁注销（`owner`）"，并靠重复注册报错 + `Dump()` 把关。
+  - 验证：工程外链接真实源码跑 55 条断言全过（含热路径 10 万次 0 字节分配）；**Unity 内编译与 Demo 场景未跑**（需要在 Unity 里刷新工程后确认）。
+  - 同时：`RevServiceLocator.Demo` 新增按钮 A~D 演示新入口；《服务定位器使用说明》（md + html）第一章起重写为以 `RevServices` 为主线，新增 3.5「注销」，坑 / 报错 / 速查卡 / 文件清单同步；文档里指向已删除 README 的死链一并清掉。
 - **安卓 / 微信小游戏 / 抖音小游戏 投产适配（一批）**：
   - **`RevAppLifecycle`（新模块）**：前后台 / 焦点 / 退出事件（`Paused` / `Resumed` / `Quitting`）+ `IsBackground` / `LastBackgroundSeconds` / `PauseCount`。零配置自动就位（`RuntimeInitializeOnLoadMethod` 建隐藏宿主），并对移动端"Pause 与 Focus 同时到达"做状态去重（同一轮只派发一次）。
   - **IL2CPP 裁剪保护**：新增框架侧 `link.xml`（保 UI 反射装配链与单例反射构造），并新增编辑器工具 **`Revolution.Tools/平台/生成 IL2CPP 裁剪保护 (link.xml)`** —— 扫描工程内所有 `RevUIPanel` / `RevUIPart` / `RevSingleton` 派生类，生成业务侧 `Assets/link.xml`（已存在手写文件时弹窗确认，不静默覆盖）。

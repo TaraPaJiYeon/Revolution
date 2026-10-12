@@ -197,10 +197,74 @@ private void OnDestroy() { RevEvent.RemoveAllByOwner(this); }
 
 ---
 
-## 6. RevServiceLocator —— 服务定位器（依赖显式化）
+## 6. RevServices / RevServiceLocator —— 服务定位器（依赖显式化）
+
+**两个入口，先选对再写（90% 场景用第一个）**
+
+| | `RevServices`（静态，**默认选它**） | `RevServiceLocator.Create()…Build()`（实例，进阶） |
+|---|---|---|
+| 写法 | `Register` / `GetRequired` / `Unregister` 三个静态方法；**不用静态类、不用链式、不用缓存字段** | 链式装配 + `Build()` 冻结，自己缓存容器 |
+| 注销 | ✅ 随时注销，容器创建的服务会 `Dispose` | ❌ 冻结后不能改，只能整个容器 `Dispose` |
+| 作用域（每局一份） | ❌ 只有全局一份 | ✅ `CreateScope()` |
+| 每帧驱动 | ✅ **自动**（有可 Tick 服务时才挂，业务不调 `Tick`） | 自己调 `services.Tick(dt)` |
+| 适合 | 全局服务、跟模块 / 场景生灭的服务、单测里换假实现 | 多局并存、单测里另建隔离容器 |
+
+两套语义一致（懒创建 / `OnInit` 钩子 / 循环依赖报错 / 谁创建谁释放），可混用。
+
+### 6.1 `RevServices`（推荐）
+
+- 门面：`Revolution.RevServices`（**static**）· `RevServiceLocator/Facade/RevServices.cs`（文件头就是 3 分钟教程）；背后是内部类 `RevServiceHub`（活的服务表，不对业务暴露）。
+- 常用 API：
+
+```csharp
+// 注册（一行；重复注册当场报错，不静默覆盖；都可加 owner: this）
+void Register<TService, TImpl>(object owner = null)                       // 类型对类型：第一次被取用时才 new，零反射；TImpl 要公开无参构造
+void Register<TService>(TService instance, object owner = null)           // ★ 已有实例：注销时只摘表，【不】Dispose
+void Register<TService>(Func<RevIServiceLocator, TService> factory, object owner = null)   // 需要参数 / 要先读配置；工厂里可取别的服务
+
+// 取用
+T GetRequired<T>() where T : class     // 必须有：没注册就抛异常（列出已注册的服务；注销过的会提示"曾被注销"）
+T Get<T>() where T : class             // 可选：没有返回 null
+bool TryGet<T>(out T service)          bool IsRegistered<T>()      // 只问有没有，不触发创建
+RevIServiceLocator Locator { get; }    // 把"取服务入口"交给只认接口的底层模块
+
+// 注销（释放内存）
+bool Unregister<TService>()            // 摘表 + 不再被驱动 + 容器创建的实例 Dispose；没注册过返回 false（重复调用安全）
+int  UnregisterAllOf(object owner)     // 对象销毁时一行清掉它注册的全部服务（逆创建序）
+int  UnregisterAll()                   // 回登录 / 退出游戏；返回注销个数
+
+// 驱动 / 诊断
+void Tick(float deltaTime)             // Unity 下框架自动驱动，业务不用调；工程外测试可手动调
+int  Count { get; }                    string Dump()               // 谁注册了什么、谁还占着内存
+```
+
+- 最小示例：
+
+```csharp
+RevServices.Register<ISoundService, SoundService>();                      // 启动入口：一行注册
+RevServices.GetRequired<ISoundService>().Play("ui_click");                // 任何地方：一行取用
+
+public sealed class BattleModule : MonoBehaviour                          // 跟着模块生灭的服务：谁注册谁注销
+{
+    private void Awake()     { RevServices.Register<ICombatContext, CombatContext>(owner: this); }
+    private void OnDestroy() { RevServices.UnregisterAllOf(this); }
+}
+```
+
+- 铁律 / 坑：
+  1. **全局服务集中在启动入口注册；跟着模块 / 场景走的服务，谁注册谁注销**（`owner: this` + `UnregisterAllOf(this)`）。`RevServices` 是"活的"、不是只读的，靠这条纪律 + 重复注册报错 + `Dump()` 把关。
+  2. **重复注册当场报错**：想换实现先 `Unregister` 再 `Register`；重进场景报"已经注册过了" = 上一次没注销，**补注销，别用"先试着注销一下"掩盖**。
+  3. **谁创建谁释放**：`Register<I, T>()` / 工厂 → 注销时 `Dispose`；`Register<I>(实例)` → 只摘表。
+  4. **注销后别人手里的引用不会变 null**（但服务已 `Dispose`）→ **不要把取到的服务长期存成字段**，要用就现取（一次字典查找，热路径 0 分配）。
+  5. **服务第一次被取用时才创建**（也才开始 `OnInit` / 被 Tick）：想启动期就激活，注册后立刻 `Get` 一次。
+  6. `owner` 传**引用类型**（通常 `this`），前后必须是同一个对象；别传值类型 / 临时对象。
+  7. 不要在 `OnInit` / 工厂里注销自己（会报"创建过程中被注销"）。
+  8. 同一个实例注册成多个服务类型：每帧只驱动 1 次；最后一个持有者注销才 `Dispose`。
+  9. 进 Play 自动复位：关闭 Domain Reload 时上一局的服务会在新一局开始前被清掉（吞掉上一局 `Dispose` 的异常）。
+
+### 6.2 `RevServiceLocator`（进阶：作用域 / 多实例 / 单测隔离容器）
 
 - 门面：`Revolution.RevServiceLocator`（**实例**，不是 static）+ `RevServiceBuilder` · `RevServiceLocator/Facade/`
-- 职责：把"底层框架调上层能力"从写死依赖/全局静态变成**显式注册 + 显式获取**（零静态可变状态、零反射构造）。
 - 常用 API：
 
 ```csharp
@@ -218,25 +282,25 @@ RevServiceLocator CreateScope()         void Tick(float deltaTime)      void Dis
 - 最小示例：
 
 ```csharp
-static readonly RevServiceLocator Services = RevServiceLocator.Create()
+static readonly RevServiceLocator Services = RevServiceLocator.Create()      // ★ 这套要自己缓存容器
     .AddSingleton<ISoundService, SoundService>()
     .AddScoped<ICombatContext, CombatContext>()
     .Build();
 
-var sound = Services.GetRequired<ISoundService>();                 // 必需依赖：没注册就炸（启动期暴露）
 using (RevServiceLocator battle = Services.CreateScope())          // Scoped 必须放进 using
 {
-    battle.Tick(Time.deltaTime);
+    var ctx = battle.GetRequired<ICombatContext>();                // 每局不同的一份
+    battle.Tick(Time.deltaTime);                                   // 这套要自己调 Tick
 }
 ```
 
 - 铁律 / 坑：
-  1. **装配只写在一处**（组合根），`Build()` 之后任何地方都改不了 —— 不要在业务代码里"随手注册服务"。
+  1. **装配只写在一处**（组合根），`Build()` 之后任何地方都改不了；想"注销单个服务"请用 `RevServices`。
   2. `GetRequired` 用于**必需**依赖；`Get` / `TryGet` 只用于可选能力。
   3. **谁创建谁释放**：容器释放"工厂创建的服务"；`AddSingleton(instance)` 传进去的由你释放。
-  4. 根容器上取 `Scoped` 服务会**直接报错**，必须放进 `CreateScope()` 的 `using`。
+  4. 根容器上取 `Scoped` 服务会**直接报错**，必须放进 `CreateScope()` 的 `using`；作用域**不嵌套**（并发多局开多个平行作用域）。
   5. 分工：需要"每帧驱动 + 生命周期 + 逆序释放"的业务能力用服务；一次性工具类用静态方法即可。
-- 文档：`Revolution.Document/服务定位器/服务定位器使用说明.md` · 模块 README：`Runtime/RevServiceLocator/README.md`
+- 文档：`Revolution.Document/服务定位器/服务定位器使用说明.md`（第五章专讲"为什么用服务定位器而不是 DI 容器"）· Demo：`Assets/Revolution.Demo/RevServiceLocator.Demo/`（按钮 A~D 演示 `RevServices`）
 
 ---
 

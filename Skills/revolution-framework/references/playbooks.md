@@ -12,7 +12,7 @@
 | R4 | 做一个带数据的界面 | `RevUIPanel<TData>` |
 | R5 | 弹窗 / 过场时挡住世界输入 | `RevInput.OpenScope().Block()` |
 | R6 | 一对多解耦通知 | `RevEvent` |
-| R7 | 跨界面复用的业务能力 / 每局独立状态 | `RevServiceLocator` |
+| R7 | 跨界面复用的业务能力（一行注册 / 取用 / 注销；每局一份才用 Builder） | `RevServices`（进阶 `RevServiceLocator`） |
 | R8 | 切场景（带进度） | `RevScene` |
 | R9 | 子弹 / 飘字等频繁创建销毁 | `RevPool` + `[RevPoolPrefab]` |
 | R10 | 读配置表 | `RevDataTableManager` |
@@ -159,10 +159,36 @@ int n = RevEvent.DispatchEvent(BossDead, "Boss01", 5);      // 返回"实际被�
 - **没有 `AddOnce`**：想只触发一次，在回调第一行 `RemoveEventListener`。
 - **抄谱**：`RevEventSystem.Demo`。
 
-## R7 跨界面复用的业务能力 / 每局独立状态（`RevServiceLocator`）
+## R7 跨界面复用的业务能力：一行注册 / 直接取 / 用完注销（`RevServices`）
 
 ```csharp
-// Demo 原样（RevServiceLocatorDemo.cs 96-99）：组合根装配并冻结
+// ★ 默认写法：一行注册（启动入口），任何地方一行取用，不用了一行注销 —— 不用静态类 / static readonly / 链式 / Build
+RevServices.Register<IDemoAudio, DemoAudio>();                             // 类型对类型：第一次取用时才 new，零反射
+RevServices.Register<IConfigService>(Config.Load());                       // 已有实例：注销时容器【不】Dispose 它
+RevServices.Register<IDebugService>(s => new DebugService(s.GetRequired<IConfigService>().Level));   // 要构造参数 → 工厂
+
+RevServices.GetRequired<IDemoAudio>().Play("ui_click");                    // 必须有：没注册当场炸，并列出已注册的服务
+RevServices.Get<IDebugService>()?.Draw();                                  // 可选能力
+
+RevServices.Unregister<IDemoAudio>();                                      // 不用了：摘表 + 容器创建的实例 Dispose（释放内存）
+
+// 跟着模块 / 场景生灭的服务：谁注册谁注销（owner 一行清理）
+private void Awake()     { RevServices.Register<ICombatContext, CombatContext>(owner: this); }
+private void OnDestroy() { RevServices.UnregisterAllOf(this); }
+```
+
+- **依赖在 `OnInit(services)` 里取，不是构造函数**（实现 `RevIServiceInit`）；循环依赖会报错并打印依赖链。
+- **重复注册当场报错**（要换实现先 `Unregister`）；重进场景报"已经注册过了"= 上次没注销，**补注销，别用"先试着注销一下"掩盖**。
+- **不要把取到的服务长期存成字段**：注销后它是已 `Dispose` 的对象；要用就现取（一次字典查找，热路径 0 分配）。
+- **服务第一次被取用时才创建**（才 `OnInit` / 才被每帧驱动 `RevITickable`）：要启动期就激活，注册后立刻 `Get` 一次。
+- **全局服务集中在启动入口注册**；跟模块 / 场景走的，在它的 `Awake` 注册、`OnDestroy` 注销。`Debug.Log(RevServices.Dump())` 随时查"谁还占着"。
+- **判据**："关掉这个界面之后这段逻辑还该活着吗？"该 → 服务；不该 → 留在面板里。别为"少写一个构造参数"上定位器。
+- **单测**：`[SetUp]` 里 `Register<IX>(new FakeX())`，`[TearDown]` 里 `RevServices.UnregisterAll()`。
+
+**进阶：同一个服务类型要"每局 / 每个场景各一份"才用 Builder**（`RevServices` 只有全局一份）：
+
+```csharp
+// Demo 原样（RevServiceLocatorDemo.cs）：Builder 装配并冻结，自己缓存容器
 _root = RevServiceLocator.Create()
     .AddSingleton<IDemoAudio, DemoAudio>()     // 类型对类型：第一次取用时 new
     .AddScoped<IDemoBattle, DemoBattle>()      // 每个作用域一份
@@ -171,15 +197,12 @@ _root = RevServiceLocator.Create()
 using (RevServiceLocator battle = _root.CreateScope())    // Scoped 服务必须放进 using
 {
     var ctx = battle.GetRequired<IDemoBattle>();
-    battle.Tick(Time.deltaTime);
+    battle.Tick(Time.deltaTime);                           // 这套要自己调 Tick（RevServices 是自动驱动）
 }
 ```
 
-- **依赖在 `OnInit(services)` 里取，不是构造函数**（实现 `RevIServiceInit`）；循环依赖会报错并打印依赖链。
-- 必需依赖 `GetRequired<T>()`（漏注册启动期就炸）；可选 `Get<T>()` / `TryGet<T>()`；`AddSingleton(instance)` 传入的实例**你自己释放**。
-- 作用域只允许一层；根容器上取 Scoped 报错；释放后再取服务报错。
-- **判据**："关掉这个界面之后这段逻辑还该活着吗？"该 → 服务；不该 → 留在面板里。别为"少写一个构造参数"上定位器。
-- **抄谱**：`RevServiceLocator.Demo`。
+- 作用域只允许一层；根容器上取 Scoped 报错；释放后再取服务报错；Builder 冻结后没法注销单个服务。
+- **抄谱**：`RevServiceLocator.Demo`（按钮 A~D = `RevServices` 的注册 / 取用 / 注销 / Dump；①~⑦ = Builder 写法）。
 
 ## R8 切场景（`RevScene`）
 

@@ -340,11 +340,13 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 - ✅ **表 = 资源**：走资源系统加载，和 AB 体系天然一致
 - ✅ 按类型取表，表结构由导表工具生成
 
-### 🧭 服务定位器（RevServiceLocator）
+### 🧭 服务定位器（RevServices / RevServiceLocator）
 
-- ✅ **把业务依赖挡在框架之外**：`RevServiceLocator.Create().AddSingleton<IAudioService, AudioService>().Build()`
-- ✅ **三档取服务**：`GetRequired<T>()`（"必须有"，忘了注册启动期就炸出来）/ `Get<T>()`（可选能力，没有返回 null）/ `TryGet<T>()`（用在 `if` 里最顺）
-- ✅ 生命周期可控（`RevIServiceInit` / `RevITickable`）
+- ✅ **一行注册、直接取、用完注销**：`RevServices.Register<IAudioService, AudioService>()` → `RevServices.GetRequired<IAudioService>()` → `RevServices.Unregister<IAudioService>()`（不用写静态类、不用缓存字段、不用链式）
+- ✅ **注销即释放**：容器创建的服务会 `Dispose`，不长期占内存；跟着模块生灭的服务带 `owner: this`，`OnDestroy` 里一行 `UnregisterAllOf(this)`
+- ✅ **三档取服务**：`GetRequired<T>()`（"必须有"，没注册当场炸出来）/ `Get<T>()`（可选能力，没有返回 null）/ `TryGet<T>()`（用在 `if` 里最顺）
+- ✅ 生命周期可控（`RevIServiceInit` / `RevITickable`，后者由框架**自动驱动**）
+- ✅ 进阶：需要"每局 / 每个场景各一份"的作用域时，用 `RevServiceLocator.Create()…Build()` + `CreateScope()`
 
 ### 📦 对象池（RevObjectPool）
 
@@ -384,7 +386,7 @@ git clone -b hotupdate https://github.com/Yokino337088/Revolution.git Assets/Rev
 | `RevGMCommand` | GM 指令：一行注册，游戏内控制台 | 12 / 1,077 |
 | `RevObjectPool` | 对象池：GameObject 池 + 纯 C# 对象池 | 10 / 2,073 |
 | `RevDataLoad` | 配置表：表 = 资源，按类型取表 | 6 / 758 |
-| `RevServiceLocator` | 服务定位器：把业务依赖挡在框架之外 | 8 / 738 |
+| `RevServiceLocator` | 服务定位器：`RevServices` 一行注册 / 取用 / 注销（零反射、可注销、Tick 自动驱动）+ `RevServiceLocator` 作用域（每局一份） | 11 / 1,387 |
 | `RevTask` | 异步：`await` 一帧 / 等资源加载完成 | 4 / 652 |
 | `RevSingleton` | 单例基类三件套（尽量少用） | 3 / 267 |
 

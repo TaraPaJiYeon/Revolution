@@ -55,8 +55,12 @@ RevObjectPool/Core/RevPoolCore.cs                    池引擎（重复归还拦
 RevLog/Core/RevLogRing.cs                            日志环形缓冲（定长 / 零分配写入）
 RevLog/Implementation/RevLogCore.cs                  日志内核（过滤 / 重复抑制 / 通道隔离）
 RevPublicMono/Implementation/RevMonoCore.cs          监听列表内核（去重 / 上限 / 快照派发 / 异常隔离）
+RevServiceLocator/Facade/RevServices.cs + Implementation/RevServiceHub.cs + Interfaces/*.cs   服务定位器新入口（注册 / 取用 / 注销 / owner / 逆序释放 / Tick；Support 里的 Unity 钩子不要链）
+RevServiceLocator/Facade/RevServiceLocator.cs + RevServiceBuilder.cs + Implementation/RevServiceRegistry.cs + RevServiceDescriptor.cs + Core/RevServiceLifetime.cs   Builder 写法（作用域）
 Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照差异（改名 / 换包 / 增删识别）
 ```
+
+> `RevServices` 的 `ResetForNewSession` 是 `internal`（只给 Support 层调）：工程外断言用**反射**模拟"进 Play 复位"，不要为了测它去给产品代码加 `InternalsVisibleTo`。
 
 框架已有的实测结果（改这些内核后应当复验并更新数字）：
 
@@ -65,6 +69,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 | RevTimer | 55 / 55 | 1000 个计时器每帧 **0.0139 ms**；10 万次创建 + 停止 **< 4 KB** |
 | RevLog | 41 / 41 | 10 万条日志 **0 分配**；环形缓冲硬顶 2048 条 |
 | RevPublicMono | 25 / 25 | 10 万次派发 **32 B** |
+| RevServices | 55 / 55 | 已创建服务的 `GetRequired` 10 万次 **0 B**（5 轮取最小；单轮会有测量噪声，别拿一次读数下结论）；1000 轮 注册→取用→注销 无残留 |
 | ABTool 布局快照 | 24 / 24 | 改名 / 换包 / 增删识别 |
 
 > 本仓库历史上用同样办法验过：事件系统（52 项行为断言 + 5 组种子 × 6000 步 fuzz，零结构违例）、

@@ -31,7 +31,7 @@ Revolution.Document/
 | 公共 Mono `RevMono` | `公共Mono模块/公共Mono模块使用说明.md` |
 | 对象池 `RevPool` / `RevRefPool` | `对象池/对象池使用说明.md`、`对象池/对象池架构解析.md` |
 | 事件 `RevEvent` | `事件系统/事件系统使用说明.md`、`事件系统/事件系统架构解析.md` |
-| 服务定位器 `RevServiceLocator` | `服务定位器/服务定位器使用说明.md` · README：`Runtime/RevServiceLocator/README.md` |
+| 服务定位器 `RevServices` / `RevServiceLocator` | `服务定位器/服务定位器使用说明.md`（第五章专讲"为什么用服务定位器而不是 DI 容器"；上手只读 `Facade/RevServices.cs`）、`服务定位器/依赖注入vs服务定位器.html`（构造传参 vs 定位器） |
 | 异步 `RevTask` | **暂无专章**（看 `RevTask.Demo` 场景 + 源码注释 + 本 skill 的 `modules-core.md`） |
 | 场景 `RevScene` | `场景系统/场景系统使用说明.md`、`场景系统/场景系统架构解析.md` |
 | 输入 `RevInput` | `输入系统/输入系统使用说明.md`、`输入系统/输入系统架构解析.md` · README：`Runtime/RevInput/README.md` |
@@ -45,7 +45,7 @@ Revolution.Document/
 | 配置表 `RevDataTableManager` | `导表工具/导表工具使用说明.md`、`导表工具架构解析.md`、`导表工具对比与设计说明.md` |
 | 热更（扩展包）`RevHotUpdate` | `热更新/RevHotUpdate使用说明.md`、`RevHotUpdate架构解析.md`、`RevHotUpdate技术方案.md` · README：`Assets/Revolution.HotUpdate/README.md` + `Assets/Revolution.Demo/RevHotUpdate.Demo/README.md` |
 
-**有模块级 README 的只有 7 个**：`RevLog`、`RevTimer`、`RevInput`、`RevServiceLocator`、`RevSoundSystem`、`RevActionSequence`、`RevGMCommand`（其余模块的说明只在 `Revolution.Document` 下）。
+**有模块级 README 的只有 6 个**：`RevLog`、`RevTimer`、`RevInput`、`RevSoundSystem`、`RevActionSequence`、`RevGMCommand`（其余模块的说明只在 `Revolution.Document` 下；`RevServiceLocator` 的 README 已删除，以《使用说明》与 `Facade/RevServices.cs` 文件头为准）。
 
 **模块文档之外的"全局文档"**（找背景 / 现状 / 决策时读）：
 

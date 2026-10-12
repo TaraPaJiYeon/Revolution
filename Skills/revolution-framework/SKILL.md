@@ -1,6 +1,6 @@
 ---
 name: revolution-framework
-description: 本指南适用于 Revolution（RevolutionFramework / Rev 前缀）Unity 游戏框架的开发与代码审查。当任务涉及以下任何内容时使用：Revolution 框架、Assets/Revolution、RevInitialize（启动入口 / Boot）、RevLog / RevTimer / RevMono / RevPool（含 [RevPoolPrefab] 按类型取池）/ RevEvent / RevServiceLocator / RevTask / RevScene / RevInput / RevSound / RevStateMachine / RevUI / RevResManager / RevDataTableManager / RevGM / RevSequence / RevAppLifecycle（切后台 / 回前台）/ RevStripGuard（代码裁剪自检）等模块，资源加载与 AssetBundle（RevAB 打包工具、ResMap.txt、逻辑路径、引用计数、编辑器直读 vs AB 模式），UI 面板（RevUIPanel / RevUIPanel&lt;TData&gt; / [RevBind] / 控件事件方法特性 / RevUIAnim 动画 / 面板池 / Back 语义 / SetData 与 RefreshView 的刷新时机），事件与计时器清理（owner / scope），异步 RevTask（await / 取消 / 分帧），服务定位器装配，GM 指令注册，配置表（导表工具），安卓与微信/抖音小游戏/WebGL 适配、IL2CPP 代码裁剪与 link.xml，以及扩展包 RevHotUpdate 资源热更（清单 / 差量下载 / 版本目录 / 两个钩子 / 本地 CDN demo）。也适用于：按本框架规范生成或修改代码（Rev 前缀、方法括号不换行、方法必须带大括号、核心处写小白向注释）、排查本框架的运行时问题、工程外纯 C# 断言验证、以及 Revolution 项目的架构决策（要不要新增分层、用什么模块）。即使提问者没有明确说出“Revolution”或“框架”，只要代码里出现上述类型/目录，也应使用本 skill。
+description: 本指南适用于 Revolution（RevolutionFramework / Rev 前缀）Unity 游戏框架的开发与代码审查。当任务涉及以下任何内容时使用：Revolution 框架、Assets/Revolution、RevInitialize（启动入口 / Boot）、RevLog / RevTimer / RevMono / RevPool（含 [RevPoolPrefab] 按类型取池）/ RevEvent / RevServices（一行注册·取用·注销）/ RevServiceLocator（作用域）/ RevTask / RevScene / RevInput / RevSound / RevStateMachine / RevUI / RevResManager / RevDataTableManager / RevGM / RevSequence / RevAppLifecycle（切后台 / 回前台）/ RevStripGuard（代码裁剪自检）等模块，资源加载与 AssetBundle（RevAB 打包工具、ResMap.txt、逻辑路径、引用计数、编辑器直读 vs AB 模式），UI 面板（RevUIPanel / RevUIPanel&lt;TData&gt; / [RevBind] / 控件事件方法特性 / RevUIAnim 动画 / 面板池 / Back 语义 / SetData 与 RefreshView 的刷新时机），事件与计时器清理（owner / scope），异步 RevTask（await / 取消 / 分帧），服务定位器装配，GM 指令注册，配置表（导表工具），安卓与微信/抖音小游戏/WebGL 适配、IL2CPP 代码裁剪与 link.xml，以及扩展包 RevHotUpdate 资源热更（清单 / 差量下载 / 版本目录 / 两个钩子 / 本地 CDN demo）。也适用于：按本框架规范生成或修改代码（Rev 前缀、方法括号不换行、方法必须带大括号、核心处写小白向注释）、排查本框架的运行时问题、工程外纯 C# 断言验证、以及 Revolution 项目的架构决策（要不要新增分层、用什么模块）。即使提问者没有明确说出“Revolution”或“框架”，只要代码里出现上述类型/目录，也应使用本 skill。
 ---
 
 # Revolution 框架开发 Skill
@@ -33,7 +33,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | 纯 C# 类要每帧回调 / 协程 | `RevMono` | 不摆物体拿 Update/LateUpdate/FixedUpdate | `modules-core.md` §3 |
 | 频繁创建销毁的对象 | `RevPool` / `RevRefPool` | GameObject 池（可 `[RevPoolPrefab]` 按类型取）/ 纯 C# 池 | `modules-core.md` §4 |
 | 一对多解耦通知 | `RevEvent` | 字符串事件名，派发中可安全增删 | `modules-core.md` §5 |
-| 跨界面共享的业务能力 | `RevServiceLocator` | 组合根显式装配，三档取服务 | `modules-core.md` §6 |
+| 跨界面共享的业务能力（注册 / 取用 / 用完注销） | `RevServices`（默认）/ `RevServiceLocator`（作用域·进阶） | 一行 `Register`、一行 `GetRequired`、一行 `Unregister`；每局一份才用 Builder | `modules-core.md` §6 |
 | await 一帧 / 等待 / 取消 | `RevTask` | 轻量单线程异步（框架唯一异步基建） | `modules-core.md` §7 |
 | 切场景 | `RevScene` | 进度永远 0~1，切前按约定清理 | `modules-core.md` §8 |
 | 键鼠 / 触屏 / 手柄 / 手势 | `RevInput` | 动作名绑定 + 屏蔽栈 | `modules-core.md` §9 |
@@ -82,7 +82,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 ## 技术铁律（写代码必须遵守）
 
-1. **只用门面**：`RevInitialize` / `RevLog` / `RevTimer` / `RevMono` / `RevPool` / `RevEvent` / `RevTask` / `RevScene` / `RevInput` / `RevSound` / `RevUI` / `RevResManager` / `RevDataTableManager` / `RevGM` / `RevSequence` / `RevAppLifecycle` / `RevHotUpdate`。不要 `new` 内核对象、不要反射、不要绕过门面直接读文件。
+1. **只用门面**：`RevInitialize` / `RevLog` / `RevTimer` / `RevMono` / `RevPool` / `RevEvent` / `RevServices` / `RevTask` / `RevScene` / `RevInput` / `RevSound` / `RevUI` / `RevResManager` / `RevDataTableManager` / `RevGM` / `RevSequence` / `RevAppLifecycle` / `RevHotUpdate`。不要 `new` 内核对象、不要反射、不要绕过门面直接读文件。
 2. **失败必带原因**：资源看 `handle.ErrorReason`，GM 看 `RevGMResult.Message`，热更看 `RevHotUpdateResult.Error` / `RevHotUpdate.LastError`；业务拒绝就抛 `RevGMUsageException("理由")` 这类"带人话"的异常，**不要静默 return**。
 3. **清理纪律**：计时器 / 每帧回调 / 事件订阅，**能传 `owner: this` 就传**，销毁时一行 `RevTimer.CancelAllOf(this)` / `RevMono.RemoveAllOf(this)` / `RevEvent.RemoveAllByOwner(this)`；资源**成对** `Load` → `Release`。匿名 lambda 注册事件后**无法按委托移除**，这是泄漏的头号来源。
 4. **资源只写逻辑路径**：用生成的常量（`RevResPath.*`，见 `Assets/Revolution/Generation/RevResPath.cs`）或"两段式" `Load(根目录, 资源名, 类型, 分组)`；**禁止**自己拼 `StreamingAssets` / `Application.dataPath` 路径读资源（缓存、引用计数、平台差异、热更都会失效）。
@@ -91,7 +91,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 6. **异步只用 `RevTask`**：`await RevTask.Delay/Yield`、`await RevScene.LoadAsync(...)`、`await RevHotUpdate.InitializeAsync(...)`；**不要**引入 `System.Threading.Tasks.Task`、不要用协程写业务（`RevMono.StartCoroutine` 只用于桥接旧代码）。取消用 `RevCancellationTokenSource` + `token.ThrowIfCancelled()`。
 7. **事件**：`string` 事件名（常量集中在一个类里）+ **同一事件名只能有一种签名**；只在主线程注册/派发；派发过程中可以安全增删（框架做了标记删除），但回调里别做重活。
 8. **时间**：`RevTimer.After/Every` 必须能停（`owner` 或 `RevTimer.OpenScope()`）；UI 倒计时 / 超时用 `RevTimeDomain.Unscaled`（`Scaled` 会被 `timeScale` 冻结）；`At(...)` 前必须 `SyncServerTime`。
-9. **服务**：装配只写在一处（组合根 `RevServiceLocator.Create()...Build()`），装配后不可改；必需依赖用 `GetRequired<T>()`（漏注册启动期就炸），可选能力用 `Get<T>()`/`TryGet<T>()`；`AddScoped` 的服务**必须**放在 `CreateScope()` 的 `using` 里取。
+9. **服务**：**默认用 `RevServices`**——一行 `RevServices.Register<IX, X>()`、一行 `RevServices.GetRequired<IX>()`、不用了 `RevServices.Unregister<IX>()`（**不要**为此写静态类 + `static readonly` 缓存 + 链式 `Build()`）。纪律：**全局服务集中在启动入口注册；跟着模块 / 场景走的服务，谁注册谁注销**（`owner: this` + `OnDestroy` 里 `UnregisterAllOf(this)`）；重复注册当场报错（要换先 `Unregister`）；`Register<I>(已有实例)` 注销时**不** `Dispose`，`Register<I, T>()` / 工厂注销时 `Dispose`；**不要把取到的服务长期存成字段**（注销后它是已 `Dispose` 的对象）。必需依赖用 `GetRequired<T>()`（没注册当场炸），可选能力用 `Get<T>()` / `TryGet<T>()`。**只有**要"同一个服务类型每局 / 每个场景各一份"或"单测另建隔离容器"时，才用 `RevServiceLocator.Create()…Build()` + `CreateScope()`（`AddScoped` 的服务必须在作用域的 `using` 里取）。
 10. **编辑器 vs 真机**：编辑器默认**只**注册 `RevEditorResPolicy`（AssetDatabase 直读，AB/Resources 完全不参与）；要看 AB / 热更效果，必须开 `RevResBootstrap.UseABInEditor = true`（菜单 `Revolution.Tools/资源/AB 加载模式（编辑器）`）。另外**编辑器里平台名恒为 `PC`**（`RevHotPlatform` 带 `!UNITY_EDITOR`）。
 11. **不新增分层、不新增门面**：不要给框架加 `System` / `BusinessLogic` 这样的层，也不要给某个模块加"第二套加载 API"（会立刻长成第二套系统）。真需要扩展时，优先**服务 + 约定**，其次才是框架改动。
 12. **改框架要照既有形状**：目录分层 `Core`（数据与契约）/ `Facade`（对外入口）/ `Implementation`（实现）/ `Interfaces`（接口）/ `Support`（宿主适配）；每个文件**开头写清"为什么这么写"**；新增资产要带 `.meta`（文件夹 meta 一律是**同级** `<文件夹名>.meta`）。

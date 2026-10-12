@@ -13,7 +13,7 @@
 //   RevEvent、RevInput、RevTimer、RevUI、RevPool、RevAppLifecycle 等模块，
 //   已由各自的 RuntimeInitializeOnLoadMethod 钩子复位状态、安装宿主或按需启动；
 //   重复手动启动反而可能清掉监听、取消加载或重复驱动。
-//   RevServiceLocator 则由业务组合根注册自己的服务，框架不能替业务决定注册内容。
+//   服务（RevServices / RevServiceLocator）由业务自己在启动入口或各模块的 Awake 里 Register，框架不能替业务决定注册内容。
 //
 // 【扩展接缝】有资源系统扩展（例如热更新）时，可通过 Initialize 的回调先装配扩展钩子，
 //   再由本门面初始化资源系统。回调只在本会话第一次成功初始化时执行。

@@ -35,7 +35,7 @@
 | A 明确拥有 B（面板与自己的按钮、战斗系统与伤害计算器） | **直接调用**。判据：加第 4 个监听者时广播方要不要改代码？要改就别用事件 |
 | 一个变化多处反应，广播方不该知道有谁 | `RevEvent` |
 | 需要返回值 / 需要知道谁处理了 | 直接调用（事件不是 RPC） |
-| 跨界面复用的业务能力，或底层要调上层 | **服务定位器**（接口 + 组合根） |
+| 跨界面复用的业务能力，或底层要调上层 | **服务定位器**：默认 `RevServices`（一行 `Register` / `GetRequired` / `Unregister`）；"每局 / 每场景各一份"才用 `RevServiceLocator` 的 `CreateScope()` |
 | 只属于这一屏的流程 | 留在面板里（`RevUIPanel<TData>`）。判据："关掉这个界面后它该不该活着"，该活着 → 做服务 |
 | 进程内唯一实现的简单工具 | `static class` |
 | 只是为了少写一个构造参数 | 直接传参，不要上定位器 |
@@ -119,7 +119,7 @@
 | **RevMono** | 协程不用字符串 id（`StartCoroutine` 返回 Unity 的 `Coroutine`，谁起谁存）；单相位最多 256 个回调；监听者抛异常不被自动摘除；非 Play 态不创建宿主 |
 | **RevPool** | WebGL / 小游戏不支持同步 `Get`（用 `GetAsync`）；`Get(prefab, parent)` 因没有 `RevResHandle` **不自愈**（prefab 被卸载后池不恢复）；没有 LRU，取用 LIFO；**池不自动 Trim**（切场景由业务显式调用 `TrimAll`）；**不替你重置字段**（`OnPoolReturn` 里清，可继承 `RevPoolableBase`）；`[RevPoolPrefab]` **不继承** |
 | **RevEvent** | **没有 `AddOnce`** [已核实]（回调第一行 `RemoveEventListener`）；不做异步派发；参数只支持 0~4 个（多的用参数结构体）；事件键只有 `string`；不做去重、不设订阅数上限；派发中新增的监听者本轮不执行；没有局部事件路由 / 事件名生成器 |
-| **RevServiceLocator** | 不做构造注入 / `[Inject]` / Transient（直接 `new`）；不打日志（问题靠异常信息）；`Build()` 后不能再注册；重复注册直接报错不静默覆盖；作用域**只允许一层**；Scoped 在根容器上取会报错 |
+| **RevServices / RevServiceLocator** | 不做构造注入 / `[Inject]` / Transient（直接 `new`）；不打日志（问题靠异常信息）；**重复注册直接报错不静默覆盖**（换实现先 `Unregister`）；`RevServices` **只有全局一份、没有 Scoped**（"每局一份"用 `RevServiceLocator.CreateScope()`，且作用域**只允许一层**、Scoped 在根容器上取会报错）；`RevServiceLocator` 的 `Build()` 后冻结、**不能单个注销**（想注销用 `RevServices`）；**不存在** `RevServices.AddSingleton` / `Create()` / `Build()` / `Replace` / `RegisterOrReplace`（别凭印象写）；注销后别人手里的引用**不会变 null**；`RevServices` 的 Tick 是框架自动驱动、`RevServiceLocator` 要自己调 `Tick` |
 | **RevTask** | `RevTask` 与 `RevTask<T>` 是两个独立结构体、**无隐式转换**；引擎相关（有调度宿主），非纯 C#；不要 `async void`（想不 await 用 `.Forget()`） |
 | **RevScene** | 切前**只自动清对象池**；不新起宿主；没有加载步骤 / 权重 / 状态机那套；不管热更；**切换进行中的后续请求被忽略并告警，不排队** |
 | **RevInput** | **没有"系统动作例外"**：`Block(World)` 会连 ESC / 返回键一起挡；不用于点 UI；`ResetAll` / 切后台复位**不合成** `OnReleased`（收尾监听 `RevAppLifecycle`）；不内置虚拟摇杆 UI / 改键 UI / 手柄默认轴映射（用 `BindNamedAxis`）；没绑过的动作不报错永远返回 false；`FixedUpdate` 里轮询 `Pressed` 可能被多次读到 |

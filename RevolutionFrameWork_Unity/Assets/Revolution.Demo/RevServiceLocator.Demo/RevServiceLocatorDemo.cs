@@ -10,6 +10,11 @@
 // 【怎么用】打开配套场景 RevServiceLocatorDemo.unity → 点 Play → 左侧按钮逐个点。
 //
 // 【本示例演示什么】
+//   ★ 最推荐的用法（按钮 A~D）：RevServices —— 一行注册、直接取、用完注销（不用静态类、不用链式、不用缓存字段）：
+//        RevServices.Register<IDemoAudio, DemoAudio>();          // 注册
+//        RevServices.GetRequired<IDemoAudio>().Play("click");    // 取用
+//        RevServices.Unregister<IDemoAudio>();                   // 注销（容器创建的服务会被 Dispose，释放内存）
+//   下面 ①~⑦ 是进阶的 Builder 写法（支持"每局一份"的作用域）：
 //   ① 装配三件套：AddSingleton（工厂 / 实例）+ AddScoped + Build；
 //   ② 重复注册当场报错（框架刻意不做静默覆盖）；
 //   ③ GetRequired：没注册就抛异常（把"忘了注册"提前到启动期）；
@@ -29,12 +34,20 @@ namespace Revolution.Demo.ServiceLocator
     // ---------- 演示用的服务契约与实现（真实项目里契约放接口文件，实现放各自模块） ----------
 
     /// <summary>音效服务契约（业务只认接口）。</summary>
-    public interface IDemoAudio { string Play(string name); }
+    public interface IDemoAudio 
+    { 
+        string Play(string name); 
+    }
 
-    /// <summary>音效服务实现（Singleton：全局一份）。</summary>
-    public sealed class DemoAudio : IDemoAudio
+    /// <summary>音效服务实现（Singleton：全局一份）。实现 IDisposable：注销时容器会替你调用它（演示"释放内存"）。</summary>
+    public sealed class DemoAudio : IDemoAudio, IDisposable
     {
+        /// <summary>被 Dispose 的次数（演示用：让你亲眼看到"注销 = 释放"）。</summary>
+        public static int DisposedCount;
+
         public string Play(string name) => $"播放音效：{name}";
+
+        public void Dispose() { DisposedCount++; }
     }
 
     /// <summary>一局战斗的上下文（Scoped：每个作用域一份 —— 血量这类"每局独立"的状态放这里）。</summary>
@@ -82,10 +95,53 @@ namespace Revolution.Demo.ServiceLocator
 
         // ==================== OnGUI ====================
 
+        private void OnDisable()
+        {
+            // ★ 谁注册谁注销：演示脚本销毁时，把它注册的服务一行清掉（owner 机制），否则服务会一直占着内存
+            RevServices.UnregisterAllOf(this);
+        }
+
         private void OnGUI()
         {
             GUILayout.BeginArea(new Rect(10, 10, 450, Screen.height - 20));
             GUILayout.Label("<b>RevServiceLocator 服务定位器演示</b>", TitleStyle());
+
+            // ★ A~D：最推荐的用法 —— RevServices（一行注册 / 直接取 / 用完注销）
+            GUILayout.Label("<b>★ 最推荐：RevServices（一行注册，用完注销）</b>", HintStyle());
+
+            if (GUILayout.Button("A. RevServices.Register<IDemoAudio, DemoAudio>(owner: this)  一行注册"))
+            {
+                try
+                {
+                    RevServices.Register<IDemoAudio, DemoAudio>(owner: this);      // 就这一行：不用静态类、不用 Build
+                    Ui("A. 已注册（懒创建：此时还没 new）。" + RevServices.Count + " 个服务在表里。");
+                }
+                catch (InvalidOperationException e) { Ui("已拦下（重复注册不会静默覆盖）：" + e.Message.Split('。')[0]); }
+            }
+
+            if (GUILayout.Button("B. RevServices.GetRequired<IDemoAudio>().Play(...)  直接取"))
+            {
+                // 没注册会抛异常：错误信息里列出"已注册的服务"，注销过的还会特别提示"它曾被注销过"
+                try { Ui("B. " + RevServices.GetRequired<IDemoAudio>().Play("ui_click")); }
+                catch (InvalidOperationException e) { Ui("B. 取不到 —— " + e.Message.Replace("\n", " ")); }
+            }
+
+            if (GUILayout.Button("C. RevServices.Unregister<IDemoAudio>()  不用了就注销（释放内存）"))
+            {
+                int before = DemoAudio.DisposedCount;
+                bool ok = RevServices.Unregister<IDemoAudio>();
+                Ui(ok
+                    ? $"C. 已注销。容器创建的服务被 Dispose 了 {DemoAudio.DisposedCount - before} 次（再点 B 会报错，并提示它曾被注销过）。"
+                    : "C. 没有这个服务（重复注销是安全的，返回 false）。");
+            }
+
+            if (GUILayout.Button("D. RevServices.Dump()  现在谁注册了什么、谁还占着内存"))
+            {
+                Ui("D. " + RevServices.Dump().Replace("\n", "\n    "));
+            }
+
+            GUILayout.Space(8);
+            GUILayout.Label("<b>进阶：Builder 写法（支持每局一份的作用域）</b>", HintStyle());
 
             // ① 装配 + Build（组合根）
             if (GUILayout.Button("① 装配并 Build（创建根容器）"))
