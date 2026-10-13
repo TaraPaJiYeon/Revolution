@@ -573,7 +573,8 @@ SetData(<span class="k">new</span> DetailData { Id = Data.Id, Count = Data.Count
     </div>
     <ul>
       <li><b>默认渲染模式是 <code>ScreenSpaceOverlay</code></b> ✓（不需要相机、UI 永远最上层）—— 要改就设 <code>RevUISetting.CanvasMode</code>；</li>
-      <li>框架<b>默认加载</b> <code>Resources/RevUIPrefab/RevUICanvas.prefab</code> 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；</li>
+      <li>框架<b>默认加载</b> <code>Resources/RevUIPrefab/RevUICanvas.prefab</code> 来渲染 ✓（Overlay / 横屏设计 1920×1080 / match 0.5 / sortingOrder 100）；</li>
+      <li><b>横竖屏由项目选择</b> ✓：<code>RevUISetting.CanvasOrientation</code> 可选 <code>Landscape</code>（横屏）、<code>Portrait</code>（竖屏）、<code>Auto</code>（跟随实际宽高，默认）或 <code>UseDesign</code>（完全使用原预制体）。默认预制体横屏为 1920×1080 / match 0.5，切到竖屏时根 <code>CanvasScaler</code> 用 1080×1920 / match 0；自定义预制体以其 Inspector 设计尺寸为基准，已经竖屏设计的不会再换位；代码兜底 Canvas 也适用。</li>
       <li><b>载不到就代码兜底</b> ✓：预制体缺失或路径写错时，框架自己建 Canvas + CanvasScaler + GraphicRaycaster，并打一条 Warning 说明原因 —— 不会出现"整屏 UI 起不来"；</li>
       <li>想改用<b>相机模式</b>（UI 可被 3D 遮挡 / 能进 RenderTexture）：</li>
     </ul>
@@ -593,6 +594,15 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
         </tbody>
       </table>
     </div>
+
+    <h3>项目如何选择横屏 / 竖屏</h3>
+    <p>保持自带 <code>RevUICanvas.prefab</code> 不变，在<b>首次打开或预加载 UI 之前</b>设置：</p>
+    <pre>RevUISetting.CanvasOrientation = RevUICanvasOrientation.Portrait;  <span class="c">// 竖屏小游戏</span>
+<span class="c">// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.Landscape;  // 横屏游戏
+// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.Auto;       // 跟随实际宽高（默认）
+// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.UseDesign;  // 完全保留原预制体配置</span></pre>
+    <p>这里选择的是<b>UI 的设计尺寸与缩放策略</b>，不强制改变设备方向：原生应用的屏幕方向在 Player Settings 配置（也可在游戏启动时设置 <code>Screen.orientation</code>），小游戏还需在发布平台的方向设置中选横屏 / 竖屏。竖屏项目应同时把平台方向设为竖屏，否则仍会在横屏窗口里绘制竖屏设计。<code>Auto</code> 模式用实际 <code>Screen.width/height</code> 判断，编辑器 Game 视图可切换测试；<code>RevUISetting.PortraitMatchWidthOrHeight</code> 可改竖屏缩放权重（默认 0 = 按宽）；代码兜底时 <code>RevUISetting.ReferenceResolution</code> 是设计尺寸。</p>
+    <div class="callout warn">这解决的是<b>根 Canvas 的缩放与旋转恢复</b>，不是把 1920×1080 横屏面板自动重排成竖屏。具体页面仍须使用锚点/布局组件制作竖屏版；刘海屏、圆角和底部手势条需在<b>内容面板</b>按 <code>Screen.safeArea</code> 布局，弹窗遮罩/全屏背景应继续覆盖全屏，不能给整个根 Canvas 加安全区内缩。测试时至少检查 9:16、9:19.5 和有缺口真机。</div>
 
     <h3>什么时候才切换到三 Canvas？</h3>
     <div class="callout good"><span class="t">优先坚持默认的单 Canvas。</span>不要仅因为有倒计时、动画或多个面板就切换。</div>

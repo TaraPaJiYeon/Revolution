@@ -16,6 +16,19 @@ using UnityEngine;
 
 namespace Revolution
 {
+    /// <summary>根 Canvas 使用哪套设计方向；只选择 UI 缩放方案，设备屏幕方向由项目/平台决定。</summary>
+    public enum RevUICanvasOrientation
+    {
+        /// <summary>跟随实际屏幕宽高；在手机旋转和编辑器 Game 视图切换时自动调整。</summary>
+        Auto,
+        /// <summary>固定使用横屏设计尺寸，不随屏幕旋转改变。</summary>
+        Landscape,
+        /// <summary>固定使用竖屏设计尺寸，不随屏幕旋转改变。</summary>
+        Portrait,
+        /// <summary>完全使用 Canvas 预制体（或代码兜底）的原始 CanvasScaler 配置。</summary>
+        UseDesign,
+    }
+
     /// <summary>UI 系统的全局配置（启动时设一次；不设就用这里的默认值）</summary>
     public static class RevUISetting
     {
@@ -24,6 +37,16 @@ namespace Revolution
 
         /// <summary>CanvasScaler 的宽高匹配权重（0 = 按宽、1 = 按高，0.5 = 折中，默认）</summary>
         public static float MatchWidthOrHeight = 0.5f;
+
+        /// <summary>
+        /// 选择 UI 设计方向（默认 Auto：按实际宽高适配）。项目可以在首次打开/预加载 UI 前
+        /// 显式设为 Landscape 或 Portrait；UseDesign 表示不改预制体的 CanvasScaler。
+        /// 这只控制 UI 设计尺寸，不修改 Screen.orientation（原生应用/小游戏由各自平台设置）。
+        /// </summary>
+        public static RevUICanvasOrientation CanvasOrientation = RevUICanvasOrientation.Auto;
+
+        /// <summary>从横屏设计切到竖屏时的匹配值（0 = 按宽，默认）；原设计方向保持预制体的匹配值。</summary>
+        public static float PortraitMatchWidthOrHeight = 0f;
 
         /// <summary>UI Canvas 的排序基准（默认 100，避免和别的 Canvas 抢 0）</summary>
         public static int SortOrderBase = 100;
