@@ -183,6 +183,8 @@ RevResManager.LoadAsync&lt;Sprite&gt;(RevResPath.UI_Icon, <span class="s">"Hero_
           <tr><td>拉版本清单 + 版本比对</td><td>主动发现"服务器上有新资源"，并算出<b>只下变化过的包</b></td></tr>
           <tr><td>差量下载</td><td>包级差量（hash 变了的才下）；支持断点续传、多源降级、指数退避重试、磁盘预检</td></tr>
           <tr><td>校验与落地</td><td>尺寸 + SHA-256；下载写 <code>.part</code>、校验通过才原子改名，<b>不会出现半个包被当成好包</b></td></tr>
+          <tr><td>候选版本门禁</td><td>新版本切指针前做<b>整版校验</b>：逐包按目标 SHA-256 核对（含未变化包）、<code>ResMap</code> 每条映射都指向清单里的包、平台主包可读；小游戏端按 <code>Hash128</code>/<code>CRC</code> 预加载全部包后才生效</td></tr>
+          <tr><td>失败回退</td><td>版本切换失败会自动恢复旧资源版本；手动回滚前框架也会先验证旧版本目录完整可用</td></tr>
           <tr><td>原子切换与回滚</td><td>版本目录 + 完成标记 + 版本指针原子替换；保留 N 个历史版本，回滚只改指针</td></tr>
           <tr><td>加载路径重定向</td><td>热更包从持久化目录读、没更新过的回退内置；<b>业务加载代码不变</b></td></tr>
           <tr><td>映射表热更</td><td><code>ResMap.txt</code> 与包同批更新 → <b>新增资源也能热更下发</b></td></tr>
@@ -498,7 +500,7 @@ RevHotUpdateResult result = <span class="k">await</span> RevHotUpdate.UpdateAsyn
       </li>
       <li><b>生成清单</b>：菜单 <code>Revolution.Tools / 热更新 / 热更清单窗口</code> → 填大版本 / 资源版本 → 点「生成清单」；
       </li>
-      <li><b>自检</b>：同一窗口点「自检」——缺包、大小不符、依赖不闭环、清单没带映射表，都会当场列出来；
+      <li><b>自检</b>：同一窗口点「自检」——对发布目录里的清单、AB 与 <code>ResMap</code> 复算 SHA-256 与大小，检查缺包、文件名大小写、依赖闭环、映射引用、平台主包可读与首包基线一致性，问题当场列出；
       </li>
       <li><b>上传内容</b>：把产物目录里的<b>包 + <code>ResMap.txt</code></b> 传到 <code>{RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/{资源版本}/bundles|ResMap.txt</code>；
       </li>
@@ -578,7 +580,8 @@ RevHotUpdateResult result = <span class="k">await</span> RevHotUpdate.UpdateAsyn
           <tr><td><code>ManifestInvalid</code>（清单格式错）</td><td>是不是把"上传到一半"的清单读到了；用记事本打开远端清单，看首行是否有 <code>@appVersion</code> 与 <code>@resVersion</code></td></tr>
           <tr><td><code>AppVersionMismatch</code>（要求更新客户端）</td><td>远端清单的 <code>@appVersion</code> 与包体 <code>Application.version</code> 不一致 —— 这是<b>设计如此</b>（跨大版本必须重新出包）；跨大版本发布时记得把清单放到新大版本的目录里</td></tr>
           <tr><td>更新成功但资源没变</td><td>① 清单里的 hash 有没有真的变（改了资源要重新打包 + 重新生成清单）；② 客户端是不是走 AB 模式（编辑器直读模式看不到热更效果）；③ <code>Dump()</code> 看 <code>LocalResVersion</code> 是不是新版本</td></tr>
-          <tr><td>断点续传没生效</td><td>服务器是否支持 <code>Range</code>（不支持时框架会<b>自动回退成整包重下</b>，日志里有写）；CDN 侧有没有把 Range 关掉</td></tr>
+          <tr><td>断点续传没生效</td><td>服务器是否支持 <code>Range</code>（不支持时框架会<b>自动回退成整包重下</b>，日志里有写）；CDN 侧有没有把 Range 关掉。跨启动续传要求 <code>.part</code> 与 <code>.part.meta</code> 成对保留，换 CDN 源或换目标版本会丢弃旧分片</td></tr>
+          <tr><td>激活失败后行为</td><td>切换失败会自动恢复上一个可用资源版本（日志有记录）；若连旧版本也无法装载，请按"最坏兜底"清目录回到出包状态</td></tr>
           <tr><td><code>VerifyFailed</code></td><td>服务器上的包与清单里的 hash 不一致（多半是"传了包没重新生成清单"或"传错了目录"）；框架已自动删半成品重下过，仍失败才报错</td></tr>
           <tr><td><code>DiskFull</code></td><td>本地可用空间不足（框架会预留 64MB 余量）；清理 <code>RevHotUpdate</code> 旧版本或换 <code>LocalRootOverride</code></td></tr>
           <tr><td>Android 上首包加载失败</td><td>① <code>FirstPackageMode</code> 是不是被改成了 <code>ReadFromStreamingAssets</code>；② 首启落地是否被中断（重启游戏会自动续上）</td></tr>
@@ -640,7 +643,7 @@ RevHotUpdateResult result = <span class="k">await</span> RevHotUpdate.UpdateAsyn
 </main>
 
 <footer>
-  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3309 行 · 编辑器 2 个 <code>.cs</code> / 427 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  对应代码版本：<code>Assets/Revolution.HotUpdate/</code> + 框架接入的四个可空钩子（<code>BundlePathResolver</code> / <code>BundleCacheKeyResolver</code> / <code>DependenciesOverride</code> / <code>ResMapOverride</code>）。候选版本门禁与断点续传已实现，尚未完成 Unity 编译与真机故障注入验收（见技术方案第十九章）。<br>
   权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate使用说明.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 

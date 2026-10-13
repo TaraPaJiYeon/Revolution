@@ -76,6 +76,8 @@ RevResManager.LoadAsync<Sprite>(RevResPath.UI_Icon, "Hero_1001", sprite => icon.
 | 拉版本清单 + 版本比对 | 主动发现"服务器上有新资源"，并算出**只下变化过的包** |
 | 差量下载 | 包级差量（hash 变了的才下）；支持断点续传、多源降级、指数退避重试、磁盘预检 |
 | 校验与落地 | 尺寸 + SHA-256；下载写 `.part`、校验通过才原子改名，**不会出现半个包被当成好包** |
+| 候选版本门禁 | 新版本在切指针前做**整版校验**：逐包按目标 SHA-256 核对（含未变化包）、`ResMap` 每条映射都指向清单里的包、平台主包可读；小游戏端按 `Hash128`/`CRC` 预加载全部包后才生效 |
+| 失败回退 | 版本切换失败会自动恢复旧资源版本；手动回滚前框架也会先验证旧版本目录完整可用 |
 | 原子切换与回滚 | 版本目录 + 完成标记 + 版本指针原子替换；保留 N 个历史版本，回滚只改指针 |
 | 加载路径重定向 | 热更包从持久化目录读、没更新过的回退内置；**业务加载代码不变** |
 | 映射表热更 | `ResMap.txt` 与包同批更新 → **新增资源也能热更下发** |
@@ -381,7 +383,7 @@ RevHotUpdateResult result = await RevHotUpdate.UpdateAsync(check, p => bar.Set(p
 
 1. **打 AB**：框架打包工具 → `AssetBundles/<平台>/`（开"拷贝到 StreamingAssets"把首包放进包体）；
 2. **生成清单**：菜单 `Revolution.Tools / 热更新 / 热更清单窗口` → 填大版本 / 资源版本 → 点「生成清单」；
-3. **自检**：同一窗口点「自检」——缺包、大小不符、依赖不闭环、清单没带映射表，都会当场列出来；
+3. **自检**：同一窗口点「自检」——对发布目录里的清单、AB 与 `ResMap` 复算 SHA-256 与大小，检查缺包、文件名大小写、依赖闭环、映射引用、平台主包可读与首包基线一致性，问题当场列出；
 4. **上传内容**：把产物目录里的**包 + `ResMap.txt`** 传到 `{RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/{资源版本}/bundles|ResMap.txt`；
 5. **最后上传清单**：把 `RevHotManifest.txt` 传到 `{RemoteRoot}/{环境?}/{平台}/{大版本}/{渠道?}/`（**不带资源版本**的那一层）；
 6. **交给客户端**：客户端下次启动就会自己发现并更新。
@@ -447,7 +449,8 @@ RevHotUpdateResult result = await RevHotUpdate.UpdateAsync(check, p => bar.Set(p
 | `ManifestInvalid`（清单格式错） | 是不是把"上传到一半"的清单读到了；用记事本打开远端清单，看首行是否有 `@appVersion` 与 `@resVersion` |
 | `AppVersionMismatch`（要求更新客户端） | 远端清单的 `@appVersion` 与包体 `Application.version` 不一致 —— 这是**设计如此**（跨大版本必须重新出包）；跨大版本发布时记得把清单放到新大版本的目录里 |
 | 更新成功但资源没变 | ① 清单里的 hash 有没有真的变（改了资源要重新打包 + 重新生成清单）；② 客户端是不是走 AB 模式（编辑器直读模式看不到热更效果）；③ `Dump()` 看 `LocalResVersion` 是不是新版本 |
-| 断点续传没生效 | 服务器是否支持 `Range`（不支持时框架会**自动回退成整包重下**，日志里有写）；CDN 侧有没有把 Range 关掉 |
+| 断点续传没生效 | 服务器是否支持 `Range`（不支持时框架会**自动回退成整包重下**，日志里有写）；CDN 侧有没有把 Range 关掉。跨启动续传要求 `.part` 与 `.part.meta` 成对保留，换 CDN 源或换目标版本会丢弃旧分片 |
+| 激活失败后行为 | 切换失败会自动恢复上一个可用资源版本（日志有记录）；若连旧版本也无法装载，请按"最坏兜底"清目录回到出包状态 |
 | `VerifyFailed` | 服务器上的包与清单里的 hash 不一致（多半是"传了包没重新生成清单"或"传错了目录"）；框架已自动删半成品重下过，仍失败才报错 |
 | `DiskFull` | 本地可用空间不足（框架会预留 64MB 余量）；清理 `RevHotUpdate` 旧版本或换 `LocalRootOverride` |
 | Android 上首包加载失败 | ① `FirstPackageMode` 是不是被改成了 `ReadFromStreamingAssets`；② 首启落地是否被中断（重启游戏会自动续上） |
@@ -487,5 +490,5 @@ RevHotUpdateResult result = await RevHotUpdate.UpdateAsync(check, p => bar.Set(p
 
 ---
 
-*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/`（18 个 `.cs` / 3309 行）· 编辑器 `Assets/Revolution.HotUpdate/Editor/`（2 个 `.cs` / 427 行）· 框架侧两个钩子（`RevABLoader.BundlePathResolver` / `RevResBootstrap.ResMapOverride`，默认 `null`）。*
+*对应代码版本：运行时 `Assets/Revolution.HotUpdate/Runtime/` · 编辑器 `Assets/Revolution.HotUpdate/Editor/` · 框架接入的四个可空钩子（`BundlePathResolver` / `BundleCacheKeyResolver` / `DependenciesOverride` / `ResMapOverride`）。候选版本门禁与断点续传已实现，但尚未完成 Unity 编译与真机故障注入验收（见技术方案第十九章）。*
 *demo：`Assets/Revolution.Demo/RevHotUpdate.Demo/`（示例工程在 `demo` 分支：`git clone -b demo https://github.com/Yokino337088/Revolution.git Assets/Revolution.Demo`）。*

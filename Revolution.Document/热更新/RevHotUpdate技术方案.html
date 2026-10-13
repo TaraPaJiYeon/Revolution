@@ -99,7 +99,7 @@
   <div class="wrap">
     <span class="kicker">技术方案 · 已实现</span>
     <h1>RevHotUpdate · 资源热更新系统技术方案</h1>
-    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/Revolution.HotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br>★ <b>实施状态：已按本文第十五章的"最优方案"实现</b>（运行时 18 个 <code>.cs</code> / 3309 行 + 编辑器 2 个 <code>.cs</code> / 427 行），<br>代码落在 <code>Assets/Revolution.HotUpdate/</code>（本文写作时这个目录叫 <code>Assets/RevHotUpdate/</code>，后来按框架命名规范改名为 <code>Revolution.HotUpdate</code>；正文已统一用新路径）。<br>怎么用见《RevHotUpdate 使用说明》；为什么这么做、实现与方案有哪几处差异见《RevHotUpdate 架构解析》。</p>
+    <p>定位：给 Revolution 框架补上"AB 包从远端下载 + 版本管理 + 加载路径重定向"的能力。<br>形态：<b>独立包</b>（目录 <code>Assets/Revolution.HotUpdate/</code>，程序集 <code>Revolution.HotUpdate</code>）—— 导入即有、不导入零影响。<br>对标：YooAsset 的 <b>Online 模式</b>这一条最常用路径，其余全部砍掉；不引任何第三方依赖。<br><br>本文回答两个问题：<b>① 这事能不能干（可行性）；② 具体怎么干（实现方案）</b>。<br>所有"现状"结论都带代码出处（文件:行），所有"要新增"的地方都标了 ⚠️。<br><br><b>阅读约定（2026-10-13 源码复核）</b>：第〇～十八章保留立项论证/示意代码/目标验收，<b>不是当前实现保证</b>。“2 个钩子”“天然回滚”“跨启动续传”“发布自检已校验 hash”等已与代码不符；冲突时以<a href="#s22" style="color:#fff;text-decoration:underline">第十九章修订方案</a>为准。<code>Assets/Revolution.HotUpdate/</code> 已实现基础资源更新；本次只修订技术方案，未修改或验证运行时代码。参考 <code>F:\system\Program\GameScripts</code> 的资源更新链路；脚本/数据热修复不属于本包。<br><b>后续实施状态</b>：P0/P1 已开始落地（候选版本门禁/完整快照/续传/发布自检）；第十九章保留实施前风险快照，不等于 Unity 或真机验收通过。</p>
   </div>
 </header>
 
@@ -122,10 +122,11 @@
       <li><a href="#s12">十二、目录与产出物清单</a></li>
       <li><a href="#s13">十三、需要拍板的 5 个决策（每条已给推荐）</a></li>
       <li><a href="#s14">十四、按包标记来源的简化方案（第一档：分工层）</a></li>
-      <li><a href="#s15">十五、最终推荐方案（一页纸，照这个做）</a></li>
+      <li><a href="#s15">十五、历史推荐方案（以第十九章修订版为准）</a></li>
       <li><a href="#s16">十六、版本模型：大版本锚定（大版本内热更，跨大版本重出包）</a></li>
       <li><a href="#s17">十七、平台核实：Android / 小程序上还需要"路径重定向"吗？</a></li>
       <li><a href="#s18">十八、存储与 CDN 选型（Android + 小程序）</a></li>
+      <li><a href="#s22">十九、王者源码对照与修订后的实施方案</a></li>
       <li><a href="#s19">附录 A：清单样例全文</a></li>
       <li><a href="#s20">附录 B：一次完整热更的日志长什么样</a></li>
       <li><a href="#s21">附录 C：实施顺序建议（最不容易返工的顺序）</a></li>
@@ -140,7 +141,7 @@
         <thead><tr><th>维度</th><th>结论</th></tr></thead>
         <tbody>
           <tr><td><b>可行性</b></td><td>✅ <b>高</b>。框架的 AB 链路已经完成了热更最难的部分（依赖递归、包级引用计数、并发合并、异步加载），热更包只需要补"清单 + 下载 + 版本目录 + 路径重定向"四件事</td></tr>
-          <tr><td><b>要不要改框架</b></td><td>⚠️ <b>建议改 2 处，共约 15 行</b>（都是"默认 null = 行为与现在完全一致"的钩子）。坚持不改也能做，但代价很明确（见第十一章）</td></tr>
+          <tr><td><b>要不要改框架</b></td><td><b>已接入 4 个默认 null 的钩子</b>：路径、WebGL 缓存键、依赖覆盖、ResMap 覆盖；第十一章“2 处”是历史草案（见 19.2）</td></tr>
           <tr><td><b>代码量估算</b></td><td>运行时 ≈ 1600 行（含约 35% 注释）+ 编辑器工具 ≈ 600 行 + demo/文档</td></tr>
           <tr><td><b>工期估算</b></td><td>阶段 1（可用最小闭环）3~4 天；到"能上项目"12~15 天（含真机验证与文档）</td></tr>
           <tr><td><b>第三方依赖</b></td><td>✅ <b>0 个</b>。只用 Unity 内置 <code>UnityWebRequest</code> + 框架自带 <code>RevTask</code>；清单用自研行式文本（连 JSON 库都不需要）</td></tr>
@@ -148,8 +149,8 @@
           <tr><td><b>最大价值</b></td><td>不需要把业务迁到 YooAsset 的资源 API；热更是"加一层"，不是"换一套"</td></tr>
           <tr><td><b>最大风险</b></td><td>iOS 审核合规（纯资源热更 OK，代码热更不行 —— 本方案不做代码热更，方向一致）；Android 首包的 jar 路径问题（第三章 3.3、14.6 有解）</td></tr>
           <tr><td><b>推荐起步方式</b></td><td>⭐ <b>先做第十四章的"分工层"</b>（编辑器里标哪些包走热更 + 持久化优先/内置兜底）—— 它是本文档阶段 1~4 的真子集，3~4 天可独立验收，后续加下载层不返工</td></tr>
-          <tr><td><b>最终推荐</b></td><td>⭐⭐ <b>第十五章"一页纸"</b>：9 条设计决策（都附"为什么这样最稳"）+ 分期落地 + "为了稳"12 条清单 + "千万别做"8 条清单</td></tr>
-          <tr><td><b>版本模型</b></td><td>⭐ <b>大版本锚定</b>（第十六章）：<b>大版本内</b>用本框架热更资源；<b>跨大版本</b>必须重新出包（=<code>Application.version</code> 变化）。这让"基线""回滚""清单"三件事同时变简单，也是王者那套的做法</td></tr>
+          <tr><td><b>最终推荐</b></td><td><b>以第十九章修订方案为准</b>：先建立“目标版本能整体加载”的门槛，再谈回滚/分包/自动发布；第十五章是历史决策（实际 10 条）</td></tr>
+          <tr><td><b>版本模型</b></td><td><b>保留本项目 App 大版本锚定</b>以隔离资源兼容窗口；王者源码体现 App/主资源包分层与 internal 包基准，不能据此承诺“任意旧版指针回滚”或与 <code>Application.version</code> 完全相同（见 19.1）</td></tr>
           <tr><td><b>存储/CDN</b></td><td>⭐ <b>对象存储 + CDN</b>，首选 <b>腾讯云 COS + CDN</b>（与微信小游戏同生态、国内社区实践最多），次选阿里云 OSS + CDN；客户端只认"一个 HTTPS 域名 + 路径模板"，<b>不引任何云 SDK</b>（第十八章）</td></tr>
         </tbody>
       </table>
@@ -180,7 +181,7 @@
       <table>
         <thead><tr><th>不做</th><th>理由</th></tr></thead>
         <tbody>
-          <tr><td>❌ <b>代码热更</b>（HybridCLR / ILRuntime）</td><td>那是另一条技术线（要改 IL2CPP 与程序集拆分、iOS 审核风险最高）。本方案<b>不堵这条路</b>：热更下来的 dll 就是普通资源，打进 AB 后用 <code>RevResManager</code> 读 <code>bytes</code> → <code>Assembly.Load</code> 即可（见 5.13 的 10 行示意）</td></tr>
+          <tr><td>❌ <b>代码热更</b>（HybridCLR / ILRuntime / 脚本热修复）</td><td>与资源更新是独立的执行与安全边界。王者项目的 Puerts 模块覆盖与数据热修复不能推出已加载模块重新执行，更不能推出 Unity/IL2CPP 能直接热换 C# 程序集；本包不提供代码执行能力（见 19.5）。</td></tr>
           <tr><td>❌ AB <b>加密 / 防篡改签名</b></td><td>AB 本来就是可解包的二进制，加密只提高门槛、不解决根本问题，且会让"体积/加载耗时/排查难度"三样一起涨。需要时作为独立可选模块（钩子已留）</td></tr>
           <tr><td>❌ <b>二进制级差量</b>（bsdiff / 按 chunk 打补丁）</td><td>收益不稳定（LZ4 已经块压缩，改一张图就会波及多个块），实现与验证成本极高。<b>做包级差量</b>：只重下"内容变了的包"（5.3）</td></tr>
           <tr><td>❌ <b>灰度发布 / 分渠道分流</b></td><td>属于运营后台能力。本方案只提供 <code>Channel</code> 目录段（<code>.../&lt;平台&gt;/&lt;渠道&gt;/</code>），分流策略由你们的 CDN/服务端做</td></tr>
@@ -682,13 +683,8 @@ RevLog 出口                 <span class="c">// tag = "HotUpdate"；失败必�
         </tbody>
       </table>
     </div>
-    <h3>5.13 顺带说明：代码热更怎么接（本方案不堵这条路）</h3>
-    <pre><span class="c">// 资源热更做完之后，代码热更（HybridCLR）只需要把 dll 当普通资源：</span>
-RevResManager.LoadAsync&lt;TextAsset&gt;(RevResPath.HotCode, <span class="s">"GameLogic"</span>, ta =&gt;
-{
-    System.Reflection.Assembly.Load(ta.bytes);      <span class="c">// 10 行接入，本文档不展开</span>
-}, RevResGroup.Config);</pre>
-    <p>也就是说：<b>热更包负责"把文件搬到本地并保证完整"，代码热更负责"加载程序集"</b> —— 两者是叠放关系，不冲突。这也是把"只做资源热更"作为本期边界的底气。</p>
+    <h3>5.13 代码热更不是资源热更的自动延伸</h3>
+    <p><code>RevHotUpdate</code> 只负责 AB/ResMap 的版本、传输和加载来源，不接管脚本执行器。<b>不得把下载到的程序集直接 <code>Assembly.Load</code> 并声称支持 IL2CPP 热更</b>：还需要独立的运行时、程序集构建与平台合规评估。王者源码的 <code>CHotFixSystem</code>/Puerts 是另一条脚本和数据热修复链，也不等同 C# 程序集替换；本期不实现。未来若单独立项，先定义代码签名/信任链、灰度/强更和平台能力（见 19.5）。</p>
   </section>
 
   <!-- ==================== 六、对外 API 草案（业务只用 3 个入口） ==================== -->
@@ -1238,9 +1234,9 @@ RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生�
 
   <!-- ==================== 十五、最终推荐方案（一页纸，照这个做） ==================== -->
   <section id="s15">
-    <h2><span class="num">15</span>最终推荐方案（一页纸，照这个做）</h2>
-    <div class="callout">
-      <p>前面十四章是论证与备选；<b>这一章是结论</b>：一套方案、一条实施路径、两张"踩坑清单"。</p>
+    <h2><span class="num">15</span>历史推荐方案（现以第十九章修订版为准）</h2>
+    <div class="callout warn">
+      <p><b>历史草案，不可照此当作已交付能力。</b>旧版本回滚、杀进程续传、两钩子、坏包绝不加载等目标未被当前实现保证；实际差距、优先级与验收标准请看<a href="#s22">第十九章</a>。</p>
       <p>一句话：<b>两个根 + 一份表 + 一个版本目录 + 两处不可见钩子。</b></p>
     </div>
     <h3>15.1 一张图看懂</h3>
@@ -1710,6 +1706,60 @@ RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生�
     </div>
   </section>
 
+  <!-- ==================== 十九、王者源码对照与修订后的实施方案 ==================== -->
+  <section id="s22">
+    <h2><span class="num">19</span>王者源码对照与修订后的实施方案</h2>
+    <div class="callout warn"><span class="t">2026-10-13 源码复核；本章优先于历史草案</span>王者值得借鉴的不是 QTS/IIPS 的规模，而是<b>启动分阶段 → 必需包与兼容先过关 → 校验、安装、挂载成功才宣布可用 → 中断/坏包有明确恢复路径</b>。本章记录实施前的风险快照；P0/P1 已随后开始编码，但仍未执行 Unity、真机或故障注入验证，不代表可上线。</div>
+
+    <h3>19.1 王者真实链路：迁移关口，不迁移基础设施</h3>
+    <div class="table-wrap"><table><thead><tr><th>源码证据（绝对路径、行号）</th><th>看到的机制</th><th>可迁移的原则</th></tr></thead><tbody>
+      <tr><td><code>F:\system\Program\GameScripts\BaseScripts\Domestic\Framework\GameState\VersionUpdateState.cs:142-174,240-249</code>；<code>F:\system\Program\GameScripts\SystemScripts\Domestic\GameSystem\VersionUpdate\chs\CQtsvfsVersionUpdateSystem.cs:679-755</code></td><td>启动状态中按 App、更新前配置、本地包/平台抽取、推荐下载、安装、整理、修复、导出、加载编排 Action；Editor / <code>SGAME_LITE</code> 有跳过路径</td><td>进入游戏之前设置有序门禁；国内/国际、Editor 与小游戏不是同一套启动流程</td></tr>
+      <tr><td><code>F:\system\Program\GameScripts\Plugins\Shared\Resource\ResourcePackage\CResourcePackageManager.cs:90-145</code>；<code>F:\system\Program\GameScripts\SystemScripts\Domestic\GameSystem\VersionUpdate\VersionUpdateAction\CVersionUpdateRecommendDownloadAction.cs:414-456</code></td><td>internal 包作为必装基准，必需列表和推荐下载分开</td><td>区分启动必需集和可选集；先保证最低可玩集的依赖闭包</td></tr>
+      <tr><td><code>F:\system\Program\GameScripts\Plugins\Shared\Resource\ResourcePackage\updater\CResourceDownLoaderOnStart.cs:359-456</code>；<code>F:\system\Program\GameScripts\SystemScripts\Domestic\GameSystem\VersionUpdate\VersionUpdateAction\CVersionUpdateGetPreUpdateConfigAction.cs:27-150</code></td><td>更新服务下发目标版本、文件信息；使用缓存配置前验证 MD5</td><td>先验配置与目标版本，再计划下载；主链使用 IIPS/fileInfo、<code>phoneSpecList.tsv</code> 等，不是单一 <code>manifest.json</code></td></tr>
+      <tr><td><code>F:\system\Program\GameScripts\SystemScripts\Domestic\GameSystem\VersionUpdate\VersionUpdateAction\CVersionUpdateExportAction.cs:37-61</code>；<code>F:\system\Program\GameScripts\Plugins\Shared\Resource\QtsvfsResourceSystem\CQtsvfsPackageManager.cs:2949-2989</code></td><td>导出前检查包可用并要求挂载成功</td><td><b>下载完成不等于版本可用</b>；候选版本能装载才可宣布 Ready</td></tr>
+      <tr><td><code>F:\system\Program\GameScripts\Plugins\Shared\Resource\QtsvfsResourceSystem\CQtsvfsPackageManager.cs:554-606</code></td><td>恢复中断的 merge；坏包卸载，其余恢复错误上报</td><td>显式区分中断、坏包、未知错误；不是“任意旧版一键回滚”</td></tr>
+    </tbody></table></div>
+    <p><b>不迁移</b> IIPS/Apollo/QTS native、QTS 包格式、TSV 字段、包 ID、项目编译宏；继续复用 <code>RevABLoader</code> 与 <code>RevTask</code>。App 更新与资源更新分层；<code>F:\system\Program\GameScripts\BaseScripts\Shared\HotFix\CHotFixSystem.cs:46-105</code>、<code>F:\system\Program\GameScripts\SystemScripts\Domestic\GameSystem\PandoraSystem\PandoraSys_Puerts.cs:1992-2014</code> 属独立脚本/数据热修复链，不能据此宣称 C# 代码可热更。</p>
+
+    <h3>19.2 当前实现的边界（以下才是已实现）</h3>
+    <div class="table-wrap"><table><thead><tr><th>环节</th><th>当前代码证据与现状</th><th>旧方案中尚未兑现的保证</th></tr></thead><tbody>
+      <tr><td>框架接缝</td><td><code>Runtime/Integration/RevHotResBridge.cs:31-56</code> 装 <b>4 个</b>钩子：<code>BundlePathResolver</code>、<code>BundleCacheKeyResolver</code>、<code>DependenciesOverride</code>、<code>ResMapOverride</code></td><td>前文“仅 2 个钩子”是历史草案；依赖和缓存键也必须随版本同步</td></tr>
+      <tr><td>差量/回退</td><td><code>Runtime/Pipeline/RevHotPlanner.cs:27-83</code> 同 hash 跳过；<code>RevHotStore.cs:243-273,750-803</code> 查当前目录→历史目录→内置；旧目录按数量删</td><td>目录不是完整快照：可能删掉仍被新版本引用的未变包，或旧版本捡到新版包，不能承诺任意版本回滚</td></tr>
+      <tr><td>续传</td><td><code>Runtime/Download/RevHotDownloader.cs:266-383</code> 有 Range/.part，但每次进入第一个源也删掉 .part（273-278）</td><td>尚不保证跨启动续传；不同源不能拼半包</td></tr>
+      <tr><td>激活</td><td><code>Runtime/Facade/RevHotUpdate.cs:352-390</code> 先 stamp/切 current/清旧目录，再重装资源策略</td><td>重装失败也可能已改指针；“失败绝不影响旧版”“坏包绝不加载”未被证明</td></tr>
+      <tr><td>发布校验</td><td><code>Runtime/Core/RevHotManifest.cs:150-256</code> 仅校验基础字段/可选包数；<code>Editor/RevHotManifestBuilder.cs:168-219</code> 检查包存在/大小/直接依赖</td><td>不重算内容 hash，未完整拦截重名、危险路径、自依赖、循环与依赖闭包；tags/首包集合尚非可用按需能力</td></tr>
+      <tr><td>WebGL</td><td><code>Runtime/Pipeline/RevHotStore.cs:247-251,315-349</code> AB 按 URL/可选缓存键加载</td><td>文件下载器的多源、Header、Range 和 SHA 文件校验不自动覆盖 AB 请求；小游戏真机仍须验收</td></tr>
+    </tbody></table></div>
+    <p>表中相对路径以前缀 <code>g:\Revolution\RevolutionFrameWork_Unity\Assets\Revolution.HotUpdate\</code> 为准。Hash/CRC 是内容完整性或缓存标识，不证明<b>清单来源可信</b>；抵御篡改需另设计清单签名与公钥分发。</p>
+
+    <h3>19.3 优化目标：轻量候选版本门禁</h3>
+    <div class="table-wrap"><table><thead><tr><th>优先级</th><th>目标（尚未实现）</th><th>验收与原因</th></tr></thead><tbody>
+      <tr><td><b>P0 必需集</b></td><td>清单明确主包、依赖闭包、ResMap 和首屏必需 AB；出包及客户端分别核验 App/平台/渠道、包名路径、非空 SHA-256、大小、唯一性、无自依赖/环及闭包，失败不得激活</td><td>把 internal 必装原则变成可验证的最低可玩集；测试缺主包/跨平台/危险路径/缺依赖</td></tr>
+      <tr><td><b>P0 内容索引</b></td><td>目标包索引记录包名→目标 hash/实际来源；来源 hash 必须与目标清单一致；旧目录清理前分析当前/可回退版本的依赖引用。优先构造完整快照，或至少禁止删除仍被引用的目录</td><td>连续 10 次少量增量且 <code>KeepVersions=2</code> 后包全部可加载，老版本不捡新版同名包</td></tr>
+      <tr><td><b>P0 提交/恢复</b></td><td><code>Check → Plan → Download → Verify → Stage → ValidateCandidate → Activate → Reinit → Ready</code>；切指针前保留已验证旧版；切后 Init/主包失败就恢复指针和旧策略；重启识别未完成候选并清理/重试，确认可用前不删旧依赖</td><td>下载中断、校验错误、切指针后 Init 失败均不得报 Ready；旧版恢复失败必须停在明确错误/修复入口</td></tr>
+      <tr><td><b>P0 业务静默切换点</b></td><td><code>RevHotResBridge.ReinitResourceSystem()</code> 会 <code>ShutdownAll → Init</code>；只在启动前或业务明确退出玩法、释放资源句柄和在途加载后生效；战斗中仅下载暂存，安全点再切。<code>RevScope</code> 可收束玩法域，但不能盲目 <code>ExitAll</code> 或强制关闭 UI/场景</td><td>避免战斗中卸载正在用的 AB；验收战斗中发现更新不激活、回到安全点后生效</td></tr>
+      <tr><td><b>P1 跨启动续传</b></td><td>同一源初次重试保留 .part；按目标版本+包名+期望 hash 标识，跨源清除或先验同内容；核对 HTTP 206 的 Content-Range，200 则从 0 重下</td><td>杀进程后只下剩余字节；换源不拼错文件，验收之前不对外承诺续传</td></tr>
+      <tr><td><b>P1 发布门禁</b></td><td>从最终上传目录复算 SHA-256/大小，验证 ResMap 与包、主包依赖闭包、无重名/路径穿越/自依赖和平台一致性；上传内容并校验可取后，最后上传清单。上传脚本与 CI 集成另排期</td><td>现有 <code>SelfCheck</code> 不能作为完整校验/无人值守发布的证明</td></tr>
+      <tr><td><b>P2 可选分包</b></td><td>在 P0 成立后区分启动必需包与玩法可选包；可选包由业务入口触发，失败只影响玩法</td><td>借鉴必需/推荐分层，不复制 native 二进制 diff 或为未验证需求加复杂状态机</td></tr>
+    </tbody></table></div>
+    <div class="callout warn"><b>失败按阶段处理：</b>仅在本地有已验证且与当前客户端兼容的旧版时可按业务策略降级；强更/缺首屏包不能静默降级。候选失败不切新；切新后重装失败须尝试恢复受保护旧版，双败则明确阻止进入游戏。日志记 App/资源版本、目标 hash、实际来源、错误码与回退结果，<b>不记录签名 URL/令牌</b>。</div>
+
+    <h3>19.4 平台分路与验收</h3>
+    <div class="table-wrap"><table><thead><tr><th>平台</th><th>保留路径</th><th>额外门槛</th></tr></thead><tbody>
+      <tr><td>Android / PC / iOS（文件型）</td><td>包级差量、内置/StreamingAssets 基线、.part + SHA-256、版本目录；Android 首包落地</td><td>多次增量/旧目录清理/跨启动续传/切指针后回退；iOS 内容审核独立评估</td></tr>
+      <tr><td>Unity WebGL / 小游戏（URL 型）</td><td>清单决定目标 URL，AssetBundle 按引擎 API 加载并在有 Hash128/CRC 时利用缓存键</td><td><b>核实主包来源</b>：若仍读 StreamingAssets，不能说“全部 CDN”；文件下载器备用源/Header 不自动生效；微信/抖音容器的域名、CORS、缓存与版本 URL 隔离需真机验收</td></tr>
+    </tbody></table></div>
+    <p><b>尚未执行的最小验收：</b>新装机离线基线；篡改已下载包；10 次增量且只保留 2 版；旧版不加载新版包；ResMap 删除/重命名；断网/杀进程/Range 200 与 206 异常；截断、重名、危险路径；候选校验失败；<b>切指针后 Init 失败</b>；WebGL 主包/依赖同版本与真机 CORS/缓存。每项记录目标版本、包来源和结果；第八章“8 项全过”仅是历史验收目标，不是完成报告。</p>
+
+    <h3>19.5 保留边界与最终决策</h3>
+    <ul>
+      <li><b>保留</b>独立包、4 个默认可空接缝、既有资源 API、行式清单、包级差量、App 版本目录隔离、对象存储/CDN“内容先于清单”的发布顺序；不加云 SDK 或 QTS/IIPS。</li>
+      <li><b>修正</b>前文的“任意旧版回滚”“坏包绝不加载”“跨启动续传”“WebGL 全走 CDN”“已有上传脚本/CI”“仅 2 钩子”：只有门禁实现且验收后方可宣称。ResMap 合并只能覆盖/新增，<b>无法删除旧键</b>；破坏性重构必须拒绝或另设计全量替换。</li>
+      <li><b>不做</b>代码热更、热修复执行、二进制差量、QTS native 与灰度后台。未来有脚本热更需求需独立立项并设计签名、审计和平台合规；先保证资源更新失败时不发布不可用版本。</li>
+    </ul>
+    <div class="callout good"><b>本篇结论：</b>先让“目标版本每个包从哪里来、是否真能加载、失败后如何回到已验证版本”成为可检查的事实，再谈分包和体验优化；王者的价值在更新门禁与恢复策略，不在照搬重型原生包系统。</div>
+  </section>
+
   <!-- ==================== 附录 A：清单样例全文 ==================== -->
   <section id="s19">
     <h2><span class="num">A</span>清单样例全文</h2>
@@ -1731,8 +1781,8 @@ RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生�
 # 映射表也要热更（新增资源全靠它）
 @resmap|ResMap.txt|3f7a1c9d4b6e8f20a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e|20481
 
-# 包：名称|hash|字节|依赖|标签（builtin = 首包内置；hot = 可热更；optional = 按需下载）
-@bundle|common|7c1e...|1572864|common|builtin,hot
+# 包：名称|hash|字节|依赖|标签（以下仅展示格式；省略号不是可用 hash，标签不代表已实现按需下载）
+@bundle|common|7c1e...|1572864||builtin,hot
 @bundle|ui_login|9b2f...|1048576|common|builtin,hot
 @bundle|ui_bag|1a3d...|2097152|common,ui_login|hot
 @bundle|hero|5e6f...|15728640|common|hot
@@ -1782,7 +1832,7 @@ RevResBootstrap.Instance.Init();          // ② 重装策略 → 新文件生�
 </main>
 
 <footer>
-  对应代码版本：<code>Assets/Revolution.HotUpdate/</code>（运行时 18 个 <code>.cs</code> / 3309 行 · 编辑器 2 个 <code>.cs</code> / 427 行）+ 框架 <code>RevResourceSystem</code>（<code>RevABLoader.BundlePathResolver</code> · <code>RevResBootstrap.ResMapOverride</code> 两个钩子，默认 <code>null</code>）。<br>
+  当前决策见<a href="#s22">第十九章</a>；参考源码 <code>F:\system\Program\GameScripts\</code>；实现位于 <code>Assets/Revolution.HotUpdate/</code>，框架通过 <code>BundlePathResolver</code>、<code>BundleCacheKeyResolver</code>、<code>DependenciesOverride</code> 与 <code>ResMapOverride</code> 四个可空钩子接入。P0/P1 已开始编码，Unity/真机故障注入尚待验收。<br>
   权威版（MD）：<code>Revolution.Document\热更新\RevHotUpdate技术方案.md</code> · <a href="../index.html">文档总入口</a> · <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
 </footer>
 
