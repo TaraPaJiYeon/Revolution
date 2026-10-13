@@ -6,7 +6,7 @@
 // 【失败处理的三层结构】（从里到外）
 //   TryDownloadOnceAsync ：一次尝试 = 断点续传下载 → 校验 → 原子提交；
 //                          失败抛 RevHotException，其中"校验失败"会先删掉半成品并标记为可重试。
-//   DownloadOneAsync     ：一个文件 = 换源（外层）× 重试退避（内层）；换源前删 .part（不同源内容可能不一致）。
+//   DownloadOneAsync     ：一个文件 = 换源（外层）× 重试退避（内层）；只保留身份匹配的同源 .part。
 //   DownloadPlanAsync    ：整批 = N 个工人从共享游标领任务；任何失败 → 停止领新任务，等在跑的收尾后统一上抛。
 //
 // 【为什么"取消"要单独处理】
@@ -269,23 +269,32 @@ namespace Revolution.HotUpdate
 
             List<RevHotSource> sources = RevHotSources.Build(config);
             RevHotException last = null;
+            string partPath = RevHotStore.PartPath(item.LocalPath);
 
             for (int s = 0; s < sources.Count; s++)
             {
-                // ★ 换源前删掉半成品：不同源的内容不能拼在一起（校验必挂）
-                RevHotStore.DeleteFile(RevHotStore.PartPath(item.LocalPath));
+                token.ThrowIfCancelled();
+                try
+                {
+                    // 首源允许跨启动续传；切源不拼接来自另一 CDN 的字节。
+                    if (s > 0) ClearPart(partPath);
+                }
+                catch (IOException e)
+                {
+                    throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, "清理旧下载分片失败：" + e.Message, partPath), false);
+                }
+
+                string url = item.IsResMap
+                    ? RevHotUrlBuilder.ResMapUrl(config, sources[s].Root, resVersion)
+                    : RevHotUrlBuilder.BundleUrl(config, sources[s].Root, resVersion, item.Name);
 
                 for (int attempt = 0; attempt <= config.RetryCount; attempt++)
                 {
                     token.ThrowIfCancelled();
                     try
                     {
-                        string url = item.IsResMap
-                            ? RevHotUrlBuilder.ResMapUrl(config, sources[s].Root, resVersion)
-                            : RevHotUrlBuilder.BundleUrl(config, sources[s].Root, resVersion, item.Name);
-
-                        await TryDownloadOnceAsync(item, url, config, progress, token);
-                        return;                                        // 成功
+                        await TryDownloadOnceAsync(item, resVersion, url, config, progress, token);
+                        return;
                     }
                     catch (RevOperationCanceledException)
                     {
@@ -293,13 +302,13 @@ namespace Revolution.HotUpdate
                     }
                     catch (RevHotException e) when (e.Retryable == false)
                     {
-                        throw;                                         // 磁盘满这类：重试没有意义
+                        throw;
                     }
                     catch (RevHotException e)
                     {
                         last = e;
                         RevLog.Warn(item.Name + " 下载失败（" + sources[s] + "，第 " + (attempt + 1) + " 次）：" + e.Error.Message, config.LogTag);
-                        await BackoffDelayAsync(BackoffMs(config, attempt), token);   // 指数退避：给 CDN / 网络喘口气（可取消）
+                        if (attempt < config.RetryCount) await BackoffDelayAsync(BackoffMs(config, attempt), token);
                     }
                 }
 
@@ -309,77 +318,293 @@ namespace Revolution.HotUpdate
             throw last ?? new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 下载失败（所有下载源都已尝试）"), true);
         }
 
-        /// <summary>一次尝试：断点续传下载 → 校验（失败删半成品并标记可重试）→ 原子提交。</summary>
-        private static async RevTask TryDownloadOnceAsync(WorkItem item, string url, RevHotConfig config, RevHotProgressAggregator progress, RevCancellationToken token)
+        /// <summary>一次尝试：匹配分片身份 → 流式下载 → 校验 → 原子提交。</summary>
+        private static async RevTask TryDownloadOnceAsync(WorkItem item, string resVersion, string url, RevHotConfig config, RevHotProgressAggregator progress, RevCancellationToken token)
         {
             string partPath = RevHotStore.PartPath(item.LocalPath);
-
-            // DownloadHandlerFile 不会自己建目录 —— 先把目录建出来
             string dir = Path.GetDirectoryName(item.LocalPath);
-            if (string.IsNullOrEmpty(dir) == false) Directory.CreateDirectory(dir);
 
-            long offset = RevHotStore.ExistingLength(partPath);
-            if (offset > item.Size)
+            try
             {
-                // 半成品比目标还大：内容已经没救了（多半是换过版本），从头再来
-                RevHotStore.DeleteFile(partPath);
-                offset = 0;
-            }
+                if (string.IsNullOrEmpty(dir) == false) Directory.CreateDirectory(dir);
+                long offset = PreparePart(partPath, item, resVersion, url);
 
-            using (UnityWebRequest www = UnityWebRequest.Get(url))
-            {
-                ApplyHeaders(www, config);
-                www.timeout = config.TimeoutSeconds;
-
-                if (offset > 0)
+                // 上次可能刚下载完就退出：验证完整分片，不发送必然返回 416 的 Range 请求。
+                if (offset == item.Size && File.Exists(partPath))
                 {
-                    // 断点续传：从半成品的长度继续要
-                    www.SetRequestHeader("Range", "bytes=" + offset + "-");
+                    try
+                    {
+                        await VerifyAndCommitAsync(partPath, item, config, token);
+                        return;
+                    }
+                    catch (RevHotException e) when (e.Error.Code == RevHotErrorCode.VerifyFailed)
+                    {
+                        // 已满长度却校验失败，原有前缀不可信，立即从零重下。
+                        offset = PreparePart(partPath, item, resVersion, url);
+                    }
                 }
 
-                // ★ 追加写：offset > 0 时从 .part 的末尾继续写
-                www.downloadHandler = new DownloadHandlerFile(partPath, offset > 0);
-
-                var op = www.SendWebRequest();
-                while (op.isDone == false)
+                // 只有 Range 被无视 (200) 或已失效 (416) 时，允许本次尝试内重发一次完整 GET。
+                for (int restart = 0; restart < 2; restart++)
                 {
                     token.ThrowIfCancelled();
-                    progress.SetFileBytes(item.Name, offset + (long)www.downloadedBytes);
-                    await RevTask.Yield();
+                    var handler = new RangeFileHandler(partPath, offset, item.Size);
+                    using (UnityWebRequest www = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET))
+                    {
+                        handler.Attach(www);
+                        www.downloadHandler = handler;
+                        ApplyHeaders(www, config);
+                        www.timeout = config.TimeoutSeconds;
+                        if (offset > 0) www.SetRequestHeader("Range", "bytes=" + offset + "-");
+
+                        var op = www.SendWebRequest();
+                        try
+                        {
+                            while (op.isDone == false)
+                            {
+                                token.ThrowIfCancelled();
+                                progress.SetFileBytes(item.Name, Math.Min(item.Size, offset + (long)www.downloadedBytes));
+                                await RevTask.Yield();
+                            }
+                        }
+                        finally
+                        {
+                            if (op.isDone == false) www.Abort();
+                            handler.CloseFile();
+                        }
+
+                        if (offset > 0 && (www.responseCode == 200 || www.responseCode == 416))
+                        {
+                            ClearPart(partPath);
+                            offset = PreparePart(partPath, item, resVersion, url);
+                            progress.SetFileBytes(item.Name, 0);
+                            continue;
+                        }
+
+                        if (handler.WriteError != null)
+                        {
+                            throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, "写入下载分片失败：" + handler.WriteError, partPath), false);
+                        }
+
+                        if (www.result != UnityWebRequest.Result.Success)
+                        {
+                            if (handler.InvalidResponse) ClearPart(partPath);
+                            string reason = handler.InvalidResponse ? handler.Error : www.error;
+                            throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 下载失败（" + reason + "）", url), true);
+                        }
+
+                        if (handler.ValidateResponse() == false)
+                        {
+                            ClearPart(partPath);
+                            throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 响应无效（" + handler.Error + "）", url), true);
+                        }
+
+                        if (offset + handler.ReceivedBytes < item.Size)
+                        {
+                            // 合法但未传完的前缀仍可续传（有些 CDN 会返回短 206）。
+                            throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 响应内容未传完", url), true);
+                        }
+                    }
+
+                    if (item.Size == 0 && File.Exists(partPath) == false)
+                    {
+                        using (File.Create(partPath)) { }
+                    }
+
+                    await VerifyAndCommitAsync(partPath, item, config, token);
+                    return;
                 }
 
-                if (www.result != UnityWebRequest.Result.Success)
-                {
-                    throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 下载失败（" + www.error + "）", url), true);
-                }
-
-                // ★ 服务器不支持 Range 时会无视请求头、返回 200 + 整份内容：
-                //   此时我们却在"追加写"，文件必然损坏 —— 删掉 .part，从头重试。
-                if (offset > 0 && www.responseCode != 206)
-                {
-                    RevHotStore.DeleteFile(partPath);
-                    string reason = item.Name + " 下载源不支持断点续传，已回退为重新下载";   // 消息先拼好，抛出语句就能写成单行
-                    throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, reason, url), true);
-                }
+                throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, item.Name + " 断点请求无法回退到完整下载", url), true);
             }
+            catch (IOException e)
+            {
+                throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, "下载分片读写失败：" + e.Message, partPath), false);
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                throw new RevHotException(RevHotError.Of(RevHotErrorCode.DownloadFailed, "下载分片无访问权限：" + e.Message, partPath), false);
+            }
+        }
 
-            // ---------- 校验（尺寸 + hash）。失败 → 删半成品 → 标记可重试（重试即从头下载） ----------
+        private static async RevTask VerifyAndCommitAsync(string partPath, WorkItem item, RevHotConfig config, RevCancellationToken token)
+        {
+            token.ThrowIfCancelled();
             try
             {
                 await RevHotVerifier.VerifyAsync(partPath, item.Size, item.Sha256, config.VerifyMode, config, token);
             }
-            catch (RevHotException e)
+            catch (RevHotException e) when (e.Error.Code == RevHotErrorCode.VerifyFailed)
             {
-                if (e.Error.Code == RevHotErrorCode.VerifyFailed)
-                {
-                    RevHotStore.DeleteFile(partPath);
-                    throw new RevHotException(e.Error, true);
-                }
-
-                throw;
+                ClearPart(partPath);
+                throw new RevHotException(e.Error, true);
             }
 
+            token.ThrowIfCancelled();
             RevHotStore.CommitFile(partPath, item.LocalPath);
+            RevHotStore.DeleteFile(partPath + ".meta");
+        }
+
+        /// <summary>身份与路径同时匹配才保留分片；写元数据在开始下载之前，取消时不会抹掉它。</summary>
+        private static long PreparePart(string partPath, WorkItem item, string resVersion, string url)
+        {
+            string identity = string.Join("\n", new[]
+            {
+                "RevHotPart1", resVersion, item.Name, item.Size.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                item.Sha256 ?? string.Empty, url
+            });
+            string metaPath = partPath + ".meta";
+            bool canResume = File.Exists(partPath) && File.Exists(metaPath)
+                && string.Equals(File.ReadAllText(metaPath), identity, StringComparison.Ordinal);
+            long offset = canResume ? new FileInfo(partPath).Length : 0;
+            if (!canResume || offset > item.Size || offset < 0)
+            {
+                ClearPart(partPath);
+                File.WriteAllText(metaPath, identity);
+                return 0;
+            }
+
+            return offset;
+        }
+
+        private static void ClearPart(string partPath)
+        {
+            if (File.Exists(partPath)) File.Delete(partPath);
+            string metaPath = partPath + ".meta";
+            if (File.Exists(metaPath)) File.Delete(metaPath);
+        }
+
+        /// <summary>只在确认响应为完整 200 或起点/总长匹配的 206 后才将数据写入 .part。</summary>
+        private sealed class RangeFileHandler : DownloadHandlerScript
+        {
+            private readonly string _partPath;
+            private readonly long _offset;
+            private readonly long _expectedSize;
+            private UnityWebRequest _request;
+            private FileStream _stream;
+            private bool _checked;
+            private long _rangeLength;
+            private long _received;
+
+            public bool RestartFromZero { get; private set; }
+            public bool InvalidResponse { get; private set; }
+            public string Error { get; private set; }
+            public string WriteError { get; private set; }
+            public long ReceivedBytes { get { return _received; } }
+
+            public RangeFileHandler(string partPath, long offset, long expectedSize) : base(new byte[64 * 1024])
+            {
+                _partPath = partPath;
+                _offset = offset;
+                _expectedSize = expectedSize;
+            }
+
+            public void Attach(UnityWebRequest request)
+            {
+                _request = request;
+            }
+
+            public bool ValidateResponse()
+            {
+                if (_checked) return !InvalidResponse && !RestartFromZero;
+                _checked = true;
+                long status = _request.responseCode;
+                if (status == 200 && _offset > 0)
+                {
+                    RestartFromZero = true;
+                    Error = "服务器忽略 Range，必须重新下载";
+                    return false;
+                }
+
+                if (status == 200 && _offset == 0)
+                {
+                    _rangeLength = _expectedSize;
+                    return true;
+                }
+
+                if (status == 206 && _offset > 0 && ParseContentRange(_request.GetResponseHeader("Content-Range"), out long end))
+                {
+                    _rangeLength = end - _offset + 1;
+                    string contentLength = _request.GetResponseHeader("Content-Length");
+                    if (string.IsNullOrEmpty(contentLength) ||
+                        (long.TryParse(contentLength, System.Globalization.NumberStyles.None,
+                            System.Globalization.CultureInfo.InvariantCulture, out long length) && length == _rangeLength))
+                    {
+                        return true;
+                    }
+                }
+
+                InvalidResponse = true;
+                Error = "HTTP " + status + " 的 Content-Range 起点/总长与清单不符";
+                return false;
+            }
+
+            protected override bool ReceiveData(byte[] data, int dataLength)
+            {
+                if (data == null || dataLength <= 0) return true;
+                if (ValidateResponse() == false) return false;
+                if (dataLength > _rangeLength - _received)
+                {
+                    InvalidResponse = true;
+                    Error = "响应体超过声明的范围";
+                    return false;
+                }
+
+                try
+                {
+                    if (_stream == null)
+                    {
+                        _stream = new FileStream(_partPath, _offset > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read);
+                    }
+
+                    _stream.Write(data, 0, dataLength);
+                    _received += dataLength;
+                    return true;
+                }
+                catch (IOException e)
+                {
+                    WriteError = e.Message;
+                    return false;
+                }
+                catch (UnauthorizedAccessException e)
+                {
+                    WriteError = e.Message;
+                    return false;
+                }
+            }
+
+            private bool ParseContentRange(string header, out long end)
+            {
+                end = 0;
+                if (string.IsNullOrEmpty(header) || !header.StartsWith("bytes ", StringComparison.OrdinalIgnoreCase)) return false;
+                int dash = header.IndexOf('-', 6);
+                int slash = header.IndexOf('/', dash + 1);
+                if (dash <= 6 || slash <= dash + 1) return false;
+
+                var style = System.Globalization.NumberStyles.None;
+                var culture = System.Globalization.CultureInfo.InvariantCulture;
+                return long.TryParse(header.Substring(6, dash - 6), style, culture, out long start)
+                    && long.TryParse(header.Substring(dash + 1, slash - dash - 1), style, culture, out end)
+                    && long.TryParse(header.Substring(slash + 1), style, culture, out long total)
+                    && start == _offset && total == _expectedSize && end >= start && end < total;
+            }
+
+            public void CloseFile()
+            {
+                if (_stream == null) return;
+                try
+                {
+                    _stream.Dispose();
+                }
+                catch (IOException e)
+                {
+                    WriteError = e.Message;
+                }
+                finally
+                {
+                    _stream = null;
+                }
+            }
         }
 
         // ============================================================

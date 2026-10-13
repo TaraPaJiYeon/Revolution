@@ -426,7 +426,8 @@ true
 > **架构建议：先使用单 Canvas。** 默认 `RevUISetting.CanvasArchitecture = RevUICanvasArchitecture.Single`，无需额外设置；即使面板里有动画、倒计时或滚动内容，只要在目标设备上满足帧预算，就继续使用单 Canvas。只有定位到 Canvas 合批确实成为瓶颈，且常规优化后仍不达标，才按下文步骤评估三 Canvas。
 
 - **默认渲染模式是 `ScreenSpaceOverlay`** ✓（不需要相机、UI 永远最上层）—— 要改就设 `RevUISetting.CanvasMode`；
-- 框架**默认加载** `Resources/RevUIPrefab/RevUICanvas.prefab` 来渲染 ✓（Overlay / 1920×1080 / match 0.5 / sortingOrder 100）；
+- 框架**默认加载** `Resources/RevUIPrefab/RevUICanvas.prefab` 来渲染 ✓（Overlay / 横屏设计 1920×1080 / match 0.5 / sortingOrder 100）；
+- **横竖屏由项目选择** ✓：`RevUISetting.CanvasOrientation` 可选 `Landscape`（横屏）、`Portrait`（竖屏）、`Auto`（跟随实际屏幕宽高，默认）或 `UseDesign`（完全使用预制体原配置）。默认预制体横屏为 1920×1080 / match 0.5，切到竖屏时根 `CanvasScaler` 用 1080×1920 / match 0；自定义预制体以其 Inspector 里的设计尺寸为基准，本来就是竖屏设计的不会再换位；代码兜底创建的 Canvas 也适用。
 - **载不到就代码兜底** ✓：预制体缺失或路径写错时，框架自己建 Canvas + CanvasScaler + GraphicRaycaster，并打一条 Warning 说明原因 —— 不会出现"整屏 UI 起不来"；
 - 想改用**相机模式**（UI 可被 3D 遮挡 / 能进 RenderTexture）：
 
@@ -444,6 +445,20 @@ RevUISetting.CanvasPlaneDistance = 100f;
 | 在预制体里自己调渲染模式 | `RevUISetting.CanvasMode = RevUICanvasMode.Auto`（Auto = 跟随预制体） |
 | UI 要被 3D 挡住 / 进 RenderTexture | 见上面那三行 |
 | 六层挂点放哪 | 框架自己建（预制体里**不要**放六个层级节点） |
+
+**项目如何选择横屏 / 竖屏：**保持自带 `RevUICanvas.prefab` 不变，在**首次打开或预加载 UI 之前**设置：
+
+```csharp
+RevUISetting.CanvasOrientation = RevUICanvasOrientation.Portrait;  // 竖屏小游戏
+// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.Landscape;  // 横屏游戏
+// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.Auto;       // 跟随实际宽高（默认）
+// 或 RevUISetting.CanvasOrientation = RevUICanvasOrientation.UseDesign;  // 完全保留原预制体配置
+```
+
+这里选择的是 **UI 的设计尺寸与缩放策略**，不强制改变设备方向：原生应用的屏幕方向在 Player Settings 配置（也可在游戏启动时设置 `Screen.orientation`），小游戏还需在发布平台的方向设置中选横屏 / 竖屏。竖屏项目应同时把平台方向设为竖屏，否则仍会在横屏窗口里绘制竖屏设计。`Auto` 模式用实际 `Screen.width/height` 判断，编辑器 Game 视图可切换测试；`RevUISetting.PortraitMatchWidthOrHeight` 可改竖屏缩放权重（默认 0 = 按宽）；代码兜底时 `RevUISetting.ReferenceResolution` 是设计尺寸。
+
+> [!WARNING]
+> 这解决的是**根 Canvas 的缩放与旋转恢复**，不是把 1920×1080 横屏面板自动重排成竖屏。具体页面仍须使用锚点/布局组件制作竖屏版；刘海屏、圆角和底部手势条需在**内容面板**按 `Screen.safeArea` 布局，弹窗遮罩/全屏背景应继续覆盖全屏，不能给整个根 Canvas 加安全区内缩。测试时至少检查 9:16、9:19.5 和有缺口真机。
 
 ### 什么时候才切换到三 Canvas？
 

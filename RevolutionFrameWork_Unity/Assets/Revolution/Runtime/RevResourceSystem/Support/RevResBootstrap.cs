@@ -122,19 +122,20 @@ namespace Revolution
             //   所以这里写 "ResourceSystem/ResMap"。
             //   ★ 与 ABBuildSetting.MapAssetPath 是一对，改一个必须改另一个。
             TextAsset ta = Resources.Load<TextAsset>("ResourceSystem/ResMap");
-            // 没执行过打包 / 生成映射（没有映射表）→ 返回空表：
-            //   RevABResPolicy 会因查不到映射而失败 → AllowFallback → 全部落到 Resources 兜底
-            if (ta == null) return map;
-
-            foreach (string raw in ta.text.Split('\n'))
+            // 内置表可能不存在（纯远端首包）：此时仍须继续读取热更覆盖表。
+            // 如果这里直接 return，客户端即使已下载 ResMap，也会把所有资源误判为缺失。
+            if (ta != null)
             {
-                string line = raw.Trim();
-                if (line.Length == 0 || line.StartsWith("#")) continue;
+                foreach (string raw in ta.text.Split('\n'))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#")) continue;
 
-                string[] p = line.Split('|');
-                if (p.Length != 3) continue;
+                    string[] p = line.Split('|');
+                    if (p.Length != 3) continue;
 
-                map[p[0]] = p[1] + "|" + p[2];
+                    map[p[0]] = p[1] + "|" + p[2];
+                }
             }
 
             // ★ 热更表覆盖内置表（合并而不是替换）：新资源能热更；热更表残缺时内置表仍是兜底。

@@ -83,6 +83,84 @@ namespace Revolution.HotUpdate
             return null;
         }
 
+        /// <summary>
+        /// 发布与激活共用的清单门禁。解析成功只代表语法对；必须再检查来源身份、包名、
+        /// 内容指纹与依赖图，否则同名包/路径穿越/自依赖可能在客户端被当作有效版本。
+        /// 主包 Manifest 随应用内置，不列在 Bundles 中，也不允许热更覆盖。
+        /// </summary>
+        public string ValidateForActivation(string platform, string channel, string environment = null)
+        {
+            if (string.IsNullOrEmpty(AppVersion) || string.IsNullOrEmpty(ResVersion)) return "清单缺少 App/资源版本";
+            if (!string.Equals(Platform, platform, StringComparison.OrdinalIgnoreCase)) return "清单平台与当前客户端不一致：" + Platform;
+            if (!string.Equals(Channel ?? "", channel ?? "", StringComparison.Ordinal)) return "清单渠道与当前客户端不一致：" + Channel;
+            if (environment != null && !string.Equals(Env ?? "", environment, StringComparison.Ordinal))
+                return "清单环境与当前客户端不一致：" + Env;
+            if (!string.Equals(HashAlgo, "sha256", StringComparison.OrdinalIgnoreCase)) return "只支持 sha256 清单校验算法";
+            if (!IsSafeName(ResVersion) || !IsSafeName(AppVersion)) return "清单版本号包含非法路径字符";
+            if (Bundles.Count == 0) return "清单没有 AB 包";
+            if (ResMap == null || !string.Equals(ResMap.Name, "ResMap.txt", StringComparison.Ordinal) ||
+                ResMap.Size < 0 || !IsSha256(ResMap.Sha256)) return "ResMap 缺失、大小无效或 SHA-256 不合法";
+
+            var names = new Dictionary<string, RevHotBundleInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (RevHotBundleInfo bundle in Bundles)
+            {
+                if (bundle == null || !IsSafeName(bundle.Name) ||
+                    string.Equals(bundle.Name, platform, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(bundle.Name, ResMap.Name, StringComparison.OrdinalIgnoreCase) ||
+                    bundle.Size <= 0 || !IsSha256(bundle.Sha256)) return "AB 包名、大小或 SHA-256 不合法：" + bundle?.Name;
+                if (string.Equals(platform, "WebGL", StringComparison.OrdinalIgnoreCase) &&
+                    (!IsHexLength(bundle.UnityHash, 32) ||
+                     !uint.TryParse(bundle.UnityCrc, out uint crc) || crc == 0))
+                    return "WebGL 包缺少 Unity Hash128/CRC，无法在激活前验证：" + bundle.Name;
+                if (names.ContainsKey(bundle.Name)) return "清单含重复包名：" + bundle.Name;
+                names.Add(bundle.Name, bundle);
+            }
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (RevHotBundleInfo bundle in Bundles)
+            {
+                string error = CheckDependencies(bundle, names, visiting, visited);
+                if (error != null) return error;
+            }
+            return null;
+        }
+
+        private static string CheckDependencies(RevHotBundleInfo bundle, Dictionary<string, RevHotBundleInfo> names,
+            HashSet<string> visiting, HashSet<string> visited)
+        {
+            if (visited.Contains(bundle.Name)) return null;
+            if (!visiting.Add(bundle.Name)) return "AB 依赖存在环：" + bundle.Name;
+            foreach (string dependency in bundle.Dependencies)
+            {
+                if (!names.TryGetValue(dependency, out RevHotBundleInfo required)) return "AB 依赖包不在清单中：" + bundle.Name + " → " + dependency;
+                string error = CheckDependencies(required, names, visiting, visited);
+                if (error != null) return error;
+            }
+            visiting.Remove(bundle.Name);
+            visited.Add(bundle.Name);
+            return null;
+        }
+
+        private static bool IsSha256(string hash) => IsHexLength(hash, 64);
+
+        private static bool IsHexLength(string hash, int length)
+        {
+            if (hash == null || hash.Length != length) return false;
+            foreach (char c in hash)
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+            return true;
+        }
+
+        internal static bool IsSafeName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name == "." || name.Contains("..")) return false;
+            foreach (char c in name)
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+                    (c >= 'A' && c <= 'Z') || c == '_' || c == '-' || c == '.')) return false;
+            return true;
+        }
+
         /// <summary>这一批包共多少字节（磁盘预检与进度条都靠它）。</summary>
         public long TotalBytes()
         {

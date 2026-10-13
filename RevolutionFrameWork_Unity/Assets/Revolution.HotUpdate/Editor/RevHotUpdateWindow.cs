@@ -323,30 +323,38 @@ namespace Revolution.HotUpdate.Editor
 
         private void Generate()
         {
-            string error;
-            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-            _manifest = RevHotManifestBuilder.Build(target, _outputDir, _appVersion, _resVersion, _channel, _env, out error);
-
-            // 每次重新生成都让自检结果失效 —— 避免新手看到"上一份清单"的自检结论，误以为这份也通过了。
+            // 新一轮生成使旧自检与成功状态失效；异常不能继续显示旧清单可上传。
             _checkDone = false;
-
-            if (_manifest == null)
+            _generateOk = false;
+            _generateSummary = "";
+            _manifest = null;
+            try
             {
-                _generateOk = false;
-                _generateError = error;
-                return;
+                string error;
+                BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+                _manifest = RevHotManifestBuilder.Build(target, _outputDir, _appVersion, _resVersion, _channel, _env, out error);
+                if (_manifest == null)
+                {
+                    _generateError = error;
+                    return;
+                }
+
+                RevHotManifestBuilder.WriteOutputs(_manifest, _outputDir);
+                AssetDatabase.Refresh();
+
+                _generateOk = true;
+                _generateError = "";
+                _generateSummary =
+                    "✓ 已生成（" + DateTime.Now.ToString("HH:mm:ss") + "）\n" +
+                    _outputDir + "/RevHotManifest.txt（上传 CDN，最后传）\n" +
+                    _outputDir + "/" + RevHotManifestBuilder.BuiltinManifestFileName + "（首包基线，随包体 / StreamingAssets）\n" +
+                    "包数量：" + _manifest.Bundles.Count + " · 总大小：" + RevHotProgress.FormatBytes(_manifest.TotalBytes());
             }
-
-            RevHotManifestBuilder.WriteOutputs(_manifest, _outputDir);
-            AssetDatabase.Refresh();
-
-            _generateOk = true;
-            _generateError = "";
-            _generateSummary =
-                "✓ 已生成（" + DateTime.Now.ToString("HH:mm:ss") + "）\n" +
-                _outputDir + "/RevHotManifest.txt（上传 CDN，最后传）\n" +
-                _outputDir + "/" + RevHotManifestBuilder.BuiltinManifestFileName + "（首包基线，随包体 / StreamingAssets）\n" +
-                "包数量：" + _manifest.Bundles.Count + " · 总大小：" + RevHotProgress.FormatBytes(_manifest.TotalBytes());
+            catch (Exception e)
+            {
+                _manifest = null;
+                _generateError = "生成或写出失败：" + e.Message + "。发布目录可能已部分更新，请重新加载并自检后再上传。";
+            }
         }
 
         private void Check()
@@ -367,7 +375,7 @@ namespace Revolution.HotUpdate.Editor
             string problems = RevHotManifestBuilder.SelfCheck(_manifest, _outputDir);
             _checkDone = true;
             _checkPassed = problems.Length == 0;
-            _checkReport = _checkPassed ? "✓ 自检通过：包齐全、大小一致、依赖闭环 —— 可以上传了。" : problems;
+            _checkReport = _checkPassed ? "✓ 自检通过：AB 与 ResMap 的大小及 SHA-256 一致、映射和依赖有效、平台主包基线可读 —— 可以上传了。" : problems;
         }
 
         /// <summary>静默重载：OnEnable 时用，加载不到不报错（新手首次打开窗口时目录可能还是空的）。</summary>

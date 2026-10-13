@@ -60,6 +60,11 @@ namespace Revolution
     {
         private Canvas _canvas;
         private bool _fromPrefab;                       // Canvas 来自预制体？（决定要不要用 RevUISetting 的值覆盖它的配置）
+        private CanvasScaler _scaler;
+        private Vector2 _designResolution;              // 保存预制体/代码创建时的原始设计尺寸，旋转回去必须恢复它
+        private float _designMatch;                     // 同上：横屏原有的宽高匹配权重不能被竖屏设置覆盖
+        private bool _designPortrait;
+        private bool? _appliedPortrait;                 // 上一次应用的方向；未应用为 null
         private Camera _uiCamera;                       // Camera 模式用的 UI 相机（Overlay / WorldSpace 时为 null）
         private readonly Dictionary<RevUILayer, RectTransform> _layers = new Dictionary<RevUILayer, RectTransform>();
         private readonly Dictionary<RevUICanvasType, Canvas> _splitCanvases = new Dictionary<RevUICanvasType, Canvas>();
@@ -142,7 +147,8 @@ namespace Revolution
             //    （预制体只用 Unity 内置组件，所以不存在"脚本丢了"的问题；真缺了就补一份默认的）
             _canvas = GetComponent<Canvas>();
             if (_canvas == null) _canvas = gameObject.AddComponent<Canvas>();
-            if (GetComponent<CanvasScaler>() == null) gameObject.AddComponent<CanvasScaler>();
+            _scaler = GetComponent<CanvasScaler>();
+            if (_scaler == null) _scaler = gameObject.AddComponent<CanvasScaler>();
             if (GetComponent<GraphicRaycaster>() == null) gameObject.AddComponent<GraphicRaycaster>();
 
             // ② 渲染模式（Auto：预制体里选了什么就用什么；没预制体就是 Overlay）
@@ -152,13 +158,19 @@ namespace Revolution
             //    预制体存在的意义就是让你在 Inspector 里直接调这些，所以不覆盖它。
             if (!_fromPrefab)
             {
-                CanvasScaler scaler = GetComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = RevUISetting.ReferenceResolution;
-                scaler.matchWidthOrHeight = RevUISetting.MatchWidthOrHeight;
+                _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                _scaler.referenceResolution = RevUISetting.ReferenceResolution;
+                _scaler.matchWidthOrHeight = RevUISetting.MatchWidthOrHeight;
 
                 _canvas.sortingOrder = RevUISetting.SortOrderBase;
             }
+
+            // ★ 不改预制体的 Inspector 配置：以它（或代码兜底）的初始值为设计基准。
+            //   原版是 1920×1080：竖屏换位到 1080×1920，返回横屏再恢复 1920×1080 / match 0.5。
+            _designResolution = _scaler.referenceResolution;
+            _designMatch = _scaler.matchWidthOrHeight;
+            _designPortrait = _designResolution.y > _designResolution.x;
+            ApplyScreenOrientation();
 
             // ④ 每个层级一个空节点（名字用枚举名：看 Hierarchy 就知道哪层有哪些面板）
             foreach (RevUILayer layer in RevUILayerUtil.All)
@@ -543,7 +555,53 @@ namespace Revolution
         // 每帧
         // ============================================================
 
-        private void Update() => ProcessPendingRelease();
+        private void Update()
+        {
+            ProcessPendingRelease();
+            ApplyScreenOrientation();
+        }
+
+        /// <summary>
+        /// 按 RevUISetting.CanvasOrientation 选择 UI 设计方向：Auto 才读取屏幕宽高，
+        /// Landscape / Portrait 由项目显式指定；UseDesign 保留预制体原值。仅在方向变化时写 CanvasScaler。
+        /// ★ 只处理缩放，不擅自修改 Screen.orientation 或面板锚点；全屏遮罩仍挂在全屏 Canvas 下。
+        /// </summary>
+        private void ApplyScreenOrientation()
+        {
+            if (_scaler == null ||
+                _scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize ||
+                _scaler.screenMatchMode != CanvasScaler.ScreenMatchMode.MatchWidthOrHeight ||
+                _designResolution.x <= 0f || _designResolution.y <= 0f) return;
+
+            RevUICanvasOrientation mode = RevUISetting.CanvasOrientation;
+            bool portrait;
+            switch (mode)
+            {
+                case RevUICanvasOrientation.Portrait:
+                    portrait = true;
+                    break;
+                case RevUICanvasOrientation.Landscape:
+                    portrait = false;
+                    break;
+                case RevUICanvasOrientation.UseDesign:
+                    portrait = _designPortrait;
+                    break;
+                default:
+                    // 编辑器 Game 视图也可测试；宽高暂未准备好或正方形时沿用上一次方向。
+                    if (Screen.width <= 0 || Screen.height <= 0 || Screen.width == Screen.height) return;
+                    portrait = Screen.height > Screen.width;
+                    break;
+            }
+            if (_appliedPortrait == portrait) return;
+
+            // 屏幕方向与原始设计方向一致时恢复 Inspector 原值；不一致时才换位。
+            _scaler.referenceResolution = portrait == _designPortrait
+                ? _designResolution
+                : new Vector2(_designResolution.y, _designResolution.x);
+            _scaler.matchWidthOrHeight = portrait && !_designPortrait
+                ? RevUISetting.PortraitMatchWidthOrHeight : _designMatch;
+            _appliedPortrait = portrait;
+        }
 
         // 层内排序 / 遮罩 / 被盖住通知（脏标记驱动，多半是空转）；LateUpdate = 本帧所有开关都已发生、渲染还没开始
         private void LateUpdate() => RevUIManager.Instance.OnRootTick();
