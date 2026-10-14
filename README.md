@@ -59,7 +59,14 @@
 
 ### 环境要求
 
-- **Unity 版本**：2022.3.15f1c1（其它 2022.3.x 亦可）
+- **Unity 版本（分两层，别混）**：
+  - **框架包**（`Assets/Revolution` / `Assets/Revolution.HotUpdate`，导入到你自己的工程）：**版本无关** ——
+    源码不使用任何版本专属 API，**2022.3 LTS** 任意补丁号、`f1` 国际版 / `c1` 中国版均可直接使用；
+    其它大版本（2021 / 2023 / Unity 6 …）未做回归验证，自行评估；
+  - **框架开发工程**（本仓库的 `RevolutionFrameWork_Unity/`，演示与开发用壳）：**必须 `2022.3.15f1c1`**（Unity 中国版）。
+    用其它版本打开会改写 `ProjectVersion.txt` / 包源 / 包锁定，污染团队协同 —— CI 的 `guard-editor-version` 工作流会对此报警；
+  - 误用其它版本打开过开发工程？还原记录：`git checkout -- RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt`（并检查 `PackageManagerSettings.asset` 与 `packages-lock.json`）；
+  - 全团队统一升级编辑器：宣布 → 同时改 `ProjectVersion.txt` 与 `.github/workflows/guard-editor-version.yml` 里的 `EXPECTED_VERSION` → 同一提交；
 - **依赖**：无第三方依赖，只用 Unity 官方包（见 `RevolutionFrameWork_Unity/Packages/manifest.json`）
 - **平台**：Windows / macOS（编辑器）· Android / iOS / WebGL（运行期无平台相关代码）
 

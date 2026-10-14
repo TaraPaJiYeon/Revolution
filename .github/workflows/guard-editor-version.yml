@@ -1,0 +1,62 @@
+name: 守护 Unity 编辑器版本（团队统一）
+
+# 作用：ProjectSettings/ProjectVersion.txt 记录的是"全团队统一的 Unity 版本"。
+# 任何人用不同版本打开工程，Unity 都会改写这个文件 —— 如果被顺手提交：
+#   · 其他成员的 Unity Hub 会按错误版本提示 / 安装；
+#   · 新旧版本的序列化差异会污染场景与预制体（表现为大量无意义 diff）。
+#
+# 所以本任务对"这个文件出现变更"做硬性报警：
+#   ✅ 唯一合法场景：全团队统一升级编辑器版本 —— 必须同时修改本文件里的 EXPECTED 版本号，
+#      并在群里 / 评审里宣布（升级后所有人重新导入一次工程）。
+#   ❌ 其它任何情况（典型：用旧版本打开后顺手提交）：还原即可——
+#       git checkout -- RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt
+#
+# 说明：直接推 main 时任务同样会变红 —— 它是"事后报警器"，不拦截推送本身，
+# 但红勾消失就是全团队的信号：版本记录被人动过了。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt'
+  pull_request:
+    paths:
+      - 'RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # ★ 全团队统一的 Unity 版本（含发布渠道后缀：c1 = Unity 中国版）。
+  #   升级编辑器时：先在群里宣布 → 改这里 + 改 ProjectVersion.txt → 同一个提交。
+  EXPECTED_VERSION: '2022.3.15f1c1'
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 校验 ProjectVersion.txt 与团队统一版本一致
+        run: |
+          FILE='RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt'
+          EXPECTED="$EXPECTED_VERSION"
+
+          echo "当前记录："
+          cat "$FILE"
+
+          if ! grep -q "m_EditorVersion: ${EXPECTED}$" "$FILE"; then
+            echo "::error::ProjectVersion.txt 的 m_EditorVersion 不是团队统一版本 ${EXPECTED}。"
+            echo "::error::多半是有人用其它版本的 Unity 打开了工程被改写。请还原：git checkout -- ${FILE}"
+            echo "::error::如确需全团队统一升级：修改本工作流的 EXPECTED_VERSION 与 ProjectVersion.txt 为同一版本，并在评审中说明。"
+            exit 1
+          fi
+
+          if ! grep -q "m_EditorVersionWithRevision: " "$FILE"; then
+            echo "::error::ProjectVersion.txt 缺少 m_EditorVersionWithRevision（带修订号的完整版本），无法保证所有人装到同一构建。"
+            exit 1
+          fi
+
+          echo "✓ 编辑器版本与团队统一版本一致：${EXPECTED}"
