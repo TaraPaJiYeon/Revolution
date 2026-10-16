@@ -715,8 +715,9 @@ namespace Revolution.Editor
                 return;
             }
 
-            // 1. 收集 + 2. 校验：有 error 就中止（避免打出坏包）
+            // 1. 收集 + 2. 校验：Android 材质 Shader 在 AB 与 Player 中都没有时，必须在出包前拦下。
             ABCollectResult collect = CollectForOutput();
+            ABValidator.ValidateAndroidShaders(collect, _validate, target);
             if (!_validate.CanBuild)
             {
                 RevABLog.Error($"[RevAB] 校验未通过，共 {_validate.errors.Count} 个错误，已中止打包");

@@ -11,11 +11,14 @@
 //   errors（阻止打包）：命名非法、逻辑路径冲突、同包重名、空包、漏标（没有 AB 标记）
 //   warnings（不阻止）  ：文件名含大写、被排除的后缀、单资源包、大资源
 // ============================================================
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
+using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Revolution.Editor
 {
@@ -138,6 +141,98 @@ namespace Revolution.Editor
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Android 包里的材质即使随 Prefab 进入 AB，它引用的 Shader 也可能既不在 AB 依赖里，
+        /// 又被 Player 构建剔除；此时 Prefab 能加载，却会整片变紫。
+        /// 打包前检查显式材质引用：有项目 Shader 资源时 Unity 可将其作为 AB 依赖打入包，
+        /// 或由 Graphics → Always Included Shaders 保证进入 Player；没有可打包资源的内置 Shader
+        /// 则必须由 Player 包含。这里只检查，不擅自修改项目图形设置。
+        /// </summary>
+        public static void ValidateAndroidShaders(ABCollectResult collect, ABValidateResult result, BuildTarget target)
+        {
+            if (target != BuildTarget.Android || !result.CanBuild) return;
+
+            UnityEngine.Object graphicsSettings = GraphicsSettings.GetGraphicsSettings();
+            if (graphicsSettings == null)
+            {
+                result.errors.Add("无法读取 Graphics Settings，不能确认 Android Shader 是否进入 Player，已中止打包。");
+                return;
+            }
+            var settings = new SerializedObject(graphicsSettings);
+            SerializedProperty included = settings.FindProperty("m_AlwaysIncludedShaders");
+            if (included == null || !included.isArray)
+            {
+                result.errors.Add("无法读取 Graphics Settings 的 Always Included Shaders；为防止 Android 真机材质变紫，已中止打包。请检查当前 Unity 版本的 Graphics Settings。");
+                return;
+            }
+
+            var includedShaders = new HashSet<Shader>();
+            for (int i = 0; i < included.arraySize; i++)
+            {
+                Shader shader = included.GetArrayElementAtIndex(i).objectReferenceValue as Shader;
+                if (shader != null) includedShaders.Add(shader);
+            }
+
+            var checkedAssets = new HashSet<string>(StringComparer.Ordinal);
+            var checkedMaterials = new HashSet<Material>();
+            foreach (string assetPath in collect.logicToAssetPath.Values)
+            {
+                // 包含没有单独打 AB 的依赖材质、FBX 内嵌材质和嵌套 Prefab。
+                foreach (string dep in AssetDatabase.GetDependencies(assetPath, true))
+                {
+                    if (!checkedAssets.Add(dep)) continue;
+                    string ext = Path.GetExtension(dep).ToLowerInvariant();
+                    if (ext == ".mat" || ext == ".fbx")
+                    {
+                        foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(dep))
+                            if (asset is Material material)
+                                CheckMaterial(material, dep, includedShaders, checkedMaterials, result);
+                    }
+                    if (ext != ".prefab") continue;
+                    GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(dep);
+                    if (prefab == null) continue;
+                    foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                        foreach (Material material in renderer.sharedMaterials)
+                            CheckMaterial(material, dep, includedShaders, checkedMaterials, result);
+                    foreach (UnityEngine.UI.Graphic graphic in prefab.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+                    {
+                        // UGUI 没有显式材质时使用引擎自己的默认材质；不要把它误判成需业务手工包含的 Shader。
+                        Material uiMaterial = graphic.material;
+                        if (uiMaterial != graphic.defaultMaterial)
+                            CheckMaterial(uiMaterial, dep, includedShaders, checkedMaterials, result);
+                    }
+                }
+            }
+        }
+
+        private static void CheckMaterial(Material material, string source, HashSet<Shader> included,
+            HashSet<Material> checkedMaterials, ABValidateResult result)
+        {
+            if (material == null || !checkedMaterials.Add(material)) return;
+            Shader shader = material.shader;
+            if (shader == null || shader.name == "Hidden/InternalErrorShader")
+            {
+                result.errors.Add($"Android AB 材质的 Shader 引用丢失：{source}（{material.name}）。请修复材质的 Shader 后重新打包。");
+                return;
+            }
+            if (included.Contains(shader)) return;
+            string shaderPath = AssetDatabase.GetAssetPath(shader);
+            if (!string.IsNullOrEmpty(shaderPath) && shaderPath.StartsWith("Assets/", StringComparison.Ordinal))
+            {
+                // 未单独标 AB 的项目 Shader 会作为材质的隐式依赖打进 AB，不应误报为缺失；
+                // 单独标 AB 则由 Unity 的包 Manifest 记录依赖并在运行时先加载。
+                return;
+            }
+            if (!string.IsNullOrEmpty(shaderPath) && shaderPath.StartsWith("Packages/", StringComparison.Ordinal))
+            {
+                // 包内 Shader 同样有资产路径；是否能用于 Android 仍须在目标 Player 中验证。
+                return;
+            }
+
+            result.errors.Add($"Android AB 材质可能变紫：{source}（材质 {material.name}，Shader {shader.name}）没有可随材质进入 AB 的 Shader 资产，也不在 Graphics → Always Included Shaders。" +
+                              "请将此 Shader 加入 Always Included；并确保 Android Player/AB 使用相同的渲染管线与图形 API，运行时关键词变体未被剔除。");
         }
     }
 }

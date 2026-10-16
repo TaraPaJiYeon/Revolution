@@ -30,6 +30,7 @@ namespace Revolution.Editor
 
             // ② 校验：CI 上必须严格，有错就失败退出（让流水线红掉）
             ABValidateResult validate = ABValidator.Validate(collect);
+            ABValidator.ValidateAndroidShaders(collect, validate, EditorUserBuildSettings.activeBuildTarget);
             if (!validate.CanBuild)
             {
                 RevABLog.Error($"[RevAB][CI] 校验失败 {validate.errors.Count} 项");

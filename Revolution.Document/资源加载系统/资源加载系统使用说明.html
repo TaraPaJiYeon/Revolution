@@ -351,9 +351,11 @@ Debug.Log($<span class="s">"缓存 {RevResManager.CachedCount} 份，其中待�
           <tr><td>编辑器里好好的，真机说找不到</td><td>没生成映射（<code>ResMap.txt</code> 里没有这条路径）→ 点「仅生成映射」再打包</td></tr>
           <tr><td>路径对但类型不对（图拿成 Prefab）</td><td>泛型参数写错：<code>LoadAsync&lt;Sprite&gt;</code> 与文件真实类型要一致</td></tr>
           <tr><td>同一个资源在两个界面各加载一次</td><td>两段路径写法不一致（编辑器会当成两个资源）→ 统一约定（见第三节）</td></tr>
+          <tr><td>Android 上 AB 预制体已加载却变紫</td><td>一键打 Android AB / CI 会预检材质 Shader：缺少可随包加载的 Shader 且未加入 Graphics → Always Included Shaders 会阻止打包；真机 <code>RevLog</code> 的 <code>Res</code> 标签会打印包名、资源、材质与 Shader。</td></tr>
         </tbody>
       </table>
     </div>
+    <div class="callout warn"><span class="t">紫色不等于 AB 没加载</span>自定义 Shader 有资产路径时可随材质作为 AB 隐式依赖或单独标 AB（框架先加载 Manifest 列出的依赖）；内置 Shader 应加入 <code>Project Settings → Graphics → Always Included Shaders</code>。Player 与 AB 必须同目标平台、同一渲染管线与兼容的图形 API；若仅特定关键词/Pass 变紫，还要检查构建时 Shader 变体剔除并显式收集变体。预检不会擅自把全部 Shader 加进 Player（会增加包体），也不能代替 Android 真机验证；编辑器直读模式不验证 AB。</div>
 
     <h3>Resources 兜底通道（资源直接放进 Resources 文件夹也能加载）</h3>
     <p><b>支持</b> ✓ —— 把资源丢进<b>任意</b> <code>Resources</code> 文件夹就能通过框架加载 ✓。它是策略链的<b>最后一环</b>（<code>RevResourcesResPolicy</code>），接两类请求：</p>

@@ -368,6 +368,7 @@ namespace Revolution
             handle.BundleDependencies = acquiredDependencies;
             //加载ab包中的资源
             UnityEngine.Object asset = bundle.LoadAsset(parts[1], handle.ContentType);
+            ReportAndroidShaderIssues(asset, parts[0], parts[1]);
             err = asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
             return asset;
 
@@ -415,6 +416,9 @@ namespace Revolution
 
                 if (!await EnsureManifestAsync())
                 {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                    RevLog.Error($"Android AB 主包无法加载：{ResolveBundlePath(MainName)}。请确认 Player 与 AB 均为 Android 构建，且 APK 内包可读取。", "Res");
+#endif
                     handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                     handle.MarkError();
                     return;
@@ -425,6 +429,9 @@ namespace Revolution
                 {
                     if (await AcquireSingleAsync(dep) == null)
                     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                        RevLog.Error($"Android AB 依赖包加载失败：目标 {parts[0]} / 依赖 {dep} / 路径 {ResolveBundlePath(dep)}。这不是 Shader 变体错误，请检查平台产物、热更版本与包文件。", "Res");
+#endif
                         ReleaseDependencies(acquiredDependencies);
                         acquiredDependencies.Clear();
                         handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
@@ -439,6 +446,9 @@ namespace Revolution
                 AssetBundle bundle = await AcquireSingleAsync(parts[0]);
                 if (bundle == null)
                 {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                    RevLog.Error($"Android AB 目标包加载失败：{parts[0]} / 路径 {ResolveBundlePath(parts[0])}。先检查包来源，不能当作材质 Shader 缺失处理。", "Res");
+#endif
                     ReleaseDependencies(acquiredDependencies);
                     acquiredDependencies.Clear();
                     handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
@@ -459,6 +469,7 @@ namespace Revolution
                 AssetBundleRequest req = bundle.LoadAssetAsync(parts[1], handle.ContentType);
                 await req;
                 token?.ThrowIfCancelled();
+                ReportAndroidShaderIssues(req.asset, parts[0], parts[1]);
                 handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
                 handle.SetContent(req.asset);
             }
@@ -479,6 +490,40 @@ namespace Revolution
                 onFinished?.Invoke(handle);
             }
         }
+
+        /// <summary>
+        /// 紫色不等于“AB 没加载”：Prefab 已加载成功时还可能是 Shader 没打进 Player/依赖包，
+        /// 或 Android 图形 API/变体不支持。仅在真机检查，不修改材质或偷偷替换 Shader。
+        /// </summary>
+        private static void ReportAndroidShaderIssues(UnityEngine.Object asset, string bundleName, string assetName)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (asset is Material material)
+            {
+                CheckAndroidShader(material, bundleName, assetName);
+            }
+            else if (asset is GameObject prefab)
+            {
+                foreach (Renderer renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                    foreach (Material entry in renderer.sharedMaterials)
+                        CheckAndroidShader(entry, bundleName, assetName);
+                foreach (UnityEngine.UI.Graphic graphic in prefab.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+                    CheckAndroidShader(graphic.material, bundleName, assetName);
+            }
+#endif
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private static void CheckAndroidShader(Material material, string bundleName, string assetName)
+        {
+            if (material == null) return;
+            Shader shader = material.shader;
+            if (shader != null && shader.isSupported && shader.name != "Hidden/InternalErrorShader") return;
+            RevLog.Error($"Android AB Shader 不可用：包 {bundleName} / 资源 {assetName} / 材质 {material.name} / Shader " +
+                         $"{(shader == null ? "<missing>" : shader.name)}。检查 Player 的 Always Included Shaders、Shader 所在依赖包、" +
+                         "目标 Android 构建平台、图形 API/渲染管线及运行时 Shader 变体；请重新构建 Player 和 AB。", "Res");
+        }
+#endif
 
         private void ReleaseDependencies(List<string> dependencies)
         {
