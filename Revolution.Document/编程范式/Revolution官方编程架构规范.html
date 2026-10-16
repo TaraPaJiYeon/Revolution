@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolution 官方编程架构规范</title>
+<style>
+:root{--blue:#326de6;--ink:#202938;--muted:#637086;--line:#dfe5ed;--bg:#f4f7fb;--panel:#fff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.85 "Microsoft YaHei UI","PingFang SC",system-ui,sans-serif}
+.hero{background:linear-gradient(125deg,#1c489c,#3876e6 70%,#688ff5);color:#fff;padding:50px 24px}.wrap{max-width:1040px;margin:auto}.hero .eyebrow{letter-spacing:.14em;font-size:12px;opacity:.86}.hero h1{font-size:32px;margin:10px 0}.hero p{max-width:800px;color:#edf4ff;margin:6px 0}.hero a{color:white}
+main{max-width:1040px;margin:26px auto 70px;padding:0 20px}section,.toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 28px;margin-bottom:18px;box-shadow:0 3px 14px #1e3f7a08}h2{font-size:21px;line-height:1.45;margin:0 0 14px}h3{font-size:17px;margin:24px 0 8px}p{margin:10px 0}a{color:#225dca;text-decoration:none}a:hover{text-decoration:underline}.toc a{display:inline-block;padding:5px 10px;background:#eef4ff;border-radius:7px;margin:4px}ul,ol{padding-left:24px}li{margin:6px 0}code{font:13px/1.6 Consolas,monospace;background:#edf2fb;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}pre{overflow-x:auto;background:#182337;color:#dfedff;padding:17px;border-radius:9px;font:13px/1.6 Consolas,monospace}pre code{color:inherit;background:transparent;padding:0}.table{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid var(--line);padding:9px 12px;vertical-align:top;text-align:left}th{background:#edf3fc}tr:nth-child(even) td{background:#fafcff}.note{background:#eaf2ff;border-left:4px solid var(--blue);padding:13px 16px;border-radius:6px;margin:15px 0}.warn{background:#fff4e3;border-left-color:#c78622}.good{background:#eaf8f0;border-left-color:#299c5f}footer{text-align:center;padding:0 16px 35px;color:var(--muted);font-size:13px}@media(max-width:640px){.hero{padding:32px 20px}.hero h1{font-size:25px}section,.toc{padding:18px 16px}main{padding:0 12px}}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap"><div class="eyebrow">REVOLUTION · OFFICIAL ENGINEERING STANDARD</div><h1>官方编程架构规范</h1><p>框架门面解决常用能力，FSM 管整体流程，RevScope 管各阶段生灭，GM 留可验证业务入口。</p><p>基线：2026-10-16 · <a href="Revolution官方编程架构规范.md">Markdown 权威版</a></p></div></header>
+<main>
+<nav class="toc" aria-label="本文目录"><b>阅读顺序</b><br><a href="#principles">01 门面优先</a><a href="#flow">02 FSM × 游戏域</a><a href="#gm">03 业务 GM</a><a href="#agent">04 MCP 自动验收</a><a href="#checklist">05 交付检查</a></nav>
+<section id="principles"><h2>01 · 常用功能统一使用框架现有接口</h2><p>项目仅实现自己的登录协议、玩家数据、关卡规则、流程转移与接线；不重造框架已有的加载、回收、派发或计时。业务不直接调用 <code>Core/Implementation/Support</code> 内核。示意业务接口不是框架 API。</p><div class="table"><table><thead><tr><th>需求</th><th>框架现有入口</th><th>项目责任</th></tr></thead><tbody>
+<tr><td>启动、场景切换</td><td><code>RevInitialize</code>、<code>RevScene</code></td><td>场景选择、失败回退</td></tr>
+<tr><td>游戏阶段 / AI</td><td><code>RevLightFSM</code> / <code>RevLightStackFSM</code> / <code>RevHeavyFSM</code></td><td>状态、合法转移及宿主驱动</td></tr>
+<tr><td>阶段生灭、无界面业务</td><td><code>RevScope</code>、<code>RevDomain</code>、<code>RevLogicBase</code> / <code>RevLogic</code></td><td>自定义域、状态回调开关域、局内业务</td></tr>
+<tr><td>跨域共享能力</td><td><code>RevServices</code>；并行同类实例才用 <code>RevServiceLocator.CreateScope()</code></td><td>项目服务注册与注销</td></tr>
+<tr><td>UI / 资源 / 池 / 表</td><td><code>RevUI</code>、<code>RevResManager</code>、<code>RevPool</code>、<code>RevDataTableManager</code></td><td>面板、数据、资源路径</td></tr>
+<tr><td>时间 / 通知 / 每帧 / 异步 / 演出</td><td><code>RevTimer</code>、<code>RevEvent</code>、<code>RevMono</code>、<code>RevTask</code>、<code>RevSequence</code></td><td>事件语义、业务取消与演出</td></tr>
+<tr><td>输入 / 音频 / 观察 / 测试</td><td><code>RevInput</code>、<code>RevSound</code>、<code>RevLog</code>、<code>RevGM</code></td><td>绑定、失败观察、受控测试命令</td></tr>
+</tbody></table></div><div class="note"><b>按生存期分工：</b>仅当前屏幕的逻辑留在面板；没有界面、只活这段玩法域的业务用 <code>[RevLogic(域名)] + RevLogicBase</code>；跨域长期能力用服务。游戏域 <code>RevScope</code> 不等于服务容器的 <code>CreateScope()</code>。</div></section>
+<section id="flow"><h2>02 · 登录 → 大厅 → 战斗 → 结算 → 退出：FSM + RevScope 统一调度</h2><p>启动入口只装配框架和项目服务/GM 一次；一个项目流程控制者持有 FSM，所有切换请求经它验证。<b>FSM 管现在在哪，域管这一段的对象怎么收。</b>每个状态只开关自己的域；框架的 <code>RevScope</code> 不依赖 FSM，联动写在业务状态回调里。<code>RevScene</code> 负责载入 Unity 场景，但不替你切 FSM 或游戏域。</p>
+<div class="table"><table><thead><tr><th>流程策略</th><th>选型及转移</th></tr></thead><tbody><tr><td>线性互斥阶段</td><td><code>RevLightFSM&lt;T&gt;</code>：旧状态 <code>OnExit</code> 关旧域，新状态 <code>OnEnter</code> 开新域；结算可拥有独立域，退出通过终止状态收尾。</td></tr><tr><td>大厅在战斗时保留</td><td><code>RevLightStackFSM&lt;T&gt;</code>：Push Lobby → Push Battle（Lobby OnSuspend 停 Tick）→ 按需 Push Settlement → Pop Settlement/Battle（Lobby OnResume）→ 登出 Clear 自顶向下退出域。</td></tr></tbody></table></div>
+<p>若结算仅是战斗结束时的一块 UI，可以仍归 Battle 域；若需自己的计时器、面板与卸载边界，用业务 <code>GameDomain.Settlement</code>。项目域定义成 <code>const string</code>；框架 <code>RevDomain</code> 仅预置 Global/Lobby/Battle，<code>RevResGroup</code> 是另一种资源分组枚举，勿为新增游戏域随意修改它。</p>
+<h3>状态与域必须遵守的契约</h3><ol><li><code>OnEnter</code> 调 <code>RevScope.Enter</code> 并保存句柄；返回 <code>RevScopeHandle.Empty</code> 时停止启动。域开放后启动归属的 <code>RevLogic.Start&lt;T&gt;()</code>，返回 null 需处理。</li><li><code>OnExit</code> 关自己保存的域句柄；关非栈顶域会先连关上方域。Logic Stop 先解绑事件、计时器、Mono、服务，资源仍需按租约与组契约释放。</li><li>栈状态 <code>OnSuspend/OnResume</code> 用 <code>SetTickEnabled(false/true)</code>。它仅控制域兜底每帧及 Logic Tick，<b>不暂停计时器或显式 owner 的普通 Mono</b>。</li><li><code>TakeOverOwner</code> 默认 true：未指 owner 的 Timer/Event/Mono 可由活动域兜底；显式 owner 优先。服务不自动归域，用 <code>owner: RevScope.Current</code> 或 <code>Attach(owner)</code>；跨域心跳用长期 owner。</li><li><code>Reclaim</code> 默认 Unknown：不做资源/池整组回收；配置非 Unknown 回收组后才有组兜底，取用/释放仍要配对；不要把共用组作为战斗组。</li><li>同名域默认拒绝重入；允许重入只是复用句柄。晚到回调核对原句柄 <code>IsOpen</code>、FSM 状态及取消令牌。</li></ol>
+<div class="note"><b>真实示例：</b><code>Assets/Revolution.Demo/RevScope.Demo/RevScopeFlowDemo.cs</code> 挂任意场景即可观察大厅→战斗→回大厅→退出、Logic 与回收报告；没有独立 Scope 场景。现有 Demo 按域名开关域，项目持有句柄是更精确的建议，不表示 Demo 已采用句柄版。详见<a href="../作用域系统/作用域系统使用说明.html">作用域使用说明</a>和<a href="../状态机/状态机使用说明.html">状态机使用说明</a>。</div>
+<h3>异步切换边界</h3><p><code>RevLightFSM&lt;T&gt;.ChangeToAsync</code> 准备期依次等待旧 <code>PrepareExitAsync</code> 和新 <code>PrepareEnterAsync</code>，交割时才走旧 <code>OnExit</code> → 新 <code>OnEnter</code>；其间旧状态仍可 Update。新请求可取消旧准备，await 返回后仍要检查 <code>CurrentState</code>。不在请求切换时抢先关旧域。栈机没有异步 Push/Pop；先业务侧准备，再同步操作栈。资源异步加载必须按 <code>RevResManager</code> 真实 API、句柄和 Release 契约，不照抄状态机源码里假设的 <code>LoadAsync(..., token)</code> 注释。</p></section>
+<section id="gm"><h2>03 · 关键业务代码提供 GM 测试入口</h2><p>GM 命令调用<b>与玩家按钮/网络入口同一项业务服务或流程控制者</b>，不直接改 UI 字段、FSM 私有表、资源内核、存档/服务器数据。每个关键阶段至少准备“查询快照 + 受控动作 + 非法动作有可读失败”；不把所有业务 public 方法无差别暴露。</p>
+<ul><li>集中注册一次 <code>RevGM.Register(完整分组名, 描述, handler, RevGMArg...)</code>；<code>RevGM.Execute</code> 返回 <code>RevGMResult.Success/Message/ElapsedMs</code>，业务拒绝抛带原因的 <code>RevGMUsageException</code>。</li><li><code>[RevGMEntry]</code> 只标<b>静态无参、仅做注册</b>的方法供编辑模式生成目录；不自动注册，不在注册方法外层读取服务或切场景。参数声明默认值与 <code>args.Int/Float(..., fallback)</code> 必须一致。</li><li>正式环境不注册变更类测试命令或明确关闭；<code>HighRisk</code> 只是编辑器面板二次确认，直接 <code>Execute</code> 可绕过；<code>Hidden</code> 只隐藏联想，均非权限。</li></ul>
+<p>下列 <code>IRevGameFlow</code> / <code>GameFlowGmCommands</code> 是<b>项目示例，不是框架已有 API</b>；由项目实现前者的 FSM + Scope 接线，并在测试环境注册服务及命令：</p>
+<pre><code>using Revolution;
+
+public interface IRevGameFlow
+{
+    string Snapshot();
+    bool TryEnterBattle(out string reason);
+}
+
+public static class GameFlowGmCommands
+{
+    [RevGMEntry("游戏流程测试命令，只在开发测试环境注册")]
+    public static void Register()
+    {
+        RevGM.Register("流程/快照", "读取当前流程与域状态", args =&gt;
+        {
+            IRevGameFlow flow = RevServices.GetRequired&lt;IRevGameFlow&gt;();
+            return flow.Snapshot();
+        });
+        RevGM.Register("流程/进入战斗", "从大厅进入战斗（测试环境）", args =&gt;
+        {
+            IRevGameFlow flow = RevServices.GetRequired&lt;IRevGameFlow&gt;();
+            if (!RevScope.IsActive(RevDomain.Lobby))
+                throw new RevGMUsageException("大厅域未打开");
+            if (!flow.TryEnterBattle(out string reason))
+                throw new RevGMUsageException(reason);
+            return flow.Snapshot();
+        }, RevGMFlags.HighRisk);
+    }
+}</code></pre>
+<p>真实项目的 Boot 只在受控环境注册 <code>IRevGameFlow</code> 实现，再调用一次 <code>GameFlowGmCommands.Register()</code>。编目工具可在非 Play 时调用注册方法，但 handler 到运行时执行才访问服务。GM 状态查询、动作及拒绝场景见<a href="../GM指令/GM指令使用说明.html">GM 使用说明</a>。</p></section>
+<section id="agent"><h2>04 · GM × MCP × AI 的自动验收约定</h2><div class="note warn"><b>能力边界：</b>Unity 工程声明了第三方 <code>com.coplaydev.unity-mcp</code> 包，但框架没有专用 GM→MCP 工具、已连通测试桥或自动调度器。编辑器 GM 面板仅 Play 时执行；运行时 <code>RevGM</code> 是供项目接控制台的后端，框架没有现成游戏包交互控制台。MCP 包存在 ≠ AI 已能执行 GM。</div>
+<p>由项目方实现最小受控适配器：允许环境/身份校验 → 精确命令白名单及参数上限 → 主线程调用 <code>RevGM.Execute</code> → 回传 <code>RevGMResult</code> 和 FSM/Scope 前后快照 → 超时与审计 → 失败不盲重试。不得把任意代码/反射执行、<code>ExitAll</code>、强制卸组、删档或真实支付开放给 GM/MCP。<code>HighRisk</code> 不代表授权；日志/返回值不包含凭据与玩家隐私。</p>
+<div class="table"><table><thead><tr><th>标准步骤</th><th>必须断言的证据</th></tr></thead><tbody>
+<tr><td>启动/登录</td><td>登录结果与 Lobby 状态一致；域不重复打开，失败有具体原因</td></tr>
+<tr><td>大厅→战斗</td><td>GM Success、FSM 状态及 Lobby/Battle 域一致；栈式大厅保留且 Tick 暂停</td></tr>
+<tr><td>战斗→结算</td><td>结果由业务服务产生；战斗结束与结算域生命周期符合策略；无新增残留</td></tr>
+<tr><td>结算→大厅/退出</td><td>回收报告判空后检查错误与扫尾，Logic 数/域栈回基线</td></tr>
+<tr><td>非法转移</td><td>失败带原因，FSM/域/资源状态没有部分修改</td></tr>
+<tr><td>异步取消/切场景</td><td>没有抢先关旧域或在失效域写数据；场景与流程状态对齐</td></tr>
+</tbody></table></div><p>保存环境/版本、输入命令、<code>Success/Message</code>、前后状态、回收报告、异常日志、断言结果。命令可注册不等于测试已通过；离线纯 C# 断言也不能证明 Unity PlayMode、真机、AB 加载或 MCP 连通。网络、音频、图形等另做集成或设备测试。</p></section>
+<section id="checklist"><h2>05 · 新业务模块交付检查</h2><ol><li>画出 Login/Lobby/Battle/Settlement/Exit 状态图，明确大厅是否保留、每态域/资源组、非法转移及取消去向；一个流程控制者驱动 FSM。</li><li>先选用现有门面；各 Timer/Event/Mono/服务/资源句柄都标明生存期及清理者；域服务显式归属，Logic 不替代所有资源 Release。</li><li>给关键路径留可查询、可触发、可验证拒绝的 GM 命令；真实权限、白名单和环境由项目控制，不能靠编辑器 HighRisk。</li><li>编译并跑相应流程 Demo/GM，查域关闭报告、重进 Play、异步取消；AB/热更/移动端另跑目标平台，记录实际结果与未执行项。</li><li>行为改动同步模块说明和业务测试证据；不要把技术方案、示例接口或尚未接通的 MCP 当成框架现成能力。</li></ol><div class="note good">这是一套<b>游戏业务编程约定</b>：项目实现业务规则与安全接线，不新增第二套框架，不宣称已有真实登录、业务 GM 命令或现成 AI 自动测试流水线。</div><p>进一步阅读：<a href="../状态机/状态机Demo示例讲解.html">状态机 Demo 讲解</a> · <a href="../资源加载系统/资源加载系统使用说明.html">资源加载</a> · <a href="../UI系统/UI系统使用说明.html">UI 使用说明</a>。</p></section>
+</main><footer>Revolution · 官方编程架构规范 · Markdown 为权威版，HTML 为可独立浏览版</footer>
+</body>
+</html>

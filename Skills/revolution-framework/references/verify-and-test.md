@@ -110,6 +110,13 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 
 记录每项平台、版本、输入破坏、期望/实际、日志和复现步骤；持久工程的 18 项断言不覆盖这些端到端行为。
 
+### 4.1 游戏业务流程的 GM / AI 验收（项目方接线）
+
+官方架构规范：`Revolution.Document/编程范式/Revolution官方编程架构规范.md`。关键业务必须设计“查询前置 → 受控动作 → 查询后置 → 非法前置应拒绝”的 GM 命令，handler 走真实业务服务或流程控制者，而不是改 UI、FSM 内核或存档。验收至少覆盖登录、大厅、战斗、结算、退出、重复同名域与异步取消，记录输入命令、`RevGMResult.Success/Message`、FSM 状态、`RevScope.Dump()`、判空后的 `LastCloseReport`、`RevLogic.Count` 与异常日志。
+
+- 当前有 `RevGM.Register` / `Execute` 的运行时后端和编辑器 GM 窗口；Unity 工程声明第三方 Unity MCP 包，但**没有框架提供的专用 GM→MCP 工具、已验证连接或自动化测试工作流**。须由项目提供受控适配器和白名单、身份/环境/参数边界、主线程调用、超时与审计；`HighRisk` 只在编辑器窗口确认，不授权直接 Execute。
+- “命令已注册”“AI 写出了测试方案”“离线断言通过”都不等于 PlayMode/设备/MCP 验收完成；报告按实际执行环境和证据分别标明通过、失败或未执行。变更类测试命令不得仅靠 `Hidden` / `HighRisk` 保护正式环境。
+
 ## 5. 文档站与分支（交付验证）
 
 ### 5.1 当前 CI 与编辑器版本记录的边界

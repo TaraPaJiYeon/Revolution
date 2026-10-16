@@ -7,6 +7,7 @@
 
 核心目标：
 
+- 默认遵循[《Revolution 官方编程架构规范》](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/编程范式/Revolution官方编程架构规范.md)：常用能力走现有门面；FSM + RevScope 统一登录/大厅/战斗/结算/退出；关键业务留受控 GM 查询、动作、拒绝测试接口；MCP/AI 接线由项目安全适配，不能假设已有 GM 桥；
 - 让 Agent 一上手就用**门面**写业务（`RevTimer` / `RevResManager` / `RevUI` / `RevEvent` / `RevTask` …），不越界碰内核；
 - 按本框架的**硬规范**生成或检查代码（`Rev` 前缀、方法括号不换行、方法必须带大括号、核心处写小白向注释）；
 - 把"编辑器直读 vs AB 模式""引用计数与分组卸载""面板池与 Back 语义""事件/计时器清理""热更覆盖式语义"这些**只有踩过才知道**的点提前说清；
@@ -33,7 +34,7 @@ revolution-framework/
 ├── SKILL.md                     ← 主入口：21 个 Runtime 目录总览、分诊表、反幻觉协议、技术铁律与规范
 ├── REFERENCE_GUIDELINES.md      ← 代码审查入口：逐条清单（清理/资源/UI/异步/事件/时间/服务/热更/启动与真机/规范）+ 8 组正反例
 ├── references/
-│   ├── playbooks.md             ← 20 个任务配方（R1~R20），新增游戏域 × FSM 流程与横竖屏 UI 选择
+│   ├── playbooks.md             ← 21 个任务配方（R1~R21），含游戏域 × FSM、横竖屏、GM/AI 自动测试接线
 │   ├── decision-guide.md        ← ★ 选型对照表（Timer/Mono/Task、事件/服务/直接调用、三种状态机、池…）+「不存在 / 不做」清单（防幻觉）+ 文档承认的已知局限
 │   ├── troubleshooting.md       ← ★ 症状 → 最可能原因 → 先查什么（按模块分组 60+ 条）+ 通用诊断阶梯
 │   ├── modules-core.md          ← 基础模块 + RevScope/RevLogic：门面签名、生命周期归属、示例与边界

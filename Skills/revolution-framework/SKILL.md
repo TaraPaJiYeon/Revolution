@@ -1,6 +1,6 @@
 ---
 name: revolution-framework
-description: 本指南适用于 Revolution（RevolutionFramework / Rev 前缀）Unity 游戏框架的开发、排错、架构选型与代码审查。任务涉及 Assets/Revolution、RevInitialize、RevScope / RevDomain / RevLogic（自定义游戏域、业务单元、FSM 游戏流程联动）、RevLightFSM / RevLightStackFSM / RevHeavyFSM、RevUI（面板、数据刷新、控件事件、动画、横竖屏 Canvas）、RevResManager / RevPool（资源、引用计数、AB 打包、Android Shader）、RevTimer / RevMono / RevEvent（owner 与域清理）、RevServices / RevServiceLocator、RevTask、RevScene、RevInput、RevSound、RevSequence、RevGM、RevDataTableManager、RevLog、RevAppLifecycle、RevStripGuard，或 RevHotUpdate 扩展包（四个资源钩子、候选版本激活门禁、差量与跨启动续传、本地 CDN Demo）时使用。也适用于平台与 IL2CPP 裁剪适配、工程外纯 C# 断言、文档同步和按本框架规范生成代码。即使未明确提到 Revolution，只要涉及上述类型或目录，也应使用本 skill。
+description: 本指南适用于 Revolution Unity 游戏框架业务开发、官方编程架构规范、架构选型、排错与代码审查。优先复用 Rev 前缀门面；用 RevLightFSM / RevLightStackFSM + RevScope / RevLogic 统一管理登录、大厅、战斗、结算、退出，并在关键业务注册受控 RevGM 指令供项目 MCP/AI 自动测试；也覆盖 RevServices、RevScene、RevUI、RevResManager、RevPool、RevTimer、RevMono、RevEvent、RevTask、RevInput、RevSound、RevSequence、RevLog、RevDataTableManager、RevAppLifecycle、RevStripGuard 和 RevHotUpdate 的用法与验证。任务涉及 Assets/Revolution、游戏流程、作用域、状态机、GM测试接口、Unity平台适配、文档或技能包同步时使用；只依据真实现有API，不假设已内置GM-MCP桥。
 ---
 
 # Revolution 框架开发 Skill
@@ -11,6 +11,8 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 > 按需读取 `Facade/` 文件头与对应 Demo；不要为了了解框架通读内核。
 > **以当前源码和 Git 跟踪清单为准**：README、历史测试数字与设计方案可能滞后；不得把方案或未提交自动化草稿当作已落地能力。
 
+**项目业务默认遵循[《Revolution 官方编程架构规范》](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/编程范式/Revolution官方编程架构规范.md)**（源仓库位置：`Revolution.Document/编程范式/Revolution官方编程架构规范.md`）。常用功能使用现有框架入口；一个业务流程控制者通过 FSM + `RevScope` 调度登录/大厅/战斗/结算/退出；关键业务在开发/测试环境留 GM 查询、动作和失败接口，供项目安全适配 MCP/AI 后自动验证。Skill 的速查表是索引，规范和当前源码共同约束业务实现；独立安装的 `skill` 分支也可访问此在线文档。
+
 它的三条设计取向直接决定你该怎么写代码：
 
 1. **模块化、门面唯一**：每个模块只暴露一个门面（`RevTimer` / `RevResManager` / `RevUI` …），业务只碰门面，内核（`Core` / `Implementation`）不改也不读。
@@ -19,7 +21,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 ## 模块总览（21 个 Runtime 目录，一张表找全）
 
-> "我想做 X → 用哪个门面"。签名与最小示例在对应参考文件里；**没有合适模块就先用"服务 + 面板"实现，不要先动框架**。
+> "我想做 X → 用哪个门面"。签名与最小示例在对应参考文件里；没有合适门面时先按生存期选面板、域 Logic 或服务，不为单个业务新造框架系统。
 
 | 我想… | 门面 | 一句话 | 速查位置 |
 |---|---|---|---|
@@ -42,7 +44,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | 单例 | `RevSingleton*` | 三个基类（优先服务定位器） | `modules-content.md` §4 |
 | 做界面 | `RevUI` / `RevUIPanel` | 声明式面板、数据单向流、动画库 | `modules-content.md` §5、`ui-and-layering.md` |
 | 一串动作（播放→等待→并行） | `RevSequence` | 不可变蓝图 + 取消收尾契约 | `modules-content.md` §6 |
-| 运行时调试指令 | `RevGM` | 一行注册，游戏内 / 编辑器共用 | `modules-content.md` §7 |
+| 关键业务测试接口 | `RevGM.Register` / `RevGM.Execute` | 项目注册受控业务命令；编辑器面板 Play 态执行，运行时只提供可自接的后端 | `modules-content.md` §7、`playbooks.md` R21 |
 | 读配置表 | `RevDataTableManager` | 表也是资源，走资源系统 | `modules-content.md` §8 |
 | 资源热更（扩展包） | `RevHotUpdate` | 清单 + 差量下载 + 版本目录 | `modules-content.md` §9、`hot-update.md` |
 
@@ -53,8 +55,9 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 | 用户在说什么 | 类型 | **先读这个**（读完通常就够了） |
 |---|---|---|
-| "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | `references/playbooks.md`（20 个任务配方，自带选型、标准写法与验证） |
-| 自定义域 / 大厅战斗切换 / FSM 联动 / 无界面业务 Logic | **作用域流程** | `references/modules-core.md` §12 + `references/playbooks.md` R19 |
+| "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | 先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再按 `references/playbooks.md`（21 个任务配方）选接口 |
+| 自定义域 / 登录大厅战斗结算退出 / FSM 联动 | **统一流程** | 先读《Revolution 官方编程架构规范》，再读 `references/playbooks.md` R19 与 `modules-core.md` §12 |
+| 关键业务 GM 测试接口 / AI 或 MCP 自动验收 | **可测试业务** | `references/playbooks.md` R21；明确只提供 GM 后端，没有已接通的 GM→MCP 桥 |
 | "XX 和 YY 用哪个 / 该不该用事件 / 要不要新建 System" | **选型** | `references/decision-guide.md` §1 对照表 |
 | "框架有没有 XX 能力 / 能不能 XX"（尤其是你不确定 API 存不存在时） | **查边界** | `references/decision-guide.md` §2「不存在 / 不做」清单（防幻觉） |
 | "XX 不工作 / 出现 XX 现象 / 报错 XX / 编辑器好真机坏" | **排错** | `references/troubleshooting.md`（症状 → 原因 → 先查什么） |
@@ -86,7 +89,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 2. **失败必带原因**：资源看 `handle.ErrorReason`，GM 看 `RevGMResult.Message`，热更看 `result.Error` / `LastError`；Android AB 问题同时查 `RevLog` 的 `Res` 标签。业务拒绝给出明确原因。
 3. **先确定生命周期归属**：对象级用显式 owner + 对应清理；域级可用活动 `RevScope` 兜底 + `Exit`；Logic 用基类携带自身 owner 的 `After/Every/Listen`。显式 owner 优先，不能假设有域就能收走所有对象。匿名 lambda 需要保存同一委托或按 owner/域清理；资源取用与释放仍须配对。
 4. **资源只写逻辑路径**：用生成的常量（`RevResPath.*`，见 `Assets/Revolution/Generation/RevResPath.cs`）或"两段式" `Load(根目录, 资源名, 类型, 分组)`；**禁止**自己拼 `StreamingAssets` / `Application.dataPath` 路径读资源（缓存、引用计数、平台差异、热更都会失效）。
-5. **UI = 一个面板类 + 职责钩子**：`[RevUIPanel]` 声明路径、`[RevBind]` 绑节点、`OnBindView` 只装配、`OnRefreshView` 只落屏、`OnClick` 只转发；数据**单向** `SetData → OnDataChanged → RefreshView`；**框架不提供 `System` / `BusinessLogic` 层**（结论见 `references/ui-and-layering.md`）——跨界面复用的能力交给**服务定位器**，只属于这一屏的流程留在面板里。
+5. **UI = 面板类 + 职责钩子**：`[RevUIPanel]` 声明路径、`[RevBind]` 绑节点、`OnBindView` 只装配、`OnRefreshView` 只落屏、`OnClick` 只转发；数据单向 `SetData → OnDataChanged → RefreshView`。只属于当前屏的逻辑留在面板；无界面只活一段玩法用 `RevLogicBase`，跨域共享能力用 `RevServices`，不另造 System/BusinessLogic 层。
    **刷新时机三条（新手最易混）**：① 框架**不监听数据对象内容**——`OnRefreshView` 只在"打开 / 面板开着时 `SetData` / 手动 `RefreshView()`"这三个时机被调；② **原地改数据字段（`Data.Count++`）必须手动 `RefreshView()`**，换新对象走 `SetData` 才自动刷（`OnDataChanged` 里**不要**再手动 `RefreshView()`，会画两遍）；③ **`SetData` 写在业务侧"数据产生的地方"**（点击回调 / 网络回包），不写在面板里；面板是数据的消费方。详见 `references/ui-and-layering.md` §1.1。
 6. **异步只用 `RevTask`**：`await RevTask.Delay/Yield`、`await RevScene.LoadAsync(...)`、`await RevHotUpdate.InitializeAsync(...)`；**不要**引入 `System.Threading.Tasks.Task`、不要用协程写业务（`RevMono.StartCoroutine` 只用于桥接旧代码）。取消用 `RevCancellationTokenSource` + `token.ThrowIfCancelled()`。
 7. **事件**：`string` 事件名（常量集中在一个类里）+ **同一事件名只能有一种签名**；只在主线程注册/派发；派发过程中可以安全增删（框架做了标记删除），但回调里别做重活。
@@ -150,13 +153,13 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 ### A. 写新功能（7 步）
 
-1. **定位模块 / 配方**：先在 `references/playbooks.md` 找对应任务（R1~R20）；无对应配方时用模块总览，按面板/服务/域 Logic 选择归属，不先改框架。选型拿不准读 `references/decision-guide.md` §1。
+1. **先读官方规范，再定位模块/配方**：涉及游戏业务先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再在 `references/playbooks.md` 找 R1~R21。选模块按生存期与现有门面，不先改框架；不确定时读 `decision-guide.md` §1。
 2. **需要完整细节时读该模块的《使用说明》**（`references/docs-map.md` 给路径）——它是权威，本 skill 只是索引。
 3. **找最近的 demo**（`Assets/Revolution.Demo/<模块>.Demo/`，18 个可运行场景；`playbooks.md` 每节都写了"抄哪个 Demo"）照着写。
    **要动框架本身（修 bug / 加功能）时，先查 `Assets/Revolution/CHANGELOG.md` 与 `Revolution.Document/bug修复日志/`**：这个模块以前修过什么、现行契约是什么——避免重复踩坑，也避免给"已修复的缺陷"写绕过代码（见 `references/pitfalls.md` 末尾"现行契约速查"）。
 4. 写代码，守住上文的铁律与规范。
 5. **自我审查**：过一遍 `REFERENCE_GUIDELINES.md` 的清单。
-6. **验证**：编译 + demo 场景 / GM 面板 / 工程外断言。
+6. **验证**：框架内核跑对应离线断言；游戏业务要走官方规范的登录→大厅→战斗→结算→退出正反场景，用受控 GM 查询/动作/拒绝接口采集前后 FSM/域/回收证据。MCP 适配若未实现或未连通标记“未执行”，不把命令存在当自动回归已通过。
 7. **同步文档**：改了行为 → 改该模块《使用说明》；改了设计 → 改《架构解析》；同时更新 md 与 html（`Revolution.Document`，在线站会自动发布）。
 
 ### B. 审查代码
@@ -169,7 +172,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 1. `RevLog` 里的 tag 过滤（模块都有自己的 tag：`Scene` / `ActionSequence` / `HotUpdate`…）。
 2. 句柄原因：`handle.ErrorReason`（资源）、`RevGMResult.Message`（GM）、`RevHotUpdate.LastError` + `RevHotUpdate.Dump()`（热更）。
-3. 能力自检接口：`RevTimer.Count` / `RevMono.Count` / `RevEvent.GetListenerCount(名字)` / `RevResManager.CachedCount` / `RevPool.DumpStats()` / `RevUI.DumpStats()` / `RevScope.Dump()` / `RevScope.LastCloseReport.ToText()` / `RevLogic.Count` / `RevLog.Dump()` / `RevAppLifecycle.PauseCount` / `RevStripGuard.Dump()`。
+3. 能力自检接口：`RevTimer.Count` / `RevMono.Count` / `RevEvent.GetListenerCount(名字)` / `RevResManager.CachedCount` / `RevPool.DumpStats()` / `RevUI.DumpStats()` / `RevScope.Dump()` / `RevLogic.Count` / `RevLog.Dump()` / `RevAppLifecycle.PauseCount` / `RevStripGuard.Dump()`；`RevScope.LastCloseReport` 初始为 null，判空后再 `ToText()`。
 4. 复现：打开对应 demo 场景点按钮；或写一条 GM 命令直接在编辑器面板里跑。
 
 ### D. 交付
@@ -183,7 +186,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 "何时读哪个文件"已在上面的**分诊表**里给全了，这里只列清单（避免重复）：
 
-- **按任务找**（优先）：`references/playbooks.md`（20 个配方）· `references/decision-guide.md`（选型 + 不存在清单）· `references/troubleshooting.md`（症状速查）
+- **按任务找**（优先）：`references/playbooks.md`（21 个配方）· `references/decision-guide.md`（选型 + 不存在清单）· `references/troubleshooting.md`（症状速查）
 - **查 API 与专题**：`references/modules-core.md` · `references/modules-content.md` · `references/startup-and-platform.md` · `references/resource-and-ab.md` · `references/ui-and-layering.md` · `references/hot-update.md`
 - **规范与交付**：`references/code-style.md` · `references/editor-tools.md` · `references/verify-and-test.md` · `references/docs-map.md` · `references/pitfalls.md`（坑位 + 已修复缺陷的现行契约）
 - **审查**：`REFERENCE_GUIDELINES.md`

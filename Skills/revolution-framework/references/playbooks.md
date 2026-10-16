@@ -26,6 +26,7 @@
 | R18 | 给新模块写一个 Demo | `templates/RevXxxDemo.cs.txt` |
 | R19 | 自定义域与大厅 / 战斗流程联动 | `RevScope` / `RevLogic` + FSM |
 | R20 | 项目选择横屏 / 竖屏 UI | `RevUISetting.CanvasOrientation` |
+| R21 | 为关键业务留 AI 可验证的 GM 测试接口 | `RevGM` + 项目业务服务/流程控制者 |
 
 ---
 
@@ -184,7 +185,7 @@ private void OnDestroy() { RevServices.UnregisterAllOf(this); }
 - **不要把取到的服务长期存成字段**：注销后它是已 `Dispose` 的对象；要用就现取（一次字典查找，热路径 0 分配）。
 - **服务第一次被取用时才创建**（才 `OnInit` / 才被每帧驱动 `RevITickable`）：要启动期就激活，注册后立刻 `Get` 一次。
 - **全局服务集中在启动入口注册**；跟模块 / 场景走的，在它的 `Awake` 注册、`OnDestroy` 注销。`Debug.Log(RevServices.Dump())` 随时查"谁还占着"。
-- **判据**："关掉这个界面之后这段逻辑还该活着吗？"该 → 服务；不该 → 留在面板里。别为"少写一个构造参数"上定位器。
+- **判据**：关屏就结束 → 面板；无界面、只活一局/一段玩法 → `RevLogicBase`；跨域长期共享 → 服务。别为少写构造参数引入服务定位器。
 - **单测**：`[SetUp]` 里 `Register<IX>(new FakeX())`，`[TearDown]` 里 `RevServices.UnregisterAll()`。
 
 **进阶：同一个服务类型要"每局 / 每个场景各一份"才用 Builder**（`RevServices` 只有全局一份）：
@@ -393,3 +394,31 @@ public static void Register()                        // 必须 static；方法�
 - 这是运行时根 Canvas 的设计缩放方案；不改 prefab 原件、不改设备方向、不自动重排面板或处理安全区。
 - 静态 Prefab 预览手动配置预览 CanvasScaler 与竖屏 Game 分辨率；运行时验收走实际 `RevUI.OpenAsync`，不能把 Boot 设置当 Prefab Mode 自动适配。
 - 完整规则和自带竖屏设计基准的边界见 `ui-and-layering.md` §1.5。
+
+## R21 给关键业务留 GM 测试接口，供项目 AI/MCP 自动验收
+
+先按 `Revolution.Document/编程范式/Revolution官方编程架构规范.md` §3–4 确定真实业务服务、受控测试环境和命令白名单。**项目自行实现的流程控制者**持有 FSM 并负责域切换；GM 只调用它与玩家入口共用的方法。一个业务路径至少提供“查询前置/后置状态 + 执行受控操作 + 非法前置应失败”三种可断言证据，不要把 GM 当第二套业务逻辑。
+
+```csharp
+// 项目示意：IRevGameFlow 和实现它的服务由业务方定义，不是框架自带 API。
+public static class GameFlowGmCommands
+{
+    [RevGMEntry("受控游戏流程测试命令")]
+    public static void Register()
+    {
+        RevGM.Register("流程/快照", "读当前业务流程", args => RevServices.GetRequired<IRevGameFlow>().Snapshot());
+        RevGM.Register("流程/进入战斗", "测试环境从大厅进战斗", args =>
+        {
+            IRevGameFlow flow = RevServices.GetRequired<IRevGameFlow>();
+            if (!RevScope.IsActive(RevDomain.Lobby)) { throw new RevGMUsageException("大厅域未打开"); }
+            if (!flow.TryEnterBattle(out string reason)) { throw new RevGMUsageException(reason); }
+            return flow.Snapshot();
+        }, RevGMFlags.HighRisk);
+    }
+}
+```
+
+- **注册时机**：`[RevGMEntry]` 方法必须静态、无参、只做命令注册（编辑期会调用它生成目录）；handler 到 Play 时才取服务。Boot 在**受控测试环境**注册一次业务服务与这些命令，避免重复注册；参数描述 `RevGMArg.Int("数量", n)` 与 handler `args.Int(0, n)` 的默认值保持一致。
+- **机器判定**：让项目自建适配器在主线程调用 `RevGM.Execute("流程/快照")` 等白名单命令，读取 `RevGMResult.Success/Message/ElapsedMs`，对比操作前后 FSM、`RevScope.Dump()`、判空后的 `LastCloseReport`、`RevLogic.Count` 与错误日志；非法转换要失败且状态不变。只注册命令不等于自动测试已经跑过。
+- **安全边界**：项目需另外接 Unity MCP 的 GM 调用适配器、身份/环境控制、超时、参数限额与审计；框架没有现成 GM→MCP 工具、已验证的联通链路或游戏包交互控制台。`RevGMFlags.HighRisk` 只在**编辑器窗口**二次确认，直接 `Execute` 会绕过；`Hidden` 也不是权限。正式环境不注册变更类命令，不暴露任意代码执行、删档、强制卸载、真实支付或敏感数据。
+- **验收**：合法登录/战斗/结算/退出与非法转移、异步取消都记录输入、结果和域/资源收尾证据；离线断言、Unity Play、AB/设备验收分别标记，MCP 未连通就明确写“未执行”。

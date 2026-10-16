@@ -123,6 +123,15 @@
 - [ ] 域服务显式 `owner: RevScope.Current`，或对归属对象调用 `Attach`；未传 owner 的服务不自动归域。同类型服务多实例隔离仍使用 `RevServiceLocator.CreateScope()`。
 - [ ] 用 `RevScopeFlowDemo.cs` 验证大厅 → 战斗 → 回大厅 → 退出；它是挂任意场景的脚本，没有独立 `RevScopeDemo.unity`。
 
+### 10.2 官方业务编程范式与 GM 自动测试
+
+- [ ] 先按 `Revolution.Document/编程范式/Revolution官方编程架构规范.md` 做选型：时间/资源/UI/事件等常用功能走既有门面，不另造平行系统；Login/Lobby/Battle/Settlement/Exit 由**一个流程控制者**管理 FSM，不在 UI、GM 和场景回调里分别维护一份流程状态。
+- [ ] 明确“大厅切战斗后是否常驻”：线性选 `RevLightFSM`，保留大厅选 `RevLightStackFSM`；状态负责本域 Enter/Exit，场景加载交 `RevScene`，没有把场景切换当成 FSM 自动切换。
+- [ ] 异步 FSM 准备期旧域仍有效；不提前关旧域。取消或晚到回调检查 `CurrentState`、原域 `IsOpen` 与取消信息；栈机没有异步 Push/Pop。
+- [ ] 关键业务至少有受控 GM 查询、动作、拒绝案例；命令 handler 调**真实业务服务/流程控制者的同一入口**，不直接改私有状态/存档，也不执行内部资源卸载或任意代码。
+- [ ] `[RevGMEntry]` 静态无参方法只注册命令，编辑模式编目时不触碰运行时服务；重复注册、默认参数、域未开、目标不存在等失败有 `RevGMResult.Success/Message` 可观察。
+- [ ] 变更类 GM 只在开发/测试环境注册或执行；`HighRisk`/`Hidden` 都不是权限，直接 `RevGM.Execute` 不经面板确认。MCP/AI 需项目提供受控适配器、白名单、主线程调用、身份/审计，不能把第三方 Unity MCP 包当成已接通的 GM 桥或自动化测试通过的证据。
+
 ## 11. 对照示例（反例 → 正例）
 
 ### 例 1：事件订阅

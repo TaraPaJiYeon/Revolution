@@ -103,8 +103,8 @@
   <div class="wrap">
     <span class="kicker">REVOLUTION · 文档总入口</span>
     <h1>Revolution 文档导航</h1>
-    <p>18 个运行期模块 + 2 套编辑器工具的文档都在这一页。<b>第一次来</b>：先看 ①，再按需要往下跳。</p>
-    <div class="meta">18 个模块 · 每个模块都有《使用说明》= 手把手 · 多数另有《架构解析》= 设计论证</div>
+    <p>框架运行期 21 个目录与编辑器工具的文档都在这一页。<b>第一次来</b>：先读官方编程架构规范，再按需要往下跳。</p>
+    <div class="meta">20 个功能模块 + 启动门面 · 《使用说明》教上手 · 《架构解析》讲设计取舍</div>
     <div class="meta">在线地址：<a href="https://yokino337088.github.io/Revolution/" style="color:#fff;text-decoration:underline;">yokino337088.github.io/Revolution</a>　·　本地预览：双击 <code>预览文档.cmd</code></div>
   </div>
   <div class="deco"></div>
@@ -114,8 +114,21 @@
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索模块 / 关键词（例如：计时器、UI、分包、特性…）" autocomplete="off">
-    <span class="hint"><b id="cnt">19</b> 张卡片已显示</span>
+    <span class="hint"><b id="cnt">24</b> 张卡片已显示</span>
   </div>
+
+  <!-- 官方架构规范：新项目先定流程与测试契约 -->
+  <section>
+    <h2><span class="num">★</span>先读官方编程架构规范</h2>
+    <p class="lead">常用功能使用框架门面；登录、大厅、战斗、结算、退出由 FSM + RevScope 统一管理；关键业务通过受控 GM 留下可验证的测试入口。</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Revolution 官方编程架构规范</h3>
+        <p class="desc">模块选型、流程状态与游戏域接线、业务 Logic/服务分工、GM 测试命令与 MCP/AI 自动验收的现有能力及安全边界。</p>
+        <div class="links"><a href="编程范式/Revolution官方编程架构规范.html">阅读网页版</a><a class="md" href="编程范式/Revolution官方编程架构规范.md">.md 权威版</a></div>
+      </div>
+    </div>
+  </section>
 
   <!-- ① -->
   <section>
@@ -210,7 +223,7 @@
   <!-- ③ 扩展包 -->
   <section>
     <h2><span class="num">＋</span>扩展包：按需安装</h2>
-    <p class="lead">不属于框架本体，单独一个包：<b>导入即有、不导入零影响</b> —— 框架侧只多了两个默认为 <code>null</code> 的钩子，业务加载代码不用改。</p>
+    <p class="lead">不属于框架本体，单独一个包：<b>导入即有、不导入零影响</b> —— 框架侧提供四个默认 <code>null</code> 的资源接线钩子，业务加载代码不用改。</p>
     <div class="grid">
       <div class="card">
         <h3><span class="ico">🔄</span>资源热更新（RevHotUpdate）</h3>
