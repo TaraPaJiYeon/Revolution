@@ -35,7 +35,8 @@
 | A 明确拥有 B（面板与自己的按钮、战斗系统与伤害计算器） | **直接调用**。判据：加第 4 个监听者时广播方要不要改代码？要改就别用事件 |
 | 一个变化多处反应，广播方不该知道有谁 | `RevEvent` |
 | 需要返回值 / 需要知道谁处理了 | 直接调用（事件不是 RPC） |
-| 跨界面复用的业务能力，或底层要调上层 | **服务定位器**：默认 `RevServices`（一行 `Register` / `GetRequired` / `Unregister`）；"每局 / 每场景各一份"才用 `RevServiceLocator` 的 `CreateScope()` |
+| 跨域共享能力、底层要调上层 | 默认 `RevServices`；顺序域服务显式归域 owner，多个同接口并存实例才用 `RevServiceLocator.CreateScope()` |
+| 没有界面，只活一段玩法的业务 | `RevLogicBase` + `[RevLogic(业务域)]` + `RevLogic.Start<T>()`；FSM 管状态，`RevScope` 管域回收 |
 | 只属于这一屏的流程 | 留在面板里（`RevUIPanel<TData>`）。判据："关掉这个界面后它该不该活着"，该活着 → 做服务 |
 | 进程内唯一实现的简单工具 | `static class` |
 | 只是为了少写一个构造参数 | 直接传参，不要上定位器 |
@@ -43,7 +44,7 @@
 
 ### 1.3 状态机三形态 + 动作序列
 
-| | 轻量 `RevLightStateMachine<T>` | 栈 `RevLightStackStateMachine<T>` | 重量 `RevHeavyFsm<枚举,宿主接口>` |
+| | 轻量 `RevLightFSM<T>` | 栈 `RevLightStackFSM<T>` | 重量 `RevHeavyFSM<枚举,宿主接口>` |
 |---|---|---|---|
 | 管什么 | 游戏流程 / 玩法阶段 | 界面栈 / 返回式流程 | Boss 或小怪 AI / 技能阶段 |
 | 状态标识 | 类即状态 | 类 | 枚举 + 行为接口 |
@@ -124,8 +125,9 @@
 | **RevScene** | 切前**只自动清对象池**；不新起宿主；没有加载步骤 / 权重 / 状态机那套；不管热更；**切换进行中的后续请求被忽略并告警，不排队** |
 | **RevInput** | **没有"系统动作例外"**：`Block(World)` 会连 ESC / 返回键一起挡；不用于点 UI；`ResetAll` / 切后台复位**不合成** `OnReleased`（收尾监听 `RevAppLifecycle`）；不内置虚拟摇杆 UI / 改键 UI / 手柄默认轴映射（用 `BindNamedAxis`）；没绑过的动作不报错永远返回 false；`FixedUpdate` 里轮询 `Pressed` 可能被多次读到 |
 | **RevSound** | **没有状态查询**（"现在几条在播"，观察靠 `VoiceFinished` / `Failed`）；2D / 3D 由方法决定（`Play` 是 2D，`PlayOn / PlayAt` 是 3D）；不暴露 `RevSound.Root`（目录在 RevAB 窗口配）；`Scope` 只停声音不卸资源；只异步加载（首次有延迟 → `Preload`）；框架自身不打日志 |
-| **状态机** | **不自动驱动**（宿主每帧调 `Update` / `UpdateState`，纯 C# 宿主用 `RevMono.AddUpdate`）；栈机刻意不做异步切换；**没有 `RevHeavyFsmGroup` / `RevHeavyFsm.TimeScale`** [已核实]；没有可视化调试窗口 / 快照回放；回调里不许重入 |
-| **RevResManager** | 不能绕开资源系统读 StreamingAssets / `dataPath`；**没有默认资源根目录**（必须先在 RevAB 窗口设）；**刻意不做字符串分组**（`RevResGroup` 只能末尾追加，不能插中间）；`Resources` 只是兜底，会被无条件打进包体且无法按需卸载；分组归属首次确定后不变；没有自动回收（加载一次就释放一次） |
+| **状态机** | 公开类型为 `RevLightFSM` / `RevLightStackFSM` / `RevHeavyFSM`；宿主显式驱动，栈机不做异步切换；没有 `RevHeavyFSMGroup` / `RevHeavyFSM.TimeScale`；不内置 Scope 调度，业务状态负责联动；既有文件路径仍含旧名 |
+| **RevScope / RevLogic** | 游戏域是字符串，用户定义常量即可；不是服务实例隔离容器。同名重入默认失败，关闭 `ReenterIsError` 只复用；`TakeOverOwner` 默认开但可关，显式 owner 优先，服务须显式归属；`Reclaim` 默认 Unknown 不按组收资源。Tick 暂停不等于停 Timer；缺域的 Logic Start 返回 null，不能调用任意不存在的自动启动 API |
+| **RevResManager** | 资源组仍是 `RevResGroup` 枚举，不等于可自定义的字符串游戏域；加载传 Unknown 仅在活动域开启兜底且配置非 Unknown 回收组时补组。引用仍按契约配对，跨域共享不得被域整组误卸载；资源根需配置，Resources 只是随包基线/兜底 |
 | **RevUI** | **不做代码热更、不做自动数据绑定**（改了 `Data` 内容手动 `RefreshView()`）；不使用 `RevPool`；**不让面板自设 `sortingOrder`**，预留参数 `RevUISetting.LayerStep` **改了没有任何效果** [已核实：字段存在但未接入]；不要手动 `Instantiate`；Part 的关闭是同步的，不自动刷新所有 Part；**本期没做**：MessageBox、常用 Part、面板清单窗口、打开优先级（面板代码生成器已有，见 `editor-tools.md`） |
 | **RevSequence** | 不做条件分支 / 跳转 / 状态网络；不内置业务动作库；不做可视化编排；不内置区域检测（只给 `RevITriggerSource` 契约）；不提供状态 / 进度查询；`.Finally` 里不能放 `Wait` / `Tween`（`Build()` 报错）；`Build()` 之后再改会抛异常；全局时间缩放 / 暂停开关未做 |
 | **RevGM** | **不做客户端权限**（`HighRisk` 只是提醒二次确认，真权限归服务端）；不支持拼音缩写联想（中文要打中文子串）；编辑模式（没点 Play）不执行命令；命令名不能含空白 / 不能只有分隔符；重名注册直接抛异常；不用编译宏裁剪 |
@@ -144,6 +146,6 @@
 
 - **RevTimer**：`RevStopwatch` 同帧读数为 0，且 Fixed / Server 域被静默降级为 Scaled；`Fixed` 域在 `timeScale = 0` 时随 `FixedUpdate` 停止（与"照走"不符）；`At` 计时器的 `Pause / Restart / Progress` 语义不成立；同帧内被 `Pause / Restart` 的计时器仍可能触发；临近 1024 上限时"回调里先 Stop 再创建"可能误报 `Overflow`；**值类型作 `owner` 因装箱 `CancelAllOf` 永远匹配不上**；宿主 `HideAndDontSave`，退出 Play 后可能残留。
 - **RevUI / RevInput**：修复多为**静态审计结论**（Unity 最终编译与 PlayMode 回归当时未完成；RevInput 的 EditMode 测试运行器 0 个用例，"Passed"是空套件；没有真机键鼠 / 手柄 / 多点触屏验证）。
-- **RevHotUpdate**：`Verifying` 状态无进度上报；`CheckAsync` 之间无并发防重；`SelfCheck` 不重算 sha256。
+- **RevHotUpdate**：候选门禁、完整快照真 SHA、跨启动分片身份复用和发布 `SelfCheck` 真 SHA 已落地；不要沿用“SelfCheck 不重算”的旧结论。当前没有 `ProbeBundles` / 经资源系统加载代表业务资源的探针链路，`RevHotResBridge.Reset()` 也未解除四委托；端到端验证范围见 `hot-update.md` §5.1。
 - **状态机 / 动作序列**：没有行为断言工程（取代 / 取消 / 栈配对 / 历史裁剪只靠设计保证和代码审查）；动作序列"工程外无引擎编译未跑"。
 - **投产评估 P2 未做**：Debug / Release 构建区分、出包链路、首包体积门禁、热更下载类 4 条内部加固。

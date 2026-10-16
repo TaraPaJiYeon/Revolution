@@ -1,6 +1,6 @@
-# 模块速查（一）：日志 / 计时 / 公共Mono / 对象池 / 事件 / 服务定位器 / 异步 / 场景 / 输入 / 启动 / 生命周期
+# 模块速查（一）：基础模块 / 游戏域 / 业务单元
 
-> 11 个模块的门面**全部在 `namespace Revolution`**；路径相对 `Assets/Revolution/Runtime/`。
+> 本页公开入口均在 `namespace Revolution`；路径相对 `Assets/Revolution/Runtime/`。新增 `RevScope` / `RevLogic` 见 §12。
 > 这里只列"最常用 + 最容易写错"的部分；完整 API 看源码 Facade 与对应《使用说明》（`references/docs-map.md`）。
 > **阅读顺序建议**：写代码前先看该节"铁律"，再照"最小示例"写。
 
@@ -468,3 +468,38 @@ private void OnResumed() { if (RevAppLifecycle.LastBackgroundSeconds > 60f) { Re
   3. `SetBackground` / `NotifyQuitting` / `ResetForNewSession` 是给宿主调的。
   4. 暂无 Demo 场景。
 - 文档：`Revolution.Document/应用生命周期/应用生命周期使用说明.md` · 详见 `startup-and-platform.md` §2
+
+---
+
+## 12. RevScope / RevLogic —— 游戏域与业务单元
+
+- 入口：`RevScope/Facade/RevScope.cs`、`RevLogic.cs`；业务基类 `RevScope/Core/RevLogicBase.cs`；域名与配置见 `RevDomainNames.cs`、`RevScopeDefine.cs`。
+- 分工：FSM 管当前流程状态，Scope 管这段玩法的生命周期，Logic 管没有界面、只活一段玩法的业务；服务容器的 `CreateScope()` 是实例隔离，**不是游戏域**。
+- 自定义域：在业务侧集中声明 `const string`（例如 `GameDomain.Dungeon`、`GuildWar`）；`RevDomain` 只是预置 `Global/Lobby/Battle`，不必修改框架，也不等于枚举资源组 `RevResGroup`。
+
+```csharp
+RevScopeHandle RevScope.Enter(string domain, RevResGroup reclaim = RevResGroup.Unknown)
+RevScopeHandle RevScope.Enter(string domain, RevScopeOptions options)
+int RevScope.Exit(string domain) / Exit(RevScopeHandle handle) / ExitAll()
+void RevScope.Attach(object owner)      int RevScope.Detach(object owner)
+void RevScope.SetTickEnabled(string domain, bool enabled)
+bool RevScope.IsActive(string domain) / IsTickEnabled(string domain)
+RevScopeHandle RevScope.Current / Get(string domain)      int RevScope.Count
+RevScopeCloseReport RevScope.LastCloseReport      string RevScope.Dump()
+
+T RevLogic.Start<T>() / Start<T>(object param) where T : RevLogicBase, new()
+int RevLogic.Stop<T>() where T : RevLogicBase      int RevLogic.StopAll(string domain)
+T RevLogic.Get<T>() where T : RevLogicBase      bool RevLogic.TryGet<T>(out T logic)
+int RevLogic.Count      string RevLogic.Variant / Dump()
+```
+
+最小接法：先 `RevScope.Enter(GameDomain.Dungeon, RevResGroup.Battle)`，检查返回值不是 `RevScopeHandle.Empty`；业务类加 `[RevLogic(GameDomain.Dungeon)]` 并继承 `RevLogicBase`，再 `RevLogic.Start<T>()`。离开时 `RevScope.Exit(保存的句柄)`，或句柄 `Dispose()`。启动被拒绝/`OnStart` 抛错时返回 null 并记原因；同类型重复 Start 返回正在运行的实例。
+
+- `OnStart()` / `OnStart(object)` 装配，`OnTick(float)` 可选且由框架驱动，`OnStop()` 只做业务收尾。使用基类 `After/Every/Listen/Listen<T>` 自动携带 `owner: this`；Stop 先解绑该 Logic 的事件、Timer、Mono、服务，再调 `OnStop`。资源与自持有对象仍需按契约收尾，不把基类解绑当作全部资源自动释放。
+- 默认 `TakeOverOwner = true`：未显式传 owner 的 Timer/Event/Mono 归当前域，**显式 owner 优先**；显式归属对象需随域结束时用 `Attach(owner)`。全局连接/心跳显式 owner，避免误归业务域。
+- `Reclaim` 默认 `Unknown`，不按组清资源/池；配置非 `Unknown` 才让资源加载漏斗的 `EffectiveGroup` 补上域回收组。关闭 `TakeOverOwner` 后不再兜底；不要把共用 UI/Config/Sound 组作为战斗整组回收目标。
+- 服务注册**不自动归域**：域服务明确 `owner: RevScope.Current` 或给其 owner 调 `Attach`；多个相同接口并行实例仍用 `RevServiceLocator.CreateScope()`。
+- 同名重入默认报错并返回 Empty；`ReenterIsError = false` 只是复用已有域。关闭非栈顶域会先关它上方的域；状态应保存句柄、只关自己的域。
+- 关闭顺序：关域门 → Logic → UI → Mono → Timer → Event → Pool → Res → Services → 扫尾；步骤异常隔离。`LastCloseReport` 关过域才有值，排查前先判空。
+- `SetTickEnabled(false)` 只停域兜底 Mono 和域 Logic 的 `OnTick`；**不暂停 Timer，也不控制显式 owner 的普通 Mono 回调**。暂停不是回收。
+- `RevScope` 本体不依赖 FSM；联动写在业务状态的 `OnEnter/OnExit/OnSuspend/OnResume`。示例 `Assets/Revolution.Demo/RevScope.Demo/RevScopeFlowDemo.cs` 挂任意场景；没有独立 `.unity`。配方见 `playbooks.md` R19，文档 `Revolution.Document/作用域系统/作用域系统使用说明.md`。

@@ -46,10 +46,11 @@ using (RevSoundScope s = RevSound.OpenScope()) { s.Play("battle_bgm"); }    // �
 
 ## 2. RevStateMachine —— 状态机（三件套，无 Facade 目录）
 
-- 入口（`RevStateMachine/` 下，均 `public sealed class`）：
-  - `RevLightStateMachine<T>`（`Lightweight/Machines/`）—— 轻量单状态机：UI 流程 / 玩法阶段，**零额外分配**
-  - `RevLightStackStateMachine<T>` —— 带栈的状态机：界面栈、需要"记住来路"的流程
-  - `RevHeavyFsm<TStateEnum, TOwner>`（`Heavyweight/`）—— 重量级：怪物 AI / Boss AI（枚举 + 宿主接口）
+- 类型命名统一大写 `FSM`，目录名仍为 `RevStateMachine/`，既有物理文件名未改：
+  - `RevLightFSM<T>`（sealed，`T : class, RevILightState`）—— 单状态流程；定义仍在 `Lightweight/Machines/RevLightStateMachine.cs`。
+  - `RevLightStackFSM<T>`（sealed，`T : class, RevILightStackState`）—— 返回式流程；定义仍在 `Lightweight/Machines/RevLightStackStateMachine.cs`。
+  - `RevHeavyFSM<TStateEnum, TOwner>`（**不是 sealed**，枚举 + `RevIHeavyFSMOwner`）—— AI；定义仍在 `Heavyweight/RevHeavyFsm.cs`。状态基类 `RevHeavyFSMState` 的文件仍叫 `RevHeavyFsmState.cs`，接口文件仍叫 `RevIHeavyFsmOwner.cs`。
+- 状态接口 `RevILightState`，常用空实现基类 `RevLightStateBase`；重量机配套类型 `RevHeavyFSMTransition` / `RevHeavyFSMLog`。类型改名不等于资产路径改名。
 - 常用 API：
 
 ```csharp
@@ -62,7 +63,7 @@ event Action<T, T> StateChanged      T CurrentState / float StateTime / bool Is<
 void Push(T state) / Push<TState>()      void Change(T state) / Change<TState>()
 event Action<T> StatePushed / StatePopped      T Current / int Count
 // 重量
-RevHeavyFsm(TOwner owner)      void AddState(TStateEnum type, RevHeavyFsmState<TStateEnum, TOwner> state)
+RevHeavyFSM(TOwner owner)      void AddState(TStateEnum type, RevHeavyFSMState<TStateEnum, TOwner> state)
 bool ChangeState(TStateEnum target, string reason = "")      RevTask ChangeStateAsync(...)
 void UpdateState(float dt) / FixedUpdateState / LateUpdateState      void Reset(TStateEnum initialState, string reason = "Reset")
 ```
@@ -70,11 +71,12 @@ void UpdateState(float dt) / FixedUpdateState / LateUpdateState      void Reset(
 - 最小示例：
 
 ```csharp
-var sm = new RevLightStateMachine<ILightState>();
+var sm = new RevLightFSM<RevILightState>();
 sm.Register(new LobbyState());
+sm.Register(new BattleState());
 sm.ChangeTo<LobbyState>();
 sm.Update(Time.deltaTime);                 // 宿主每帧驱动
-await sm.ChangeToAsync<BattleState>();     // 资源加载完才交割
+await sm.ChangeToAsync<BattleState>();     // 交割后检查是否真的进入目标状态
 ```
 
 - 铁律 / 坑：
@@ -121,8 +123,8 @@ RevResBootstrap.Instance.Shutdown(RevResGroup.Battle);                          
   1. **策略链顺序 = 注册顺序**：编辑器默认只注册 `RevEditorResPolicy`（直读，AB/Resources 完全不注册）；AB 模式 `RevABResPolicy`（除 `Res/` 前缀全接管）→ `RevResourcesResPolicy`（链尾兜底）。
   2. `ResMap.txt` 三列 = `逻辑名|包名|资源名`；**表缺失 → 空表 → 全部落 Resources 兜底**（编辑器里照样"能用"，真机才炸）。
   3. **引用计数 + 延迟释放**：归零进 `_unused`，由 `FlushUnused()`（切场景读条期）统一卸；失败句柄**也入缓存**（避免每帧重试坏资源）。
-  4. **分组归属首次确定、永不覆盖**（`Unknown` 是唯一例外）；传 `Unknown` 的资源永远不会被分组卸载点名；跨域共享资源打 `Resident`。
-  5. 失败原因只看 `handle.ErrorReason`（框架本方案不打日志）。
+  4. **分组归属首次确定**（Unknown 可补齐）；活动域开启 `TakeOverOwner` 且 `Reclaim` 非 Unknown 时，加载 Unknown 经 `EffectiveGroup` 补为域回收组。其它情况无按组回收保证；跨域共享明确 Resident/持有者，不被战斗整组误卸。
+  5. 检查 `handle.ErrorReason`；Android 主包、依赖、目标包及材质 Shader 风险有 `RevLog` 的 `Res` 日志。变体/管线/图形 API 兼容仍须真机验证。
 - 文档：`Revolution.Document/资源加载系统/资源加载系统使用说明.md`、`资源加载系统架构解析.md`
 
 ---
@@ -214,7 +216,9 @@ RevUI.Open<BagPanel, BagData>(new BagData { UseCellLayout = true });
   6. **刷新时机**：`OnRefreshView` 只在"打开 / 面板开着时 `SetData` / 手动 `RefreshView()`"被调，**框架不监听数据对象内容**——原地改字段（`Data.Count++`）必须手动 `RefreshView()`；`SetData` 写在业务侧"数据产生的地方"，不写在面板里；`OnDataChanged` 里别再手动 `RefreshView()`（会画两遍）；`SetData(null)` 与回池复用都会把 `Data` 清成 null，`OnRefreshView` 里先判空。详见 `ui-and-layering.md` §1.1。
   7. **Canvas 架构默认单 Canvas**（`RevUISetting.CanvasArchitecture = Single`，零配置）；只有 Profiler 证明 UI 合批是瓶颈、常规优化仍不达标，才在**第一次开面板之前**切 `Split`（Static / Dynamic / Common 三 Canvas，面板上 `CanvasType = ...`）。别因为"有倒计时 / 动画 / 多个面板"就拆。
   8. **面板代码生成器**：菜单 `Revolution.Tools/UI/面板代码生成器`——选预制体 → 勾选控件与事件 → 生成唯一 `.cs`（只读预制体、绝不覆盖业务代码）；控件事件按节点**名字**分发，绑定字段才用精确路径。
-- 文档：`Revolution.Document/UI系统/UI系统使用说明.md`、`UI系统架构解析.md`（第十章专门回答"要不要做 System / BusinessLogic"）
+  9. **项目选择横竖屏**：首次 Open/Preload 前设 `CanvasOrientation`；默认 Auto，可选 Portrait/Landscape/UseDesign。只影响运行时根 Canvas 缩放，不改 prefab/设备方向，不重排布局或适配安全区；静态预览见 `ui-and-layering.md` §1.5。
+  10. **无界面域业务**：局内统计、引导推进等用 `RevLogicBase`；跨域能力用服务，不为此给 UI 再加 System/BusinessLogic。
+- 文档：`Revolution.Document/UI系统/UI系统使用说明.md`、`UI系统架构解析.md`（第七章回答分层问题）
 
 ---
 
@@ -367,8 +371,9 @@ if (result.Success == false) { RevLog.Warn(result.Error.Message, "HotUpdate"); }
 
 - 铁律 / 坑（详见 `hot-update.md`）：
   1. `InitializeAsync` 内部自动 `Install()` + 重装资源策略，**不必**再手动调 `RevResBootstrap.Init()`；重复调用直接等正在跑的那一轮。
-  2. 框架侧只有**两个默认 `null` 的钩子**：`RevABLoader.BundlePathResolver`（包从哪读）+ `RevResBootstrap.ResMapOverride`（映射表用热更的）；不装热更包 = 零影响。
-  3. **覆盖式语义**：持久化版本目录优先 → 没有就回退首包（StreamingAssets）；热更失败**绝不破坏现有版本**（玩家照常玩旧版）。
+  2. 框架侧四个默认 null 钩子：包路径、Hash128/CRC 缓存键、依赖覆盖、ResMap 覆盖。安装/恢复应保持同一活动版本；当前桥 Reset 不解除委托，不能视为卸载。
+  3. 有效清单的业务包读完整当前快照，缺包不混读任意旧包；无有效清单的兼容路径才回退首包，平台主包始终来自 App 基线。候选未激活不切 current，失败尝试恢复受保护旧快照，恢复失败必须明确停止，不无条件进旧版。
+     清单门禁、完整快照真 SHA、跨启动 `.part.meta` 身份复用与发布 SelfCheck 真 SHA 已落地；文件 SHA + 内置主包加载不等于业务可用，当前无 ProbeBundles 代表资源探针。详情见 `hot-update.md` §5.1。
   4. **大版本锚定**：清单 `@appVersion` 必须 = `Application.version`，不一致 → `AppVersionMismatch`（设计如此，跨大版本请重新出包）。
   5. 编辑器直读模式下**看不到热更效果** → 必须 `RevResBootstrap.UseABInEditor = true`。
 - 文档：`Revolution.Document/热更新/RevHotUpdate使用说明.md`、`RevHotUpdate架构解析.md`、`RevHotUpdate技术方案.md` · README：`Assets/Revolution.HotUpdate/README.md` · demo：`Assets/Revolution.Demo/RevHotUpdate.Demo/README.md`

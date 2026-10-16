@@ -6,7 +6,7 @@
 
 ## 0. 先别猜：一分钟诊断阶梯（§2 的精简版）
 
-1. `RevLog` 按 tag 过滤（`Scene` / `ActionSequence` / `HotUpdate` / `UI` / `Strip` …），或 `RevLog.Dump(200)` 取出事前现场。
+1. `RevLog` 按 tag 过滤（`Res` / `Scene` / `ActionSequence` / `HotUpdate` / `UI` / `Strip` …），或 `RevLog.Dump(200)` 取出事前现场。
 2. 句柄 / 返回值原因：`handle.ErrorReason`（资源）· `RevGMResult.Message`（GM）· `RevHotUpdate.LastError` + `Dump()`（热更）· `RevLog.SinkErrors`（日志通道坏了）。
 3. 自检计数：`RevTimer.Count` / `RevMono.Count` / `RevEvent.GetListenerCount(名)` / `RevResManager.CachedCount` + `GetRefCount` / `RevPool.DumpStats()` / `RevUI.DumpStats()` / `RevAppLifecycle.PauseCount` / `RevStripGuard.Dump()`。
 4. 区分"编辑器 vs 真机"：`RevResBootstrap.UseABInEditor = true` 在编辑器里走一遍真链路。
@@ -33,6 +33,7 @@
 | 小游戏上一启动就崩 | 用了 `Thread` / `Task` / 文件日志 | 异步用 `RevTask`；`RevLog.SinkErrors` |
 | 编辑器里热更 404 / AB 读不到 | 编辑器平台名恒为 `PC`，与打包产物目录名不一致 | 编辑器调试把 Build Target 切回 Standalone，或配 `PlatformOverride` |
 | GM 命令注册报"已经注册过" | 命令名归一化后变成空名（`/` / `///` / `" / "`） | 命令名不能为空 / 含空白 / 只有分隔符 |
+| Unity 版本 / 项目设置 guard 报错，或本地 `ProjectVersion.txt` 与推荐版本不同 | 本地编辑器记录与 guard 契约未一致，不一定是本次改动引入 | 推荐 Unity 2022.3 LTS；`ProjectVersion.txt` 已忽略，不用 `git checkout` 恢复；按 `verify-and-test.md` 的版本 / guard 专题定位现有冲突 |
 
 ### 1.2 UI
 
@@ -52,6 +53,8 @@
 | 二次 Play 后 UI 动画不推进 / 旧句柄误操作新会话动画 | 驱动被复位清空；动画 ID 计数重置（已修） | **不要跨 Play 会话保存旧动画句柄** |
 | 重写 `PlayOpenTransition` 后面板永远停在 Opening | 没调 `onDone` | 动画结束必须 `onDone?.Invoke()` |
 | 一直 `RefreshView` 死循环 / 每次刷新发一次请求 | 在 `OnRefreshView` 里发请求或改数据 | 请求放 `OnOpen` / 交互回调 |
+| 竖屏下 UI 仍按横屏缩放，或旋转后 Match 不符合预期 | 方向设置过晚、`UseDesign` 保留原设计，或 Scaler 不是框架支持的模式 | 首次 `Open` / `Preload` 前选 `CanvasOrientation`（默认 `Auto`）；横屏基准转竖屏换位为 `1080×1920`、Match 默认 `0`，转回横屏恢复设计 Match；见 `ui-and-layering.md` §1.5 |
+| Boot 已设 `Portrait`，Prefab 编辑预览仍横屏，或手机没锁竖屏 | Prefab Mode 不走 `RevUIRoot` 运行时链路；UI 设计方向不控制设备方向 | 手动配预览 Scaler / Game 竖屏，或运行 `RevUI.OpenAsync` 真链路；设备方向在 Player Settings / 平台配置，安全区和布局重排另做 |
 
 ### 1.3 输入
 
@@ -95,7 +98,10 @@
 | 同路径换一种类型加载返回 null 且没原因 | 命中缓存但类型不兼容 | 失败原因 `TypeMismatch`；用 `LoadHandle<T>` 看 `ErrorReason` |
 | 同步加载失败并 `Release` 后，再 `Load` 仍一直失败 | （已修）归零的失败句柄仍留缓存 | 现行 `RefCount ≤ 0` 的失败句柄会摘除并重试；仍被持有的不会被替换 |
 | 取消加载 / 卸载资源组后，其它资源共享的 AB 依赖被提前卸载 | （已修）取消路径与句柄各释放一次依赖 | 现行句柄依赖快照所有权；`UnloadGroup` 会取消在途任务 |
-| 引用计数不归零 → 永远不卸 | `Load` 没 `Release`；或传了 `Unknown` 分组 | `GetRefCount` / `CachedCount`；按域分组；`Unknown` 永不被分组卸载点名；慎用 `force` |
+| 引用计数不归零 / 资源没被域回收 | `Load` 没 `Release`，或没有活动域 / `TakeOverOwner` 关闭 / `Reclaim` 未配置而仍为 `Unknown` | `GetRefCount` / `CachedCount` / `handle.Group`；仅当前域启用 `TakeOverOwner`（默认 true）且 `Reclaim` 非 `Unknown` 才自动补分组；`Reclaim` 默认 `Unknown`，关域不按组回收；跨域共享审查 `Resident` / owner 与首次分组归属，慎用 `force` |
+| Android 打 AB 被 Shader 校验拦下 | 显式材质 Shader 引用缺失，或无可打包资产路径且不在 Always Included | 查看 `ABValidator.ValidateAndroidShaders` 错误的材质 / 来源；修实际 Shader 或所需的 Always Included 项，不把全部 Shader 强加，也不改默认 UGUI 无显式材质；见 `editor-tools.md` §2 |
+| Android Prefab 已加载却变紫 | Shader 缺失 / `Hidden/InternalErrorShader` / `isSupported == false`，或关键词变体 / 渲染管线 / 图形 API 问题 | 先查 tag `Res` 材质 Shader 诊断；确认 Player / AB 平台与管线一致，再查 Shader 包依赖和变体。前置校验不证明真机兼容；Shader 问题不等于包没加载 |
+| Android 主包 / 依赖包 / 目标包加载失败 | 产物平台、热更版本或解析后的来源路径错误 | `handle.ErrorReason` + tag `Res` 的主包 / 依赖包 / 目标包路径；先核对包文件与来源，不将 `BundleLoadFail` 当成 Shader 变体问题 |
 | `RevPool.GetAsync` 的句柄释放后 prefab 提前卸载 / 销毁池时多减引用 | 调用方与池共用一份引用（已修） | 用完 `RevResManager.DecRef(handle)`；现行新建池会额外 `AddRef` 独立持有 |
 | `Shutdown(group)` 后同路径取对象仍命中旧池 | `ClearGroup` 只清空闲实例，池与引用仍保留 | 现行顺序：先 `RevPool.DestroyGroup(group)`，再 `Shutdown(group)` |
 | prefab 被替换 / 卸载后，`Get` 到旧 prefab 的实例 | （已修）`Rebind` 后旧代借出实例又被归还 | 现行 `Rebind` / `Dispose` 强制销毁旧代活动对象 |
@@ -126,8 +132,11 @@
 | 症状 | 最可能原因 | 先查 / 现行做法 |
 |---|---|---|
 | Android 真机上未热更过的内置包加载失败 | 首包没落地 `persistentDataPath/RevHotUpdate/_builtin/Android/`（已修） | 看该目录有没有包；现行在 `RunCheckAsync` 落地 |
-| 第二轮热更后，没被差量更新的包全部加载失败 | （已修）`ResolveBundlePath` 只查当前版本目录 | 现行带 `.stamp` 的历史版本回退链 |
-| `CheckAsync` → `UpdateAsync` 后更新成功但加载仍是旧内容 | （已修）加载钩子只在 `InitializeAsync` 路径安装 | 查 `RevHotResBridge.Install()`；钩子：`BundlePathResolver` / `BundleCacheKeyResolver` / `ResMapOverride` |
+| 第二轮热更后，未变包加载失败 | 未变包未按目标 SHA 补入完整候选，或版本上下文不一致 | 查 `ValidateSnapshotAsync` 与四钩子；有效清单缺包必须拒绝激活，不任意回读旧同名包；见 `hot-update.md` §3/§5.1 |
+| `CheckAsync` → `UpdateAsync` 后加载仍是旧内容 | 钩子/映射/依赖/缓存键未一致更新，或编辑器仍直读 | 查 `RevHotResBridge.Install()` 四项：路径、缓存键、依赖、ResMap；同时核对 `UseABInEditor` |
+| 同版本重启不能续传，或换源后续拼坏内容 | `.part.meta` 文件身份/完整 URL 不一致 | 只有版本、包名、大小、SHA 与 URL 一致才复用；200/416 从零请求，取消保留同身份分片；见 `hot-update.md` §5.1 |
+| 校验通过但业务资源仍不可用 | SHA + 内置主包校验不等于业务资源加载 | 当前无 `ProbeBundles` 代表资源探针，必须做 Unity/真机实际加载验收；不把 Init 当成业务可用 |
+| Reset 后旧钩子仍挂着 | 当前桥 Reset 只复位安装标志 | 没有解除四委托的完整卸载入口，不把 Reset 当作卸载；见 `hot-update.md` §2 |
 | 玩家取消下载后却提示更新成功，资源半新半旧 | （已修）`WhenAll` 吞掉取消异常 | 现行取消时不打 `.stamp` 不切版本；查 `DownloadSession.Cancelled` |
 | 新增 / 变更的包资源 missing，时好时坏 | （已修）清单依赖图没被消费 | 查 `RevABLoader.DependenciesOverride` / `ResolveDependencies` |
 | WebGL 重启 / 同会话二次热更后新增资源加载不到 | 内存映射表为空或仍是旧表（已修） | 查 `HasMemoryResMap` / `EnsureWebGLResMapAsync` 的 `force` |

@@ -16,7 +16,7 @@
 ## 3. 事件/计时器/每帧回调泄漏（对象已销毁还在被调）
 
 - **原因**：匿名 lambda 注册后**无法按委托移除**；循环计时器没留"能停"的路。
-- **做法**：能传 `owner: this` 就传，销毁时一行 `RevEvent.RemoveAllByOwner(this)` / `RevTimer.CancelAllOf(this)` / `RevMono.RemoveAllOf(this)`；或用 `OpenScope()`；需要按委托移除时把回调**存成字段**。
+- **做法**：先定归属：对象级 owner + 对应清理、模块 OpenScope，或启用 TakeOverOwner 的活动域兜底 + Exit。显式 owner 优先，需跟域退出的对象用 Attach；匿名 lambda 可按 owner/域清理，按委托移除则保留同一引用。
 
 ## 4. 事件"没人听"或"签名不匹配"
 
@@ -31,8 +31,8 @@
 
 ## 6. 资源引用计数不归零 → 永远不卸
 
-- **原因**：`Load` 了没 `Release`；或者把资源传成 `RevResGroup.Unknown`（**永远不会被分组卸载点名**）。
-- **做法**：成对释放；按域分组建模（`Battle` / `UI` / `Config` / `Sound`）；退出玩法用 `RevResBootstrap.Instance.Shutdown(RevResGroup.Battle)`；**慎用** `force: true`（会把 `RefCount > 0` 的一起清账，误伤别的域共享资源）。
+- **原因**：取用未释放，或域外/关闭兜底/未配回收组时仍传 Unknown。
+- **做法**：引用按契约配对；活动域 `TakeOverOwner=true` 且 `Reclaim` 非 Unknown 才把 Unknown 加载补到域回收组。关域按既有顺序清池再清资源，不把全局共享组作为战斗回收组；跨域共享明确 Resident/生命周期，慎用 force。
 
 ## 7. 同步 `Load` 拿不到资源 / `RevUI.Open<T>()` 返回 null
 
@@ -160,6 +160,25 @@
 - **原因**：`async void` 的异常不会抛给任何人（按钮 / 事件入口常见）；`RevTask` 不 `await` 也不 `Forget()` 会触发编译器警告。
 - **做法**：入口 `async void` 整体 `try/catch` + `RevLog.Exception(e, …)`；不 await 的任务显式 `.Forget()`；关键节点 `token.ThrowIfCancelled()`。
 
+## 29. 关域后回调/服务还在，或全局心跳被收走
+
+- 显式 owner 优先于当前域，服务不自动归域；需要随域的对象用 `RevScope.Attach(owner)`，域服务显式 `owner: RevScope.Current`。默认兜底需 `TakeOverOwner=true`；跨域心跳使用显式全局 owner。资源回收还需非 `Unknown` 的 `Reclaim`，不能只 Enter 就假设全部自动清理。
+- FSM 只开关自己的域；`RevScope` 不依赖 FSM。`SetTickEnabled(false)` 只停域兜底 Mono 与 Logic Tick，Timer 照走；暂停不是回收。自定义域用业务 `const string`，不要修改预置 `RevDomain` 才能加域。见 `playbooks.md` R19。
+
+## 30. 选竖屏后 Prefab 预览没变，或页面仍是横屏布局
+
+- `CanvasOrientation` 只处理运行时根 Canvas 实例缩放；固定 Portrait/Landscape 不会锁设备方向或重排面板。首次 Open/Preload 前设置；Prefab 编辑预览要手动 Scaler + Game 竖屏分辨率，安全区与排版由业务处理。见 `ui-and-layering.md` §1.5。
+
+## 31. Android AB 打包被拦或材质变紫
+
+- `ValidateAndroidShaders` 在窗口与 CI 入口预检显式 Shader 缺失/无法随包加载且不在 Always Included 的风险，不全量保留所有 Shader、不误报默认 UGUI 无显式材质。
+- 查看 `Res` 标签，先区分主包/依赖包/目标包来源失败与 Shader 缺失/不支持；变体裁剪、管线或图形 API 不匹配仍需真机验收。预检通过不能证明设备兼容。见 `resource-and-ab.md`。
+
+## 32. 热更校验过了，却把它当作全部业务资源可用
+
+- 文件平台完整快照尺寸/SHA 与内置主包检查不等于业务资源加载；当前没有 `ProbeBundles` 代表资源探针。WebGL 走 Unity Hash128/CRC，映射表另校验；有效清单中的缺包不能任意混读旧同名包。
+- `.part.meta` 身份不一致不得续拼；发布 `SelfCheck` 已重算真 SHA，但不是客户端运行回归。`Reset()` 只复位桥安装标志，不能声称四委托已解除。见 `hot-update.md` §2、§5.1。
+
 ---
 
 # 已修复缺陷的"现行契约速查"
@@ -179,5 +198,7 @@
 | **RevSequence** | 步骤 / 回调 / await 续体里 `StopAll` / `Clear` / `Dispose` 安全（Tick 按快照遍历）；步骤里 `Stop` 自己后不再执行后续步骤；`RunFinished` 订阅者抛异常不会让 `PlayAsync` 永不完成；等待超时 / 异步任务失败 / 收尾异常**经 RevLog 输出**（tag = `ActionSequence`）；`OnCancel` / `OnCompleted` / `OnCancelled` 多次调用**叠加**；触发者被销毁时序列自动取消；`FinallySteps` 现在表示 `.Finally` 步骤、取消收尾改名 `CancelSteps` |
 | **RevLog** | 文件大小按 **UTF-8 字节**统计（中文日志不会涨到上限约 3 倍才轮转）；主线程 Flush / Dispose 与后台线程写同一 `StreamWriter` 已互斥；WebGL 自动禁用文件通道 |
 | **RevPool / 资源** | 失败句柄在引用归零后允许重新尝试加载；`Clear<T>()` / `DestroyPool<T>()` 按类型清理（见 §26） |
-| **RevHotUpdate** | WebGL 同会话二次热更映射表残留、清单下载聚合器并发互踩等已修（明细见 `热更新框架Bug修复日志.md`）；小游戏上禁明文 http、并发 > 4 在配置期报错 |
+| **RevScope / RevLogic** | 自定义字符串域；默认域兜底但显式 owner 优先，服务显式归属；非 Unknown Reclaim 才按组收资源/池；停 Tick 不停 Timer；Logic Stop 先解绑自身受控注册，再业务收尾 |
+| **FSM** | 类型名统一 FSM，既有文件路径保留旧名；宿主驱动，状态只开关自己的域，Scope 内核不依赖 FSM |
+| **RevHotUpdate** | 候选清单门禁、完整快照 SHA、跨启动分片身份与发布 SelfCheck 真 SHA 已实现；有清单时不混读任意旧包，失败回退也可能失败需停在错误；当前未提供 ProbeBundles/完整卸载桥接口。端到端范围见 `hot-update.md` |
 | **配置表 / 打包** | `DataLoad → RevDataLoad`、`LiteAB → RevAB` 已改名（旧名只会出现在历史文档 / 旧生成物里）；ResMap 与 AB 产物一致性检查在「检查」页签 |

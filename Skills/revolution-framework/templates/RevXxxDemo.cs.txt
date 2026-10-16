@@ -32,6 +32,7 @@ namespace Revolution.Demo.Xxx
             // ★ 订阅过的东西必须在这里退订 / 取消：场景销毁后回调还在是最典型的泄漏
             RevTimer.CancelAllOf(this);
             RevEvent.RemoveAllByOwner(this);
+            RevMono.RemoveAllOf(this);
         }
 
         private void OnGUI()

@@ -43,17 +43,17 @@ RevResManager.Load / LoadAsync(根目录, 资源名, 类型, 分组)
 - **失败句柄也入缓存**：避免每帧反复重试坏资源。
 - **分组 `RevResGroup`（`Unknown/Battle/UI/Sound/Config/Scene`）只影响卸载，不影响加载**：
   - 归属**首次确定、永不覆盖**（`Unknown` 可被首次补齐，是唯一例外）；
-  - 传 `Unknown` 的资源**永远不会**被 `UnloadGroup` 点名；
-  - 跨域共享资源打 `RevResInstanceFlag.Resident`（连 `force` 都不参与卸载）；
+  - 仅当**当前活动域启用 `TakeOverOwner` 且配置了非 `Unknown` 的 `Reclaim`**时，加载传 `Unknown` 才由 `EffectiveGroup` 自动补为 `RevScope.DefaultGroup`，对象池加载 prefab 也走这条漏斗。`RevScopeOptions.TakeOverOwner` 默认 `true`、可关闭；`Reclaim` 默认 `Unknown`，此时关域会跳过对象池 / 资源的按组回收。没有活动域、关闭兜底或未配置回收组时，传入 `Unknown` 不会因此获得明确分组；
+  - 跨域共享需审查真实持有者与释放时机，明确 `Resident` / 分组 / `owner` 归属，不把所有资源强制绑到 `this`；`RevResInstanceFlag.Resident` 连 `force` 都不参与卸载；
   - `UnloadGroup(group, force: true)` 会把"引用计数 > 0"的一起清账 → **会误伤别的域的共享资源**，慎用。
 - 切场景约定：`RevScene.AutoClearPool` 已自动清对象池；UI / 音效 / 资源分组要自己在 `RevScene.OnLoadStart` 里收（`RevUI.CloseAll` / `RevSound.StopAll` / `RevResManager.UnloadGroup`）。
 
 ## 5. 句柄（RevResHandle）
 
 - 只暴露 `Content` / `Data` 两个属性（避免业务乱强转），外加：`IsLoaded`、`State`、`ContentType`、`ErrorReason`、`Group`、`RefCount`、`BundleName`。
-- 失败原因看 `ErrorReason`（**框架本方案不打日志**）：`FileNotExist` / `LoadFail` / `TypeMismatch` 等。
+- 失败原因仍以 `ErrorReason` 为准：`FileNotExist` / `BundleLoadFail` / `AssetLoadFail` / `TypeMismatch` 等。`RevABLoader` 在 Android 真机（`UNITY_ANDROID && !UNITY_EDITOR`）会用 tag **`Res`** 记录异步加载的主包 / 依赖包 / 目标包失败及解析后的来源路径；资源加载成功后还检查材质 Shader 缺失、错误 Shader / `isSupported`。这些诊断不改材质，不覆盖全部变体问题，不能替代失败句柄检查。
 - 同步 `Load` 在"未缓存 + 真机 AB"下拿不到内容（返回未完成句柄）→ 真机首次一律 `LoadAsync`。
-- **`Load<T>(...)` 失败时静默返回 `null`**（不带原因）。需要原因就用 **`LoadHandle<T>(...)`**（同样泛型、不写 `typeof`，但返回完整句柄）：
+- **`Load<T>(...)` 失败时返回 `null`，返回值不带原因**（底层可能已有日志）。需要原因就用 **`LoadHandle<T>(...)`**（同样泛型、不写 `typeof`，但返回完整句柄）：
 
 ```csharp
 RevResHandle h = RevResManager.LoadHandle<Sprite>(RevResPath.Data, "Hero_1001", RevResGroup.UI);
@@ -71,8 +71,8 @@ if (!h.IsLoaded) { RevLog.Error($"加载失败：{h.ErrorReason}", "Res"); }
 - 分包方式（`ABBuildConfig.markMode`）：
   - `ScanExisting`（默认）：读资源 `.meta` 里已有的 `assetBundleName`，工具**绝不改标记**；
   - `AutoByFolder`：按 resRoot 下**顶层目录名**当包名重打（无子目录 → `default`）。
-- 一键打包链（照抄这个顺序）：`Collect` → `Validate`（`CanBuild=false` 就别打）→ `ABBuilderCore.Build(target)` → 依赖分析 → `WriteResMap` + `WriteBuildManifest` + 布局快照 → `ABResPathGenerator.Generate()`（生成 `RevResPath` 常量）→ `CopyToStreamingAssets` → `AssetDatabase.Refresh()`。
-- 校验会拦：命名非法、逻辑路径冲突、同包重名、空包、**漏标**（resRoot 下有资源没有 AB 标记）。
+- 一键打包链：`Collect` → `Validate` → `ValidateAndroidShaders(collect, validate, target)`（`CanBuild=false` 就别打）→ `ABBuilderCore.Build(target)` → 依赖分析 → `WriteResMap` + `WriteBuildManifest` + 布局快照 → `ABResPathGenerator.Generate()`（生成 `RevResPath` 常量）→ `CopyToStreamingAssets` → `AssetDatabase.Refresh()`。
+- 校验会拦：命名非法、逻辑路径冲突、同包重名、空包、**漏标**（resRoot 下有资源没有 AB 标记），以及 Android 显式材质 Shader 缺失 / 无可打包资产且未由 Player 包含（详见 `editor-tools.md` §2）。门禁不改 Graphics Settings，不强制把所有 Shader 加入 Always Included，也不替代变体裁剪与实际设备兼容验证。
 - **「检查」页签的 ResMap 一致性检查**（2026-10-08 新增）：选平台一键核对磁盘上的 `ResMap.txt` 与 `AssetBundles/<平台>/` 产物——格式错误、重复逻辑名 / 包内资源名、映射指向不存在的包、与当前资源标记不一致，逐条列出（只读不改）。堵的是"编辑器直读看不出、真机才 `FileNotExist`"的表包不一致。**出包前跑一遍**。
 - **打包选项**：`deterministic`（默认开，同内容同产物）、`stripUnityVersion`（默认关；开了就要记住"换 Unity 版本先强制重打"）；窗口里有对应勾选框。
 - **AB 运行期健壮性**（`RevABLoader`）：失败重试 `MaxAttempts` / `RetryDelayMs`、超时兜底 `AttemptTimeoutSeconds`（WebGL 上 `UnityWebRequest.timeout` 不生效，框架改按帧轮询 + `Abort`）、引擎缓存标识钩子 `BundleCacheKeyResolver`。
@@ -87,7 +87,7 @@ if (!h.IsLoaded) { RevLog.Error($"加载失败：{h.ErrorReason}", "Res"); }
 
 ## 8. 排查顺序
 
-1. `handle.ErrorReason`（不是 null 就有话说）；
+1. 加载完成后检查 `handle.ErrorReason` 是否为 `None`；Android 还查 tag `Res` 的主包 / 依赖包 / 目标包来源与 Shader 诊断（不能省略失败句柄判断）；
 2. `ResMap.txt` 里有没有这条逻辑名（没有 → 没打标记 / 没重生成表）；
 3. 编辑器直读 vs AB 模式是否一致（`RevResBootstrap.UseABInEditor`）；
 4. `RevResManager.CachedCount` / `GetRefCount(...)` 看引用计数是否归零（不归零就永远不卸）；

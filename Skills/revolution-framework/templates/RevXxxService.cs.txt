@@ -73,16 +73,18 @@ namespace <你的命名空间>
     /// 不用了（比如这个服务跟着某个模块走）：RevServices.Unregister&lt;IRevXxxService&gt;();  // 实现了 IDisposable → 容器会 Dispose
     ///
     /// ★ 注意：RevXxxService 的构造函数有参数，所以不能写 Register&lt;I, T&gt;()（它要求公开无参构造），必须用工厂重载。
-    /// ★ 想要"每局一份"的 IRevCombatContext（作用域）→ 用进阶的 RevServiceLocator.Create().AddScoped&lt;…&gt;().Build()，
-    ///   取的时候放进 using (var battle = Root.CreateScope())。
+    /// ★ 顺序运行的战斗域：Enter 后用 owner: RevScope.Current 注册，Exit 负责注销；服务不会自动归当前域。
+    ///   同类型服务需要多局并存时，才用 RevServiceLocator.Create().AddScoped&lt;…&gt;().Build() 与 CreateScope()。
+    ///   注册时的 owner 必须保存为同一引用；不要在退出时用已经变化的 RevScope.Current 猜原归属。
+    ///   配置服务若已经是全局注册，只新增域内业务服务；不要整套重复 Install 来掩盖注册冲突。
     /// </summary>
     public static class RevXxxServiceInstaller
     {
-        /// <summary>在启动入口调一次。</summary>
-        public static void Install()
+        /// <summary>在启动入口注册全局服务；域内使用时显式传该域 owner，并保证退出时收尾。</summary>
+        public static void Install(object owner = null)
         {
-            RevServices.Register<IRevXxxConfigProvider, RevXxxConfigProvider>();
-            RevServices.Register<IRevXxxService>(s => new RevXxxService(s.GetRequired<IRevXxxConfigProvider>()));
+            RevServices.Register<IRevXxxConfigProvider, RevXxxConfigProvider>(owner: owner);
+            RevServices.Register<IRevXxxService>(s => new RevXxxService(s.GetRequired<IRevXxxConfigProvider>()), owner: owner);
         }
     }
 

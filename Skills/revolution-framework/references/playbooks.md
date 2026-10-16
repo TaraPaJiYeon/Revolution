@@ -19,11 +19,13 @@
 | R11 | 加载图标等资源并释放 | `RevResManager` |
 | R12 | 播音效 / BGM | `RevSound` |
 | R13 | 开箱演出等多段流程 | `RevSequence` |
-| R14 | 流程 / AI 状态切换 | `RevLightStateMachine` |
+| R14 | 流程 / AI 状态切换 | `RevLightFSM` |
 | R15 | 加一条运行时 GM 调试指令 | `RevGM` |
 | R16 | 新项目启动入口 + 切后台重连 | `RevInitialize` + `RevAppLifecycle` |
 | R17 | 接资源热更 | `RevHotUpdate`（见 `hot-update.md`） |
 | R18 | 给新模块写一个 Demo | `templates/RevXxxDemo.cs.txt` |
+| R19 | 自定义域与大厅 / 战斗流程联动 | `RevScope` / `RevLogic` + FSM |
+| R20 | 项目选择横屏 / 竖屏 UI | `RevUISetting.CanvasOrientation` |
 
 ---
 
@@ -267,7 +269,7 @@ RevResManager.Release(RevResPath.Data, "Hero_1001");                            
 
 - ★ **路径是"相对资源根目录的逻辑段"**，不是工程全路径（写成 `Assets/…` 会拼成 `Assets/…/Assets/…` 找不到）。
 - `Load<T>` 失败**静默返回 null**；判失败看 `ErrorReason`，别靠 `== null` 猜。同路径换一种类型加载会报 `TypeMismatch`。
-- 引用归零后进延迟释放队列，切场景读条期 `FlushUnused()` 才真卸；传 `Unknown` 分组的资源永远不会被分组卸载点名。
+- 引用归零进延迟释放队列，读条期 `FlushUnused()` 真卸；Unknown 仅在活动域启用 TakeOverOwner 且 Reclaim 非 Unknown 时补为域回收组，其它情况需显式分组。
 - **抄谱**：`RevResourceSystem.Demo`（根目录 / Load 缓存 / 引用计数归零才卸载 / 句柄与失败原因）。
 
 ## R12 播音效 / BGM（`RevSound`）
@@ -321,9 +323,9 @@ Machine.Update(Time.deltaTime);                   // ★ 不自动驱动：宿�
 
 | 要什么 | 选 |
 |---|---|
-| 游戏流程 / 玩法阶段（要异步切换 `ChangeToAsync`） | `RevLightStateMachine<T>`（状态继承 `RevLightStateBase`） |
-| 界面栈 / 返回式流程（`Push` / `Pop`，刻意不做异步切换） | `RevLightStackStateMachine<T>`（`Change(A)` 只替换栈顶） |
-| Boss / 小怪 AI（枚举 + 宿主接口，三路驱动，带切换历史） | `RevHeavyFsm<TStateEnum, TOwner>` |
+| 游戏流程 / 玩法阶段（要异步切换 `ChangeToAsync`） | `RevLightFSM<T>`（状态继承 `RevLightStateBase`） |
+| 界面栈 / 返回式流程（`Push` / `Pop`，不做异步切换） | `RevLightStackFSM<T>`（`Change(A)` 只替换栈顶） |
+| Boss / 小怪 AI（枚举 + 宿主接口，三路驱动，带切换历史） | `RevHeavyFSM<TStateEnum, TOwner>`，宿主实现 `RevIHeavyFSMOwner` |
 
 - **防重入**：`OnEnter` / `OnExit` 里再切状态会抛异常。异步切换只保留最新目标，`await` 后用 `CurrentState` 确认是否真切过去。
 - 不做分层：要嵌套就组合多台；没有可视化调试窗口 / 快照回放。
@@ -369,4 +371,25 @@ public static void Register()                        // 必须 static；方法�
 2. 按钮从"最简 → 进阶 → 边界与失败"排列；**失败也要演示**（把 `ErrorReason` / 返回值打出来）；右侧步骤日志讲清每一步发生了什么。
 3. `OnDisable` 里清 `owner: this` 注册的东西（计时器 / 事件 / 每帧回调）。
 4. **登记**：`Assets/Revolution.Demo/RevDemoSceneList.txt` + `Assets/Revolution.Demo/README.md`（场景索引表）。
-5. Demo 的 asmdef **只引用 `Revolution.Runtime`**（永远是"使用方"视角，不要引用 internal 类型）；命名空间用 `Revolution.Demo.<模块>`（★ 别叫 `Input` 这类会遮蔽 `UnityEngine` 成员的名字，RevInput Demo 用的是 `InputSystem`）。
+5. 常规 Demo 的 asmdef 引用 `Revolution.Runtime`，不访问 internal；热更 Demo 还需要扩展包程序集。命名空间用 `Revolution.Demo.<模块>`，不要用会遮蔽引擎成员的 `Input`。
+
+## R19 游戏流程 × FSM × 自定义域
+
+1. 业务侧集中定义 `GameDomain` 的 `const string`；可继续用预置 `RevDomain.Lobby/Battle`，不用给框架新增枚举值。
+2. **大厅常驻、进战斗后可返回**：选 `RevLightStackFSM<T>`。大厅 `Push` → `OnEnter` 开大厅域；战斗 `Push` → 大厅 `OnSuspend` 关闭大厅 Tick，战斗 `OnEnter` 开战斗域并启动 `[RevLogic(战斗域)]` 业务。
+3. 战斗结束 `Pop` → 战斗 `OnExit` 只关保存的战斗域句柄 → 大厅 `OnResume` 恢复 Tick；退出登录 `Clear` 自顶向下触发各状态 `OnExit`。每帧由宿主调用 `Flow.Update(dt)`，Logic 的 `OnTick` 由框架驱动。
+4. **Boot → 登录 → 大厅 → 战斗互斥阶段**：选 `RevLightFSM<T>`；每次 `ChangeTo` 旧状态 `OnExit` 关旧域、新状态 `OnEnter` 开新域。异步切换先确认实际目标已交割，不抢先关闭旧域。
+5. 保存并检查 `Enter` 返回句柄不是 `RevScopeHandle.Empty`；同名重入默认失败，复用模式也不新建嵌套层。状态只操作自己的域；关父域会先关闭上方子域。
+6. 明确归属：域兜底需 `TakeOverOwner=true`；资源整组回收需非 `Unknown` 的 `Reclaim`。显式 owner 优先，需跟域结束的对象用 `Attach`，域服务显式 `owner: RevScope.Current`。跨域共用资源/全局心跳不要误归战斗域。
+7. **暂停不等于回收**：`SetTickEnabled(false)` 停域 Mono/Logic Tick，不停 Timer，也不控制显式 owner 的普通 Mono。额外暂停需求用对应模块契约。
+
+- **真实示例**：`Assets/Revolution.Demo/RevScope.Demo/RevScopeFlowDemo.cs`，挂任意场景点 Play；没有独立 `RevScopeDemo.unity`。不要在 Scope 内核接入 FSM，保持模块独立。
+- **验收**：大厅 → 战斗 → 回大厅 → 退出登录；查看 `RevScope.Dump()`、判空后的 `LastCloseReport.ToText()` 与 `RevLogic.Count`。确认战斗归属被回收、大厅状态保留、全局心跳仍存活，退出后无域/Logic 残留；不宣称未执行的 PlayMode 已通过。
+- 详细签名见 `modules-core.md` §12，权威说明 `Revolution.Document/作用域系统/作用域系统使用说明.md` 第六节。
+
+## R20 项目选择横屏 / 竖屏 UI
+
+- 在首次 `RevUI.Open` / `Preload` 前设置 `RevUISetting.CanvasOrientation`；默认 `Auto`，固定竖屏用 `RevUICanvasOrientation.Portrait`，横屏用 `Landscape`，完全保留 Scaler 用 `UseDesign`。
+- 这是运行时根 Canvas 的设计缩放方案；不改 prefab 原件、不改设备方向、不自动重排面板或处理安全区。
+- 静态 Prefab 预览手动配置预览 CanvasScaler 与竖屏 Game 分辨率；运行时验收走实际 `RevUI.OpenAsync`，不能把 Boot 设置当 Prefab Mode 自动适配。
+- 完整规则和自带竖屏设计基准的边界见 `ui-and-layering.md` §1.5。

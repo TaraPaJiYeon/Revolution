@@ -35,7 +35,9 @@ namespace <你的命名空间>
                 // ③ 生命周期：切后台 / 回前台（owner: this 让对象销毁时自动摘除）。
                 RevEvent.AddEventListener(RevAppLifecycle.Resumed, OnResumed, owner: this);
 
-                // ④ 打开首个界面（真机首次必须异步；await 返回时面板已打开）。
+                // ④ UI 方向默认 Auto；项目需要固定方向时，在首次 Open / Preload 前选择（不锁设备方向）。
+                // RevUISetting.CanvasOrientation = RevUICanvasOrientation.Portrait; // 可选 Landscape / UseDesign
+                // 打开首个界面（真机首次必须异步；await 返回时面板已打开）。
                 // await RevUI.OpenAsync<LoginPanel>();
 
                 RevLog.Info("启动完成", "Boot");

@@ -41,8 +41,9 @@
   - `markMode`（`ScanExisting` 读已有标记 / `AutoByFolder` 按顶层目录名分包）；
   - `copyToStreamingAssets` + `copyTarget`（打包后自动拷进 `Assets/StreamingAssets/<平台>`，首包基线就靠它）；
   - `version`（写进 `BuildManifest.json`）、`excludeFolders`、`excludeExtensions`、`checkUnmarkedAssets`、`compressMode`、`forceRebuild`、`cleanOutputBeforeBuild`。
-- **一键打包链顺序**（照抄）：`ABCollector.Collect()` → `ABValidator.Validate(collect)`（`CanBuild == false` 就别打）→ `ABBuilderCore.Build(target)` → 依赖分析 → `ABManifestWriter.WriteResMap(collect)` + `WriteBuildManifest(build)` + 布局快照 → `ABResPathGenerator.Generate()` → `ABBuilderCore.CopyToStreamingAssets(outputDir)` → `AssetDatabase.Refresh()`。
-- **CI 无人值守**：`-executeMethod Revolution.Editor.ABCIBuild.Build`（失败会以非 0 退出码结束进程）。
+- **一键打包链顺序**：`ABCollector.Collect()` → `ABValidator.Validate(collect)` → `ABValidator.ValidateAndroidShaders(collect, validate, target)`（`CanBuild == false` 就别打）→ `ABBuilderCore.Build(target)` → 依赖分析 → `ABManifestWriter.WriteResMap(collect)` + `WriteBuildManifest(build)` + 布局快照 → `ABResPathGenerator.Generate()` → `ABBuilderCore.CopyToStreamingAssets(outputDir)` → `AssetDatabase.Refresh()`。
+- **Android Shader 前置门禁**（2026-10-16）：窗口 `ABBuildWindow` 与无头入口 `ABCIBuild` 均已调用 `ValidateAndroidShaders`。扫描资源及递归依赖中的 Material / Prefab / FBX 显式材质；Shader 引用缺失 / 错误 Shader，或无可打包资产路径且不在 `Graphics → Always Included Shaders` 时，报错阻断。`Assets/` / `Packages/` 下有资产路径的 Shader 可随材质作 AB 依赖，不要求所有 Shader 加 Always Included；默认 UGUI 未指定材质不误报。检查**只读、不改 Graphics Settings**，不证明变体未裁剪或 Android 设备支持，真机仍需验证。
+- **无头构建入口已存在**：`-executeMethod Revolution.Editor.ABCIBuild.Build`（失败会以非 0 退出码结束进程），导表入口为 `Revolution.Editor.ExcelTool.RevExcelCI.Export`。入口可供 CI 调用，不代表仓库已部署编译 / 测试 / 真机质量 CI。
 
 ## 3. 生成物（**不要手改**）
 
@@ -67,6 +68,8 @@
 | `pages.yml` | `Revolution.Document/**` | 文档站（https://yokino337088.github.io/Revolution/ ） |
 
 **生成分支都是"整份重建、不保留历史"**（上表四条：`package` / `demo` / `hotupdate` / `skill`）：改代码请改 `main`，不要往生成分支上提交。
+
+上表是同步 / 文档发布，不是编译或测试质量门禁。AB / Excel 的 `-executeMethod` 入口已存在，但质量 CI 尚未完成；未完成的 `.github/automation/` 草稿不得写成已上线流水线，也不要执行草稿中的命令来证明能力。
 
 ## 5. demo 场景（18 个）
 

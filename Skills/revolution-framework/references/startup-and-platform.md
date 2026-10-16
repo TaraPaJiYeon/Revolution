@@ -23,6 +23,8 @@ public sealed class RevBoot : MonoBehaviour
 - `RevServiceLocator` 由**业务组合根**自己装配（框架不能替业务决定注册什么）。
 - 扩展接缝：`Initialize(Action beforeResourceInitialization)` —— 需要在资源策略注册前装配扩展钩子（例如热更的 ResMap / 包路径钩子）时，把装配写进回调；回调只在本会话第一次成功初始化时执行。**回调里不能再调 `Initialize()`**（会抛 `InvalidOperationException`）。
 - 骨架见 `templates/RevBoot.cs.txt`。
+- UI 方向按项目需要，在首次 `RevUI.Open` / `Preload` 前设置 `RevUISetting.CanvasOrientation`（默认 `RevUICanvasOrientation.Auto`；可选 `Portrait` / `Landscape` / `UseDesign`）。这只选择运行时根 Canvas 的设计缩放，不强制设备方向，也不做安全区或布局重排；Prefab 编辑预览与运行时链路的区别见 `ui-and-layering.md` §1.5。
+- 推荐基线仍为 **Unity 2022.3 LTS**；`ProjectSettings/ProjectVersion.txt` 是本地编辑器记录，已由 `.gitignore` 忽略，不指示用 `git checkout` 恢复所谓受控版本。版本 / 设置 guard 的现有冲突与验证边界见 `verify-and-test.md`，不要把 guard 告警直接当成当前改动引入的编译错误。
 
 ## 2. 应用生命周期：`RevAppLifecycle`（切后台 / 回前台 / 退出）
 
@@ -89,12 +91,15 @@ bool ok = RevStripGuard.IsHealthy;         // IReadOnlyList<string> MissingTypes
 | **热更并发与明文 http** | 小游戏限制 | `RevHotConfig.Concurrency` 默认按平台（小游戏 2 / 其余 3）；小游戏/WebGL **禁明文 http**（不受 `AllowHttp` 影响）、并发 > 4 在配置期报错 |
 | **首包预算** | 小游戏首包有体积上限 | 菜单 `Revolution.Tools/平台/首包体积审计 (Resources)` 列 `Resources` 目录文件数/体积（按体积排序，含最占地方的 10 个文件） |
 | **AB 确定性** | 换 Unity 版本、同内容不同包 | 打包选项 `deterministic`（默认开）；`stripUnityVersion`（默认关，开了就要记住"换 Unity 版本先强制重打"） |
+| **Android 显式材质 Shader** | Prefab 已加载也可能因 Shader / 变体 / 图形 API 问题变紫 | 窗口与 `ABCIBuild` 已接 `ABValidator.ValidateAndroidShaders` 前置拦截；运行时查看 tag `Res` 的 Shader / `isSupported` 与主包、依赖包、目标包来源诊断；详见 `editor-tools.md` §2、`resource-and-ab.md` §5 |
 
-> 平台就绪度现状（投产评估 2026-10-07 修复后）：框架侧 P0/P1 项已全部落地；**未做**的是 Debug/Release 构建区分、出包链路（BuildPlayer/切平台）、首包体积硬门禁、热更下载类 4 条加固。需要这些时先读《投产评估》第〇节"修复状态"，别以为已经有。
+> **源码能力 ≠ 真机验收**：2026-10-16 已核实 Android Shader 前置门禁与运行时诊断源码，不代表已跑过 Android 真机、验证了变体裁剪或实际设备兼容。AB / Excel 已有无头入口，但仓库质量 CI 未完成；Debug/Release 构建区分、完整 Player 出包链路与首包体积硬门禁仍不能宣称已有。历史《投产评估》的修复状态需与当前源码核对，热更加固范围见 `hot-update.md`。
 
 ## 5. 自检清单（上真机前）
 
 - [ ] 启动入口调了一次 `RevInitialize.Initialize()`（不是到处 `RevResBootstrap.Instance.Init()`）。
+- [ ] UI 方向在首次 `Open` / `Preload` 前按项目选定（默认 `Auto`）；设备方向、Prefab 预览、安全区 / 布局另行确认。
+- [ ] Android：打包前 Shader 校验通过，并在目标设备核对材质表现与 tag `Res` 的包来源 / Shader 诊断；未实测时明确标注未做，不写成已验收。
 - [ ] 有长连接 / 计时 / 体力的模块订阅了 `RevAppLifecycle.Resumed`，并用 `LastBackgroundSeconds` 判断是否要重连/重算。
 - [ ] Managed Stripping Level 已确认（推荐 `Disabled`）；开了裁剪的话已生成 `Assets/link.xml` 且真机看过 `RevStripGuard` 输出。
 - [ ] 小游戏目标：没有 `Thread` / `Task`；没有同步 `Load` / `Open<T>()` 假设；音频首次播放有用户手势；热更用 https。

@@ -24,9 +24,9 @@ dotnet build <工程目录>/RevolutionFrameWork_Unity.sln --no-restore -v minima
 - 只能证明"C# 语法 + 类型引用"成立；Unity 侧行为（生命周期、真加载、真机路径）仍靠 demo 场景与真机。
 - `.csproj` 里没有的新文件要等 Unity 重新生成工程文件后才会被 `dotnet build` 看到（新增文件后先让 Unity 刷新一次，或在 Unity 里直接看 Console）。
 
-### 1.2 "最近的 demo"在哪（18 个场景）
+### 1.2 "最近的 demo"在哪
 
-路径统一 `Assets/Revolution.Demo/<模块>.Demo/<模块>Demo.unity`（索引 `RevDemoSceneList.txt`）；演示脚本是 OnGUI：左侧按钮逐个点，右侧步骤日志。
+工程内前缀为 `RevolutionFrameWork_Unity/Assets/`；已有场景通常在 `Assets/Revolution.Demo/<模块>.Demo/<模块>Demo.unity`（索引 `RevDemoSceneList.txt`）。2026-10-16 快照为 18 个独立场景；另有仅脚本示例，不能按目录数量推算场景数量。演示脚本通常用 OnGUI：左侧按钮逐个点，右侧步骤日志。
 
 | 模块 | Demo | 模块 | Demo |
 |---|---|---|---|
@@ -40,7 +40,9 @@ dotnet build <工程目录>/RevolutionFrameWork_Unity.sln --no-restore -v minima
 | RevScene | `RevScene.Demo` | RevActionSequence | `RevActionSequence.Demo` |
 | RevGMCommand | `RevGMCommand.Demo` | RevHotUpdate | `RevHotUpdate.Demo`（需先跑菜单"一键：打包 + 清单 + 装配本地 CDN"） |
 
-**没有 Demo 的**：`RevInitialize` / `RevAppLifecycle` / `RevStripGuard`（验证靠真机或手动切焦点；`RevStripGuard` 在编辑器下不跑，可手动 `RevStripGuard.Check()`）。
+**仅脚本示例**：`Assets/Revolution.Demo/RevScope.Demo/RevScopeFlowDemo.cs` 演示 `RevScope` + 状态机 + `RevLogic` 联动，无独立 `.unity` 场景；在任意场景创建空物体挂脚本再 Play。
+
+**没有独立 Demo 的**：`RevInitialize` / `RevAppLifecycle` / `RevStripGuard`（验证靠真机或手动切焦点；`RevStripGuard` 在编辑器下不跑，可手动 `RevStripGuard.Check()`）。
 
 ## 2. 能进工程外断言的文件（框架已有清单）
 
@@ -62,7 +64,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 
 > `RevServices` 的 `ResetForNewSession` 是 `internal`（只给 Support 层调）：工程外断言用**反射**模拟"进 Play 复位"，不要为了测它去给产品代码加 `InternalsVisibleTo`。
 
-框架已有的实测结果（改这些内核后应当复验并更新数字）：
+以下是文档保留的**历史**实测记录，不代表当前检出有同等覆盖的持久测试，也不代表本次重跑通过。引用时注明来源、版本和测量环境；修改相关内核后用实际测试文件复验，不能把旧数字改成未经执行的新数字：
 
 | 模块 | 断言 | 实测 |
 |---|---|---|
@@ -76,31 +78,47 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 > GM 指令（112 项断言 + 20000 步随机注册/随机命令行的 fuzz）、热更清单与 URL 规则、ResMap 查表成本基准。
 > **断言要覆盖"不变量"而不只是"正常路径"**：节点不重复、不双归还、计数不为负、状态归零、无残留标记。
 
+### 2.1 当前入库的热更离线工程
+
+- 路径：`RevolutionFrameWork_Unity/Tests/RevHotUpdate.Offline/RevHotUpdate.Offline.csproj`，`OutputType=Exe`、`TargetFramework=net10.0`；链接真实 `Assets/Revolution.HotUpdate/Runtime/Core/RevHotManifest.cs` 与 `RevHotBundleInfo.cs`。
+- 入口：同目录 `Program.cs`，18 项断言覆盖清单身份（平台/渠道/环境）、依赖闭包/环、安全包名/版本、哈希算法/格式、序列化往返/截断、WebGL Hash128/CRC 门禁；未覆盖 Unity AB 真加载、候选激活回退、下载 Range 或跨启动续传。
+- 运行：在仓库根执行 `dotnet run --project RevolutionFrameWork_Unity/Tests/RevHotUpdate.Offline/RevHotUpdate.Offline.csproj -c Release`；失败抛异常并非零退出，成功打印 `RevHotUpdate manifest offline: 18 assertions passed`。这是控制台断言程序，不能用 `dotnet test` 的零测试结果冒充验证成功。
+- 入库范围：经 `git ls-files RevolutionFrameWork_Unity/Tests/RevHotUpdate.Offline` 核实仅 `Program.cs` 与 `.csproj`；`bin/obj` 被 `.gitignore` 排除，本机存在构建产物不等于提交了产物。
+
 ## 3. 搭一个工程外断言工程（模板见 `templates/offline-harness/`）
 
 ```text
-1. 新建 .NET 控制台工程（net8.0 即可），<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-2. 用 <Compile Include="...绝对/相对路径.../" /> 把要验的真实源码链接进来（保持单一真相，不复制）
-3. 需要 Unity 类型时再加一个"桩文件"（UnityEngine/UnityEditor 的最小声明）；
-   ★ 桩的签名必须与真实一致（不一致时编译不过 —— 这本身就是一道校验）
-4. 断言写下"可读的一句话 + 期望值"，失败即抛/计数，最后打印 "通过 N / N"
-5. dotnet run -c Release 跑；有随机行为就固定种子，便于复现
+1. 通用模板 TargetFramework=net8.0，区别于上面的持久 net10 工程；EnableDefaultCompileItems=false
+2. 将 Harness.csproj.txt / Program.cs.txt 复制到 Assets 外并去掉 .txt；替换 <REPO>，仅链接要验的真实源码
+3. 默认链接 RevResPathUtil；增加其他内核时补齐关联类型，需要 Unity 类型才自行补最小桩
+4. 填写真实不变量断言；占位用 Skip，不用 That(true) 冒充通过；未实现项返回 2、断言失败返回 1
+5. dotnet run -c Release；固定随机种子，记录本次通过/失败/未实现数量与实际命令
 ```
 
 **注意**：桩工程只能证明"纯 C# 逻辑 + API 用法"成立；Unity 侧行为（MonoBehaviour 生命周期、AssetBundle 真加载、真机路径）仍要靠 demo 场景与真机验证。
 
-## 4. 热更的破坏性测试（8 项，改热更相关代码后逐项过）
+## 4. 热更破坏性验收清单（待在 Unity / 真机执行，不是当前已通过记录）
 
-1. 下载中途**断网** → 恢复后（重进 Play / 重新点更新）能续上（`.part` 保留）；
-2. 下载中**杀进程** → 下次从计划重算，hash 一致的自然跳过；
-3. **清单损坏 / 空清单** → 保持当前版本，玩家照常进游戏（不崩）；
-4. **hash 不符**（手工改坏一个包）→ 校验拦下、整包重下（不带 offset 续传，避免越续越坏）；
-5. **磁盘不足** → 提前报 `DiskFull`，不留垃圾；
-6. **版本回滚**：删除 `current.txt` 指向的新版本 → 回到上一版（保留 N 份的意义）；
-7. **覆盖式语义**：删掉 `{persistentDataPath}/RevHotUpdate` → 下一次加载回退到 StreamingAssets 首包；
-8. **跨大版本**：清单 `@appVersion` 与客户端不一致 → `AppVersionMismatch`（拒绝更新并回调，不硬更）。
+1. 下载中**断网/取消/杀进程** → `.part` 和 `.part.meta` 保留；重算计划后仅同版本/包名/大小/SHA-256/URL 身份复用，不同源或内容必须清零。
+2. **Range 异常** → 206 起点与总长正确才写；服务端返回 200 或 416 时从零 GET，不拼接完整响应；完整分片先校验再提交。
+3. **清单损坏/空清单/跨平台/跨渠道/依赖环** → `ManifestInvalid`，不发布候选；只有已有验证可用基线时才按业务策略继续旧版，不能无条件进游戏。
+4. **同名坏包/SHA 不符/未变包缺失** → 完整候选快照按目标 SHA 补齐；找不到一致来源则拒绝激活，不能混读任意旧目录。
+5. **磁盘不足** → `DiskFull`；验证下载量与完整快照空间预检，区分可续传分片和垃圾，不能保证失败后目录绝对为空。
+6. **资源持有/在途加载、候选激活失败/重装失败/激活中断电** → 拒绝不安全切换；验证 `.pending` 恢复旧指针，恢复失败必须停在错误而非 Ready。删目录不能代替真正的故障注入。
+7. **首包兜底/WebGL 真加载** → 新装与清数据重新验证首包；WebGL 验证内置主包 Manifest + CDN 包 Hash128/CRC、ResMap 和域名/CORS。保留旧版不等于任意旧版兼容可回滚。
+8. **跨大版本** → `AppVersionMismatch` / 强更回调交由业务处理，不静默硬更。另核实代表性资源加载探针：当前源码未提供 `ProbeBundles` 配置，不能把门禁或 `Init()` 等同业务资源可用。
+
+记录每项平台、版本、输入破坏、期望/实际、日志和复现步骤；持久工程的 18 项断言不覆盖这些端到端行为。
 
 ## 5. 文档站与分支（交付验证）
+
+### 5.1 当前 CI 与编辑器版本记录的边界
+
+- 2026-10-16 已跟踪 `.github/workflows/` 包含文档部署、生成分支同步、编辑器版本 guard；没有已入库的质量门禁 CI。正在讨论/中断中的 A 级工作不算完成，工作流存在也不等于编译、18 项断言或真机验收已经执行。
+- `ProjectSettings/ProjectVersion.txt` 已从 Git 跟踪删除，`.gitignore` 明确忽略 `RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt`；本机 Unity 再写此文件不应当入库。
+- **现存矛盾**：`.github/workflows/guard-editor-version.yml` 仍无条件 `cat "$FILE"` 并检查旧的团队 `EXPECTED_VERSION`；干净 checkout 没有被跟踪的版本文件，触发该工作流时可能失败。不要声称 guard 已适配当前忽略策略；本 skill 只说明矛盾，不修改 workflow。
+
+### 5.2 发布与提交纪律
 
 - 改了 `Revolution.Document/**` → 推 `main` 后 `pages.yml` 重新部署，在线站可见（https://yokino337088.github.io/Revolution/ ）；
 - 改了 `Assets/Revolution/**` / `Assets/Revolution.Demo/**` / `Assets/Revolution.HotUpdate/**` / `Skills/**` → 对应生成分支（`package` / `demo` / `hotupdate` / `skill`）自动整份重建，可 `git fetch origin <分支>` 核对提交与文件数。
@@ -110,5 +128,5 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 
 ## 6. 收尾习惯
 
-- 关键数字（断言数、性能、行数）**顺手更新到文档**（README / 《架构解析》），别留旧数字；
+- 仅将实际执行得到的断言/性能数字更新到文档，注明版本与环境；规模统计注明快照日期。历史结果与当前覆盖分开，未执行不写“已通过”；
 - 发现"文档与代码不一致"时，**先确定哪个是对的**再改——多半是代码迁移过、文档漏改（例如目录改名、模块路径）。

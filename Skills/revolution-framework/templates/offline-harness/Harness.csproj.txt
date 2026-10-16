@@ -22,16 +22,9 @@
     <!-- 需要 UnityEngine / UnityEditor 类型时再加一份桩（签名必须与真实一致）：
     <Compile Include="UnityStubs.cs" /> -->
 
-    <!-- ↓↓↓ 要验的真实源码（保持单一真相，不要复制文件） ↓↓↓ -->
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTimer/Core/RevTimerTable.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTimer/Core/RevServerClock.cs" />
+    <!-- 通用 net8 模板；持久 Tests/RevHotUpdate.Offline 工程使用 net10，不要求本模板跟随升级。 -->
     <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Core/RevResPathUtil.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevPoolCore.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevLog/Core/RevLogRing.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevLog/Implementation/RevLogCore.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevPublicMono/Implementation/RevMonoCore.cs" />
-    <Compile Include="<REPO>/RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Core/RevSoundVoiceTable.cs" />
-    <!-- 需要 Unity 类型（RevLog 打 tag、RevSound 用 UnityEngine.Object）时，用 UnityStubs.cs 补桩 -->
+    <!-- 其余内核按需添加 Compile，并补齐关联类型/桩；不要默认链接尚未使用且依赖不全的文件。 -->
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-# Revolution 代码审查指南（Referece Guidelines）
+# Revolution 代码审查指南（Reference Guidelines）
 
 > 用途：**审查入口**。按本清单逐条过一遍，输出"严重问题 → 规范问题 → 潜在风险 → 优化建议"。
 > 每条都对应真实的坑（详见 `references/pitfalls.md`）与代码规范（`references/code-style.md`）。
@@ -16,15 +16,15 @@
 
 ## 1. 清理与生命周期
 
-- [ ] 每个 `RevTimer.After/Every`、`RevMono.Add*` 都有"能停"的路（`owner:` 或 `OpenScope()`），宿主销毁时有 `CancelAllOf` / `RemoveAllOf`。
-- [ ] 每个 `RevEvent.AddEventListener` 都有对应移除：`RemoveAllByOwner(owner)` 或字段保存的委托（**匿名 lambda 按委托移除无效**）。
+- [ ] 每个计时器、每帧回调与事件监听有明确归属和收尾：显式 `owner` + 对应清理、模块 `OpenScope()`，或开启 `TakeOverOwner` 的活动 `RevScope` 兜底 + `Exit`。不要把已由域接管的注册判为泄漏；显式 owner 优先，未 `Attach` 的显式 owner 不会因此改归当前域。
+- [ ] 按委托退订时保留同一委托引用；匿名 lambda 可按 owner 或域清理，不能重新写一个 lambda 指望匹配。全局心跳、连接等跨域对象有显式 owner，避免被当时的当前域收走。
 - [ ] 每个 `RevResManager.Load/LoadAsync` 都有对应 `Release`。
 - [ ] 池对象：`OnPoolReturn` 清空字段；`Return` 后不再访问该对象；WebGL 用 `GetAsync`。
 - [ ] 池按类型取：预制体主脚本写了 `[RevPoolPrefab]`（子类自己写、同一预制体只一个类声明）；清理区分对：`Clear*` 只清空闲实例，退出业务域用 `DestroyGroup` / `DestroyPool`（再 `Shutdown(group)`）。
 - [ ] 生命周期类监听（`RevAppLifecycle.Resumed` 等）用 `owner: this` 注册，销毁时 `RemoveAllByOwner(this)`。
 - [ ] `MonoBehaviour` 的 `OnEnable/OnDisable` 订阅与退订**成对且对称**（别在 `OnEnable` 订阅、在 `OnDestroy` 退订）。
 - [ ] 静态字段/静态容器在关闭 Domain Reload 的场景下有复位钩子（照 `Support/*UnityHooks.cs`）。
-- [ ] 服务（`RevServices`）：跟着模块 / 场景走的服务**有注销**——注册带 `owner: this`，`OnDestroy` 里 `UnregisterAllOf(this)`（没有 = 服务一直占内存）；全局服务集中在启动入口注册；没有"先试着 `Unregister` 一下再 `Register`"这种掩盖重复注册的写法。
+- [ ] 服务（`RevServices`）有注销归属：随对象用 `owner: this` + `UnregisterAllOf(this)`，随域用显式域 owner 或 `Attach` + `Exit`；服务注册不会自动使用当前域。全局服务集中在启动入口，不用先注销再注册掩盖泄漏。
 - [ ] 服务取用：**没有把 `RevServices.GetRequired<T>()` 的结果长期存成字段**（注销后它是已 `Dispose` 的对象）；`Register<I, T>()` 的 `T` 有公开无参构造（否则用工厂重载）；`owner` 传的是引用类型（通常 `this`）。
 - [ ] 服务（Builder 写法）：只在需要"每局 / 每场景各一份"或单测隔离时才用；`AddScoped` 的服务放进 `CreateScope()` 的 `using`；`AddSingleton(instance)` 的实例有人释放；`Build()` 的结果缓存进 `static readonly`；**没有为了"一行注册"这种需求去手写 `static readonly RevServiceLocator` 再链式 `Build()`**（那是 `RevServices` 的活）。
 
@@ -32,10 +32,11 @@
 
 - [ ] 路径用 `RevResPath.*` 常量或两段式参数，**没有**自己拼 `StreamingAssets` / `dataPath` / `Resources.Load`。
 - [ ] 真机首次加载用 `LoadAsync`（不是同步 `Load`）。
-- [ ] 资源按域分了组（`Battle`/`UI`/`Config`/`Sound`），没有"什么都传 `Unknown`"（那样永远不会被分组卸载）。
-- [ ] 没有用 `UnloadGroup(group, force: true)` 去"省事清理"（会误伤别的域共享资源）。
+- [ ] 核对实际回收组：开启 `TakeOverOwner` 的活动域内 `Unknown` 经 `EffectiveGroup` 使用域回收组；`Reclaim` 默认也是 `Unknown`，不代表自动获得按组回收。域外或关闭兜底时明确指定资源组。字符串 `RevDomain` 与枚举 `RevResGroup` 不混用。
+- [ ] 没有用 `UnloadGroup(group, force: true)` 去省事清理；跨域共享资源显式保留，避免战斗退出误卸大厅资源。
 - [ ] 新增资源打了 AB 标记，并重新生成了 `ResMap.txt` / `RevResPath.cs`。
-- [ ] 失败分支看的是 `handle.ErrorReason`（不是 `if (content == null)` 猜）。
+- [ ] 失败分支检查 `handle.ErrorReason`；Android AB 加载失败及材质 Shader 风险同时查看 `RevLog` 的 `Res` 标签。
+- [ ] Android 打包已过 `ValidateAndroidShaders` 预检；没有全量塞 Shader 进 Player 来绕过错误。变体剔除、渲染管线和图形 API 兼容仍有目标设备验证，不能以预检通过代替。
 
 ## 3. UI（RevUISystem）
 
@@ -48,7 +49,9 @@
 - [ ] 动画：传了 `owner: this`；重写 `PlayOpenTransition` / `PlayCloseTransition` 的在结束时调了 `onDone`。
 - [ ] 打开用 `Open<T>(onOpened)` / `OpenAsync<T>`；没有在真机路径上用"同步 `Open<T>()` 并假设它会加载"。
 - [ ] 弹窗/常驻 HUD 正确设置 `InBackStack`；`ExclusiveGroup` 按语义设置；`RevUICacheMode` 与 `KeepAlive` 一致。
-- [ ] 面板里没有"跨界面复用"的重逻辑（该抽成服务）；面板没有缓存未在 `OnReuse` 里重置的状态。
+- [ ] 面板里没有跨界面复用的重逻辑（交给服务）；域内无界面业务用 `RevLogicBase`。面板没有未在 `OnReuse` 重置的缓存状态。
+- [ ] 在首次打开或预加载前选择 `CanvasOrientation`；`Auto` / `Portrait` / `Landscape` / `UseDesign` 与项目需求一致。方向配置只影响运行时根画布缩放，不冒称自动转设备方向、重排页面或适配安全区。
+- [ ] Prefab 静态预览没有被当成运行时方向验证；竖屏 Game 分辨率和根 `CanvasScaler` 设置已核对。
 
 ## 4. 异步（RevTask）
 
@@ -76,10 +79,12 @@
 ## 7. 热更（如果项目装了扩展包）
 
 - [ ] `InitializeAsync` 放在"加载任何业务资源"之前；`UpdateAsync` 用 `CheckAsync` 的原结果。
-- [ ] 资源包语义是**覆盖式**（持久化优先 → 回退 StreamingAssets），不是"只从持久化读"。
+- [ ] 来源遵守快照契约：有有效清单的业务包只能读当前完整版本，不混读任意旧同名包；无有效清单的兼容路径才回退首包。内置平台主包始终来自 App 基线。
 - [ ] 上传顺序：内容先、清单最后；清单路径 no-cache、内容路径 immutable。
-- [ ] 远端目录带大版本段；`@appVersion` 与 `Application.version` 一致。
-- [ ] 替换包时先 `ShutdownAll()` → 换文件 → `Init()`（不在包被使用时覆盖文件）。
+- [ ] 激活前核对大版本、平台、渠道、环境、依赖闭包与清单合法性，不能只比较资源版本。
+- [ ] 完整候选校验在写正式版本指针前完成；失败恢复旧上下文，不提前删旧版本。当前没有 `ProbeBundles` 或经资源系统加载代表业务资源的探针链路，SHA/内置主包验证不等于业务可用。
+- [ ] 四个桥接钩子指向一致的活动版本；不能只换路径而保留旧映射、依赖、Hash128/CRC。当前 `RevHotResBridge.Reset()` 仅重置标志，没有解除委托，不声称已有完整卸载入口。
+- [ ] 跨启动续传按版本、文件身份和 hash 复用，失败不能把不同内容的 `.part` 拼在一起；发布 `SelfCheck` 通过只证明产物校验，不替代真机启动验证。
 
 ## 8. 编辑器 / 真机差异
 
@@ -91,11 +96,13 @@
 
 - [ ] 没有"以 `(` 结尾"的行（括号后换行）；没有 `( 参数` 的多余空格。
 - [ ] 所有 `if/for/foreach/while` 都带大括号。
-- [ ] 类名 `Rev` 前缀；文件名 = 类名；命名空间正确。
-- [ ] 新文件有文件头"为什么"段；关键/易错处有 `★` 注释（解释为什么，不复述代码）。
-- [ ] 新增资产带 `.meta`；文件夹 meta 是**同级**命名。
-- [ ] 没有新增分层 / 第二套 API（`System` / `BusinessLogic` / 自己的资源加载入口）。
-- [ ] 文档（md + html）与 README 统计数字已同步。
+- [ ] 新框架类型用 `Rev` 前缀；FSM 类型统一大写 `FSM`。既有 FSM 物理文件名仍保留 `Fsm` / `StateMachine`，不把类型重命名误扩展成资产改名。
+- [ ] 新文件有文件头说明设计原因；关键/易错处有必要注释，不以注释代替验证。
+- [ ] 新增 Unity 资产带 `.meta`，文件夹 meta 是同级命名；`Tests/` 工程与 Skills 文本不属于 Assets，不额外生成 Unity meta。
+- [ ] 使用现有 `RevLogicBase` 承载域业务，不另造 `System` / `BusinessLogic` 层或第二套资源加载 API。
+- [ ] 配对模块文档（md + html）与规模快照已同步；Skills 本身不需要同名 HTML。
+- [ ] `ProjectVersion.txt` 保持本地忽略，不重新入库；检查包源、包锁定与其它设置变更是否为项目方有意修改，不擅自还原。
+- [ ] 验证声明附实际命令与结果；0 用例测试、历史断言、未提交 AI 自动化草稿不能算作本轮回归通过。
 
 ## 10. 启动 / 生命周期 / 真机适配（RevInitialize · RevAppLifecycle · 代码裁剪）
 
@@ -105,6 +112,16 @@
 - [ ] 小游戏 / WebGL 目标：没有 `Thread` / `Task.Run` / `System.Threading.Tasks.Task`；没有同步 `Load` / 同步 `Open<T>()` 的假设；音频首次播放有用户手势；热更用 https。
 - [ ] 代码裁剪：已确认 `Managed Stripping Level`（主推 `Disabled`）；开了裁剪的已生成 `Assets/link.xml` 并看过真机 `RevStripGuard` 输出；`RevStripGuard` 的 `WatchedTypes` 新增条目保持**字符串写法**（不直接引用被检查类型）。
 - [ ] 平台名对齐：小游戏目标产物目录 / 主包名 / 热更平台段都归 `WebGL`；编辑器里验证热更前 `UseABInEditor = true`。
+
+### 10.1 游戏流程与域（RevScope / RevLogic / FSM）
+
+- [ ] 项目域集中定义为业务 `const string`；`RevDomain` 仅提供预置名称，不修改框架才能加副本、公会战等域。
+- [ ] 流程状态在 `OnEnter` 开自己的域、`OnExit` 关自己的域；栈状态在 `OnSuspend/OnResume` 控制 Tick。保存并检查 `RevScopeHandle`，不误关父级域；同名重入默认报错，关闭 `ReenterIsError` 只是复用已有域，不是新建嵌套层。
+- [ ] `RevScope` 保持与 FSM 解耦；流程联动在业务状态中完成，不新增框架内的状态机调度依赖。
+- [ ] `SetTickEnabled(false)` 只暂停域兜底每帧回调与 Logic 的 `OnTick`；Timer 和显式 owner 的普通 Mono 不会因此停，业务没有把暂停等同回收。
+- [ ] `RevLogic.Start<T>()` 在特性声明的域打开后调用；`OnStop` 只做业务收尾，不重复制造新的域内监听。
+- [ ] 域服务显式 `owner: RevScope.Current`，或对归属对象调用 `Attach`；未传 owner 的服务不自动归域。同类型服务多实例隔离仍使用 `RevServiceLocator.CreateScope()`。
+- [ ] 用 `RevScopeFlowDemo.cs` 验证大厅 → 战斗 → 回大厅 → 退出；它是挂任意场景的脚本，没有独立 `RevScopeDemo.unity`。
 
 ## 11. 对照示例（反例 → 正例）
 

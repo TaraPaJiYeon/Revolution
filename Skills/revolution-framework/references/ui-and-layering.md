@@ -1,6 +1,6 @@
 # UI 与分层（RevUISystem 专题 + "要不要 System / BusinessLogic"）
 
-> 权威文档：`Revolution.Document/UI系统/UI系统使用说明.md`、`UI系统架构解析.md`（**第十章**专门回答分层问题）。
+> 权威文档：`Revolution.Document/UI系统/UI系统使用说明.md`、`UI系统架构解析.md`（**第七章**专门回答分层问题）。
 
 ## 1. UI 主链路（声明 → 绑定 → 打开 → 传数据 → 关闭）
 
@@ -82,7 +82,23 @@ SetData(new DetailData { Id = Data.Id, Count = Data.Count + 1 });   // 写法 B�
 ## 1.4 Canvas 架构与根 Canvas
 
 - 默认 **单 Canvas**（`RevUISetting.CanvasArchitecture = Single`），渲染模式默认 `ScreenSpaceOverlay`；框架默认加载 `Resources/RevUIPrefab/RevUICanvas.prefab`，**载不到会代码兜底建 Canvas 并打 Warning**（不会整屏起不来）。
-- 只有"Profiler 证明 Canvas 合批是瓶颈 + 常规优化仍不达标"才切 `Split`（`Static` / `Dynamic` / `Common` 三画布，面板上写 `CanvasType`），且要在**第一次开面板之前**切；只配一个属性不会自动把预制体里的控件分离，要拆成两个 Scene 面板；`Normal` / `Popup` / `Toast` / `Guide` / `Top` 层声明成 `Static` / `Dynamic` 会被放回 `Common` 并告警。
+- 只有"Profiler 证明 Canvas 合批是瓶颈 + 常规优化仍不达标"才切 `Split`（`Static` / `Dynamic` / `Common` 三画布，面板上写 `CanvasType`），且要在**第一次 Open / Preload 之前**切；只配一个属性不会自动把预制体里的控件分离，要拆成两个 Scene 面板；`Normal` / `Popup` / `Toast` / `Guide` / `Top` 层声明成 `Static` / `Dynamic` 会被放回 `Common` 并告警。
+
+### 1.5 横竖屏设计方向（`CanvasOrientation`）
+
+在**首次 `Open` / `Preload` 前**设置 `RevUISetting.CanvasOrientation`；默认 `RevUICanvasOrientation.Auto`，无需给所有项目强制设竖屏。
+
+| 模式 | 根 Canvas 实例的缩放方案 |
+|---|---|
+| `Auto`（默认） | 按 `Screen.width / height` 判方向；运行时旋转或 Game 视图切换宽高后自动调整 |
+| `Portrait` | 固定竖屏设计；横屏基准 `1920×1080` 换位为 `1080×1920`，Match 用 `PortraitMatchWidthOrHeight`（默认 `0`）；原设计已竖屏则保留原值 |
+| `Landscape` | 固定横屏设计；原设计横屏则保留，原设计竖屏则换位；Match 恢复原设计值 |
+| `UseDesign` | 使用原始 CanvasScaler 设计尺寸与 Match，不按屏幕宽高适配 |
+
+- 实现是 `RevUIRoot` 保存原始设计值，初始化和 `Update` 检查方向，只在方向变化时改**运行时实例**，不改 prefab 原件。仅接管 `ScaleWithScreenSize` + `MatchWidthOrHeight`；其它 Scaler 模式不动。
+- `ReferenceResolution` / `MatchWidthOrHeight` 只用于代码兜底创建 Canvas；加载 prefab 时以其 Scaler 原值作基准，不靠设置这两项覆盖 prefab。
+- **选择 UI 设计方向 ≠ 强制设备方向**：框架不写 `Screen.orientation`；设备方向锁定由 Player Settings / 平台配置负责，也不自动做安全区、改锚点或重排布局。
+- **Prefab 编辑模式不走这条运行时链路**：竖屏预览需手动设置预览 CanvasScaler（如 `1080×1920`、Match `0`）并选 Game 竖屏尺寸，或运行 `RevUI.OpenAsync` 的真实根 Canvas 链路；不要期待 Boot 中的设置直接改变 Prefab Mode。
 
 ## 2. 同步 Open vs 异步 Open（最常踩）
 
@@ -112,26 +128,30 @@ SetData(new DetailData { Id = Data.Id, Count = Data.Count + 1 });   // 写法 B�
 
 | 判定项 | 结论 |
 |---|---|
-| 能力上缺不缺 | **不缺**：跨界面共享 → 服务定位器；单屏流程 → 面板 + `TData`；界面间通信 → `RevEvent` + Part 宿主中转；数据更新 → `SetData` + `OnDataChanged` |
-| 框架要不要提供基类 | **不要**：框架给"机制"（容器 + 面板基类），分层是"约定"；把约定做成基类 = 让所有人付代价 |
-| 做了的成本 | 每屏 3~4 个文件、4 跳数据流、两套生命周期、排查路径变长 |
+| 能力上缺不缺 | **不缺**：单屏流程 → 面板 + `TData`；跨域共享能力 → `RevServices` 服务；无界面、只活一段玩法域的业务 → `RevLogicBase`；通信 → `RevEvent` + Part 宿主中转；数据更新 → `SetData` + `OnDataChanged` |
+| 框架已有哪种业务基类 | **已有 `RevLogicBase`**：承载无界面、随域开始 / 结束的业务单元；不要另造 `System` / `BusinessLogic`，也不要给每屏强加一套业务基类 |
+| 额外分层的成本 | 每屏强拆 3~4 个文件、4 跳数据流、两套生命周期、排查路径变长；按真实生命周期选择承载点，不为形式拆层 |
 
-**分工规则（一句可执行）**：跨界面复用的 = 服务；只属于这一屏的 = 面板自己的。
-判断法：这段逻辑"**关掉这个界面之后还该活着吗**"？该 → 服务；不该 → 面板里。
+**分工规则（一句可执行）**：只属于这一屏的留面板；跨域长期能力放服务；没有界面、只活一局 / 一段玩法域的业务放 `RevLogicBase`。
+判断法：先问"**有界面且随该界面生灭吗**"？是 → 面板；再问"**只活这段玩法域吗**"？是 → Logic；跨域仍需存在的能力 / 数据 → 服务。跨面板复用本身不等于全局服务，先判断有效期。
 
 分档落地：
 
-| 档 | 典型界面 | 逻辑放哪 | 文件数 |
+| 档 | 典型需求 | 逻辑放哪 | 文件组织 |
 |---|---|---|---|
-| 简单 | 设置页、说明页、加载页 | 全在面板类 | 1 |
-| 中等 | 背包、商店、邮件列表 | 面板 + `TData` 数据对象；数据从服务取 | 2 |
-| 复杂 | 战斗结算、活动、跨界面流程 | 面板只管装配 / 落屏 / 转发；规则与流程抽成**业务服务**（纯 C#）；必要时再加 `XxxFlow` | 3~4 |
+| 简单 | 设置页、说明页、加载页 | 全在面板类 | 1 个面板 |
+| 中等 | 背包、商店、邮件列表 | 面板 + `TData` 数据对象；跨域数据 / 能力从服务取 | 面板 + 数据 |
+| 域业务 | 局内统计、新手引导推进、限时玩法判定 | 无界面流程放 `RevLogicBase`，面板只消费结果 | 按需加 Logic，不新增 System |
+| 复杂 | 战斗结算、活动、跨界面流程 | 面板装配 / 落屏 / 转发；域内流程用 Logic，跨域能力用服务；必要时再拆 `XxxFlow` | 按职责拆，不固定每屏层数 |
+
+- `RevLogicBase` 已提供 `OnStart` / 可选 `OnTick` / `OnStop`；通过 `[RevLogic(RevDomain.Battle)]` 归域并用 `RevLogic.Start<T>()` / `Stop<T>()` 控制，归属域关闭时自动停止。基类 `Listen` / `After` / `Every` 带 Logic 自身 owner，停止时先清其受控注册再业务收尾；资源释放仍遵循 `resource-and-ab.md` §4 的分组 / 持有者限定。
+- 不用 Logic 承载面板显示、跨局进度或全局网络 / 配置能力；Logic 之间不互拿字段 / 持有对方引用，通信用事件。
 
 **什么时候必须抽走（信号）**：
 
-1. 同一套流程被 ≥2 个界面复用（如"购买流程"）→ 抽领域服务（`IPurchaseService`），**不是**新增 UI 层；
-2. 逻辑要"无 UI 也能跑"（单测 / 离线算 / 与服务端同规则）→ 必须是**纯 C#、不引用 UnityEngine** 的类，放服务层；
-3. 单屏逻辑 > 500 行或状态机复杂（多分支、可中断、可回退）→ 抽 `XxxFlow`；
+1. 同一套流程被 ≥2 个界面复用 → 先判有效期：只活玩法域放 Logic，跨域能力抽服务（如 `IPurchaseService`），**不是**新增 UI 层；
+2. 无界面但要活一段时间、域结束要干净停止 → 用 `RevLogicBase`；需要单测 / 离线算 / 与服务端同规则的纯计算 → 抽不引用 `UnityEngine` 的普通类，不把“无 UI”一概等同服务；
+3. 单屏逻辑 > 500 行或状态机复杂（多分支、可中断、可回退）→ 可抽 `XxxFlow`；若生命周期已跨出面板，则按域内 Logic / 跨域服务归属；
 4. 将来真要上**代码热更** → 那时才需要"可热更逻辑 vs 不可热更表现"的物理分层。
 
 **面板里出现这些就该抽走**：协议 / HTTP、配置表解析、跨面板共享状态、计时器与长任务、纯计算（公式 / 排序 / 筛选）、存档读写、跨模块事件路由。
@@ -148,4 +168,4 @@ SetData(new DetailData { Id = Data.Id, Count = Data.Count + 1 });   // 写法 B�
 - [ ] 按钮点击统一走 `OnClick(path)` 或绑定的方法，不在多个地方散落逻辑。
 - [ ] `ExclusiveGroup` / `InBackStack` / `RevUICacheMode` 按语义设置（弹窗不该进返回栈；常驻 HUD 不该来回销毁）。
 - [ ] 打开一律 `Open<T>(onOpened)` 或 `OpenAsync`；需要秒开就先 `Preload`。
-- [ ] 面板里没有"只给这一屏用"以外的重逻辑（跨屏复用的一律搬去服务）。
+- [ ] 单屏逻辑留面板；无界面、只活一段玩法域的业务归 `RevLogicBase`；跨域能力归服务，不因跨屏复用就一律搬服务，也不新增 System / BusinessLogic。

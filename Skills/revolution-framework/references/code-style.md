@@ -76,13 +76,13 @@ string custom = resolver == null ? null : resolver(abName);
 
 | 项 | 规则 |
 |---|---|
-| 类名 | **一律 `Rev` 前缀**（`RevTimer` / `RevHotManifest` / `RevUIPanel`）；文件名 = 类名 |
+| 类名 | 新框架类型用 `Rev` 前缀，FSM 缩写统一大写；业务状态/域常量遵循项目约定。既有 FSM 文件仍含 `Fsm` / `StateMachine`，不要为匹配类型名顺手改资产路径 |
 | 命名空间 | 框架内：`Revolution`（门面/模块内可 `Revolution.Editor` 等）；扩展包：`Revolution.HotUpdate`；示例：`Revolution.Demo.<模块>` |
 | 目录分层 | `Core`（数据与契约）/ `Facade`（对外入口）/ `Implementation`（实现）/ `Interfaces`（接口）/ `Support`（宿主适配：Unity 钩子、宿主组件） |
 | 私有字段 | `_camelCase`；静态只读 `PascalCase` 或 `_camelCase` 与同文件保持一致 |
 | 常量 | `PascalCase`；对外承诺的常量放 `public const` |
 | 注释文档 | 对外成员用 `/// <summary>`，参数用 `<paramref>`；要点用 `★` |
-| 资产 | 新增 `.cs` 必须带 `.meta`；文件夹 meta 一律**同级** `<文件夹名>.meta` |
+| 资产 | `Assets/` 下新增资产带 `.meta`，文件夹 meta 是同级文件；`Tests/`、Skills 和 CI 文本不属于 Unity 资产，不额外生成 meta |
 
 ## 6. 其他约定（与框架现状一致）
 
@@ -98,8 +98,8 @@ string custom = resolver == null ? null : resolver(abName);
 - [ ] 没有一行以 `(` 结尾（括号后换行）；没有 `( 参数` 的多余空格。
 - [ ] 所有 `if / for / foreach / while` 都带大括号。
 - [ ] 新文件有文件头"为什么"段；关键/易错处有 `★` 注释。
-- [ ] 类名 `Rev` 前缀；命名空间正确；文件名 = 类名。
-- [ ] 新增资产都有 `.meta`，文件夹 meta 是同级命名。
+- [ ] 新框架类型用 Rev 前缀，FSM 缩写大写；命名空间正确，不顺手改既有旧名 FSM 文件路径。
+- [ ] Assets 新增资产带 `.meta`，文件夹 meta 是同级命名；Tests、Skills 和 CI 文件不生成 Unity meta。
 - [ ] 门面之外没有新增 public API（除非确实要给业务用，且已在文档里写清）。
 - [ ] 大括号 / 圆括号配平（防止文件被截断或漏闭合）。
 - [ ] 相关文档（md + html）已同步。
