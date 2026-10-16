@@ -26,6 +26,8 @@
 /RevolutionFrameWork_Unity/ExportedObj/
 /RevolutionFrameWork_Unity/crashlytics-build.properties
 /RevolutionFrameWork_Unity/sysinfo.txt
+# Unity 编辑器版本记录：每个协作者本地用哪个编辑器打开就写哪个，不进仓库（避免反复互相覆盖）
+/RevolutionFrameWork_Unity/ProjectSettings/ProjectVersion.txt
 
 # Unity / IDE 生成的工程文件（重新打开 Unity 会自动重建）
 /RevolutionFrameWork_Unity/*.csproj
