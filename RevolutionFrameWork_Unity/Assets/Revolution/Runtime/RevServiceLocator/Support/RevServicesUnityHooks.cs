@@ -61,7 +61,7 @@ namespace Revolution
             //   不传 owner 时，如果此刻恰好开着一个作用域（比如第一次 Register 发生在战斗域里），
             //   这条"框架自己的基础设施驱动"会被当成战斗域的东西 —— 战斗一结束它被摘掉，
             //   而 _tickHooked 还是 true，之后所有 RevITickable 服务再也不会被驱动，且毫无报错。
-            _tickHooked = RevMono.AddUpdate(OnUpdate, typeof(RevServicesUnityHooks));
+            _tickHooked = RevMono.AddInfrastructureUpdate(OnUpdate, typeof(RevServicesUnityHooks));
         }
 
         private static void OnUpdate()

@@ -80,14 +80,25 @@ namespace Revolution
             if (IsDone) return;             // Cancel 后仍需清理引用，但不再回报进度
             Finished++;
             if (!success) Failed++;
-            OnProgress?.Invoke(this);
+            // 进度属于业务扩展口；一个监听者出错不能截断最后一次 Complete。
+            InvokeListeners(OnProgress, "预加载进度回调");
         }
 
         internal void Complete()
         {
             if (IsDone) return;
             IsDone = true;
-            OnCompleted?.Invoke(this);
+            InvokeListeners(OnCompleted, "预加载完成回调");
+        }
+
+        private void InvokeListeners(Action<RevResPreloadTask> listeners, string context)
+        {
+            if (listeners == null) { return; }
+            foreach (Action<RevResPreloadTask> listener in listeners.GetInvocationList())
+            {
+                try { listener(this); }
+                catch (Exception e) { RevLog.Exception(e, context, "Res"); }
+            }
         }
     }
 
@@ -189,8 +200,11 @@ namespace Revolution
                         RevResManager.DecRef(h);     // 必须按句柄身份释放，不能误扣同 key 的新一代缓存
                     }
 
-                    task.ReportOne(ok);
-                    if (task.Finished >= task.Total) task.Complete();
+                    try { task.ReportOne(ok); }
+                    finally
+                    {
+                        if (task.Finished >= task.Total) { task.Complete(); }
+                    }
                 }, group, priority);
             }
 

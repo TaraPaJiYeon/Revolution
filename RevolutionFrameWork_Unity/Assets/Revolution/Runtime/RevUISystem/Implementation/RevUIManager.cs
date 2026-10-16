@@ -63,17 +63,15 @@ namespace Revolution
         private sealed class ClosingResourceLease
         {
             internal readonly int InstanceId;
-            internal readonly string Root;
-            internal readonly string Name;
+            internal readonly RevResHandle Handle;
             internal readonly RevUIPanel Panel;
             internal bool Released;
 
-            internal ClosingResourceLease(RevUIPanel panel, string root, string name)
+            internal ClosingResourceLease(RevUIPanel panel, RevResHandle handle)
             {
                 Panel = panel;
                 InstanceId = panel != null ? panel.GetInstanceID() : 0;
-                Root = root;
-                Name = name;
+                Handle = handle;
             }
         }
 
@@ -188,8 +186,9 @@ namespace Revolution
                 Register(pooled);
                 if (request.Data != null) pooled.SetData(request.Data);
                 if (!IsCurrent(meta.Key, request)) return null;
-                pooled.InternalOpen(() => CompleteOpen(meta.Key, request, pooled));
-                return pooled;
+                bool failed = false;
+                pooled.InternalOpen(() => CompleteOpen(meta.Key, request, pooled), error => { failed = true; FailOpen(meta.Key, request, pooled); });
+                return failed ? null : pooled;
             }
 
             // ⑤ 预制体已经在**资源缓存**里且加载成功（Preload 过 / 编辑器直读 / 之前加载过被留着）
@@ -211,7 +210,7 @@ namespace Revolution
                     return null;
                 }
 
-                return InstantiatePanel(meta, data, cached, callbacks);
+                return InstantiatePanel(meta, data, cached, acquired, callbacks);
             }
 
             // ⑥ 同步调用不能等待；异步调用继续往下走。
@@ -253,7 +252,7 @@ namespace Revolution
                     CompleteOpen(key, pending, null);
                     return;
                 }
-                InstantiatePanel(meta, pending.Data, prefab, pending.Callbacks, pending);
+                InstantiatePanel(meta, pending.Data, prefab, handle, pending.Callbacks, pending);
             }, RevResGroup.UI);
 
             return null;
@@ -263,41 +262,80 @@ namespace Revolution
         /// 实例化 → 装配 → 登记 → 打开。
         /// ★ 同步路径（预制体已在缓存里）和异步路径（加载回来）共用这一份，避免两条路各写一遍走偏。
         /// </summary>
-        private RevUIPanel InstantiatePanel(RevUIPanelMeta meta, object data, GameObject prefab,
+        private RevUIPanel InstantiatePanel(RevUIPanelMeta meta, object data, GameObject prefab, RevResHandle acquired,
             List<Action<RevUIPanel>> callbacks, OpenRequest request = null)
         {
             request = request ?? BeginOpen(meta, data, callbacks);
-            // ★ 挂到哪：单 Canvas → 对应层挂点；三 Canvas → 静态 / 动态画布（仅 Scene 层）或常用画布的层挂点
-            RevUICanvasType canvasType = ResolveCanvasType(meta);
-            GameObject go = UnityEngine.Object.Instantiate(prefab, _root.GetPanelParent(meta.Layer, canvasType), false);
-            go.name = meta.Name;
-
-            // ★ 统一 UI 图层：Camera 模式下相机的 Culling Mask 只认这个图层，漏了就是"面板开了但看不见"
-            RevUIRoot.ApplyUILayer(go);
-
-            RevUIPanel panel = go.GetComponent(meta.PanelType) as RevUIPanel;
-            if (panel == null)
+            GameObject go = null;
+            RevUIPanel panel = null;
+            bool tracked = false;
+            try
             {
-                RevUILog.Error(
-                    $"面板预制体 {meta.Key} 的根节点上没有 {meta.PanelType.Name} 组件 —— 预制体与脚本对不上。\n" +
-                    $"  默认约定：预制体名 = 面板类名；不一致就在特性里写第三个参数指定资源名。");
-                RevResManager.Release(meta.Root, meta.Name);      // 这次加载换来的引用要还回去
-                RevUIRoot.DestroyObject(go);
-                CompleteOpen(meta.Key, request, null);
+                // ★ 挂到哪：单 Canvas → 对应层挂点；三 Canvas → 静态 / 动态画布（仅 Scene 层）或常用画布的层挂点
+                RevUICanvasType canvasType = ResolveCanvasType(meta);
+                go = UnityEngine.Object.Instantiate(prefab, _root.GetPanelParent(meta.Layer, canvasType), false);
+                go.name = meta.Name;
+
+                // ★ 统一 UI 图层：Camera 模式下相机的 Culling Mask 只认这个图层，漏了就是"面板开了但看不见"
+                RevUIRoot.ApplyUILayer(go);
+
+                panel = go.GetComponent(meta.PanelType) as RevUIPanel;
+                if (panel == null)
+                {
+                    RevUILog.Error(
+                        $"面板预制体 {meta.Key} 的根节点上没有 {meta.PanelType.Name} 组件 —— 预制体与脚本对不上。\n" +
+                        $"  默认约定：预制体名 = 面板类名；不一致就在特性里写第三个参数指定资源名。");
+                    RevResManager.DecRef(acquired);      // 只归还本次取得的原始句柄
+                    RevUIRoot.DestroyObject(go);
+                    CompleteOpen(meta.Key, request, null);
+                    return null;
+                }
+
+                request.Panel = panel;
+                TrackPanelResource(panel, acquired);
+                tracked = true;
+                panel.CanvasType = canvasType;
+                panel.InternalSetup(meta);
+                if (!IsCurrent(meta.Key, request) || _root == null) return null;
+                Register(panel);
+                if (request.Data != null) panel.SetData(request.Data);
+                if (!IsCurrent(meta.Key, request)) return null;
+
+                bool failed = false;
+                panel.InternalOpen(() => CompleteOpen(meta.Key, request, panel), error => { failed = true; FailOpen(meta.Key, request, panel); });
+                return failed ? null : panel;
+            }
+            catch (Exception e)
+            {
+                // 实例化、装配也可能失败。请求必须结束，且未交给面板的引用由这里归还。
+                RevLog.Exception(e, $"面板 {meta.Key} 实例化或装配失败", "UI");
+                if (tracked) { FailOpen(meta.Key, request, panel); }
+                else
+                {
+                    RevResManager.DecRef(acquired);
+                    if (go != null) { RevUIRoot.DestroyObject(go); }
+                    CompleteOpen(meta.Key, request, null);
+                }
                 return null;
             }
+        }
 
-            request.Panel = panel;
-            TrackPanelResource(panel, meta.Root, meta.Name);
-            panel.CanvasType = canvasType;
-            panel.InternalSetup(meta);
-            if (!IsCurrent(meta.Key, request) || _root == null) return null;
-            Register(panel);
-            if (request.Data != null) panel.SetData(request.Data);
-            if (!IsCurrent(meta.Key, request)) return null;
-
-            panel.InternalOpen(() => CompleteOpen(meta.Key, request, panel));
-            return panel;
+        private void FailOpen(string key, OpenRequest request, RevUIPanel panel)
+        {
+            if (!IsCurrent(key, request)) { return; }
+            Unregister(panel);
+            try { panel.InternalRelease(); }
+            catch (Exception e) { RevLog.Exception(e, "打开失败后的面板清理异常", "UI"); }
+            finally
+            {
+                ReleasePanelResource(panel);
+                if (panel != null)
+                {
+                    if (_root != null) { _root.AddPendingRelease(panel); }
+                    else { RevUIRoot.DestroyObject(panel.gameObject); }
+                }
+                CompleteOpen(key, request, null);
+            }
         }
 
         /// <summary>
@@ -402,7 +440,7 @@ namespace Revolution
             if (opening != null && opening.Panel == panel) _loading.Remove(panel.PanelKey);
             else opening = null;
             RevUIRoot closingRoot = _root;
-            ClosingResourceLease lease = GetPanelResourceLease(panel) ?? TrackPanelResource(panel, panel.PrefabRoot, panel.PrefabName);
+            ClosingResourceLease lease = GetPanelResourceLease(panel) ?? TrackPanelResource(panel, null);
             _closingResources.Add(lease);
 
             bool keepAlive = ResolveCacheMode(panel) == RevUICacheMode.KeepAlive;
@@ -415,7 +453,7 @@ namespace Revolution
                 if (lease.Released) return;
                 _closingResources.Remove(lease);
 
-                // 根节点已被销毁：用关闭时快照的路径归还，panel 此时可能已经是 Unity 假 null。
+                // 根节点已被销毁：用关闭时快照的句柄归还，panel 此时可能已经是 Unity 假 null。
                 if (closingRoot == null || _root != closingRoot)
                 {
                     ReleasePanelResource(lease);
@@ -764,14 +802,14 @@ namespace Revolution
             return count;
         }
 
-        private ClosingResourceLease TrackPanelResource(RevUIPanel panel, string root, string name)
+        private ClosingResourceLease TrackPanelResource(RevUIPanel panel, RevResHandle handle)
         {
             if (ReferenceEquals(panel, null)) return null;
 
             int instanceId = panel.GetInstanceID();
             if (_panelResourceLeases.TryGetValue(instanceId, out ClosingResourceLease existing)) return existing;
 
-            var lease = new ClosingResourceLease(panel, root, name);
+            var lease = new ClosingResourceLease(panel, handle);
             _panelResourceLeases.Add(instanceId, lease);
             return lease;
         }
@@ -793,7 +831,7 @@ namespace Revolution
         {
             if (lease == null || lease.Released) return;
             lease.Released = true;
-            RevResManager.Release(lease.Root, lease.Name);
+            RevResManager.DecRef(lease.Handle);
         }
 
         private void ReleaseAllPanelResourceLeases()

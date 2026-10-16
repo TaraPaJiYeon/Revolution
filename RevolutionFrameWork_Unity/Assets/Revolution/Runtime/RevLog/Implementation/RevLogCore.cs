@@ -46,6 +46,7 @@ namespace Revolution
 
         /// <summary>异常上报出口（默认不接 = 不上报；王者把 CrashSight 硬编码在门面里，这里拆成可插拔）。</summary>
         internal Action<Exception, string> OnReport;
+        private bool _reporting;
 
         /// <summary>Sink 失败次数（失能可见：0 = 一切正常）。</summary>
         internal int SinkErrors { get; private set; }
@@ -95,7 +96,24 @@ namespace Revolution
             Emit(_last);
 
             // ③ 异常上报（可插拔；默认没人接 = 不上报）
-            if (error != null) OnReport?.Invoke(error, $"[{tag}] {message}");
+            if (error != null) { ReportException(error, $"[{tag}] {message}"); }
+        }
+
+        private void ReportException(Exception error, string context)
+        {
+            // 上报 SDK 自己可能写日志或抛异常；不能递归上报，更不能击穿调用方的 catch。
+            Action<Exception, string> reporters = OnReport;
+            if (_reporting || reporters == null) { return; }
+            _reporting = true;
+            try
+            {
+                foreach (Action<Exception, string> reporter in reporters.GetInvocationList())
+                {
+                    try { reporter(error, context); }
+                    catch (Exception e) { SafeFallback($"[RevLog] 异常上报失败：{e}"); }
+                }
+            }
+            finally { _reporting = false; }
         }
 
         private void Emit(in RevLogEntry entry)
@@ -206,6 +224,7 @@ namespace Revolution
             _ring.Clear();
             DisposeSinks();
             SinkErrors = 0;
+            OnReport = null;
         }
 
         internal RevLogEntry[] Recent(int count) => _ring.Snapshot(count);

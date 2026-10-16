@@ -12,7 +12,7 @@
 //   ① **采样模型**：每帧由 `Elapsed / Duration` 算出归一化时间再求缓动 ——
 //      不是"每帧累加一点"，所以掉帧不改变动画总时长，也不会累积误差。
 //   ② **帧余量结转**：循环 / 往返 / 延迟三种情况下，超出的时间**带进下一段**
-//      （`while` 里减掉整段时长），所以 1 帧 200ms 和 4 帧 50ms 结果一样。
+//      （按除法 / 取模一次跳过完整段），所以 1 帧 200ms 和 4 帧 50ms 结果一样。
 //   ③ **零 GC 热路径**：运行时对象池化复用；每帧只做索引遍历，不产生垃圾；
 //      句柄带**版本号** —— 池化复用后旧句柄自动失效，不会误 Stop 到别人的动画。
 //
@@ -68,6 +68,7 @@ namespace Revolution
     {
         public int Id;
         public int Version = 1;
+        public int ActiveIndex = -1;
 
         public RevUIAnimSpec Spec;
         public Action<float> OnSample;
@@ -89,6 +90,7 @@ namespace Revolution
             OnDone = null;
             Owner = null;
             Alive = false;
+            ActiveIndex = -1;
             Elapsed = 0f;
             DelayLeft = 0f;
             LoopsDone = 0;
@@ -101,9 +103,41 @@ namespace Revolution
     public static class RevUIAnimEngine
     {
         private static readonly List<RevUIAnimRuntime> Active = new List<RevUIAnimRuntime>(32);
+        private static readonly Dictionary<int, RevUIAnimRuntime> ActiveById = new Dictionary<int, RevUIAnimRuntime>(32);
         private static readonly Stack<RevUIAnimRuntime> Pool = new Stack<RevUIAnimRuntime>(32);
 
         private static int _nextId = 1;
+        private static bool _stepping;
+        private static readonly Stack<List<RevUIAnimHandle>> Snapshots = new Stack<List<RevUIAnimHandle>>();
+
+        private static List<RevUIAnimHandle> Snapshot(object owner = null)
+        {
+            var result = Snapshots.Count > 0 ? Snapshots.Pop() : new List<RevUIAnimHandle>(32);
+            for (int i = Active.Count - 1; i >= 0; i--)
+            {
+                RevUIAnimRuntime rt = Active[i];
+                if (owner == null || ReferenceEquals(rt.Owner, owner)) { result.Add(new RevUIAnimHandle(rt.Id, rt.Version)); }
+            }
+            return result;
+        }
+
+        private static void ReturnSnapshot(List<RevUIAnimHandle> snapshot)
+        {
+            snapshot.Clear();
+            Snapshots.Push(snapshot);
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static void Report(Exception error, string context)
+        {
+            // 上报也是外部回调；不能让上报异常破坏动画回收。
+            try { OnException?.Invoke(error, context); }
+            catch { /* 保留原动画终态；Support 的日志出口负责上报本身的诊断。 */ }
+        }
 
         /// <summary>采样 / 完成回调抛异常时上报（Support 侧接到 RevUILog；框架本身不打日志）</summary>
         public static Action<Exception, string> OnException;
@@ -134,7 +168,11 @@ namespace Revolution
         public static RevUIAnimHandle Play(in RevUIAnimSpec spec, Action<float> onSample,
             Action onDone = null, object owner = null)
         {
-            if (onSample == null) return RevUIAnimHandle.None;
+            if (onSample == null) { return RevUIAnimHandle.None; }
+            if (!IsFinite(spec.Duration) || !IsFinite(spec.Delay))
+            {
+                throw new ArgumentOutOfRangeException(nameof(spec), "动画时长与延迟必须是有限数值");
+            }
 
             RevUIAnimRuntime rt = Rent();
             rt.Spec = spec;
@@ -159,11 +197,13 @@ namespace Revolution
             }
 
             // 先把"起始态"落一次屏：有延迟时也不会在错误的位置上等
-            EmitSample(rt, 0f);
-            rt.EmittedStart = true;
-
+            var handle = new RevUIAnimHandle(rt.Id, rt.Version);
+            rt.ActiveIndex = Active.Count;
             Active.Add(rt);
-            return new RevUIAnimHandle(rt.Id, rt.Version);
+            ActiveById[rt.Id] = rt;
+            rt.EmittedStart = true;
+            EmitSample(rt, 0f);
+            return IsAlive(handle) ? handle : RevUIAnimHandle.None;
         }
 
         // ── 推进 ────────────────────────────────────────────
@@ -171,36 +211,33 @@ namespace Revolution
         /// <summary>推进一帧（Support 的驱动每帧调一次；也可以按固定步长在工程外跑）。</summary>
         public static void Step(float deltaTime)
         {
+            if (!IsFinite(deltaTime)) { throw new ArgumentOutOfRangeException(nameof(deltaTime), "动画步长必须是有限数值"); }
+            if (_stepping) { return; }
             StepCount++;
-            if (Active.Count == 0) return;
-            if (deltaTime < 0f) deltaTime = 0f;
-
-            // 倒序遍历：回调里 Stop 自己 / 起新动画都不会把遍历搞乱
-            for (int i = Active.Count - 1; i >= 0; i--)
+            if (Active.Count == 0) { return; }
+            if (deltaTime < 0f) { deltaTime = 0f; }
+            _stepping = true;
+            List<RevUIAnimHandle> snapshot = Snapshot();
+            try
             {
-                RevUIAnimRuntime rt = Active[i];
-                if (!rt.Alive) { RemoveAt(i); continue; }
-
-                // ★ Bug 修复（2026-09-30）：记下推进前的版本号 —— Advance 末尾的 EmitSample
-                //   会执行业务的采样回调，回调里完全可能 Stop 掉这个动画自己
-                //   （如 OnCovered 里 StopAllOf(面板)）。Stop 已做过"移出列表 + 续接完成回调 +
-                //   回池"的完整收尾；此后绝不能再走一遍 RemoveAt/Finish/Recycle：
-                //   ① RemoveAt(i) 是 swap-remove，会错删此刻换到 i 位置的**别的动画**；
-                //   ② rt 已回池、可能已被同帧的新 Play 复用 —— 此时 rt.Alive 又变回 true
-                //      （是新动画的"活着"），Finish/Recycle 会把别人刚起的动画提前"完成"
-                //      再回收一次，跨动画状态污染。
-                //   所以收尾前必须双重确认：还活着、且**版本号没变**（对象没被复用）——
-                //   这正是铁律③"句柄带版本号防误停"想防的那类事故，补上引擎内部的最后一块。
-                int versionBefore = rt.Version;
-
-                if (Advance(rt, deltaTime))
+                // 回调可能删除其它动画、清空列表并复用对象。只推进本帧开始时的身份快照，新增动画留到下一帧。
+                foreach (RevUIAnimHandle handle in snapshot)
                 {
-                    if (!rt.Alive || rt.Version != versionBefore) continue;
-
-                    RemoveAt(i);
+                    int index = IndexOf(handle);
+                    if (index < 0) { continue; }
+                    RevUIAnimRuntime rt = Active[index];
+                    if (!Advance(rt, deltaTime)) { continue; }
+                    index = IndexOf(handle);
+                    if (index < 0) { continue; }
+                    RemoveAt(index);
                     Finish(rt, out RevUIAnimRuntime done);
                     Recycle(done);
                 }
+            }
+            finally
+            {
+                ReturnSnapshot(snapshot);
+                _stepping = false;
             }
         }
 
@@ -222,37 +259,25 @@ namespace Revolution
                 rt.DelayLeft = 0f;
             }
 
-            rt.Elapsed += dt;
-
-            // ② 循环 / 往返：把超出的时间**结转**给下一段（while 减整段，不丢帧）
-            while (rt.Elapsed >= duration)
+            // 用 double 结转并一次跳过完整段，禁止按段 while：极大步长也必须有界完成。
+            double elapsed = (double)rt.Elapsed + dt;
+            double segments = Math.Floor(elapsed / duration);
+            if (segments >= 1d)
             {
-                rt.Elapsed -= duration;
-                rt.LoopsDone++;
-
-                // Wrap = Once 的意思是“播放一遍就结束”，不应再看 Loops 配置。
-                // 若仍按 Loops 判断，-1（无限次）会让 Once 永远不结束，大于 1 则会让标记为 Once 的动画错误地重复播放。
-                bool lastLoop = rt.Spec.Wrap == RevUIAnimWrap.Once ||
-                                (rt.Spec.Loops >= 0 && rt.LoopsDone >= rt.Spec.Loops);
-
-                if (rt.Spec.Wrap == RevUIAnimWrap.PingPong)
+                bool finite = rt.Spec.Wrap == RevUIAnimWrap.Once || rt.Spec.Loops >= 0;
+                int remaining = rt.Spec.Wrap == RevUIAnimWrap.Once ? 1 : Math.Max(1, rt.Spec.Loops) - rt.LoopsDone;
+                if (finite && segments >= remaining)
                 {
-                    bool wasBackward = rt.Backward;
-                    rt.Backward = !rt.Backward;               // 翻转给下一段用
-                    if (lastLoop)
-                    {
-                        // ★ 终态取"刚结束那一段"的终点：正向段停在 1、反向段停在 0
-                        //   （先翻转再取值就反了 —— 这个 bug 是工程外断言抓出来的）
-                        EmitSample(rt, wasBackward ? 0f : 1f);
-                        return true;
-                    }
-                }
-                else if (lastLoop)
-                {
-                    EmitSample(rt, 1f);
+                    bool finalBackward = rt.Backward;
+                    if (rt.Spec.Wrap == RevUIAnimWrap.PingPong && ((remaining - 1) & 1) != 0) { finalBackward = !finalBackward; }
+                    EmitSample(rt, finalBackward ? 0f : 1f);
                     return true;
                 }
+                if (rt.Spec.Wrap == RevUIAnimWrap.PingPong && segments % 2d >= 1d) { rt.Backward = !rt.Backward; }
+                if (finite) { rt.LoopsDone += (int)segments; }
+                elapsed %= duration;
             }
+            rt.Elapsed = (float)elapsed;
 
             float t = rt.Elapsed / duration;
             if (rt.Backward) t = 1f - t;
@@ -276,7 +301,7 @@ namespace Revolution
             catch (Exception e)
             {
                 // 一个动画的书写错不该把整帧 UI 带崩：隔离 + 上报
-                OnException?.Invoke(e, "动画采样");
+                Report(e, "动画采样");
             }
         }
 
@@ -299,7 +324,7 @@ namespace Revolution
             }
             catch (Exception e)
             {
-                OnException?.Invoke(e, "动画完成回调");
+                Report(e, "动画完成回调");
             }
         }
 
@@ -328,47 +353,31 @@ namespace Revolution
         /// <summary>停掉某个归属对象的全部动画（面板 / Part 关闭时一行清理）。返回停掉几个。</summary>
         public static int StopAllOf(object owner)
         {
-            if (owner == null) return 0;
-
+            if (owner == null) { return 0; }
+            List<RevUIAnimHandle> snapshot = Snapshot(owner);
             int stopped = 0;
-            for (int i = Active.Count - 1; i >= 0; i--)
+            try
             {
-                if (!ReferenceEquals(Active[i].Owner, owner)) continue;
-
-                RevUIAnimRuntime rt = Active[i];
-                RemoveAt(i);
-                rt.Alive = false;
-                rt.OnSample = null;
-                stopped++;
-
-                Action done = rt.OnDone;
-                rt.OnDone = null;
-                Recycle(rt);
-                Guard(done, "动画被停止时的完成回调");     // 同上：续接语义
+                foreach (RevUIAnimHandle handle in snapshot)
+                {
+                    if (!IsAlive(handle)) { continue; }
+                    stopped++;
+                    Stop(handle);
+                }
             }
-
-            TotalStopped += stopped;
+            finally { ReturnSnapshot(snapshot); }
             return stopped;
         }
 
-        /// <summary>停掉全部动画（换场景 / 关所有 UI 时兜底）。</summary>
+        /// <summary>停止调用开始时的全部动画；完成回调中新建的动画属于下一批。</summary>
         public static void StopAll()
         {
-            int stopped = 0;
-            for (int i = Active.Count - 1; i >= 0; i--)
+            List<RevUIAnimHandle> snapshot = Snapshot();
+            try
             {
-                RevUIAnimRuntime rt = Active[i];
-                RemoveAt(i);
-                rt.Alive = false;
-                rt.OnSample = null;
-                stopped++;
-
-                Action done = rt.OnDone;
-                rt.OnDone = null;
-                Recycle(rt);
-                Guard(done, "动画被停止时的完成回调");
+                foreach (RevUIAnimHandle handle in snapshot) { Stop(handle); }
             }
-            TotalStopped += stopped;
+            finally { ReturnSnapshot(snapshot); }
         }
 
         /// <summary>执行一个回调并隔离异常（热路径之外的小工具）。</summary>
@@ -381,7 +390,7 @@ namespace Revolution
             }
             catch (Exception e)
             {
-                OnException?.Invoke(e, what);
+                Report(e, what);
             }
         }
 
@@ -396,6 +405,7 @@ namespace Revolution
         public static void Reset()
         {
             Active.Clear();
+            ActiveById.Clear();
             Pool.Clear();
             // 不重置 ID：关闭 Domain Reload 时旧句柄可能被业务静态字段持有；
             // 新会话若从 1 重新分配并复用相同 Version，旧句柄会误命中新动画。
@@ -410,22 +420,24 @@ namespace Revolution
 
         private static int IndexOf(RevUIAnimHandle handle)
         {
-            if (handle.Id == 0) return -1;
-
-            for (int i = 0; i < Active.Count; i++)
-            {
-                RevUIAnimRuntime rt = Active[i];
-                if (rt.Id == handle.Id && rt.Version == handle.Version) return i;
-            }
+            if (handle.Id != 0 && ActiveById.TryGetValue(handle.Id, out RevUIAnimRuntime rt)
+                && rt.Alive && rt.Version == handle.Version) { return rt.ActiveIndex; }
             return -1;
         }
 
-        /// <summary>swap-remove：O(1) 且零分配（活动列表不要求有序）。</summary>
+        /// <summary>swap-remove 同步索引，使身份快照逐项查询保持 O(1)。</summary>
         private static void RemoveAt(int index)
         {
             int last = Active.Count - 1;
-            Active[index] = Active[last];
+            RevUIAnimRuntime removed = Active[index];
+            ActiveById.Remove(removed.Id);
+            if (index != last)
+            {
+                Active[index] = Active[last];
+                Active[index].ActiveIndex = index;
+            }
             Active.RemoveAt(last);
+            removed.ActiveIndex = -1;
         }
 
         private static RevUIAnimRuntime Rent()

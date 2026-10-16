@@ -67,7 +67,51 @@ namespace Revolution
         /// 引用计数却永远回不到零 → TextAsset 再也卸不掉（泄漏），且两个调用方拿到不同实例。
         /// 有了它：同类型的并发请求共享同一份加载任务。
         /// </summary>
-        private static readonly Dictionary<System.Type, object> _loading = new Dictionary<System.Type, object>();
+        private static readonly Dictionary<Type, RevPendingLoad> _loading = new Dictionary<Type, RevPendingLoad>();
+        private static readonly Dictionary<Type, RevResHandle> _leases = new Dictionary<Type, RevResHandle>();
+        private static readonly Dictionary<Type, string> _registeredNames = new Dictionary<Type, string>();
+        private static int _generation;
+        private static bool _clearing;
+
+        // 请求独立保存租约和完成源。卸载先摘登记再取消，晚到回调只能归还自己的句柄，不能回填旧表。
+        private abstract class RevPendingLoad
+        {
+            internal RevResHandle Handle;
+            internal bool Released;
+            internal void Release()
+            {
+                if (Released || Handle == null) { return; }
+                Released = true;
+                RevResManager.DecRef(Handle);
+            }
+            internal abstract void Cancel();
+        }
+
+        private sealed class RevPendingLoad<T> : RevPendingLoad where T : class, RevIDataTable
+        {
+            internal readonly RevTaskCompletionSource<T> Source;
+            internal readonly string Name;
+            internal readonly string Root;
+            internal readonly string Resource;
+            internal RevPendingLoad(RevTaskCompletionSource<T> source, string name, string root, string resource)
+            {
+                Source = source;
+                Name = name;
+                Root = root;
+                Resource = resource;
+            }
+            internal override void Cancel()
+            {
+                Release();
+                Source.SetException(new RevDataTableLoadException(Name, Root, Resource, RevResLoadErrorReason.Cancelled));
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetForNewSession()
+        {
+            UnloadAll();
+        }
 
         // ==================== 查询 ====================
 
@@ -130,69 +174,115 @@ namespace Revolution
         /// </summary>
         public static T Load<T>(RevResGroup group = RevResGroup.Config) where T : class, RevIDataTable, new()
         {
+            if (_clearing) { return null; }
             T cached = Get<T>();
-            if (cached != null && cached.IsLoaded) return cached;
-
-            var table = new T();
-            RevResHandle handle = RevResManager.Load(table.ResourceRoot, table.ResourceName, typeof(TextAsset), group);
-
-            if (!ReadText(table, handle))
+            if (cached != null && cached.IsLoaded) { return cached; }
+            // 同步入口不能抢占同类型在途请求，否则会产生两份容器和两份无人管理的引用。
+            if (_loading.ContainsKey(typeof(T))) { return null; }
+            int generation = _generation;
+            RevResHandle handle = null;
+            bool transferred = false;
+            try
             {
-                // ★ Bug 修复（2026-09-30）：失败必须把本次占用的资源引用还掉 ——
-                //   命中缓存但内容不符（比如同路径曾被按别的类型加载）时，这次 Load 已经把引用 +1，
-                //   不还会把 TextAsset 的引用计数顶高、永远卸不掉；彻底加载失败（对方返回 Empty 句柄）时，
-                //   Release 是安全的空操作（资源系统内部按 key 查不到会直接返回）。
-                RevResManager.Release(table.ResourceRoot, table.ResourceName);
-                return null;
+                var table = new T();
+                string name = table.TableName;
+                handle = RevResManager.Load(table.ResourceRoot, table.ResourceName, typeof(TextAsset), group);
+                if (!ReadText(table, handle) || generation != _generation) { return null; }
+                Register(table, handle, name);
+                transferred = true;
+                return table;
             }
-
-            Register(table);
-            return table;
+            finally
+            {
+                // TypeMismatch 的独立失败句柄没有取得引用；按句柄归还不会误扣原路径的其它持有者。
+                if (!transferred) { RevResManager.DecRef(handle); }
+            }
         }
 
-        /// <summary>
-        /// 异步加载（推荐入口）。await 它就行：
-        ///     HeroSkinTable tbl = await RevDataTableManager.LoadAsync&lt;HeroSkinTable&gt;();
-        /// 加载失败会抛 RevDataTableLoadException（带上表名与失败原因，便于定位）。
-        /// 同一张表并发请求会被资源系统合并，只会真正加载一次。
-        /// </summary>
-        /// <param name="group">归属分组：配置表默认走 RevResGroup.Config（切场景不会被误卸载）</param>
-        /// <param name="priority">加载优先级：紧急资源可传 Urgent 抢在预加载前面</param>
-        public static RevTask<T> LoadAsync<T>(RevResGroup group = RevResGroup.Config,
-            RevResLoadPriority priority = RevResLoadPriority.Normal) where T : class, RevIDataTable, new()
+        /// <summary>同类型并发共享任务；解析异常写入失败任务，卸载使旧请求以 Cancelled 结束。</summary>
+        public static RevTask<T> LoadAsync<T>(RevResGroup group = RevResGroup.Config, RevResLoadPriority priority = RevResLoadPriority.Normal) where T : class, RevIDataTable, new()
         {
-            T cached = Get<T>();
-            if (cached != null && cached.IsLoaded) return RevTask<T>.FromResult(cached);
-
-            // ★ Bug 修复（2026-09-30）：同一容器类型已在加载中 → 直接共享同一个任务。
-            //   否则并发调用会各建一个容器、各占一次引用，登记时互相覆盖（详见 _loading 的注释）。
-            if (_loading.TryGetValue(typeof(T), out object pending))
-                return ((RevTaskCompletionSource<T>)pending).Task;
-
-            var table = new T();
             var source = RevTask<T>.CreateSource();
-            _loading[typeof(T)] = source;
-
-            RevResManager.LoadAsync(table.ResourceRoot, table.ResourceName, typeof(TextAsset), handle =>
+            if (_clearing)
             {
-                _loading.Remove(typeof(T));      // ★ 先摘"加载中"登记：成功 / 失败都要摘，别让后续请求挂在一份死任务上
-
-                if (!ReadText(table, handle))
+                source.SetException(new RevOperationCanceledException());
+                return source.Task;
+            }
+            RevPendingLoad<T> request = null;
+            try
+            {
+                T cached = Get<T>();
+                if (cached != null && cached.IsLoaded) { return RevTask<T>.FromResult(cached); }
+                if (_loading.TryGetValue(typeof(T), out RevPendingLoad pending))
                 {
-                    // ★ Bug 修复（2026-09-30）：失败同样要把本次占用的资源引用还掉（与同步版同理）
-                    RevResManager.Release(table.ResourceRoot, table.ResourceName);
-
-                    source.SetException(new RevDataTableLoadException(
-                        table.TableName, table.ResourceRoot, table.ResourceName,
-                        handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason));
-                    return;
+                    return ((RevPendingLoad<T>)pending).Source.Task;
                 }
 
-                Register(table);
-                source.SetResult(table);
-            }, group, priority);
-
+                int generation = _generation;
+                var table = new T();
+                request = new RevPendingLoad<T>(source, table.TableName, table.ResourceRoot, table.ResourceName);
+                RevPendingLoad<T> currentRequest = request;
+                if (generation != _generation) { request.Cancel(); return source.Task; }
+                _loading[typeof(T)] = request;
+                RevResHandle returned = RevResManager.LoadAsync(request.Root, request.Resource, typeof(TextAsset), handle =>
+                {
+                    currentRequest.Handle = handle;
+                    bool transferred = false;
+                    try
+                    {
+                        if (generation != _generation || !IsCurrent<T>(currentRequest))
+                        {
+                            currentRequest.Cancel();
+                            return;
+                        }
+                        if (!ReadText(table, handle))
+                        {
+                            RevResLoadErrorReason reason = handle == null ? RevResLoadErrorReason.PolicyNotFound : handle.ErrorReason;
+                            if (reason == RevResLoadErrorReason.None) { reason = RevResLoadErrorReason.AssetLoadFail; }
+                            throw new RevDataTableLoadException(currentRequest.Name, currentRequest.Root, currentRequest.Resource, reason);
+                        }
+                        // 解析器是外部代码，可能在 LoadText 内卸载；回来后必须再确认请求仍属于当前会话。
+                        if (generation != _generation || !IsCurrent<T>(currentRequest))
+                        {
+                            currentRequest.Cancel();
+                            return;
+                        }
+                        Register(table, handle, currentRequest.Name);
+                        transferred = true;
+                        currentRequest.Released = true; // 归还责任已交给表租约，完成续体里 UnloadAll 也不能再由请求重复归还。
+                        _loading.Remove(typeof(T));
+                        source.SetResult(table);
+                    }
+                    catch (Exception e)
+                    {
+                        if (IsCurrent<T>(currentRequest)) { _loading.Remove(typeof(T)); }
+                        source.SetException(e);
+                    }
+                    finally
+                    {
+                        if (!transferred) { currentRequest.Release(); }
+                        if (IsCurrent<T>(currentRequest)) { _loading.Remove(typeof(T)); }
+                    }
+                }, group, priority);
+                // 缓存命中可能同步回调；不要覆盖回调已登记的句柄或重复归还。
+                if (request.Handle == null) { request.Handle = returned; }
+                if (generation != _generation) { request.Release(); }
+            }
+            catch (Exception e)
+            {
+                if (request != null)
+                {
+                    if (IsCurrent<T>(request)) { _loading.Remove(typeof(T)); }
+                    request.Release();
+                }
+                source.SetException(e);
+            }
             return source.Task;
+        }
+
+        private static bool IsCurrent<T>(RevPendingLoad request)
+        {
+            return _loading.TryGetValue(typeof(T), out RevPendingLoad current) && ReferenceEquals(current, request);
         }
 
         /// <summary>
@@ -215,66 +305,90 @@ namespace Revolution
         {
             if (onFinished == null) return;
 
-            try
-            {
-                T table = await task;
-                onFinished(table, RevResLoadErrorReason.None);
-            }
-            catch (RevDataTableLoadException e)
-            {
-                onFinished(null, e.Reason);          // 加载失败：带着细分原因回报（不抛）
-            }
+            T table = null;
+            RevResLoadErrorReason reason = RevResLoadErrorReason.None;
+            try { table = await task; }
+            catch (RevDataTableLoadException e) { reason = e.Reason; }
+            catch (RevOperationCanceledException) { reason = RevResLoadErrorReason.Cancelled; }
             catch (Exception e)
             {
-                // 兜底：理论上不会走到（加载路径的异常都已包成 RevDataTableLoadException）
-                RevLog.Exception(e, "[RevDataTable] 回调式中继出现意外异常", "Data");
-                onFinished(null, RevResLoadErrorReason.PolicyNotFound);
+                reason = RevResLoadErrorReason.AssetLoadFail;
+                RevLog.Exception(e, "配置表加载失败", "Data");
             }
+            // 加载失败和业务回调失败是两件事：回调只执行一次，不把业务异常伪装成第二次加载失败。
+            try { onFinished(table, reason); }
+            catch (Exception e) { RevLog.Exception(e, "配置表业务回调异常", "Data"); }
         }
 
         // ==================== 卸载 ====================
 
         /// <summary>卸载一张表：清空数据 + 还掉资源引用（引用归零后由资源系统延迟释放）</summary>
         public static bool Unload<T>() where T : class, RevIDataTable
-            => _tablesByType.TryGetValue(typeof(T), out RevIDataTable table) && Unload(table.TableName);
+            => _registeredNames.TryGetValue(typeof(T), out string name) && Unload(name);
 
         /// <summary>按表名卸载（配合 Get(string) 的字符串驱动场景）</summary>
         public static bool Unload(string tableName)
         {
-            if (string.IsNullOrEmpty(tableName)) return false;
-            if (!_tables.TryGetValue(tableName, out RevIDataTable table)) return false;
-
-            RevResManager.Release(table.ResourceRoot, table.ResourceName);   // ★ 关键：还掉引用，否则 TextAsset 永远卸不掉
-            table.Clear();
+            if (string.IsNullOrEmpty(tableName) || !_tables.TryGetValue(tableName, out RevIDataTable table)) { return false; }
             Unregister(table);
+            ReleaseTable(table);
             return true;
         }
 
-        /// <summary>卸载全部表（回登录界面 / 大版本切换时用）</summary>
+        /// <summary>卸载全部已加载表，并取消在途请求；回调期间拒绝重入创建新表。</summary>
         public static void UnloadAll()
         {
-            foreach (var kv in _tables)
-            {
-                RevResManager.Release(kv.Value.ResourceRoot, kv.Value.ResourceName);
-                kv.Value.Clear();
-            }
+            if (_clearing) { return; }
+            _clearing = true;
+            _generation++;
+            RevPendingLoad[] pending = new List<RevPendingLoad>(_loading.Values).ToArray();
+            RevIDataTable[] tables = new List<RevIDataTable>(_tablesByType.Values).ToArray();
+            _loading.Clear();
             _tables.Clear();
             _tablesByType.Clear();
+            _registeredNames.Clear();
+            try
+            {
+                foreach (RevPendingLoad request in pending) { request.Cancel(); }
+                foreach (RevIDataTable table in tables) { ReleaseTable(table); }
+            }
+            finally { _clearing = false; }
         }
 
-        // ==================== 内部 ====================
-
-        /// <summary>登记一张表：两个字典指向同一个实例（按表名查 / 按类型查都能命中）</summary>
-        private static void Register(RevIDataTable table)
+        private static void ReleaseTable(RevIDataTable table)
         {
-            _tables[table.TableName] = table;
-            _tablesByType[table.GetType()] = table;
+            Type type = table.GetType();
+            if (_leases.TryGetValue(type, out RevResHandle handle))
+            {
+                _leases.Remove(type);
+                RevResManager.DecRef(handle);
+            }
+            try { table.Clear(); }
+            catch (Exception e) { RevLog.Exception(e, "配置表卸载清理异常", "Data"); }
+        }
+
+        /// <summary>先校验外部元数据，再原子登记；不覆盖其它类型的同名表。</summary>
+        private static void Register(RevIDataTable table, RevResHandle handle, string name)
+        {
+            Type type = table.GetType();
+            if (string.IsNullOrEmpty(name)) { throw new InvalidOperationException("配置表 TableName 不能为空"); }
+            if (_tables.ContainsKey(name) || _tablesByType.ContainsKey(type))
+            {
+                throw new InvalidOperationException($"配置表重复登记：{name} / {type.Name}");
+            }
+            _tables.Add(name, table);
+            _tablesByType.Add(type, table);
+            _leases.Add(type, handle);
+            _registeredNames.Add(type, name);
         }
 
         private static void Unregister(RevIDataTable table)
         {
-            _tables.Remove(table.TableName);
-            _tablesByType.Remove(table.GetType());
+            Type type = table.GetType();
+            // 登记时保存的名字才是索引；业务属性之后改变或抛异常，也不能阻止卸载归还资源。
+            if (_registeredNames.TryGetValue(type, out string name)) { _tables.Remove(name); }
+            _registeredNames.Remove(type);
+            _tablesByType.Remove(type);
         }
 
         /// <summary>把资源句柄里的 TextAsset 文本喂给容器；成功返回 true</summary>

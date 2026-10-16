@@ -149,6 +149,8 @@
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>Builder 容器的 Tick 使用脏快照逐服务隔离异常，Tick 中新增服务下一帧推进；已移除实例不再调用。工厂或 OnInit 内关闭 owner/root 会使本次获取以 ObjectDisposedException 失败，按所有权回滚，避免返回已释放实例。全局服务的框架 Tick 不再被 RevMono.Clear 清掉。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

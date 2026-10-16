@@ -66,6 +66,7 @@ namespace Revolution
     internal readonly struct RevMonoListener
     {
         internal readonly Action Action;
+        internal readonly bool Infrastructure;
         internal readonly object Owner;
 
         /// <summary>
@@ -75,9 +76,10 @@ namespace Revolution
         /// </summary>
         internal readonly RevScopeHandle Scope;
 
-        internal RevMonoListener(Action action, object owner, RevScopeHandle scope)
+        internal RevMonoListener(Action action, object owner, RevScopeHandle scope, bool infrastructure = false)
         {
             Action = action;
+            Infrastructure = infrastructure;
             Owner = owner;
             Scope = scope;
         }

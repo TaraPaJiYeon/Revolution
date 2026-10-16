@@ -52,7 +52,7 @@ namespace Revolution
         // ==================== 增 / 删 ====================
 
         /// <summary>加一个监听者。返回 false = 已经加过（去重）或已到上限（报 Overflow）。</summary>
-        internal bool Add(RevMonoPhase phase, Action action, object owner)
+        internal bool Add(RevMonoPhase phase, Action action, object owner, bool infrastructure = false)
         {
             // RevMonoPhase 虽然是 enum，调用方仍可把任意整数强制转成它。若直接拿这个值访问 Update/LateUpdate/FixedUpdate 列表，
             // 非法值会变成数组越界异常。先检查只接受三个已定义相位；错误输入明确失败，不让异常打断游戏循环。
@@ -70,7 +70,8 @@ namespace Revolution
                 if (list[i].Action == action) return false;          // 已加过：静默去重（返回 false 就是信号）
             }
 
-            if (list.Count >= RevMonoLimits.MaxListenersPerPhase)
+            // 基础驱动数量由框架控制，不能因业务已占满名额而安装失败、让等待动画永久挂起。
+            if (!infrastructure && list.Count >= RevMonoLimits.MaxListenersPerPhase)
             {
                 string detail = $"相位 {phase} 的监听者已达上限 {RevMonoLimits.MaxListenersPerPhase}：本次新增被拒绝。" +
                                 "常见原因：随对象销毁的监听者没用 owner / RemoveAllOf 清理。";
@@ -90,7 +91,7 @@ namespace Revolution
                 owner = scope;
             }
 
-            list.Add(new RevMonoListener(action, owner, scope));
+            list.Add(new RevMonoListener(action, owner, scope, infrastructure));
             _dirty[(int)phase] = true;
 
             // ★ 零配置：第一次用到就喊一声，让宿主适配层把隐藏驱动挂起来
@@ -154,13 +155,20 @@ namespace Revolution
         }
 
         /// <summary>清空全部监听者（进 Play / 切场景收尾用）。返回清掉的数量。</summary>
-        internal int Clear()
+        internal int Clear(bool preserveInfrastructure = false)
         {
             int removed = 0;
             for (int p = 0; p < _lists.Length; p++)
             {
-                removed += _lists[p].Count;
-                _lists[p].Clear();
+                if (preserveInfrastructure)
+                {
+                    removed += _lists[p].RemoveAll(listener => !listener.Infrastructure);
+                }
+                else
+                {
+                    removed += _lists[p].Count;
+                    _lists[p].Clear();
+                }
                 _dirty[p] = true;
             }
 

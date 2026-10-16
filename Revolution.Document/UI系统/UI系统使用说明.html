@@ -152,6 +152,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>自定义打开转场抛错时完成失败通知（回调 null），清理面板与资源；关闭转场抛错直接进入关闭收尾。实例化/装配失败同样归还资源。租约保留原始资源句柄，旧面板释放不会扣同路径新缓存。正常转场仍必须调用 onDone。动画回调可安全停止其它动画；StopAll/StopAllOf 只处理调用开始时的动画。GlobalSpeed 允许 0，拒绝负数/NaN/Infinity，进新 Play 恢复 1；时长、延迟、步长须为有限数。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

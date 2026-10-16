@@ -104,9 +104,29 @@ namespace Revolution
     // ============================================================
     // Promise：真正的状态容器（续体 + 异常 + 结果）
     // ============================================================
+    internal static class RevTaskContinuations
+    {
+        internal static void InvokeOne(Action continuation)
+        {
+            if (continuation == null) { return; }
+            try { continuation(); }
+            catch (Exception e) { RevLog.Exception(e, "RevTask 手工续体异常", "Task"); }
+        }
+
+        internal static void Invoke(Action continuations)
+        {
+            if (continuations == null) { return; }
+            foreach (Action continuation in continuations.GetInvocationList())
+            {
+                InvokeOne(continuation);
+            }
+        }
+    }
+
     internal sealed class RevTaskPromise
     {
         private Action _continuation;
+        private int _continuationCount;
         private Exception _exception;
 
         public bool IsCompleted { get; private set; }
@@ -114,9 +134,17 @@ namespace Revolution
         /// <summary>注册续体；若已完成则立即执行（★ 保证回调绝不丢失）</summary>
         public void OnCompleted(Action continuation)
         {
-            if (continuation == null) return;
-            if (IsCompleted) { continuation(); return; }
+            if (continuation == null) { return; }
+            // 手工一次传入的 Action 也可能是多播委托，必须拆开登记，避免首个抛错吞掉后面的通知。
+            foreach (Action item in continuation.GetInvocationList()) { OnCompletedSingle(item); }
+        }
+
+        internal void OnCompletedSingle(Action continuation)
+        {
+            if (continuation == null) { return; }
+            if (IsCompleted) { RevTaskContinuations.InvokeOne(continuation); return; }
             _continuation = (Action)Delegate.Combine(_continuation, continuation);
+            _continuationCount++;
         }
 
         public void SetResult()
@@ -125,8 +153,11 @@ namespace Revolution
             IsCompleted = true;
 
             Action c = _continuation;
+            int count = _continuationCount;
             _continuation = null;
-            c?.Invoke();
+            _continuationCount = 0;
+            if (count <= 1) { RevTaskContinuations.InvokeOne(c); }
+            else { RevTaskContinuations.Invoke(c); }
         }
 
         public void SetException(Exception e)
@@ -148,6 +179,7 @@ namespace Revolution
     internal sealed class RevTaskPromise<T>
     {
         private Action _continuation;
+        private int _continuationCount;
         private Exception _exception;
         private T _result;
 
@@ -155,9 +187,17 @@ namespace Revolution
 
         public void OnCompleted(Action continuation)
         {
-            if (continuation == null) return;
-            if (IsCompleted) { continuation(); return; }
+            if (continuation == null) { return; }
+            // 手工一次传入的 Action 也可能是多播委托，必须拆开登记，避免首个抛错吞掉后面的通知。
+            foreach (Action item in continuation.GetInvocationList()) { OnCompletedSingle(item); }
+        }
+
+        internal void OnCompletedSingle(Action continuation)
+        {
+            if (continuation == null) { return; }
+            if (IsCompleted) { RevTaskContinuations.InvokeOne(continuation); return; }
             _continuation = (Action)Delegate.Combine(_continuation, continuation);
+            _continuationCount++;
         }
 
         public void SetResult(T result)
@@ -167,8 +207,11 @@ namespace Revolution
             IsCompleted = true;
 
             Action c = _continuation;
+            int count = _continuationCount;
             _continuation = null;
-            c?.Invoke();
+            _continuationCount = 0;
+            if (count <= 1) { RevTaskContinuations.InvokeOne(c); }
+            else { RevTaskContinuations.Invoke(c); }
         }
 
         public void SetException(Exception e)
@@ -201,11 +244,16 @@ namespace Revolution
 
         public void OnCompleted(Action continuation)
         {
-            if (_promise == null || _promise.IsCompleted) { continuation?.Invoke(); return; }
+            if (_promise == null || _promise.IsCompleted) { RevTaskContinuations.Invoke(continuation); return; }
             _promise.OnCompleted(continuation);
         }
 
-        public void UnsafeOnCompleted(Action continuation) => OnCompleted(continuation);
+        public void UnsafeOnCompleted(Action continuation)
+        {
+            // 编译器生成的 await 续体是单个 MoveNext；保留此热路径，避免每次 await 为拆委托分配数组。
+            if (_promise == null || _promise.IsCompleted) { RevTaskContinuations.InvokeOne(continuation); return; }
+            _promise.OnCompletedSingle(continuation);
+        }
     }
 
     public struct RevTaskAwaiter<T> : ICriticalNotifyCompletion
@@ -220,11 +268,16 @@ namespace Revolution
 
         public void OnCompleted(Action continuation)
         {
-            if (_promise == null || _promise.IsCompleted) { continuation?.Invoke(); return; }
+            if (_promise == null || _promise.IsCompleted) { RevTaskContinuations.Invoke(continuation); return; }
             _promise.OnCompleted(continuation);
         }
 
-        public void UnsafeOnCompleted(Action continuation) => OnCompleted(continuation);
+        public void UnsafeOnCompleted(Action continuation)
+        {
+            // 编译器生成的 await 续体是单个 MoveNext；保留此热路径，避免每次 await 为拆委托分配数组。
+            if (_promise == null || _promise.IsCompleted) { RevTaskContinuations.InvokeOne(continuation); return; }
+            _promise.OnCompletedSingle(continuation);
+        }
     }
 
     // ============================================================

@@ -151,6 +151,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>RevStripGuard 的全部 Type.GetType 条目改为“类型全名, 程序集名”；避免把未裁掉的类型错误报告为缺失。检查仍以字符串完成，不通过直接引用干扰裁剪结果；实际 Player/IL2CPP 裁剪效果需在目标平台确认。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

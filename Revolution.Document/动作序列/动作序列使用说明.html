@@ -199,6 +199,8 @@
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>RevSequenceEventBus.Publish 对监听者逐个隔离异常并记日志，后续订阅者继续执行；事件监听异常不再从 Publish 向外传播，也不触发序列步骤失败。派发使用委托快照，会产生数组分配。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

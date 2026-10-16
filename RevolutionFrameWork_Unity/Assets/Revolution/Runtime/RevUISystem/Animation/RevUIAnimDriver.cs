@@ -16,6 +16,7 @@
 //   静态字段会跨 Play 存活（编辑器关掉域重载时）：进 Play 前清空引擎与驱动标记，
 //   否则上一轮的运行时对象会被当成"还在播"。
 // ============================================================
+using System;
 using UnityEngine;
 
 namespace Revolution
@@ -30,6 +31,7 @@ namespace Revolution
         {
             // 引擎里的静态列表 / 池不能跨 Play 存活
             RevUIAnimEngine.Reset();
+            RevUIAnim.GlobalSpeed = 1f;
 
             // 异常统一从框架日志出口出（采样回调 / 完成回调里写错了东西不至于静默）
             RevUIAnimEngine.OnException = (e, what) => RevUILog.Error($"{what} 抛异常（已隔离）：{e}");
@@ -42,14 +44,13 @@ namespace Revolution
         /// <summary>把每帧推进挂到框架的公共 Mono 驱动上（重复调用安全）。</summary>
         internal static void Install()
         {
-            if (_installed) return;
-            _installed = true;
+            if (_installed) { return; }
 
             // ★ 显式传 owner（一个不会被任何域管到的对象）：不传的话，第一次播放动画若恰好发生在某个作用域里，
             //   这条框架自己的基础设施驱动会被当成那个域的东西、域关闭时被摘掉，而 _installed 仍是 true ——
             //   之后所有 UI 动画都不再被推进，且毫无报错。
-            RevMono.AddUpdate(Tick, typeof(RevUIAnimDriver));   // 框架自带的隐藏宿主，不用我们新建
-            RevUILog.Info("UI 动画驱动已挂上（跟随 RevMono 每帧推进）");
+            _installed = RevMono.AddInfrastructureUpdate(Tick, typeof(RevUIAnimDriver));   // 框架自带的隐藏宿主，不用我们新建
+            if (_installed) { RevUILog.Info("UI 动画驱动已挂上（跟随 RevMono 每帧推进）"); }
         }
 
         private static void Tick()
@@ -57,9 +58,10 @@ namespace Revolution
             if (RevUIAnimEngine.ActiveCount == 0) return;      // 空转零开销
 
             float speed = RevUIAnim.GlobalSpeed;
-            if (speed <= 0f) return;
+            if (speed <= 0f) { return; }
 
-            RevUIAnimEngine.Step(Time.unscaledDeltaTime * speed);
+            double delta = (double)Time.unscaledDeltaTime * speed;
+            RevUIAnimEngine.Step((float)Math.Min(delta, float.MaxValue));
         }
     }
 }

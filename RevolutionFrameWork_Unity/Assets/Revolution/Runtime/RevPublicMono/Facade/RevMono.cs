@@ -81,8 +81,17 @@ namespace Revolution
             return removed;
         }
 
-        /// <summary>清空全部监听者（切场景 / 重开一局用）。返回清掉的数量。</summary>
-        public static int Clear() => Core.Clear();
+        /// <summary>清空全部业务监听者，保留框架基础驱动（切场景 / 重开一局用）。返回清掉的数量。</summary>
+        public static int Clear()
+        {
+            return Core.Clear(preserveInfrastructure: true);
+        }
+
+        // 仅供框架 Support 安装心跳；业务的 Clear 不应使 UI / 服务 / 域逻辑永久失去驱动。
+        internal static bool AddInfrastructureUpdate(Action action, object owner)
+        {
+            return Core.Add(RevMonoPhase.Update, action, owner, infrastructure: true);
+        }
 
         /// <summary>
         /// 开一个作用域：`using` 一块，退出时把这块里加的监听者全摘掉、协程全停。

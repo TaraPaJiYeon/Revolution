@@ -151,6 +151,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>轻量和重量状态机的 StateChanged 按订阅者隔离并记录异常，后续监听者继续执行，已完成的状态切换不回滚。重量状态机日志 Sink 异常也被隔离。通知快照会产生委托数组分配。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

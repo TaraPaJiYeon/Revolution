@@ -163,6 +163,8 @@ namespace Revolution
                 }
                 else
                 {
+                    // 调用方的类型化视图只代表它自己的一份租约；池的额外持有必须记录底层原句柄。
+                    poolLease = poolLease.ReferenceOwner ?? poolLease;
                     RevResManager.AddRef(poolLease.Key);
                 }
 

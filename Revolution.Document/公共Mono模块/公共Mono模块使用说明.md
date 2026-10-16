@@ -1,5 +1,10 @@
 # 公共 Mono 模块 · 使用说明（手把手教程）
 
+> **运行稳定性修复 · 2026-10-16**
+> RevMono.Clear() 只清空业务监听者，保留 UI 动画、服务与作用域的框架基础驱动；返回值只计算本次清除数，清理后 Count 可能大于 0。新 Play 复位仍清空全部监听。基础驱动不受业务注册名额耗尽阻断，总 Count 可能略高于业务相位上限。业务继续优先按 owner/scope 清理。
+> 详见[问题修复记录](../问题审查/Revolution框架问题修复记录_2026-10-16.md)（包含编译结果与未运行验证范围）。
+
+
 > 使用说明 · 从零到能写业务
 >
 > 这份文档只回答一个问题：**我该怎么用它？**（让纯 C# 类也能每帧跑、也能跑协程）
@@ -126,7 +131,7 @@ heartbeat.Start();        // 之后每帧自动 Tick，心跳每 5 秒一次
 | 停一条 / 全停协程 | `RevMono.StopCoroutine(co)` / `RevMono.StopAllCoroutines()` |
 | 随对象销毁清干净 | `RevMono.RemoveAllOf(this)` |
 | 一块加、一块停（含协程） | `using (var s = RevMono.OpenScope()) { s.AddUpdate(OnTick); s.StartCoroutine(Run()); }` |
-| 清空全部监听者 | `RevMono.Clear()` |
+| 清空全部业务监听者（保留框架基础驱动） | `RevMono.Clear()` |
 | 看数量 / 宿主好了没 | `RevMono.Count` · `RevMono.UpdateCount` · `RevMono.LateUpdateCount` · `RevMono.FixedUpdateCount` · `RevMono.IsRunning` |
 | 知道出事了 | `RevMono.Failed += (reason, detail) => ...`（`Overflow` / `CallbackThrew` / `NotPlaying`） |
 | 接管异常上报 | `RevMono.OnException = (e, msg) => 你的埋点.Post(e, msg);` |

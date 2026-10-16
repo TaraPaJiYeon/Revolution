@@ -1,0 +1,410 @@
+# Revolution 框架高危问题静态审查
+
+> **后续状态（2026-10-16）：F01–F13、R01–R09 已实施代码修复。** 当前行为和编译边界见[问题修复记录](Revolution框架问题修复记录_2026-10-16.html)。下文是修复前基线的历史审查，源码行号及“本轮未修改/未编译”均指原审查阶段。
+
+审查日期：2026-10-16（Asia/Shanghai）<br>
+源码基线：`d9fdc3edf75044f0b92c4abfca3056a7c8ac496e`<br>
+审查对象：`D:\AAAAAAA王者荣耀项目组工作日志\RevolutionFramework\RevolutionFrameWork_Unity\Assets\Revolution`<br>
+交付位置：`D:\AAAAAAA王者荣耀项目组工作日志\RevolutionFramework\Revolution.Document\问题审查`
+
+> 本轮只审查并生成文档，没有修改框架源码。发现 **13 项运行时缺陷或异常收口缺口**，另记录 **9 项条件风险及平台/诊断问题、2 项规范问题**。优先关注异步永久等待、资源引用误扣、动画重入越界和声音槽位耗尽。
+>
+> 结论来自静态代码路径审查，**没有执行 Unity 编译、PlayMode、真机、WebGL 构建或运行时复现**。下文“静态确认”表示触发条件成立时，现有代码能推导出该后果；不代表已在本项目游戏流程中复现，也不代表已确认原生进程崩溃。F13 可形成主线程死循环，但需要异常数值输入。
+
+## 阅读说明与审查边界
+
+- 审查重点是 Runtime 的生命周期、回调异常、异步终态、引用身份、集合重入及平台条件编译。当前 Runtime 有 **21 个目录、199 个 C# 文件**；这是目录规模，不表示每个文件均经过同等深度的逐行审查。
+- 覆盖模块：RevActionSequence、RevAppLifecycle、RevDataLoad、RevEventSystem、RevGMCommand、RevInitialize、RevInput、RevLog、RevObjectPool、RevPublicMono、RevResourceSystem、RevScene、RevScope、RevServiceLocator、RevSingleton、RevSoundSystem、RevStateMachine、RevStripGuard、RevTask、RevTimer、RevUISystem。
+- 重点复核了资源、UI、动画、配置表、对象池、音频、作用域、异步、服务与日志之间的调用链。事件、输入、计时器、Mono 等对照了现有异常隔离和历史修复，未将已修问题重新计为缺陷。
+- Editor 仅检查了与 AB 和裁剪相关的衔接，没有全面审查 Editor、Demo、业务游戏逻辑、第三方 SDK 或独立 RevHotUpdate 扩展包。本报告不作这些范围的无缺陷保证。
+- 采用项目 `revolution-framework` 审查规范，并对照 `Revolution.Document/bug修复日志/` 与当前实现。代码与旧注释不一致时，以当前代码为依据。
+- 下文源码路径均相对于 `RevolutionFrameWork_Unity/Assets/Revolution/`。源码链接相对于本文所在目录，行号对应本次基线，后续修改会使行号变化。
+
+| 标记 | 含义 |
+| --- | --- |
+| P1 | 条件满足后会阻断流程、破坏资源所有权或持续积累状态，应优先处理；不表示默认流程必现 |
+| P2 | 边界健壮性、诊断、编辑器或契约问题，按使用场景安排 |
+| 静态确认 | 已核对调用链和缺失保护，尚未运行复现 |
+| 时序待验证 | 已找到代码窗口，实际 Unity/AB 调度顺序仍需复现确认 |
+| 设计契约 | 代码明确选择传播异常，是否调整需要产品与框架层面决定 |
+
+本轮没有将任何条目标为 P0：尚无证据证明默认正常流程会普遍造成进程级崩溃或数据毁损。P1 内仍需结合实际业务使用情况排序。
+
+## 一、严重问题
+
+### 问题总览
+
+| ID | 优先级 | 问题 | 关键触发条件 | 直接后果 | 证据 |
+| --- | --- | --- | --- | --- | --- |
+| F01 | P1 | 预加载进度异常阻断完成 | 最后一次 OnProgress 抛异常 | 进度 100%，任务仍未完成 | 静态确认 |
+| F02 | P1 | 配置表失败释放了未取得的引用 | 同路径已按非 TextAsset 类型缓存 | 扣掉其他使用者引用，提前卸载缓存/包 | 静态确认 |
+| F03 | P1 | 配置表解析异常没有完成任务 | 自定义解析器或表元数据抛异常 | await 永久等待，资源引用可能遗留 | 静态确认 |
+| F04 | P1 | 配置表回调被重复调用 | 成功回调自身抛异常 | 再次失败回调；第二次异常从 async void 外泄 | 静态确认 |
+| F05 | P1 | 卸载配置表没有作废在途请求 | LoadAsync 未完成时 UnloadAll | 旧表回填、后续请求复用旧任务 | 静态确认 |
+| F06 | P1 | UI 租约丢失资源代际身份 | 旧面板延迟关闭，期间资源卸载并重载 | 旧租约误减新句柄的引用 | 静态确认；域退出时序待复现 |
+| F07 | P1 | UI 转场异常没有失败终态 | 自定义转场调用 onDone 前抛异常 | Opening/Closing 卡住，打开任务不结束 | 静态确认 |
+| F08 | P1 | 动画回调重入造成集合下标失效 | 完成/采样回调停止其他动画 | ArgumentOutOfRangeException，本帧动画中断 | 静态确认 |
+| F09 | P1 | 池长期强持有已销毁的借出对象 | 场景或目标销毁对象，池继续存活 | 失效托管包装对象累计、统计失真 | 静态确认；内存量待测 |
+| F10 | P1 | 单名卸载遗留 Pending 声音槽 | 音频尚在加载时 Unload(name) | 句柄无声占槽，重复后耗尽 MaxVoices | 静态确认 |
+| F11 | P1 | 日志上报异常击穿其他模块兜底 | OnReport 订阅者抛异常 | 后续完成回调丢失，等待者挂起 | 静态确认 |
+| F12 | P1 | 预加载与具体类型并发互相冲突 | Object 预热未完成时请求 GameObject 等 | 同资源被错误判 TypeMismatch | 静态确认 |
+| F13 | P1 | 动画无限循环遇到 Infinity 死循环 | 无限动画 + 非有限全局倍速 | 主线程停止响应 | 静态确认；未执行危险输入 |
+
+### F01　预加载进度回调异常后，任务可能永远不完成
+
+**定位：** [RevResPreloader.cs:78](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Support/RevResPreloader.cs#L78)、[同文件:192](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Support/RevResPreloader.cs#L192)。
+
+**触发条件与根因：** `ReportOne` 先增加 `Finished`，随后直接调用 `OnProgress`；加载回调只有在 `ReportOne` 正常返回后才检查并调用 `Complete`。最后一个资源的进度监听者抛出异常时，资源管理器虽会记录回调异常，却不会回来执行预加载的完成逻辑。
+
+**表现与影响：** `Finished == Total`、进度达到 1，但 `IsDone` 仍为 false，`OnCompleted` 永远不触发。依赖完成事件或轮询 IsDone 的启动读条会卡住；如果不是最后一次进度回调抛错，后续回调仍可能完成，因此并非每次进度异常都永久挂起。
+
+**建议复现步骤（未执行）：** 预加载一个有效资源；通过参数传入会抛异常的 `onProgress`；等待资源回调后同时检查 Finished、Total、IsDone 和完成事件计数。
+
+**修复方向：** 在 ReportOne 中隔离每个订阅者异常；在加载回调的 finally 中保证计数达标后进入一次性完成终态。完成事件也应逐订阅者隔离，避免第一个监听者阻断其他监听者。
+
+**验证状态：** 静态确认。修复验收应覆盖进度和完成监听者分别抛异常，仍满足“任务结束一次、其他监听者收到通知”。
+
+### F02　配置表类型不匹配失败时，错误扣减其他使用者的资源引用
+
+**定位：** [RevDataTableManager.cs:139](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L139)、[同文件:180](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L180)；对照 [RevResManager.cs:157](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L157)、[同文件:185](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L185)、[同文件:528](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L528)。
+
+**触发条件与根因：** 某路径已缓存为非 TextAsset 对象，配置表元数据又指向同一路径。资源管理器会返回 `Key=0、RefCount=0、TypeMismatch` 的独立失败句柄，明确没有为该请求增加原缓存引用。但配置表的同步、异步失败分支仍按 root/name 调用 `Release`，减的是原路径当前缓存的引用。
+
+**表现与影响：** 一个本来只应失败的加载请求，扣掉了有效使用者的持有。引用归零后可能提前移除资源缓存、释放对应包，造成重复加载和资源寿命判断错误。AB 释放采用何种 Unity 卸载语义还需结合具体对象验证，不能直接等同于必然销毁所有已实例化对象。
+
+**建议复现步骤（未执行）：** 先按非 TextAsset 类型加载某资源并记录 RefCount；让测试表指向该路径；分别调用同步、异步表加载；观察失败请求结束前后原句柄的 RefCount，应当保持不变。
+
+**修复方向：** 管理器保存本次实际取得的句柄，失败仅对该句柄调用带身份保护的 `DecRef(handle)`；`Key=0` 的失败句柄不释放路径。成功表的卸载也宜持有准确租约，以覆盖资源重载代际。
+
+**验证状态：** 静态确认。当前配置表注释仍称“类型不符也已经 +1”，与资源管理器现行契约相反。
+
+### F03　配置表解析或登记抛异常后，返回的 RevTask 没有终态
+
+**定位：** [RevDataTableManager.cs:174](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L174)、[同文件:178](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L178)、[同文件:281](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L281)；[RevDataTable.cs:147](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Core/RevDataTable.cs#L147)；[RevResManager.cs:500](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L500)。
+
+**触发条件与根因：** 自定义 `RevIDataTable.LoadText`、`ParseRow`、`GetKey` 或表名等元数据访问抛异常。资源完成回调先移除 `_loading`，随后直接解析、Register、SetResult，没有 try/catch/finally 将异常写入 source。最外层资源回调保护只负责记日志，无法替这个独立 source 调用 SetException。
+
+**表现与影响：** 当前请求及所有合并到同一 source 的 await 永久等待。成功取得的 TextAsset 引用没有登记给可卸载的表，也缺少异常路径归还。同步 Load 中解析抛异常也会跳过成对释放，不过同步调用者能直接收到异常。这里的前提是解析/登记抛错，不是断言默认生成表面对每个坏单元格都会抛错。
+
+**建议复现步骤（未执行）：** 用自定义测试表让 ParseRow 抛异常；并发请求两次 LoadAsync；加载回调结束后检查两个任务是否失败完成、资源引用是否归还，并确认后续请求可以重试。
+
+**修复方向：** 整个表加载桥接拥有统一异常出口；异常时归还准确句柄，向 source 写入带上下文的异常；在 finally 依据请求身份摘除 pending，避免误删新请求。同步版本也应使用明确的所有权转移/finally。
+
+**验证状态：** 静态确认。验收须检查失败任务真正可被 await 捕获，而非只在 Console 出现异常。
+
+### F04　配置表的 async void 中继会把业务成功回调执行两次
+
+**定位：** [RevDataTableManager.cs:213](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L213)。
+
+**触发条件与根因：** `RelayToCallback` 把 `await task` 和 `onFinished(table, None)` 放在同一个 try 中。成功回调自身抛异常，会落入加载异常处理，再调用 `onFinished(null, reason)`；如果第二次回调也抛错，catch 内没有进一步保护，异常离开 async void。
+
+**表现与影响：** 单次加载先通知成功、后通知失败，业务可能重复开关 UI、推进状态或清理资源。第二次异常通过 async void 的异常通道送至运行时/Unity 同步上下文，形成未处理异常；是否导致进程退出取决于运行环境，不能由本轮静态审查直接断言。
+
+**建议复现步骤（未执行）：** 对一次成功加载传入计数回调，第一次调用时主动抛异常；观察计数及第二次收到的参数。另覆盖失败回调本身抛异常的路径。
+
+**修复方向：** 只围绕 await 生成“加载结果”；退出加载 try/catch 后，使用独立的回调保护执行一次业务通知。业务回调异常不应被翻译为资源加载失败。
+
+**验证状态：** 静态确认。验收标准是每次请求至多一次业务通知，且回调抛错不会从中继的 async void 逃逸。
+
+### F05　UnloadAll 没有作废正在加载的配置表，旧表会重新回填
+
+**定位：** [RevDataTableManager.cs:70](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L70)、[同文件:169](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L169)、[同文件:254](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L254)。
+
+**触发条件与根因：** LoadAsync 尚未完成时调用用于回登录/换版本的 UnloadAll。该方法只释放 `_tables` 内已完成表，未处理 `_loading`，加载回调也没有 generation 或请求身份校验。
+
+**表现与影响：** UnloadAll 返回后，旧请求仍能 Register；再次加载同表会先复用旧 source。换账号、换版本流程若依赖“全部卸载”清空表状态，可能读取旧表或在新流程里收到旧通知。卸载已加载的单表也不会取消尚未登记的同类型请求。
+
+**建议复现步骤（未执行）：** 延迟完成资源加载，先 LoadAsync，再 UnloadAll，再请求同表；最后放行旧资源回调；检查表是否重新出现、第二次请求拿到的是哪一代数据。
+
+**修复方向：** 卸载推进代际，并让旧请求以取消/失效终态结束；晚到结果只归还原句柄，不能登记表或移除新一代 pending。仅调用 `_loading.Clear()` 不够，仍会留下旧回调和旧等待者。
+
+**验证状态：** 静态确认。与 F03 的解析异常独立：正常成功的旧加载也能触发回填。
+
+### F06　UI 资源租约只保存路径，旧面板能误减同路径新资源的引用
+
+**定位：** [RevUIManager.cs:63](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Implementation/RevUIManager.cs#L63)、[同文件:202](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Implementation/RevUIManager.cs#L202)、[同文件:291](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Implementation/RevUIManager.cs#L291)、[同文件:792](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Implementation/RevUIManager.cs#L792)；[RevScopeUnityHooks.cs:67](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevScope/Support/RevScopeUnityHooks.cs#L67)、[同文件:97](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevScope/Support/RevScopeUnityHooks.cs#L97)；[RevResBootstrap.cs:172](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Support/RevResBootstrap.cs#L172)。
+
+**触发条件与根因：** UI 在 LoadHandle/LoadAsync 中已经取得准确句柄，但实例资源租约只留下 InstanceId、Root、Name、Panel 和 Released。最终释放按路径查当前资源。资源管理器已有 `DecRef(handle)` 防止旧代误减新代，UI 实例租约没有使用它。
+
+**可达时序：** 域内打开 DestroyOnClose 面板 → 退出域时 `CloseUi` 启动异步关闭转场 → 资源步骤对该域回收组调用 Shutdown → 旧面板未销毁，新域加载同路径面板 → 旧转场完成，旧租约按路径释放新句柄。条件包括域回收组覆盖 UI 资源，且关闭回调确实晚于新资源建立；也可由业务手动卸载后重载触发。
+
+**表现与影响：** 新面板仍存活，资源计数却被旧面板减掉，导致缓存/包提前卸载、后续寿命判断错误。Released 标记只能防同一租约重复释放，不能识别不同代资源。
+
+**建议复现步骤（未执行）：** 用可控关闭转场保留旧 onDone；退出配置了 UI 回收组的域；加载同路径新面板；记录新句柄 RefCount 后才调用旧 onDone，确认引用数是否被错误减一。
+
+**修复方向：** 面板资源租约从创建到池化/销毁始终持有原 RevResHandle；所有失败/最终释放路径按句柄身份归还。域退出还需决定等待关闭、立即终止转场，或延迟资源回收，不能仅依靠路径租约。
+
+**验证状态：** 句柄身份丢失及误扣机制静态确认；上述域退出与转场时序尚未在 Unity 复现。
+
+### F07　UI 自定义转场抛异常后，面板与打开任务没有失败终态
+
+**定位：** [RevUIPanel.cs:304](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Core/RevUIPanel.cs#L304)、[同文件:342](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Core/RevUIPanel.cs#L342)；[RevUISetting.cs:172](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Support/RevUISetting.cs#L172)；[RevUIManager.cs:299](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Implementation/RevUIManager.cs#L299)。
+
+**触发条件与根因：** 重写 PlayOpenTransition/PlayCloseTransition，在调用 onDone 前因空对象、动画库等异常而抛出。InternalOpen/Close 先切换 Opening/Closing，再用只记日志的 Guard 调转场，没有“转场启动失败”的收尾分支。
+
+**表现与影响：** 打开侧无法执行 CompleteOpen，合并请求和 OpenAsync 等待者被留下；关闭侧可能留在 Closing，租约与实例迟迟不回收，再 Close 也不能正常推进。外部 ShutdownAll 等兜底可能清掉部分状态，但正常打开/关闭流程不会自行失败完成。
+
+**建议复现步骤（未执行）：** 测试面板分别在两个转场重写方法开始处抛异常；观察状态、等待任务和资源引用，确认是否还能正常重试或关闭。
+
+**修复方向：** 转场调用要有成功/失败两种一次性终态；启动异常时完成等待者并回滚状态/租约。超时保护属于额外可选策略；业务单纯漏调用 onDone 是文档已声明的契约违约，不另算一个新缺陷。
+
+**验证状态：** 静态确认，适用于自定义转场抛错条件；默认立即 onDone 的转场不触发。
+
+### F08　动画回调停止其他动画后，外层遍历仍使用旧下标
+
+**定位：** [RevUIAnimEngine.cs:179](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimEngine.cs#L179)、[同文件:196](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimEngine.cs#L196)、[同文件:334](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimEngine.cs#L334)、[同文件:358](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimEngine.cs#L358)。
+
+**触发条件与根因：** Step、StopAllOf、StopAll 都在按下标倒序遍历 Active 时同步执行外部回调。回调可以停止其他动画，甚至清空 Active。对“当前 rt 的 Alive/Version”检查只能保护当前对象，不能保证下一轮 Active[i] 下标仍有效。
+
+**最小调用链：** 活动列表是 A(index 0)、B(index 1)；本帧 B 完成，从列表移除；B 的完成回调调用 StopAll，把 A 移除；Step 回到下一轮仍读取 Active[0]，产生 `ArgumentOutOfRangeException`。采样回调也有同类窗口，StopAll 自身的完成回调递归停止其他动画也会破坏其遍历。
+
+**表现与影响：** UI 动画驱动报错，剩余动画本帧被中断；swap-remove 加回调中新建动画还会带来同帧重复驱动或误收尾的检查难题。这是已修“回调停止自身”之外仍然存在的集合重入问题。
+
+**建议复现步骤（未执行）：** 同时启动 A、B，让 B 的完成回调调用 StopAll；另覆盖采样回调 StopAllOf、停止回调再新建动画的情况。
+
+**修复方向：** 使用稳定的句柄/版本快照或延迟修改队列，确保每个本帧原始动画最多推进一次；移除前重新验证其身份。单加 `i < Active.Count` 只能挡部分越界，不能保证不漏驱动或重复驱动。
+
+**验证状态：** 静态确认。需要覆盖 Step 与两个批量停止入口，不能只测自停。
+
+### F09　池强持有已被场景销毁的借出对象，长期累计失效引用
+
+**定位：** [RevPoolCore.cs:61](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevPoolCore.cs#L61)、[同文件:215](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevPoolCore.cs#L215)；[RevGameObjectPools.cs:176](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevGameObjectPools.cs#L176)、[同文件:240](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevGameObjectPools.cs#L240)；[RevGameObjectPool.cs:215](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevGameObjectPool.cs#L215)；[RevPooledMember.cs](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevObjectPool/Core/RevPooledMember.cs)；[RevSceneLoader.cs:189](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevScene/Support/RevSceneLoader.cs#L189)。
+
+**触发条件与根因：** `_activeSet` 强引用借出对象；没有失效 active 的周期清理，也没有 RevPooledMember.OnDestroy 通知。借出 GameObject 会放进活动场景，正常切场景即可被 Unity 销毁；场景切换默认 ClearAll 只清 idle。外部门面 Return 又对 Unity 假 null 直接返回，无法走到内核已有的失活 Remove 分支。
+
+**表现与影响：** 池仍存活时，已销毁对象的托管包装引用和 ActiveCount 继续累计。这里确认的是托管引用滞留，**不是已销毁 native GameObject 仍完整存活，也不能仅凭 GameObject 引用断言所有组件字段都被保留**。单次占用可能很小，但高频换场景/战斗和长会话可持续增长，应量测累计量。
+
+**关联路径：** 音频内部池保存 AudioSource；PlayOn 的目标销毁会连带销毁 source，声音回收和 ReturnSource 的 `source == null` 分支同样跳过池归还，可能留下失效 active。显式 DestroyPool/DestroyGroup 能清集合，因而是否积累取决于池的生命周期。
+
+**建议复现步骤（未执行）：** 保留同一池，多轮取出对象后由场景销毁、不 Return；对比 ActiveCount 和 Memory Profiler 中已销毁包装对象数量；音频再覆盖目标销毁路径。
+
+**修复方向：** 通过带池身份的销毁通知 Forget active，或对 active 做有界失活清扫；门面区分真正 null 与 Unity 假 null。验收应证明重复场景循环后数量趋于稳定。
+
+**验证状态：** 静态确认强引用保留；内存增量、GC 压力和达到设备内存上限的可能性未测，未确认 OOM。
+
+### F10　加载中的声音被单名 Unload 后，Pending 槽位不能结束
+
+**定位：** [RevSoundAssets.cs:118](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Implementation/RevSoundAssets.cs#L118)、[同文件:146](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Implementation/RevSoundAssets.cs#L146)、[同文件:173](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Implementation/RevSoundAssets.cs#L173)；[RevSoundCore.cs:449](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Implementation/RevSoundCore.cs#L449)；[RevSoundVoiceTable.cs:150](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevSoundSystem/Core/RevSoundVoiceTable.cs#L150)。
+
+**触发条件与根因：** Play 创建 Pending 声音槽，音频仍在请求中，调用单名 Unload。Unload 从 map 摘除 Entry，旧回调只更新脱表的旧 Entry。Tick 用 Find/IsFailed 读取当前 map；无条目时得到 null/false，既不开始播放，也不失败回收。
+
+**表现与影响：** 声音不响、句柄仍 Alive、槽位一直 Pending。自动淘汰最旧 one-shot 的逻辑明确跳过 Pending，重复操作能耗尽 MaxVoices，后续播放报 TooManyVoices。新请求重新建条目、显式 Stop/StopAll 等可能解开状态，因此是“缺乏自然终态”，不是任何操作都救不回。
+
+**建议复现步骤（未执行）：** 让某音频延迟完成，Play 后立即 Unload(name)，之后允许底层完成但不再请求该名称；观察槽是否释放；循环至 MaxVoices，检查新播放结果。
+
+**修复方向：** 单名卸载应通知关联 Pending 槽取消/失败，或声音槽持有准确请求及其终态，不能把“缓存条目不存在”解释为“继续等待”。定义并测试卸载是否应终止已播放声音。
+
+**验证状态：** 静态确认。UnloadAll 会配套 StopAll，本项针对单名 Unload，不把全部卸载误报为同一问题。
+
+### F11　RevLog.OnReport 抛异常，能击穿资源完成回调的异常保护
+
+**定位：** [RevLogCore.cs:98](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevLog/Implementation/RevLogCore.cs#L98)、[RevLog.cs:128](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevLog/Facade/RevLog.cs#L128)；[RevResManager.cs:495](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L495)。
+
+**触发条件与根因：** 接入错误上报 SDK，通过 OnReport 订阅的委托抛异常；该异常未经隔离向外传播。资源管理器的回调保护在 catch 中调用 RevLog.Exception，等于在错误兜底中又执行一个可能抛错的扩展口。
+
+**明确调用链：** CompleteAsync 先把整批 pending callbacks 从字典删除 → 第一个资源回调抛错 → InvokeFinished.catch 写异常日志 → OnReport 再抛错 → 完成循环中断，后面的 callbacks 已经不在 pending 表中，无法再被正常通知。
+
+**表现与影响：** 一个业务监听者加一个不稳的上报监听者，就能让同资源其他正常等待者永久挂起。其他使用 RevLog.Exception 作为隔离出口的模块也会受影响。默认没有 OnReport 订阅时不触发；日志过滤/重复抑制也可能使特定一次调用不进入上报。
+
+**建议复现步骤（未执行）：** 对同一在途资源合并两个完成回调；第一个抛异常，第二个计数；安装会抛错的 OnReport；确保该日志未被过滤/重复抑制，观察第二个是否仍收到通知。
+
+**修复方向：** 对上报订阅者逐个隔离，失败写入不会再次经过 OnReport 的安全出口，并加重入保护。ResetForNewSession 还应明确上报订阅生命周期，当前复位未清 OnReport，关闭 Domain Reload 时需特别留意旧订阅。
+
+**验证状态：** 静态确认。验收必须包含“日志自身失败时，原模块的其他等待者仍能完成”。
+
+### F12　在途预加载的 Object 类型句柄，拒绝同资源的具体类型请求
+
+**定位：** [RevResPreloader.cs:175](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Support/RevResPreloader.cs#L175)；[RevResManager.cs:176](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L176)、[同文件:354](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Facade/RevResManager.cs#L354)。
+
+**触发条件与根因：** 预加载一律按 UnityEngine.Object 请求。其尚在加载时，UI、池或业务对同路径请求 GameObject 等具体类型。在途检查使用 `requestedType.IsAssignableFrom(cached.ContentType)`，此时相当于 `GameObject.IsAssignableFrom(Object)`，结果为 false，直接返回 TypeMismatch。
+
+**表现与影响：** 同一个实际为 GameObject 的预制体，在预热未结束时加载失败，预热完成后又能成功。启动预热与首屏打开/对象池取用并行时，可能出现偶发面板打不开、对象创建失败。此问题是类型合并策略与内置预加载策略冲突，不需要错误资源路径或业务回调抛异常。
+
+**建议复现步骤（未执行）：** 延迟一个预制体加载；先 Preload，再立即 LoadAsync<GameObject>；检查第二次请求是否立即 TypeMismatch；底层完成后再次请求，对比结果。
+
+**修复方向：** 让弱类型预加载与具体类型请求共享底层加载，并在完成时逐等待者验证实际类型，或设计一致的类型化预加载身份。不能简单关闭全部类型校验，否则会重新引入同路径 Sprite/Texture 等不兼容对象被错误复用的问题。
+
+**验证状态：** 静态确认。验收同时覆盖 Object→GameObject、GameObject→Object，以及真正不兼容类型的并发请求。
+
+### F13　无限 UI 动画收到 Infinity 步长时，主线程可进入死循环
+
+**定位：** [RevUIAnim.cs:52](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnim.cs#L52)、[同文件:155](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnim.cs#L155)；[RevUIAnimDriver.cs:59](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimDriver.cs#L59)；[RevUIAnimEngine.cs:225](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimEngine.cs#L225)。
+
+**触发条件与根因：** GlobalSpeed 是公开 float，仅检查 `<= 0`，允许 PositiveInfinity 和 NaN。例如配置计算出现浮点除零后写入 PositiveInfinity，正常正数帧间隔乘倍速得到 Infinity。Breathe 使用 PingPong、Loops=-1；Advance 的 while 反复从 Infinity 中减有限 duration，结果仍为 Infinity，且没有有限循环终止条件。
+
+**表现与影响：** Infinite 循环动画会在单次 Step 中阻塞主线程，表现为画面、输入和后续帧全部停止。NaN 输入则可能让动画采样无效且永不完成；极大有限时间与极小 duration 也可能造成很长循环或浮点减法不再有效的情况。默认速度 1、正常参数不会触发此条。
+
+**建议复现方式（未执行）：** 先用隔离的纯计算分析/有迭代上限的验证器检查非有限输入，再设计防护后的断言；不要直接在工作中的 Unity 编辑器里执行原实现的 Infinity+Breathe 组合，以免挂住进程。本轮未执行该输入。
+
+**修复方向：** 在倍速、Step 和动画参数入口拒绝 NaN/Infinity，给出明确失败；循环余量用可控的除法/取模跳步实现，并限制单帧循环工作量。只 clamp 负数不足以处理该问题。
+
+**验证状态：** 静态确认的死循环条件；未实机复现，未将其描述成已发生的原生崩溃。
+
+## 二、规范问题
+
+### N01　部分运行时代码仍不符合项目强制的大括号规范
+
+**定位：** [RevDataTableManager.cs:134](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L134)、[同文件:169](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L169)、[RevTaskScheduler.cs:142](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTaskScheduler.cs#L142)、[RevServiceRegistry.cs:75](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Implementation/RevServiceRegistry.cs#L75)。
+
+**发现：** 存在不带大括号的 if/for/while；部分短方法使用表达式体，与 skill 所述“方法体必须带大括号”的字面要求也存在差异。单纯缺少大括号不是本报告中的运行时高危依据，但后续增加清理语句时容易误判语句所属范围。
+
+**建议：** 先统一团队对表达式体的例外约定，再随修复局部补齐控制语句大括号。不要为了格式一次重写所有内核，影响功能审查。未做完整风格违规数量统计。
+
+### N02　部分“已修复/时序保证”注释与当前代码不一致
+
+**定位：** [RevDataTableManager.cs:141](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L141)、[RevServiceRegistry.cs:72](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Implementation/RevServiceRegistry.cs#L72)。
+
+**发现：** 配置表注释假设类型不匹配也会加引用，已经与资源管理器不加引用的行为相反，直接关联 F02。Registry.Tick 注释承诺新建服务下一帧才 Tick，但 for 每轮读取动态 Count，回调中新加入的服务可在当前帧就被驱动。
+
+**建议：** 修复时同步契约、注释、使用说明和回归用例。Registry 若要保持“下一帧”语义，应采用稳定快照/暂存列表并处理删除重入；若允许当帧驱动，明确记录其顺序与边界。
+
+**影响与验证：** 时序不一致会误导生命周期编排；是否已造成实际业务错误未验证。此项与 F02 共用部分证据，不额外计为一条新的资源事故。
+
+## 三、潜在风险
+
+以下包括需要特定重建/扩展场景的风险、明确的异常传播契约，以及不属于运行时崩溃的构建和诊断缺陷。与 F01—F13 分开计数。
+
+| ID | 优先级 | 条目 | 适用条件/证据 |
+| --- | --- | --- | --- |
+| R01 | P1 | AB 旧请求回滚可能误扣新代依赖包 | 同 loader 释放后复用；Unity/AB 时序待验证 |
+| R02 | P2 | 调度宿主被运行中销毁，遗弃 Yield/Delay | 外部销毁 DDOL 宿主；静态确认 |
+| R03 | P2 | 手工续体异常和非法调度预算 | 公开扩展口/配置；静态确认 |
+| R04 | P2 | 状态机、序列事件和容器 Tick 异常传播 | 部分属于明确设计契约 |
+| R05 | P2 | 配置表缺少关闭 Domain Reload 的会话复位 | Editor 多轮 Play；静态缺口，待回归 |
+| R06 | P1（构建） | WebGL AB 分支缺少 Networking 导入 | 标准 Unity 类型解析；静态确认，未构建 |
+| R07 | P2（诊断） | 裁剪自检类型名顺序写反 | Type.GetType 入参错误；静态确认 |
+| R08 | P1 | RevMono.Clear 摘掉基础驱动后无法重装 | 运行中调用公共 Clear；静态确认 |
+| R09 | P2 | Builder 容器创建服务中 Dispose 重入 | 工厂/OnInit 释放容器；静态确认 |
+
+### R01　AB 旧请求回滚依赖时只有包名，没有代际身份
+
+**定位：** [RevABLoader.cs:301](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L301)、[同文件:318](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L318)、[同文件:406](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L406)、[同文件:528](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L528)、[同文件:703](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L703)；[RevResBootstrap.cs:181](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Support/RevResBootstrap.cs#L181)。
+
+**条件与根因：** 旧请求已取得依赖 D，又在等目标包/其他依赖；ReleaseAll 推进 generation、清空 bundles；同一 loader 随后加载新代 D。旧 await 因代际变化失败，外层用 `List<string> acquiredDependencies` 按包名回滚，ReleaseSingle 访问的是当前 bundles，可能减掉新代 D。
+
+**影响：** 新加载仍依赖 D，却被旧请求提前卸载包。AcquireSingleAsync 的 generation 检查保护了写回，不保护外层旧依赖清理。此风险需要释放后复用同一个 loader；按约定 ShutdownAll→Init 替换新 loader 的路径更安全。
+
+**建议验证与修复：** 用可控 AB 时序固定上述窗口，检查新依赖 refCount；依赖获取应返回带 entry/generation 的租约，回滚只作用于原 entry，或在整次加载上统一代际收口。证据为静态时序窗口，未在真实 AB 加载中复现。
+
+### R02　运行中销毁 RevTaskScheduler 宿主，会丢弃等待中的任务
+
+**定位：** [RevTaskScheduler.cs:146](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTaskScheduler.cs#L146)、[同文件:154](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTaskScheduler.cs#L154)。
+
+**条件与后果：** 外部清理隐藏根节点、运行中重建框架等操作销毁 Scheduler。OnDestroy 直接 Clear 帧队列和延时列表，没有让对应等待任务取消/失败；新宿主只能推进新请求，旧 Yield/Delay 的续体已遗失。
+
+**边界：** 宿主是 DontDestroyOnLoad，普通场景切换不会自然销毁它。退出 Play 后业务也已停止，不能把退出时清队列本身称为在线卡死。
+
+**建议：** 若支持运行中重建，关闭时要逐项取消并完成任务；否则将宿主保护和禁止外部销毁的约定写明。建议验证旧 Delay 在重建后是否收到明确取消，而非永久等待。静态确认，未运行。
+
+### R03　手工续体缺少隔离，调度预算可设为零或负数
+
+**定位：** [RevTaskScheduler.cs:32](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTaskScheduler.cs#L32)、[同文件:138](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTaskScheduler.cs#L138)；[RevTask.cs:129](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTask.cs#L129)、[同文件:171](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevTask/RevTask.cs#L171)。
+
+**条件与后果：** 显式 Post 的 Action 抛错会离开 Update；手工 GetAwaiter().OnCompleted 的多播续体里，第一个抛错会打断后续续体。MaxContinuationsPerFrame 为公开字段，设 0/负数会令队列停止执行，延时仍不断入队。
+
+**边界：** 普通 `async RevTask` 的 MoveNext 通常由生成的状态机捕获业务异常并写入失败任务，不能把本条扩展成“所有 await 抛错都会击穿 Scheduler”。
+
+**建议：** 为手工回调约定或提供逐项保护；预算用受控 setter 限制合法范围。建议验证两个人工续体、首个抛错及非法预算输入；静态确认，未运行。
+
+### R04　部分模块明确选择传播监听异常，需要调用方遵守契约
+
+**定位：** [RevLightStateMachine.cs:318](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevStateMachine/Lightweight/Machines/RevLightStateMachine.cs#L318)、[RevHeavyFsm.cs:500](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevStateMachine/Heavyweight/RevHeavyFsm.cs#L500)、[RevSequenceEventBus.cs:48](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevActionSequence/Implementation/RevSequenceEventBus.cs#L48)、[RevServiceRegistry.cs:73](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Implementation/RevServiceRegistry.cs#L73)。
+
+**条件与后果：** 状态变更监听、序列事件监听或 Builder 容器内 OnTick 抛错，会中断后续监听者/服务执行。状态机广播前往往已完成状态提交，因此调用者见到异常并不代表切换已经回滚。序列事件和状态机源码明确写了不隔离监听异常，这是设计取舍。
+
+**建议：** 先决定关键线上通道采用传播还是隔离；业务扩展回调自行保证不抛，关键服务考虑独立保护。保持“状态是否已提交”的返回/异常语义清楚。此项列为契约风险，不作为新增 P0 或默认必崩缺陷；未执行运行验证。
+
+### R05　配置表静态缓存没有新 Play 会话的复位入口
+
+**定位：** [RevDataTableManager.cs:52](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L52)、[同文件:70](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevDataLoad/Manager/RevDataTableManager.cs#L70)。
+
+**条件与后果：** Editor 关闭 Domain Reload 多次进入 Play，三张静态字典没有 SubsystemRegistration/Reset；旧表可能直接命中，未完成的旧 source 也可能被新请求复用。资源、调度等模块有各自复位，配置表和它们可能不在同一会话。
+
+**建议：** 配置表建立与资源/Task 一致的会话代际和清理策略；处理旧等待者，而非只清字典。建议关闭 Domain Reload，连续两次 Play 并修改表内容，检查表数据和 pending 是否来自新会话。静态缺口确认，Editor 实际表现未回归；不等同于正式 Player 普遍跨进程残留。
+
+### R06　WebGL AB 分支使用 Networking 类型，却缺少命名空间导入
+
+**定位：** [RevABLoader.cs:16](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L16)、[同文件:614](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L614)、[同文件:642](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L642)、[同文件:664](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevResourceSystem/Implementation/Loaders/RevABLoader.cs#L664)。
+
+**根因与影响：** `UNITY_WEBGL && !UNITY_EDITOR` 分支直接使用 UnityWebRequest、UnityWebRequestAsyncOperation、DownloadHandlerAssetBundle、UnityWebRequestAssetBundle。这些标准类型位于 `UnityEngine.Networking`，文件仅导入 UnityEngine 等命名空间，框架范围内未找到相关全局导入。标准 Unity 工程编译该分支会遇到类型解析错误，Editor 下分支被排除容易掩盖问题。
+
+**建议：** 补条件导入或完整类型名，并确认对应模块引用；实际执行一次 WebGL Player 编译。小游戏还应核对 SDK 是否同时定义 UNITY_WEBGL：平台名代码兼容小游戏宏，而下载实现按 UNITY_WEBGL 分支选择，宏组合不一致时需确认是否错走 LoadFromFile。
+
+**验证状态：** 静态确认命名空间缺失；未运行 WebGL 编译，未断言具体 SDK 宏和 asmdef 引用均已验证。这是构建阻断问题，不是运行中崩溃。
+
+### R07　裁剪自检把程序集名和类型名写反，会错误报告缺失
+
+**定位：** [RevStripGuard.cs:47](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevStripGuard/RevStripGuard.cs#L47)、[同文件:94](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevStripGuard/RevStripGuard.cs#L94)。
+
+**根因与后果：** WatchedTypes 写成 `UnityEngine.PhysicsModule, UnityEngine.Rigidbody` 等形式，再直接 Type.GetType；标准程序集限定名应是 `类型全名, 程序集名`，例如 `UnityEngine.Rigidbody, UnityEngine.PhysicsModule`。框架自身条目也反了。
+
+**影响：** 即使真实类型存在也可能全部被判缺失，启动输出误导性 Error，不能作为实际裁剪缺失的可靠证据。它自身不证明物理/UI/音频真的已被裁掉。
+
+**建议：** 更正全部条目顺序并核对真实程序集名；在已知类型存在的 Player 上检查，再比较裁剪开关。静态确认入参错误，未实机确认报错数量。
+
+### R08　公开 RevMono.Clear 会移除框架基础驱动，但安装标记仍为 true
+
+**定位：** [RevMono.cs:85](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevPublicMono/Facade/RevMono.cs#L85)、[RevMonoCore.cs:157](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevPublicMono/Implementation/RevMonoCore.cs#L157)、[RevUIAnimDriver.cs:43](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevUISystem/Animation/RevUIAnimDriver.cs#L43)、[RevServicesUnityHooks.cs:49](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Support/RevServicesUnityHooks.cs#L49)、[RevScopeUnityHooks.cs:113](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevScope/Support/RevScopeUnityHooks.cs#L113)。
+
+**条件与后果：** 业务运行中用 Clear 清理所有帧回调。动画、服务和作用域逻辑的框架 Tick 也在这些列表内，Clear 会一起摘除；各模块的 `_installed/_tickHooked` 不随之复位，之后 Install 认为已安装，不再挂回。动画永久停、服务/域逻辑不推进，可能没有异常日志。
+
+**建议：** 业务清理按 owner/scope；基础设施拥有独立不可被业务 Clear 擦除的通道，或建立明确的 Clear→重装协议。建议依次启动动画/服务、Clear、再次创建，检查是否还能推进。静态确认；正常使用 owner 清理不触发。
+
+### R09　Builder 服务容器在 Factory/OnInit 中 Dispose，可返回已释放实例
+
+**定位：** [RevServiceLocator.cs:277](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Facade/RevServiceLocator.cs#L277)、[同文件:286](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Facade/RevServiceLocator.cs#L286)、[同文件:295](../../RevolutionFrameWork_Unity/Assets/Revolution/Runtime/RevServiceLocator/Facade/RevServiceLocator.cs#L295)。
+
+**条件与根因：** 工厂或 OnInit 因业务回调关闭所属容器。CreateInto 在工厂之后和 OnInit 之后不重新检查 owner/root 有效性；工厂关闭容器后仍可能登记新实例，OnInit 关闭容器则可能在释放刚登记的实例后继续把它返回。
+
+**影响：** 使用者拿到已 Dispose 的服务，或实例登记在已关闭容器而后续 Dispose 因幂等直接跳过，产生资源/生命周期泄漏。该风险针对 Builder/作用域容器，不应直接套用到已有额外重入检查的 RevServices 默认 Hub。
+
+**建议：** 外部工厂和初始化钩子返回后检查容器代际/关闭状态，失效则按所有权回滚并报告失败；避免双重 Dispose。建议分别在工厂、OnInit 中触发 Dispose，统计对象释放次数及返回结果。静态确认条件路径，未运行回归。
+
+## 四、优化建议
+
+### 1. 建议的修复决策顺序
+
+这些是供决定是否修复的建议，本轮没有实施修复。
+
+| 顺序 | 建议处理项 | 判断依据 |
+| --- | --- | --- |
+| 第一批 | F08、F12、F02、F03、F01 | 可由较短调用链触发；影响动画、预热、资源所有权和启动任务终态 |
+| 第一批（按平台） | R06 | 如果要出 WebGL/相关小游戏包，构建阻断应提前确认 |
+| 第二批 | F04、F05、F06、F07、F10、F11、R08 | 对照项目是否使用回调式表加载、换账号/换版本、异步转场、单名音频卸载、上报 SDK、全局 Clear |
+| 长会话与参数防护 | F09、F13 | 一个是持续积累，一个是低概率但可阻塞主线程；修复成本和受影响范围应单独评估 |
+| 后续回归 | R01、R02、R03、R04、R05、R07、R09、N01、N02 | 覆盖 AB 代际、运行中重建、扩展契约、编辑器会话和诊断可靠性 |
+
+若只批准小范围修复，建议优先统一两条底层约束：**每个已发出的异步请求都有一次性终态；每份资源持有都按原始句柄身份归还。** 这能同时压住多项问题，但不要求新增业务分层或第二套加载 API。
+
+### 2. 后续验证矩阵
+
+以下均为建议后续执行，不是本轮已经通过的测试记录。
+
+| 验证环境 | 应覆盖项 | 关键通过条件 |
+| --- | --- | --- |
+| 纯 C# / 可控桩 | F01、F03、F04、F05、F08、F13、R03、R09 | 异常后任务完成；通知至多一次；重入无越界；非法数值明确拒绝 |
+| Unity 编辑器直读 | F02、F06、F07、F09、F10、F12、R08 | 句柄不误扣；面板终态明确；重复循环后 active/voice 数量稳定 |
+| Unity AB 模式 | F02、F05、F06、F11、F12、R01 | 取消/卸载/重载后旧回调不影响新代；依赖引用与等待者均收口 |
+| Domain Reload 关闭 | R05、F11 订阅复位 | 连续 Play 不复用旧表/旧 pending/旧上报回调 |
+| WebGL Player 构建 | R06 | 条件分支实际编译通过；真实宏组合和模块引用可用 |
+| IL2CPP Player | R07 及关键资源/UI流程 | 自检名单可准确解析；裁剪开关变化可解释；无错误缺失报告 |
+| 长会话/多场景循环 | F09、F10 | 托管失效引用、ActiveCount、声音槽位不随轮次持续增长 |
+| 故障注入 | F01、F03、F04、F07、F08、F11 | 业务监听、转场、上报各自抛错时，不遗弃其他请求或等待者 |
+
+F13 原实现的死循环输入不应直接放进无超时保护的编辑器回归；应先修防护，再验证拒绝非法值或采用独立进程超时约束。
+
+### 3. 审查中已排除的常见误判
+
+- 内置 RevABLoader 的异步加载有 finally 通知完成；不能把普通取消写成必然永久占用加载泵。自定义 loader 不履约属于另一类契约问题。
+- 资源系统已有旧句柄身份判断和 BundleAcquired/CompleteAsync 收尾，未把“取得包后取消”泛化成一个新的确定泄漏。
+- UI 的 ShutdownAll/CloseExclusive 已有取消和实例清理，未把 InstantiatePanel 中所有提前返回一概认定为泄漏。
+- 正常 async 状态机通常捕获自身业务异常；Scheduler 的手工续体风险不代表每次 await 异常都会离开 Update。
+- 状态机和序列事件明确选择异常传播，已按契约风险列出，没有包装成默认运行必崩的新缺陷。
+
+### 4. 交付与使用
+
+本 Markdown 与同名 HTML 来自同一份正文。HTML 内嵌样式，支持离线阅读、目录导航和打印；源码跳转依赖保持当前相对目录结构。所有源码行号以本次 commit 为准。
+
+本轮完成的是文档检查：源码链接目标存在且行号未越界、24 个问题条目完整、目录锚点有效；使用本机 Edge 无界面渲染检查了桌面和窄屏排版，未发现页面脚本错误或整页横向溢出。这些检查不替代 Unity 编译或运行时复现。
+
+本报告只记录本轮查到且有具体代码依据的问题。没有新增框架修复、改动 API、提交 Git commit，或修改现有历史修复日志。是否修复、分批修复哪些条目，可依据触发条件与项目实际用法决定。

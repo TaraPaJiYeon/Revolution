@@ -288,11 +288,25 @@ namespace Revolution
                 if (instance == null)
                     throw new InvalidOperationException($"创建 {type.Name} 时工厂返回了 null（{descriptor.Origin}）");
 
+                // 工厂也是外部代码，可能在返回前关闭容器；此时实例尚未登记，必须由这里归还所有权。
+                if (owner._disposed || _root._disposed)
+                {
+                    if (descriptor.OwnsInstance && instance is IDisposable abandoned)
+                    {
+                        try { abandoned.Dispose(); }
+                        catch (Exception e) { RevLog.Exception(e, "释放失效工厂实例失败", "Services"); }
+                    }
+                    throw new ObjectDisposedException(nameof(RevServiceLocator), "服务工厂执行期间容器已关闭");
+                }
                 registry.Add(type, instance, descriptor.OwnsInstance);
 
                 try
                 {
-                    if (instance is RevIServiceInit init) init.OnInit(owner);
+                    if (instance is RevIServiceInit init) { init.OnInit(owner); }
+                    if (owner._disposed || _root._disposed)
+                    {
+                        throw new ObjectDisposedException(nameof(RevServiceLocator), "服务初始化期间容器已关闭");
+                    }
                 }
                 catch
                 {
@@ -303,7 +317,8 @@ namespace Revolution
                     //   （文件句柄 / 网络连接 / 原生资源）， OnInit 一失败就再也没人管它 = 资源泄漏。
                     //   只有"容器负责释放"（OwnsInstance）的才释放；业务自己传进来的实例仍归业务。
                     //   Dispose 的异常要吞掉：回滚路径不能掩盖上面正在传播的 OnInit 原始异常。
-                    if (descriptor.OwnsInstance && instance is IDisposable rollback)
+                    // OnInit 若已 Dispose 容器，实例已由 DisposeAll 处理；不能再二次释放。
+                    if (!owner._disposed && !_root._disposed && descriptor.OwnsInstance && instance is IDisposable rollback)
                     {
                         try { rollback.Dispose(); }
                         catch { /* 回滚清理失败不能盖住 OnInit 的原始异常；容器已摘除该实例，不影响其余服务 */ }

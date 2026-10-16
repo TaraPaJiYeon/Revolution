@@ -151,6 +151,8 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>池每 60 次 Tick 扫描借出集合，移除已被场景或外部销毁的对象并累计 Lost 诊断计数，防止托管包装对象长期残留。暂停 Tick 时清理延后，正常取用仍需成对归还。异步资源池持有独立引用，避免与请求方共享一次性类型视图的释放标记。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>

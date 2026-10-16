@@ -348,6 +348,10 @@ namespace Revolution
                 {
                     DiscardFailedHandle(key, cached);
                 }
+                else if (cached.IsLoading && cached.ContentType == typeof(UnityEngine.Object) && contentType != null && contentType != typeof(UnityEngine.Object))
+                {
+                    return JoinWeakTypedRequest(cached, contentType, onFinished, group);
+                }
                 // 即使资源还在加载，也要比较请求类型：路径表只按目录和文件名区分，不同类型会共享同一个在途句柄。
                 // 如果一个请求要 Sprite、另一个要不兼容的 Texture，合并后第二个回调拿到的内容转换会变成 null，且加载成功状态会掩盖错误。
                 // 所以类型不兼容时立即回 TypeMismatch，不把新请求加入旧任务，也不增加旧资源的引用数。
@@ -393,6 +397,35 @@ namespace Revolution
             // ③ 从第 0 条策略开始走"责任链"（失败会自动换下一条兜底）。
             TryLoadAsyncFrom(handle, 0, priority);
             return handle;
+        }
+
+        private static RevResHandle JoinWeakTypedRequest(RevResHandle owner, Type requestedType, Action<RevResHandle> callback, RevResGroup group)
+        {
+            owner.RefCount++;
+            owner.RemoveFlag(RevResInstanceFlag.MarkedUnused);
+            _unused.Remove(owner.Key);
+            AssignGroup(owner, group);
+            var view = new RevResHandle
+            {
+                Key = owner.Key, StandardPath = owner.StandardPath, ContentType = requestedType,
+                Group = owner.Group, RefCount = 1, ReferenceOwner = owner
+            };
+            view.MarkLoading();
+            // 保留 Object 的底层加载类型，完成后才校验真实对象；一个错误类型请求不能污染其它等待者。
+            AddPendingCallback(owner, result =>
+            {
+                view.RealPath = result.RealPath;
+                view.ErrorReason = result.ErrorReason;
+                if (result.IsLoaded && !requestedType.IsInstanceOfType(result.Content))
+                {
+                    view.ErrorReason = RevResLoadErrorReason.TypeMismatch;
+                    view.MarkError();
+                }
+                else if (result.IsLoaded) { view.SetContent(result.Content); }
+                else { view.MarkError(); }
+                InvokeFinished(callback, view);
+            });
+            return view;
         }
 
         /// <summary>
@@ -521,14 +554,22 @@ namespace Revolution
         // 旧业务代码此时可能还拿着旧 handle；若只按路径 key 减引用，就会把新资源的计数减掉，导致它被提前卸载。
         // 所以按 handle 释放前还要确认缓存里当前对象正是这个 handle 实例；过期句柄不能动新资源的计数。
         internal static bool IsCurrent(RevResHandle handle)
-            => handle != null && handle.Key != 0
-               && _cache.TryGetValue(handle.Key, out RevResHandle current)
-               && ReferenceEquals(current, handle);
+        {
+            if (handle == null || handle.Key == 0 || handle.ReferenceReleased) { return false; }
+            RevResHandle owner = handle.ReferenceOwner ?? handle;
+            return _cache.TryGetValue(owner.Key, out RevResHandle current) && ReferenceEquals(current, owner);
+        }
 
         internal static bool DecRef(RevResHandle handle, bool removeWhenZero = true)
         {
-            if (!IsCurrent(handle)) return false;
-            DecRef(handle.Key, removeWhenZero);
+            if (!IsCurrent(handle)) { return false; }
+            if (handle.ReferenceOwner != null)
+            {
+                handle.ReferenceReleased = true;
+                handle.RefCount = 0;
+                DecRef(handle.ReferenceOwner.Key, removeWhenZero);
+            }
+            else { DecRef(handle.Key, removeWhenZero); }
             return true;
         }
 
@@ -780,7 +821,7 @@ namespace Revolution
             handle.BundleName = null;
             handle.BundleDependencies = null;
             if (loader != null && !handle.HasFlag(RevResInstanceFlag.LoadFromEditor) && !string.IsNullOrEmpty(bundleName))
-                loader.ReleaseBundle(bundleName, dependencies);
+                loader.ReleaseBundle(bundleName, dependencies, handle.BundleGeneration);
         }
 
         /// <summary>异步加载完成时由异步泵回调。</summary>

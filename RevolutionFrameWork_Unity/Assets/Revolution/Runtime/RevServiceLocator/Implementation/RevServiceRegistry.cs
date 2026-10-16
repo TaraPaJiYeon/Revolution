@@ -15,6 +15,9 @@ namespace Revolution
     {
         private readonly Dictionary<Type, object> _instances;
         private readonly List<object> _creationOrder;          // 创建顺序（释放时倒序走）
+        private RevITickable[] _tickSnapshot = Array.Empty<RevITickable>();
+        private bool _tickDirty = true;
+        private bool _ticking;
         private readonly List<RevITickable> _tickables;        // 实现了 RevITickable 的实例（创建时探测，避免每帧 cast）
 
         internal RevServiceRegistry(int capacity = 8)
@@ -51,7 +54,7 @@ namespace Revolution
 
             // 能力探测：实现了 RevITickable 就自动进 Tick 列表
             // （对应王者"注册后按接口自动挂到帧更新通道"的精华，但挂钩子的范围收敛在"这个容器"里）
-            if (instance is RevITickable tickable) _tickables.Add(tickable);
+            if (instance is RevITickable tickable) { _tickables.Add(tickable); _tickDirty = true; }
 
             if (!ownsInstance) _ownedFlags[instance] = false;
         }
@@ -66,14 +69,30 @@ namespace Revolution
             _creationOrder.Remove(instance);
             _ownedFlags.Remove(instance);
 
-            if (instance is RevITickable tickable) _tickables.Remove(tickable);
+            if (instance is RevITickable tickable) { _tickables.Remove(tickable); _tickDirty = true; }
         }
 
-        /// <summary>驱动本容器的可 Tick 实例（按下标遍历：Tick 里新创建的服务从下一帧开始被驱动）</summary>
+        /// <summary>驱动本容器的可 Tick 实例（身份快照：Tick 里新创建的服务从下一帧开始被驱动）</summary>
         internal void Tick(float deltaTime)
         {
-            for (int i = 0; i < _tickables.Count; i++)
-                _tickables[i].OnTick(deltaTime);
+            if (_ticking) { return; }
+            if (_tickDirty)
+            {
+                _tickSnapshot = _tickables.ToArray();
+                _tickDirty = false;
+            }
+            RevITickable[] snapshot = _tickSnapshot;
+            _ticking = true;
+            try
+            {
+                foreach (RevITickable service in snapshot)
+                {
+                    if (!_tickables.Contains(service)) { continue; }
+                    try { service.OnTick(deltaTime); }
+                    catch (Exception e) { RevLog.Exception(e, "作用域服务 Tick 异常", "Services"); }
+                }
+            }
+            finally { _ticking = false; }
         }
 
         /// <summary>释放本容器的全部实例（逆创建序；只释放容器自己创建的）</summary>
@@ -105,6 +124,8 @@ namespace Revolution
                 _instances.Clear();
                 _creationOrder.Clear();
                 _tickables.Clear();
+                _tickSnapshot = Array.Empty<RevITickable>();
+                _tickDirty = true;
                 _ownedFlags.Clear();
             }
 

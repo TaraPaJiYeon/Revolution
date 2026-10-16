@@ -46,13 +46,16 @@ namespace Revolution
 
         /// <summary>
         /// 广播事件（同步调用所有订阅者）。
-        /// <para>实现上直接委托调用：<b>不分配数组</b>（热路径友好）。
-        /// 代价是订阅者抛异常会打断其它订阅者 —— 订阅者自己保证不抛（或自行 try/catch）。</para>
+        /// <para>按本次订阅快照逐个隔离异常；失败只记录日志，继续通知其余监听者。</para>
         /// </summary>
         public void Publish<TEvent>(TEvent evt)
         {
-            if (_handlers.TryGetValue(typeof(TEvent), out Delegate handler))
-                (handler as Action<TEvent>)?.Invoke(evt);
+            if (!_handlers.TryGetValue(typeof(TEvent), out Delegate handler)) { return; }
+            foreach (Action<TEvent> listener in handler.GetInvocationList())
+            {
+                try { listener(evt); }
+                catch (Exception e) { RevLog.Exception(e, $"序列事件监听异常：{typeof(TEvent).Name}", "ActionSequence"); }
+            }
         }
 
         /// <summary>清空所有订阅（框架内部：宿主销毁时调用，例如 RevSequencePlayer.OnDestroy）</summary>

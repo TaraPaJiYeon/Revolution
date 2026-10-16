@@ -29,7 +29,26 @@ namespace Revolution
         private static readonly List<DelayNode> _delays = new List<DelayNode>(64);
 
         /// <summary>每帧最多执行多少个续体，防止某一帧被大量回调卡住</summary>
-        public static int MaxContinuationsPerFrame = 128;
+        private static int _maxContinuationsPerFrame = 128;
+        public static int MaxContinuationsPerFrame
+        {
+            get { return _maxContinuationsPerFrame; }
+            set
+            {
+                if (value <= 0) { throw new ArgumentOutOfRangeException(nameof(value), "续体预算必须大于 0"); }
+                _maxContinuationsPerFrame = value;
+            }
+        }
+        private static bool _quitting;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetForNewSession()
+        {
+            _quitting = false;
+            _frameQueue.Clear();
+            _delays.Clear();
+            _maxContinuationsPerFrame = 128;
+        }
 
         private static RevTaskScheduler _instance;
 
@@ -139,21 +158,34 @@ namespace Revolution
                 ? _frameQueue.Count
                 : MaxContinuationsPerFrame;
 
-            while (budget-- > 0)
-                _frameQueue.Dequeue()?.Invoke();
+            while (budget-- > 0 && _frameQueue.Count > 0)
+            {
+                RevTaskContinuations.InvokeOne(_frameQueue.Dequeue());
+            }
+        }
+
+        private void OnApplicationQuit()
+        {
+            _quitting = true;
         }
 
         private void OnDestroy()
         {
-            // 退出 / 切场景时清理，避免残留委托指向已销毁对象
-            _frameQueue.Clear();
-            _delays.Clear();
+            if (!ReferenceEquals(_instance, this)) { return; }
             _instance = null;
+            if (_quitting || !Application.isPlaying)
+            {
+                _frameQueue.Clear();
+                _delays.Clear();
+                return;
+            }
+            // 运行中意外销毁宿主时保留队列并重建，Yield/Delay/零分配 NextFrame 的续体都不能遗失。
+            EnsureInstance();
         }
 
         private static void EnsureInstance()
         {
-            if (_instance != null) return;
+            if (_instance != null || _quitting) { return; }
 
             var go = new GameObject("[RevTaskScheduler]");
             DontDestroyOnLoad(go);

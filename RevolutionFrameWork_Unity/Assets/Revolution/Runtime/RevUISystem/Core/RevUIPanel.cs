@@ -293,7 +293,7 @@ namespace Revolution
         }
 
         /// <summary>打开：转场结束 → OnOpen → 重画 → 打开所有 Part → 显示动画 → 回调</summary>
-        internal void InternalOpen(Action onOpened)
+        internal void InternalOpen(Action onOpened, Action<Exception> onFailed)
         {
             if (State == RevUIPanelState.Opened)
             {
@@ -305,7 +305,7 @@ namespace Revolution
             int version = ++LifetimeVersion;
             gameObject.SetActive(true);
 
-            RevUILog.Guard($"{GetType().Name}.打开转场", () => PlayOpenTransition(() =>
+            RunTransition(PlayOpenTransition, () =>
             {
                 // 打开转场（例如淡入或滑入）需要经过若干帧；播放期间业务仍可能关闭面板，甚至把它放回对象池供下次复用。
                 // 如果旧转场结束后不检查状态，它会把面板重新标成 Opened、再次调用 OnOpen，并通知业务“打开成功”，
@@ -327,7 +327,7 @@ namespace Revolution
                 {
                     if (this != null && version == LifetimeVersion && IsOpened) onOpened?.Invoke();
                 });
-            }));
+            }, onFailed, "打开转场");
         }
 
         /// <summary>关闭：关 Part → 转场 → OnClose → 隐藏动画 → 摘事件 → 回调（回池还是销毁由管理器决定）</summary>
@@ -344,7 +344,7 @@ namespace Revolution
             RevUIPart.CancelCreates(this);
             CloseParts();
 
-            RevUILog.Guard($"{GetType().Name}.关闭转场", () => PlayCloseTransition(() =>
+            RunTransition(PlayCloseTransition, () =>
             {
                 // 关闭转场也要经过若干帧；在动画结束前，业务可能又要求打开这个面板。
                 // 若旧的关闭回调继续执行，就会把刚重新打开的面板当成仍在关闭：调用 OnClose、移除新订阅的事件，
@@ -369,7 +369,43 @@ namespace Revolution
 
                     onClosed?.Invoke();
                 });
-            }));
+            }, error =>
+            {
+                // 关闭动画启动失败时直接完成清理，不能永久留在 Closing。
+                if (this == null || State != RevUIPanelState.Closing) { return; }
+                State = RevUIPanelState.Closed;
+                IsCovered = false;
+                RevEvent.RemoveAllByOwner(this);
+                RevUIAnim.StopAllOf(this);
+                onClosed?.Invoke();
+            }, "关闭转场");
+        }
+
+        private void RunTransition(Action<Action> transition, Action done, Action<Exception> failed, string context)
+        {
+            bool signaled = false;
+            Action<Exception> fail = error =>
+            {
+                RevLog.Exception(error, $"{GetType().Name}.{context}", "UI");
+                failed?.Invoke(error);
+            };
+            try
+            {
+                transition(() =>
+                {
+                    if (signaled) { return; }
+                    signaled = true;
+                    // onDone 可能跨帧调用；它内部的显示/隐藏动画启动也必须有失败出口。
+                    try { done(); }
+                    catch (Exception e) { fail(e); }
+                });
+            }
+            catch (Exception e)
+            {
+                if (signaled) { RevLog.Exception(e, $"{context}重复完成后抛异常", "UI"); return; }
+                signaled = true;
+                fail(e);
+            }
         }
 
         /// <summary>

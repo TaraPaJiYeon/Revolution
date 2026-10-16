@@ -46,6 +46,8 @@ namespace Revolution
         // ===== 注入的四件事 =====
         private readonly Func<T> _create;
         private readonly Func<T, bool> _isAlive;
+        private readonly Predicate<T> _isDead;
+        private int _sweepFrame;
         private readonly Action<T> _onTake;
         private readonly Action<T> _onPut;
         private readonly Action<T> _onDestroy;
@@ -86,6 +88,7 @@ namespace Revolution
             Capacity = capacity;
             _create = create ?? throw new ArgumentNullException(nameof(create));
             _isAlive = isAlive ?? (item => item != null);
+            _isDead = item => !_isAlive(item);
             _onTake = onTake;
             _onPut = onPut;
             _onDestroy = onDestroy;
@@ -214,7 +217,13 @@ namespace Revolution
         /// <summary>推进延迟回收（由驱动每帧调用；工程外测试可以手动调）。</summary>
         public void Tick()
         {
-            if (_delaying.Count == 0) return;
+            // 场景销毁 / PlayOn 目标销毁不会经过 Return；定期摘除失效包装引用，不能随池一直累积。
+            if (++_sweepFrame >= 60)
+            {
+                _sweepFrame = 0;
+                _lost += _activeSet.RemoveWhere(_isDead);
+            }
+            if (_delaying.Count == 0) { return; }
 
             // 倒序：删除元素不影响前面的下标
             for (int i = _delaying.Count - 1; i >= 0; i--)

@@ -49,7 +49,19 @@ namespace Revolution
     public static class RevUIAnim
     {
         /// <summary>全局倍速（1 = 原速，0 = 冻结；做"动画速度"设置项时改它一个数）</summary>
-        public static float GlobalSpeed = 1f;
+        private static float _globalSpeed = 1f;
+        public static float GlobalSpeed
+        {
+            get { return _globalSpeed; }
+            set
+            {
+                if (float.IsNaN(value) || float.IsInfinity(value) || value < 0f)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), "动画倍速必须是大于等于 0 的有限数值");
+                }
+                _globalSpeed = value;
+            }
+        }
 
         /// <summary>正在播的动画数（诊断用）</summary>
         public static int ActiveCount => RevUIAnimEngine.ActiveCount;

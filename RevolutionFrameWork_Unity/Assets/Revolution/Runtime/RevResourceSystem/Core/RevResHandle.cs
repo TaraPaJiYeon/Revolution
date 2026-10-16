@@ -42,6 +42,11 @@ namespace Revolution
         internal RevABLoader BundleLoader { get; set; }
         internal string BundleName { get; set; }
         internal string[] BundleDependencies { get; set; }
+        internal int BundleGeneration { get; set; }
+
+        // 弱类型预热与具体类型请求共享 IO，但每个具体请求有自己的结果视图与一次归还标记。
+        internal RevResHandle ReferenceOwner;
+        internal bool ReferenceReleased;
 
         /// <summary>失败原因（不打日志的前提下，这是唯一的错误线索）</summary>
         public RevResLoadErrorReason ErrorReason { get; internal set; }

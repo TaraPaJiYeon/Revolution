@@ -379,7 +379,18 @@ namespace Revolution
 
         internal void Unload(string name)
         {
-            if (!string.IsNullOrEmpty(name)) _assets.Unload(name);
+            if (string.IsNullOrEmpty(name)) { return; }
+            // 先卸缓存，再让等待此名称的槽明确失败；失败监听者重入请求时会取得新 Entry。
+            _assets.Unload(name);
+            var pending = new List<int>();
+            for (int i = 0; i < SlotCapacity; i++)
+            {
+                ref RevSoundSlot slot = ref _table.Slot(i);
+                if (slot.Alive && slot.Pending && slot.Name == name) { pending.Add(i); }
+            }
+            // 先收完旧槽再通知业务，防止失败回调中新播放的声音被同一轮卸载误伤。
+            foreach (int index in pending) { Recycle(index, finished: false); }
+            foreach (int index in pending) { RaiseFailed(name, RevSoundErrorReason.LoadFailed); }
         }
 
         internal void UnloadAll()

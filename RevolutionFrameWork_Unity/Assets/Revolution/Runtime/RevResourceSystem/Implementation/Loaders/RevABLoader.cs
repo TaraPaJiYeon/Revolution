@@ -17,6 +17,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+#if (UNITY_WEBGL || UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_BYTEDANCEMINIGAME) && !UNITY_EDITOR
+using UnityEngine.Networking;
+#endif
 
 namespace Revolution
 {
@@ -80,7 +83,7 @@ namespace Revolution
         {
             get
             {
-#if UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_WEBGL
+#if UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_BYTEDANCEMINIGAME || UNITY_WEBGL
                 return "WebGL";
 #elif UNITY_IOS
                 return "iOS";
@@ -195,7 +198,7 @@ namespace Revolution
         /// <summary>从 StreamingAssets 同步加载指定 AB 包（WebGL 走不通，见下方注释</summary>
         private static AssetBundle LoadBundle(string abName)
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEBGL || UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_BYTEDANCEMINIGAME) && !UNITY_EDITOR
             // WebGL（含小游戏）：单线程、不能阻塞，File.Exists / LoadFromFile 都不可用 → 同步加载无解。
             // 只能走 LoadBundleAsync（UnityWebRequest）。返回 null 让上层报 BundleLoadFail，而不是假死。
             return null;
@@ -276,6 +279,12 @@ namespace Revolution
             if (_bundles.Count == 0) return;              // ReleaseAll 已清账时，不能为一次迟到 Release 重载主包
             if (!EnsureManifest()) return;
             ReleaseBundle(abName, ResolveDependencies(abName));
+        }
+
+        internal void ReleaseBundle(string abName, string[] acquiredDependencies, int generation)
+        {
+            if (generation != _generation) { return; }
+            ReleaseBundle(abName, acquiredDependencies);
         }
 
         internal void ReleaseBundle(string abName, string[] acquiredDependencies)
@@ -364,6 +373,7 @@ namespace Revolution
             }
             handle.BundleAcquired = true;
             handle.BundleLoader = this;
+            handle.BundleGeneration = _generation;
             handle.BundleName = parts[0];
             handle.BundleDependencies = acquiredDependencies;
             //加载ab包中的资源
@@ -403,6 +413,7 @@ namespace Revolution
         /// </summary>
         private async RevTask LoadAsyncInternal(RevResHandle handle, Action<RevResHandle> onFinished, RevCancellationToken token)
         {
+            int generation = _generation;
             var acquiredDependencies = new List<string>();
             try
             {
@@ -423,6 +434,7 @@ namespace Revolution
                     handle.MarkError();
                     return;
                 }
+                if (generation != _generation) { throw new RevOperationCanceledException(); }
                 token?.ThrowIfCancelled();
 
                 foreach (string dep in ResolveDependencies(parts[0]))
@@ -432,24 +444,26 @@ namespace Revolution
 #if UNITY_ANDROID && !UNITY_EDITOR
                         RevLog.Error($"Android AB 依赖包加载失败：目标 {parts[0]} / 依赖 {dep} / 路径 {ResolveBundlePath(dep)}。这不是 Shader 变体错误，请检查平台产物、热更版本与包文件。", "Res");
 #endif
-                        ReleaseDependencies(acquiredDependencies);
+                        ReleaseDependencies(acquiredDependencies, generation);
                         acquiredDependencies.Clear();
                         handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                         handle.MarkError();
                         return;
                     }
+                    if (generation != _generation) { throw new RevOperationCanceledException(); }
                     acquiredDependencies.Add(dep);
                 }
 
+                if (generation != _generation) { throw new RevOperationCanceledException(); }
                 token?.ThrowIfCancelled();
 
                 AssetBundle bundle = await AcquireSingleAsync(parts[0]);
-                if (bundle == null)
+                if (bundle == null || generation != _generation)
                 {
 #if UNITY_ANDROID && !UNITY_EDITOR
                     RevLog.Error($"Android AB 目标包加载失败：{parts[0]} / 路径 {ResolveBundlePath(parts[0])}。先检查包来源，不能当作材质 Shader 缺失处理。", "Res");
 #endif
-                    ReleaseDependencies(acquiredDependencies);
+                    ReleaseDependencies(acquiredDependencies, generation);
                     acquiredDependencies.Clear();
                     handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                     handle.MarkError();
@@ -458,16 +472,19 @@ namespace Revolution
 
                 handle.BundleAcquired = true;
                 handle.BundleLoader = this;
+                handle.BundleGeneration = _generation;
                 handle.BundleName = parts[0];
                 // 加载这个资源时，代码已经逐个给它的依赖包增加了引用计数；把这次实际取得的依赖名单交给句柄保存。
                 // 随后清空本地列表，表示“释放责任已经转交给句柄”，这样取消/异常清理就不会和句柄再次释放同一依赖。
                 // 若重复减引用，共享该依赖的其他资源还在使用时也可能被提前卸载，导致资源突然加载失败。
                 handle.BundleDependencies = acquiredDependencies.ToArray();
                 acquiredDependencies.Clear();       // 所有权转交给句柄，清理端统一只归还一次
+                if (generation != _generation) { throw new RevOperationCanceledException(); }
                 token?.ThrowIfCancelled();
 
                 AssetBundleRequest req = bundle.LoadAssetAsync(parts[1], handle.ContentType);
                 await req;
+                if (generation != _generation) { throw new RevOperationCanceledException(); }
                 token?.ThrowIfCancelled();
                 ReportAndroidShaderIssues(req.asset, parts[0], parts[1]);
                 handle.ErrorReason = req.asset != null ? RevResLoadErrorReason.None : RevResLoadErrorReason.AssetLoadFail;
@@ -475,13 +492,13 @@ namespace Revolution
             }
             catch (RevOperationCanceledException)
             {
-                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies);
+                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies, generation);
                 handle.ErrorReason = RevResLoadErrorReason.Cancelled;
                 handle.MarkError();
             }
             catch (Exception)
             {
-                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies);
+                if (!handle.BundleAcquired) ReleaseDependencies(acquiredDependencies, generation);
                 handle.ErrorReason = RevResLoadErrorReason.BundleLoadFail;
                 handle.MarkError();
             }
@@ -525,8 +542,10 @@ namespace Revolution
         }
 #endif
 
-        private void ReleaseDependencies(List<string> dependencies)
+        private void ReleaseDependencies(List<string> dependencies, int generation)
         {
+            // ReleaseAll 已替旧代清账；旧请求的回滚不得触碰新代同名包。
+            if (generation != _generation) { return; }
             for (int i = dependencies.Count - 1; i >= 0; i--) ReleaseSingle(dependencies[i]);
         }
 
@@ -611,7 +630,7 @@ namespace Revolution
         /// <summary>加载一个包（单次尝试，不含重试）。</summary>
         private static async RevTask<AssetBundle> LoadBundleOnceAsync(string abName)
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEBGL || UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_BYTEDANCEMINIGAME) && !UNITY_EDITOR
             // WebGL（含小游戏）：streamingAssetsPath 是 URL/虚拟路径，只能用 UnityWebRequest 下载。
             // ★ 走钩子：小游戏的"热更"就是把 URL 换成 CDN 的版本地址。
             // ★ 不直接 await SendWebRequest()：要自己按帧轮询才能在卡住时超时 Abort（见 WaitWithTimeoutAsync）。
@@ -631,7 +650,7 @@ namespace Revolution
 #endif
         }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEBGL || UNITY_WEIXINMINIGAME || UNITY_BYTEDANCE_MINIGAME || UNITY_BYTEDANCEMINIGAME) && !UNITY_EDITOR
         /// <summary>
         /// 建一个 AB 下载请求；能从钩子拿到缓存标识（hash / crc）就带上。
         ///

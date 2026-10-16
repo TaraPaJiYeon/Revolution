@@ -44,20 +44,20 @@ namespace Revolution
         private static readonly KeyValuePair<string, string>[] WatchedTypes =
         {
             // ---------- Unity 原生模块：最高频的一批坑 ----------
-            new KeyValuePair<string, string>("UnityEngine.PhysicsModule, UnityEngine.Rigidbody", "物理刚体：重力 / 碰撞 / AddForce 全走它。被裁 → 物体变\"空壳\"，不报错就是不响应"),
-            new KeyValuePair<string, string>("UnityEngine.PhysicsModule, UnityEngine.Physics", "Physics 静态 API（Raycast / OverlapSphere 等）：被裁 → 射线与范围检测恒返回空"),
-            new KeyValuePair<string, string>("UnityEngine.PhysicsModule, UnityEngine.Collider", "碰撞体：被裁 → 点击拾取 / 触发器判定失效"),
-            new KeyValuePair<string, string>("UnityEngine.Physics2DModule, UnityEngine.Rigidbody2D", "2D 物理：同样一裁就全失效"),
-            new KeyValuePair<string, string>("UnityEngine.UIModule, UnityEngine.Canvas", "UI 根节点：框架 UI 系统直接依赖它，被裁 → 面板全部不显示"),
-            new KeyValuePair<string, string>("UnityEngine.AnimationModule, UnityEngine.Animator", "动画：被裁 → Animator 不驱动任何动画"),
-            new KeyValuePair<string, string>("UnityEngine.AudioModule, UnityEngine.AudioSource", "音频播放通道：RevSound 靠它，被裁 → 全游戏没声音"),
-            new KeyValuePair<string, string>("UnityEngine.ParticleSystemModule, UnityEngine.ParticleSystem", "粒子特效：被裁 → 特效静默不播"),
+            new KeyValuePair<string, string>("UnityEngine.Rigidbody, UnityEngine.PhysicsModule", "物理刚体：重力 / 碰撞 / AddForce 全走它。被裁 → 物体变\"空壳\"，不报错就是不响应"),
+            new KeyValuePair<string, string>("UnityEngine.Physics, UnityEngine.PhysicsModule", "Physics 静态 API（Raycast / OverlapSphere 等）：被裁 → 射线与范围检测恒返回空"),
+            new KeyValuePair<string, string>("UnityEngine.Collider, UnityEngine.PhysicsModule", "碰撞体：被裁 → 点击拾取 / 触发器判定失效"),
+            new KeyValuePair<string, string>("UnityEngine.Rigidbody2D, UnityEngine.Physics2DModule", "2D 物理：同样一裁就全失效"),
+            new KeyValuePair<string, string>("UnityEngine.Canvas, UnityEngine.UIModule", "UI 根节点：框架 UI 系统直接依赖它，被裁 → 面板全部不显示"),
+            new KeyValuePair<string, string>("UnityEngine.Animator, UnityEngine.AnimationModule", "动画：被裁 → Animator 不驱动任何动画"),
+            new KeyValuePair<string, string>("UnityEngine.AudioSource, UnityEngine.AudioModule", "音频播放通道：RevSound 靠它，被裁 → 全游戏没声音"),
+            new KeyValuePair<string, string>("UnityEngine.ParticleSystem, UnityEngine.ParticleSystemModule", "粒子特效：被裁 → 特效静默不播"),
 
             // ---------- 框架自己：靠反射工作的那些（业务没直接引用就可能被裁）----------
-            new KeyValuePair<string, string>("Revolution.Runtime, Revolution.RevUIPanel", "框架 UI 面板基类：被裁 → 所有面板打不开（RevUIPanelMeta 解析不到特性）"),
-            new KeyValuePair<string, string>("Revolution.Runtime, Revolution.RevUIPart", "框架 UI Part 基类：被裁 → Part 全部装配失败"),
-            new KeyValuePair<string, string>("Revolution.Runtime, Revolution.RevUIWidgetEvents", "控件事件反射层：被裁 → 按钮点了没反应"),
-            new KeyValuePair<string, string>("UnityEngine.CoreModule, UnityEngine.KeyCode", "键位枚举：被裁 → 键位名对不上，全部输入静默失效（只留一条警告）"),
+            new KeyValuePair<string, string>("Revolution.RevUIPanel, Revolution.Runtime", "框架 UI 面板基类：被裁 → 所有面板打不开（RevUIPanelMeta 解析不到特性）"),
+            new KeyValuePair<string, string>("Revolution.RevUIPart, Revolution.Runtime", "框架 UI Part 基类：被裁 → Part 全部装配失败"),
+            new KeyValuePair<string, string>("Revolution.RevUIWidgetEvents, Revolution.Runtime", "控件事件反射层：被裁 → 按钮点了没反应"),
+            new KeyValuePair<string, string>("UnityEngine.KeyCode, UnityEngine.CoreModule", "键位枚举：被裁 → 键位名对不上，全部输入静默失效（只留一条警告）"),
         };
 
         private static readonly List<string> _missing = new List<string>();

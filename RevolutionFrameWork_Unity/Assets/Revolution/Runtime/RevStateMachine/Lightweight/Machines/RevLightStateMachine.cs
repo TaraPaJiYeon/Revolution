@@ -315,7 +315,17 @@ namespace Revolution
                 _duringTransition = false;
             }
 
-            StateChanged?.Invoke(last, _current);   // ④ 广播（监听器异常不隔离——轻量级让错误暴露）
+            // 状态已经提交，监听者失败只影响自己；所有人收到本次切换的同一份 from/to 快照。
+            Action<T, T> listeners = StateChanged;
+            T entered = _current;
+            if (listeners != null)
+            {
+                foreach (Action<T, T> listener in listeners.GetInvocationList())
+                {
+                    try { listener(last, entered); }
+                    catch (Exception e) { RevLog.Exception(e, "轻量状态机变更监听异常", "StateMachine"); }
+                }
+            }
         }
 
         /// <summary>防重入：状态回调里再切状态 = 程序错误，立刻抛</summary>

@@ -141,6 +141,8 @@
 </header>
 
 <main>
+<section id="stability-fix-20261016"><h2>运行稳定性修复 · 2026-10-16</h2><p>RevMono.Clear() 只清空业务监听者，保留 UI 动画、服务与作用域的框架基础驱动；返回值只计算本次清除数，清理后 Count 可能大于 0。新 Play 复位仍清空全部监听。基础驱动不受业务注册名额耗尽阻断，总 Count 可能略高于业务相位上限。业务继续优先按 owner/scope 清理。</p><p>详见<a href="../问题审查/Revolution框架问题修复记录_2026-10-16.html">问题修复记录</a>（包含编译结果与未运行验证范围）。</p></section>
+
 
   <nav class="toc">
     <ol>
@@ -252,7 +254,7 @@ heartbeat.Start();        <span class="c">// 之后每帧自动 Tick，心跳每
           <tr><td>停一条 / 全停协程</td><td><code>RevMono.StopCoroutine(co)</code> / <code>RevMono.StopAllCoroutines()</code></td></tr>
           <tr><td>随对象销毁清干净</td><td><code>RevMono.RemoveAllOf(this)</code></td></tr>
           <tr><td>一块加、一块停（含协程）</td><td><code>using (var s = RevMono.OpenScope()) { s.AddUpdate(OnTick); s.StartCoroutine(Run()); }</code></td></tr>
-          <tr><td>清空全部监听者</td><td><code>RevMono.Clear()</code></td></tr>
+          <tr><td>清空全部业务监听者（保留框架基础驱动）</td><td><code>RevMono.Clear()</code></td></tr>
           <tr><td>看数量 / 宿主好了没</td><td><code>RevMono.Count</code> · <code>RevMono.UpdateCount</code> · <code>RevMono.LateUpdateCount</code> · <code>RevMono.FixedUpdateCount</code> · <code>RevMono.IsRunning</code></td></tr>
           <tr><td>知道出事了</td><td><code>RevMono.Failed += (reason, detail) =&gt; ...</code>（<code>Overflow</code> / <code>CallbackThrew</code> / <code>NotPlaying</code>）</td></tr>
           <tr><td>接管异常上报</td><td><code>RevMono.OnException = (e, msg) =&gt; 你的埋点.Post(e, msg);</code></td></tr>

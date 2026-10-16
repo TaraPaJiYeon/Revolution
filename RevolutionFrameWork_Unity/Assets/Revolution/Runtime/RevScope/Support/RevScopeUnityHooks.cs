@@ -115,7 +115,7 @@ namespace Revolution
             // ★ 显式传 owner（一个不会被任何域管到的对象）：
             //   不传的话，如果这条"框架自己的基础设施驱动"恰好是在某个域里第一次挂上的，它会被当成那个域的东西，
             //   域一关就被摘掉，而 _tickHooked 仍是 true —— 之后所有 Logic 的 OnTick 都不再被驱动，且毫无报错。
-            _tickHooked = RevMono.AddUpdate(OnUpdate, typeof(RevScopeUnityHooks));
+            _tickHooked = RevMono.AddInfrastructureUpdate(OnUpdate, typeof(RevScopeUnityHooks));
         }
 
         private static void OnUpdate()

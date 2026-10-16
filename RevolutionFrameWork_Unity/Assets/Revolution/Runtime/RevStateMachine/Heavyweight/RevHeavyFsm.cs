@@ -117,8 +117,8 @@ namespace Revolution
             Action<string> sink = Sink;
             if (sink != null)
             {
-                sink(message);
-                return;
+                try { sink(message); return; }
+                catch (Exception e) { RevLog.Exception(e, "状态机日志通道异常", "StateMachine"); }
             }
 
             // 没被业务接管时走框架日志系统（以前是直接 Debug —— 业务改不了、也不算"统一出口"）
@@ -497,7 +497,16 @@ namespace Revolution
 
             RecordHistory(from, target.StateType, reason);                                // ④ 历史
             RevHeavyFSMLog.Debug(new RevHeavyFSMTransition<TStateEnum>(from, target.StateType, reason).ToString());
-            StateChanged?.Invoke(from, target.StateType, reason ?? string.Empty);         // ⑤ 广播（监听器异常不隔离）
+            Action<TStateEnum, TStateEnum, string> listeners = StateChanged;
+            TStateEnum entered = target.StateType;
+            if (listeners != null)
+            {
+                foreach (Action<TStateEnum, TStateEnum, string> listener in listeners.GetInvocationList())
+                {
+                    try { listener(from, entered, reason ?? string.Empty); }
+                    catch (Exception e) { RevLog.Exception(e, "重量状态机变更监听异常", "StateMachine"); }
+                }
+            }
         }
 
         /// <summary>退出当前状态（供 Clear / Reset 复用；带防重入保护）</summary>
