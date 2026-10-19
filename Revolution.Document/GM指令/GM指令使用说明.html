@@ -171,6 +171,7 @@
       <li><a href="#s10">十、一页速查卡（可打印）</a></li>
       <li><a href="#s11">十一、与参考实现的对照 + 已知边界</a></li>
       <li><a href="#s12">十二、文件都在哪</a></li>
+      <li><a href="#python-cli">十三、Python / CLI 通用业务自动化</a></li>
     </ol>
   </nav>
 
@@ -710,6 +711,11 @@ MyGameCommands.Register();
     </div>
   </section>
 
+  <section id="python-cli">
+<h2><span class="num">十三</span>Python / CLI 通用业务自动化</h2>
+<p class="lead">通过 CLI 和场景脚本驱动项目自己的业务 GM。</p><p>Automation/rev.py 可列出并执行 GM，以场景 JSON 编排任意业务流程、循环、条件、断言与清理并生成报告。RevGM.Execute 是同步接口，跨帧业务完成需要查询 GM 配合 until 判断；执行需要未暂停的 Editor Play，高危指令使用全局 --confirm。</p><p><a href="../自动化工具/Revolution自动化工具使用说明.html">查看完整命令和业务接入模板</a></p>
+  </section>
+
 </main>
 
 <footer>
@@ -719,6 +725,7 @@ MyGameCommands.Register();
   验证情况：运行时内核行为验证 <b>112 / 112 通过</b>（含开箱示例；另有 20000 步随机注册 + 随机命令行的 fuzz，零异常泄漏）· 编辑器程序集编译 0 错。<br>
   本文档面向零基础；HTML 版含 1 段纯 CSS 动画（边打边联想），无外部依赖。
 </footer>
+
 
 </body>
 </html>

@@ -435,3 +435,7 @@ public static class GameCommands
 | `Support\RevGMUnityHooks.cs` | 33 | 唯一的 Unity 依赖：进 Play 清一次命令表（关 Domain Reload 时防跨局残留） |
 | `Editor\RevGMCommand\RevGMWindow.cs` · `RevGMEditorCatalog.cs` | 820 | 想改面板时读 |
 | `Assets\Revolution.Demo\RevGMCommand.Demo\RevGMCommandDemo.cs` | 72 | ★ 建议先读这个（9 条示例，直接抄） |
+
+## Python / CLI 通用业务自动化（2026-10-19）
+
+仓库 `Automation/rev.py` 可列出并执行已注册 GM，使用场景 JSON 将任意业务组合成准备、操作、条件轮询、断言和清理，并生成逐轮报告。`RevGM.Execute` 为同步接口，跨帧业务完成必须用查询 GM 配合 `until` 判断。执行需要未暂停的 Editor Play；高危指令需要 CLI 全局 `--confirm`。完整命令和业务接入模板见 [通用自动化使用说明](../自动化工具/Revolution自动化工具使用说明.md)。
