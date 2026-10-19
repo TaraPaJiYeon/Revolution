@@ -25,6 +25,8 @@
 
 ### 新增
 
+- **`RevServices.Register<I, T>(owner: ..., eager: true)` 可选立即创建**：默认仍懒创建；只对类型对类型注册开放，供图集/引擎首次事件监听器在注册返回前完成构造和 `OnInit`。立即创建失败会撤销本次登记、保留原始异常，重复注册与 owner 注销语义不变；同时把 Tick 宿主安装失败纳入实例回滚。工程外直接链接真实源码的回归 9 项通过；Unity Play / AB / 真机未执行。同步服务定位器使用说明（md/html）和 Skill 坑位。
+- **包体大小预测编辑器窗口**：菜单 `Revolution.Tools/平台/包体大小预测`，Android APK 与 Windows 发布目录双页签。录入同一构建配置的实测产物作为基准，扫描 `Assets` 下的 StreamingAssets / Resources 原始文件变化，显示平台差异的粗估范围与数据口径；基准按工程存在本机 EditorPrefs，无基准不伪造总量。工具只读、不出包；代码、场景、导入配置、引擎版本变动需重新录入实测基准，最终大小仍以真实出包为准。
 - **`RevServices`：服务定位器的"一行注册、直接取、可注销"入口**（`Runtime/RevServiceLocator/Facade/RevServices.cs`）：
   - 解决的痛点：原来的 `RevServiceLocator.Create()…Build()` 要自己写静态类 + `static readonly` 缓存容器 + 链式调用，而且 `Build()` 之后冻结、**没法注销单个服务**，注册过的服务会一直占着内存。
   - 用法：`RevServices.Register<ISound, Sound>()`（一行；另有"已有实例"和"工厂"两个重载，都可带 `owner: this`）· `RevServices.GetRequired<ISound>()` / `Get` / `TryGet` / `IsRegistered` · `RevServices.Unregister<ISound>()` / `UnregisterAllOf(this)` / `UnregisterAll()` · `RevServices.Dump()`（谁注册了什么、谁还占着）。

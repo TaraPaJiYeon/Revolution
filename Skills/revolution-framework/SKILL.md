@@ -46,6 +46,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | 一串动作（播放→等待→并行） | `RevSequence` | 不可变蓝图 + 取消收尾契约 | `modules-content.md` §6 |
 | 关键业务测试接口 | `RevGM.Register` / `RevGM.Execute` | 项目注册受控业务命令；编辑器面板 Play 态执行，运行时只提供可自接的后端 | `modules-content.md` §7、`playbooks.md` R21 |
 | 读配置表 | `RevDataTableManager` | 表也是资源，走资源系统 | `modules-content.md` §8 |
+| 玩法数值/文案/概率放哪（血攻、倍率、冷却、奖励、关卡） | Excel 导表（铁律 21） | 策划数值进表、代码只读；启动时统一校验 | `playbooks.md` R22 |
 | 资源热更（扩展包） | `RevHotUpdate` | 清单 + 差量下载 + 版本目录 | `modules-content.md` §9、`hot-update.md` |
 
 ## 第一步：30 秒分诊——先判断"用户要的是哪一类事"，再只读对应那一个文件
@@ -55,7 +56,8 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 | 用户在说什么 | 类型 | **先读这个**（读完通常就够了） |
 |---|---|---|
-| "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | 先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再按 `references/playbooks.md`（21 个任务配方）选接口 |
+| "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | 先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再按 `references/playbooks.md`（22 个任务配方）选接口；功能里出现任何策划会调的数字，同时读 R22 |
+| 血量/攻击/倍率/概率/冷却/奖励/关卡阵容/说明文案里的数字 / "配置怎么管" / 审查有没有写死数值 | **配置数值** | `references/playbooks.md` R22（Excel → 导表 → 启动校验 → 强类型读取）+ 铁律 21 |
 | 自定义域 / 登录大厅战斗结算退出 / FSM 联动 | **统一流程** | 先读《Revolution 官方编程架构规范》，再读 `references/playbooks.md` R19 与 `modules-core.md` §12 |
 | 关键业务 GM 测试接口 / AI 或 MCP 自动验收 | **可测试业务** | `references/playbooks.md` R21；明确只提供 GM 后端，没有已接通的 GM→MCP 桥 |
 | "XX 和 YY 用哪个 / 该不该用事件 / 要不要新建 System" | **选型** | `references/decision-guide.md` §1 对照表 |
@@ -106,6 +108,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 18. **横竖屏由项目选择**：首次 Open/Preload 前配置 `RevUISetting.CanvasOrientation`；默认 `Auto`，也可固定 `Portrait` / `Landscape` 或保持 `UseDesign`。只影响根画布缩放，不修改设备方向或自动重排布局。
 19. **热更先验证再激活**：保留清单门禁、完整候选快照校验与失败回退；四钩子指向一致的活动版本。当前没有 `ProbeBundles` 业务资源探针，桥的 `Reset()` 也不等于解除四委托。灰度、签名、按标签下载等方案能力不写成已实现 API。
 20. **本地编辑器版本不入库**：`ProjectVersion.txt` 已取消跟踪；不重新提交或用 `git checkout --` 还原它，不擅自回滚用户的包源、包锁定与设置。既有版本守护与此策略存在冲突，见 `verify-and-test.md`。
+21. **策划数值一律进 Excel 走导表，不写死在 C#**（硬规则，写任何玩法代码前先过这条）：凡是策划会调的数——**棋子/角色/怪物的血攻速、星级成长倍率、技能与增益的数值/概率/冷却/持续时间、敌方成长公式系数、关卡阵容与章节参数、奖励权重与强化量、战斗节奏与限时、玩家可见的说明文案里的数字**——都必须放进 `配置表/*.xlsx`，由框架导表工具生成 `XxxTable` 代码和 `Data/*.txt` 数据，运行时用 `RevDataTableManager` 读取。**禁止**：`const float Hp = 120`、`static readonly Dictionary` 里手写一批数值、`case X: _atk += 0.25f`、`"本轮攻击+25%"` 这类把数字同时写进逻辑和文案的写法（文案与效果会各说各的）。**判断法**：如果策划想调这个数，是否需要程序改 C# 并重新编译？需要 → 违规。**允许留在代码里的只有**：和预制体/场景/美术资源绑定的结构常量（棋盘边长、章节按钮数、手牌槽位数、排序层）、纯表现的动画/Tween 时长、算法内部的相对评分权重、枚举本身；留下时必须在注释里写明“为什么不进表”。落地方法、校验层写法与验证手段见 `references/playbooks.md` R22。
 
 ## 代码与注释规范（本项目硬规范，必须遵守）
 
@@ -153,7 +156,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 ### A. 写新功能（7 步）
 
-1. **先读官方规范，再定位模块/配方**：涉及游戏业务先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再在 `references/playbooks.md` 找 R1~R21。选模块按生存期与现有门面，不先改框架；不确定时读 `decision-guide.md` §1。
+1. **先读官方规范，再定位模块/配方**：涉及游戏业务先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再在 `references/playbooks.md` 找 R1~R22。选模块按生存期与现有门面，不先改框架；不确定时读 `decision-guide.md` §1。
 2. **需要完整细节时读该模块的《使用说明》**（`references/docs-map.md` 给路径）——它是权威，本 skill 只是索引。
 3. **找最近的 demo**（`Assets/Revolution.Demo/<模块>.Demo/`，18 个可运行场景；`playbooks.md` 每节都写了"抄哪个 Demo"）照着写。
    **要动框架本身（修 bug / 加功能）时，先查 `Assets/Revolution/CHANGELOG.md` 与 `Revolution.Document/bug修复日志/`**：这个模块以前修过什么、现行契约是什么——避免重复踩坑，也避免给"已修复的缺陷"写绕过代码（见 `references/pitfalls.md` 末尾"现行契约速查"）。
@@ -186,7 +189,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 
 "何时读哪个文件"已在上面的**分诊表**里给全了，这里只列清单（避免重复）：
 
-- **按任务找**（优先）：`references/playbooks.md`（21 个配方）· `references/decision-guide.md`（选型 + 不存在清单）· `references/troubleshooting.md`（症状速查）
+- **按任务找**（优先）：`references/playbooks.md`（22 个配方）· `references/decision-guide.md`（选型 + 不存在清单）· `references/troubleshooting.md`（症状速查）
 - **查 API 与专题**：`references/modules-core.md` · `references/modules-content.md` · `references/startup-and-platform.md` · `references/resource-and-ab.md` · `references/ui-and-layering.md` · `references/hot-update.md`
 - **规范与交付**：`references/code-style.md` · `references/editor-tools.md` · `references/verify-and-test.md` · `references/docs-map.md` · `references/pitfalls.md`（坑位 + 已修复缺陷的现行契约）
 - **审查**：`REFERENCE_GUIDELINES.md`

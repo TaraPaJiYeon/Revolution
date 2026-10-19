@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- 离线夹具没有 Unity Support 层，因此 EnsureInstalled 桥字段按设计为空。 -->
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 直接链接框架真实纯 C# 源码，不复制 RevServices 的实现，也不引用 Unity 宿主。 -->
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Assets/Revolution/Runtime/RevServiceLocator/Facade/RevServices.cs" />
+    <Compile Include="../../Assets/Revolution/Runtime/RevServiceLocator/Implementation/RevServiceHub.cs" />
+    <Compile Include="../../Assets/Revolution/Runtime/RevServiceLocator/Interfaces/RevIServiceLocator.cs" />
+    <Compile Include="../../Assets/Revolution/Runtime/RevServiceLocator/Interfaces/RevIServiceInit.cs" />
+    <Compile Include="../../Assets/Revolution/Runtime/RevServiceLocator/Interfaces/RevITickable.cs" />
+  </ItemGroup>
+</Project>

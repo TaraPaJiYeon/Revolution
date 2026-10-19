@@ -78,7 +78,12 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 > GM 指令（112 项断言 + 20000 步随机注册/随机命令行的 fuzz）、热更清单与 URL 规则、ResMap 查表成本基准。
 > **断言要覆盖"不变量"而不只是"正常路径"**：节点不重复、不双归还、计数不为负、状态归零、无残留标记。
 
-### 2.1 当前入库的热更离线工程
+### 2.1 当前入库的 RevServices 离线工程
+
+- 路径：`RevolutionFrameWork_Unity/Tests/RevServices.Offline/RevServices.Offline.csproj`；直接链接 `RevServices.cs`、`RevServiceHub.cs` 和三个纯 C# 服务接口，不依赖 Unity 的 Support 层。
+- 运行：在仓库根执行 `dotnet run --project RevolutionFrameWork_Unity/Tests/RevServices.Offline/RevServices.Offline.csproj -c Release`。9 项回归覆盖默认懒创建、首次事件前 `eager`、owner / 重复注册、构造 / OnInit / Tick 宿主失败回滚及重入登记保护；2026-10-19 本轮实跑 **9/9 通过**。此项不替代 Unity Play / AB / 真机验证。
+
+### 2.2 当前入库的热更离线工程
 
 - 路径：`RevolutionFrameWork_Unity/Tests/RevHotUpdate.Offline/RevHotUpdate.Offline.csproj`，`OutputType=Exe`、`TargetFramework=net10.0`；链接真实 `Assets/Revolution.HotUpdate/Runtime/Core/RevHotManifest.cs` 与 `RevHotBundleInfo.cs`。
 - 入口：同目录 `Program.cs`，18 项断言覆盖清单身份（平台/渠道/环境）、依赖闭包/环、安全包名/版本、哈希算法/格式、序列化往返/截断、WebGL Hash128/CRC 门禁；未覆盖 Unity AB 真加载、候选激活回退、下载 Range 或跨启动续传。
@@ -132,6 +137,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 - **推送目标**：工作副本配了多个远程（个人 fork + 原仓库）时，先 `git remote -v` 确认要推哪一个再推，别默认 `origin`。
 - 提交信息统一中文；PowerShell 下用 `git commit -F <UTF-8 文件>`，**不要** `-m "多行中文"`（会乱码 / 解析失败，已踩过）；临时信息文件提交后删掉，别被 `git add -A` 误带入。
 - 修已推送提交的信息需要 `commit --amend` + `push --force-with-lease`——**属于改写历史，先得到人的明确同意**，并先核对该提交的作者是不是本人。
+- **完成即交付（自动推送）**：一次任务里完成的功能改动，按上面规则确认暂存范围后，**直接提交并推送一次，不等用户催**。推送目标按上一条先 `git remote -v` 确认（本仓库 `main` 跟踪 `upstream/main`）。与功能无关的 Unity 生成噪声（`ProjectSettings*`、仅换行符差异的 `packages-lock.json`、`TimelineSettings.asset`、来历不明的空文件等）**不提交**，留在工作区并向用户说明；文档/Skill 改动推完即视为交付完成，生成分支由 CI 自动重建。
 
 ## 6. 收尾习惯
 

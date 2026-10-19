@@ -231,6 +231,7 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
       <span class="n on">③ 差值 = 你的真实代价</span>
     </div>
     <p>用第 ③ 步的差值做决策，比任何"听说要涨 30%"都准。（安卓看 APK / AAB 的大小；小游戏看上传时的代码包大小。）</p>
+    <p>后续<b>内置资源变化</b>可打开 <code>Revolution.Tools/平台/包体大小预测</code>：在 Android APK / Windows 页签分别选择同资源、同配置的实测产物（Windows 选与 <code>_Data</code> 同级的 <code>.exe</code>），改资源后点“重新扫描当前内置资源”。工具根据 <code>StreamingAssets</code> / <code>Resources</code> 原始文件差值显示粗估范围；没有基准不提供总包体预测。它不建包、不切平台，也<b>不能估算裁剪等级、脚本、场景或包依赖变化</b>，不适用于 AAB / Windows 安装器。裁剪开关的代价仍须照上面三步出包实测。</p>
 
     <h3>影响大小的几个因素（供你预判）</h3>
     <div class="table-wrap">
