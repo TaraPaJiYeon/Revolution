@@ -266,11 +266,13 @@ RevServices.Unregister&lt;ISoundService&gt;();   <span class="c">// 释放内存
     <div class="card">
       <div class="h">第 3 步：一行注册</div>
       <div class="when">放在启动入口，或这个服务所属模块的 Awake / OnEnable 里 —— 不用静态类、不用缓存字段、不用链式、不用 Build</div>
-<pre>RevServices.Register&lt;ISoundService, SoundServiceWithDeps&gt;();   <span class="c">// 接口 → 实现（零反射；第一次被取用时才创建）</span>
+<pre>RevServices.Register&lt;ISoundService, SoundServiceWithDeps&gt;();   <span class="c">// 默认懒创建：首次取用才 new</span>
+RevServices.Register&lt;IAtlasListener, AtlasListener&gt;(owner: this, eager: true); <span class="c">// 首个外部事件发生前即创建</span>
 RevServices.Register&lt;IConfigService&gt;(Config.Load());           <span class="c">// 已有的对象（注销时容器不会 Dispose 它）</span>
 RevServices.Register&lt;IDebugService&gt;(s =&gt; <span class="k">new</span> DebugService(  <span class="c">// 需要构造参数：写个工厂（工厂里可以取别的服务）</span>
     s.GetRequired&lt;IConfigService&gt;().DebugLevel));</pre>
       <div class="note">三种写法对应三种来源：<b>类型对类型</b>（容器 new 它）、<b>已有实例</b>（你 new 好的）、<b>工厂</b>（要参数 / 要先读配置）。<b>重复注册会当场报错</b>（框架不静默覆盖）：想换实现，先 <code>Unregister</code> 再 <code>Register</code>。</div>
+      <div class="note"><b>默认懒创建，首次引擎事件不能错过时才用 <code>eager: true</code>：</b><code>Register&lt;I, T&gt;(object owner = null, bool eager = false)</code>。立即创建会在注册返回前执行构造和 <code>OnInit</code>；例如 Unity 的 <code>SpriteAtlasManager.atlasRequested</code> 首次触发前必须有人监听，否则 UI 可能一直白图。<code>eager</code> 只适用于类型对类型重载，工厂和实例重载不变；旧版框架快照可注册后立刻 <code>GetRequired&lt;I&gt;()</code>。立即创建失败撤销本次登记并保留原始异常；默认懒创建失败则保留登记供下次取用重试。</div>
     </div>
 
     <div class="card">
@@ -671,6 +673,7 @@ RevServices.Get&lt;IDebugService&gt;()?.Draw();                         <span cl
           <tr><td class="c">7</td><td><b><code>owner</code> 传了值类型 / 临时对象</b></td><td><code>UnregisterAllOf(...)</code> 返回 0，服务没被清掉</td><td><code>owner</code> 传<b>引用类型</b>且前后是同一个对象（通常就是 <code>this</code>）</td></tr>
           <tr><td class="c">8</td><td><b>注册了可 Tick 的服务却没人取用</b></td><td><code>OnTick</code> 一直没被调用</td><td>服务是<b>第一次被取用时才创建</b>，创建后才开始被驱动；需要启动期就激活，注册后立刻 <code>Get</code> 一次</td></tr>
           <tr><td class="c">9</td><td><b>在 OnInit / 工厂里注销自己</b></td><td><code>在 OnInit 过程中被注销了，本次取用作废</code></td><td>不要在创建过程中注销自己；需要退出时在别处注销</td></tr>
+          <tr><td class="c">13</td><td><b>构造函数订阅一次性的 Unity 图集事件，但只调用了 Register&lt;I, T&gt;()</b></td><td><code>atlasRequested wasn't listened to</code>；图集已加载但 <code>sprite.texture</code> 仍为空</td><td>首次事件前用 <code>Register&lt;I, T&gt;(owner: this, eager: true)</code>，旧版可注册后立即 <code>GetRequired&lt;I&gt;()</code>；退出时按 owner 注销</td></tr>
         </tbody>
       </table>
     </div>
@@ -747,7 +750,8 @@ Assert.AreEqual(0, cfg.DisposeCount);
 // ⑦ 同一个实例注册成两个服务类型：每帧只驱动 1 次；最后一个持有者注销时才 Dispose
 // ⑧ OnInit 失败：原始异常抛给调用方，容器创建的实例被 Dispose（不泄漏），注册还在（可重试）
 // ⑨ 个别 Dispose 抛错：其余照常释放、表已清空，最后统一抛 AggregateException
-// ⑩ 已创建服务的 GetRequired 热路径：10 万次 0 字节分配（5 轮取最小）</span>
+// ⑩ 已创建服务的 GetRequired 热路径：10 万次 0 字节分配（5 轮取最小）
+// ⑪ eager: true 返回前已订阅事件；初始化失败不残留登记，owner 注销只释放一次</span>
 
 RevServices.UnregisterAll();   <span class="c">// 测试收尾：清干净，别污染下一个用例</span></pre>
 
@@ -786,6 +790,7 @@ Assert.Throws&lt;InvalidOperationException&gt;(() =&gt; a.GetRequired&lt;ISessio
     <h3><code>RevServices</code>（推荐）</h3>
     <div class="cheat">
       <div><b>注册（类型对类型）</b><code>RevServices.Register&lt;IX, X&gt;()</code></div>
+      <div><b>首个外部事件前创建</b><code>RevServices.Register&lt;IX, X&gt;(owner: this, eager: true)</code></div>
       <div><b>注册（已有实例）</b><code>RevServices.Register&lt;IX&gt;(实例)</code>（注销时不 Dispose）</div>
       <div><b>注册（要参数）</b><code>RevServices.Register&lt;IX&gt;(s =&gt; new X(...))</code></div>
       <div><b>记下谁注册的</b>以上都可加 <code>owner: this</code></div>

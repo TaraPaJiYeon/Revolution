@@ -184,7 +184,7 @@ private void OnDestroy() { RevServices.UnregisterAllOf(this); }
 - **依赖在 `OnInit(services)` 里取，不是构造函数**（实现 `RevIServiceInit`）；循环依赖会报错并打印依赖链。
 - **重复注册当场报错**（要换实现先 `Unregister`）；重进场景报"已经注册过了"= 上次没注销，**补注销，别用"先试着注销一下"掩盖**。
 - **不要把取到的服务长期存成字段**：注销后它是已 `Dispose` 的对象；要用就现取（一次字典查找，热路径 0 分配）。
-- **服务第一次被取用时才创建**（才 `OnInit` / 才被每帧驱动 `RevITickable`）：要启动期就激活，注册后立刻 `Get` 一次。
+- **类型注册默认懒创建**（首次取用才执行构造 / `OnInit` / `RevITickable` 驱动）。服务若在构造函数里订阅 Unity 的首次外部事件，必须抢在事件前调用 `Register<I, T>(owner: this, eager: true)`；旧写法“注册后立刻 `GetRequired<I>()`”也可。`eager` 创建失败会撤销本次登记并抛原始原因；默认懒创建失败仍保留登记供重试。实例/工厂重载不带这个参数。
 - **全局服务集中在启动入口注册**；跟模块 / 场景走的，在它的 `Awake` 注册、`OnDestroy` 注销。`Debug.Log(RevServices.Dump())` 随时查"谁还占着"。
 - **判据**：关屏就结束 → 面板；无界面、只活一局/一段玩法 → `RevLogicBase`；跨域长期共享 → 服务。别为少写构造参数引入服务定位器。
 - **单测**：`[SetUp]` 里 `Register<IX>(new FakeX())`，`[TearDown]` 里 `RevServices.UnregisterAll()`。

@@ -87,7 +87,8 @@
 - **重进场景 / 重开模块报"已经注册过了"** → 上一次没注销。补注销，**别用"先试着注销一下"掩盖**（会掩盖真正的泄漏）；想换实现先 `Unregister`。
 - **把取到的服务长期存成字段** → 注销后字段指着一个已 `Dispose` 的对象。要用就现取（一次字典查找，0 分配）。
 - **"取不到服务"但明明注册过** → 看错误信息里有没有"★ 它曾经被 Unregister 注销过"：有 = 别处注销了它（查 `Unregister<T>()` / `UnregisterAllOf(...)` 的调用点），不是没注册。
-- **可 Tick 的服务不走 `OnTick`** → 服务是**第一次被取用时才创建**，创建后才被驱动；启动期就要激活，注册后立刻 `Get` 一次。
+- **可 Tick 的服务不走 `OnTick`** → 服务是**第一次被取用时才创建**，创建后才被驱动；启动期就要激活，类型注册用 `eager: true`（或注册后立刻 `GetRequired` 一次）。
+- **监听引擎首次事件的服务漏掉回调（例如 SpriteAtlas 的 `atlasRequested` 导致 UI 白图）** → `Register<I, T>()` 默认只登记、不会调用构造函数；必须在首次事件可能发生前 `Register<I, T>(owner: this, eager: true)`，或紧跟注册调用一次 `GetRequired<I>()`。`eager` 仅适用于类型对类型重载，创建失败会撤销本次注册并保留原始错误；默认懒创建失败仍可重试。
 - **`owner` 传了值类型 / 临时对象** → `UnregisterAllOf` 返回 0。`owner` 传引用类型且前后是同一个对象（通常 `this`）。
 - **`Register<I, T>()` 编译不过** → `T` 必须有**公开无参构造**；需要构造参数就用工厂重载 `Register<I>(s => new T(...))`。
 - **想要"每局一份"** → `RevServices` 只有全局一份；改用 `RevServiceLocator` 的 `AddScoped` + `CreateScope()`。

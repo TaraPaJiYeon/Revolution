@@ -218,7 +218,7 @@ private void OnDestroy() { RevEvent.RemoveAllByOwner(this); }
 
 ```csharp
 // 注册（一行；重复注册当场报错，不静默覆盖；都可加 owner: this）
-void Register<TService, TImpl>(object owner = null)                       // 类型对类型：第一次被取用时才 new，零反射；TImpl 要公开无参构造
+void Register<TService, TImpl>(object owner = null, bool eager = false)  // 默认首次取用才 new；eager: true 注册返回前已创建并 OnInit；TImpl 要公开无参构造
 void Register<TService>(TService instance, object owner = null)           // ★ 已有实例：注销时只摘表，【不】Dispose
 void Register<TService>(Func<RevIServiceLocator, TService> factory, object owner = null)   // 需要参数 / 要先读配置；工厂里可取别的服务
 
@@ -256,7 +256,7 @@ public sealed class BattleModule : MonoBehaviour                          // 跟
   2. **重复注册当场报错**：想换实现先 `Unregister` 再 `Register`；重进场景报"已经注册过了" = 上一次没注销，**补注销，别用"先试着注销一下"掩盖**。
   3. **谁创建谁释放**：`Register<I, T>()` / 工厂 → 注销时 `Dispose`；`Register<I>(实例)` → 只摘表。
   4. **注销后别人手里的引用不会变 null**（但服务已 `Dispose`）→ **不要把取到的服务长期存成字段**，要用就现取（一次字典查找，热路径 0 分配）。
-  5. **服务第一次被取用时才创建**（也才开始 `OnInit` / 被 Tick）：想启动期就激活，注册后立刻 `Get` 一次。
+  5. **服务默认第一次被取用时才创建**（也才开始 `OnInit` / 被 Tick）：想启动期就激活，可 `Register<I, T>(owner: this, eager: true)` 或注册后立刻 `GetRequired<I>()`。构造函数订阅首次引擎事件（如 Unity 图集 `atlasRequested`）必须在事件之前创建，等异步预热时再取会丢请求导致白图。`eager` 只在类型对类型重载上；立即创建失败撤销本次登记并原样抛异常，默认懒创建失败保留登记供重试。
   6. `owner` 传**引用类型**（通常 `this`），前后必须是同一个对象；别传值类型 / 临时对象。
   7. 不要在 `OnInit` / 工厂里注销自己（会报"创建过程中被注销"）。
   8. 同一个实例注册成多个服务类型：每帧只驱动 1 次；最后一个持有者注销才 `Dispose`。

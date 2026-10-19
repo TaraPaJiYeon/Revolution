@@ -78,7 +78,12 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 > GM 指令（112 项断言 + 20000 步随机注册/随机命令行的 fuzz）、热更清单与 URL 规则、ResMap 查表成本基准。
 > **断言要覆盖"不变量"而不只是"正常路径"**：节点不重复、不双归还、计数不为负、状态归零、无残留标记。
 
-### 2.1 当前入库的热更离线工程
+### 2.1 当前入库的 RevServices 离线工程
+
+- 路径：`RevolutionFrameWork_Unity/Tests/RevServices.Offline/RevServices.Offline.csproj`；直接链接 `RevServices.cs`、`RevServiceHub.cs` 和三个纯 C# 服务接口，不依赖 Unity 的 Support 层。
+- 运行：在仓库根执行 `dotnet run --project RevolutionFrameWork_Unity/Tests/RevServices.Offline/RevServices.Offline.csproj -c Release`。9 项回归覆盖默认懒创建、首次事件前 `eager`、owner / 重复注册、构造 / OnInit / Tick 宿主失败回滚及重入登记保护；2026-10-19 本轮实跑 **9/9 通过**。此项不替代 Unity Play / AB / 真机验证。
+
+### 2.2 当前入库的热更离线工程
 
 - 路径：`RevolutionFrameWork_Unity/Tests/RevHotUpdate.Offline/RevHotUpdate.Offline.csproj`，`OutputType=Exe`、`TargetFramework=net10.0`；链接真实 `Assets/Revolution.HotUpdate/Runtime/Core/RevHotManifest.cs` 与 `RevHotBundleInfo.cs`。
 - 入口：同目录 `Program.cs`，18 项断言覆盖清单身份（平台/渠道/环境）、依赖闭包/环、安全包名/版本、哈希算法/格式、序列化往返/截断、WebGL Hash128/CRC 门禁；未覆盖 Unity AB 真加载、候选激活回退、下载 Range 或跨启动续传。
