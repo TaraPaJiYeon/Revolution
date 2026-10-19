@@ -15,6 +15,7 @@
 | `Revolution.Tools/UI/面板代码生成器` | 选预制体 → 勾选控件与事件 → 生成唯一 `.cs`（只读预制体、**绝不覆盖业务代码**）；记住上次的输出目录 / 命名空间 / 层级 / 监听方式；事件按节点**名字**分发 |
 | `Revolution.Tools/平台/生成 IL2CPP 裁剪保护 (link.xml)` | 扫 `RevUIPanel` / `RevUIPart` / `RevSingleton` 派生类 + 源码里用到的原生模块 → 生成业务侧 `Assets/link.xml`（已有手写文件弹窗确认，**不静默覆盖**）。主推关裁剪，万一要开时用 |
 | `Revolution.Tools/平台/首包体积审计 (Resources)` | 列所有 `Resources` 目录的文件数与体积（按体积排序，含最占地方的 10 个文件），小游戏首包预算对照 |
+| `Revolution.Tools/平台/包体大小预测` | 独立窗口的 Android APK / Windows 发布目录双页签；录入同配置的实测包体基准，扫描当前内置 `StreamingAssets` / `Resources` 原始文件差值，给出粗估范围。无基准不输出总包体；不会打包、切平台或修改资源。AAB/安装器/脚本与场景变化不在预测范围，最终以实际构建为准 |
 | `Revolution.Tools/配置表/导表工具` | Excel → 数据（可只出数据 / 全量出代码+数据）；拖入即读、Excel 开着也能读、改表自动重读、只写有变化的文件 |
 | `Revolution.Tools/配置表/快速导出（仅数据，不生成代码）` | 只改数值时用：**不触发脚本编译** |
 | `Revolution.Tools/配置表/快速导出（用上次的 Excel 源）` | 用上次源直接重导 |

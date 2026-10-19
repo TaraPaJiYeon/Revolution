@@ -13,6 +13,7 @@
 
 ### 新增
 
+- **包体大小预测编辑器窗口**：菜单 `Revolution.Tools/平台/包体大小预测`，Android APK 与 Windows 发布目录双页签。录入同一构建配置的实测产物作为基准，扫描 `Assets` 下的 StreamingAssets / Resources 原始文件变化，显示平台差异的粗估范围与数据口径；基准按工程存在本机 EditorPrefs，无基准不伪造总量。工具只读、不出包；代码、场景、导入配置、引擎版本变动需重新录入实测基准，最终大小仍以真实出包为准。
 - **`RevServices`：服务定位器的"一行注册、直接取、可注销"入口**（`Runtime/RevServiceLocator/Facade/RevServices.cs`）：
   - 解决的痛点：原来的 `RevServiceLocator.Create()…Build()` 要自己写静态类 + `static readonly` 缓存容器 + 链式调用，而且 `Build()` 之后冻结、**没法注销单个服务**，注册过的服务会一直占着内存。
   - 用法：`RevServices.Register<ISound, Sound>()`（一行；另有"已有实例"和"工厂"两个重载，都可带 `owner: this`）· `RevServices.GetRequired<ISound>()` / `Get` / `TryGet` / `IsRegistered` · `RevServices.Unregister<ISound>()` / `UnregisterAllOf(this)` / `UnregisterAll()` · `RevServices.Dump()`（谁注册了什么、谁还占着）。
