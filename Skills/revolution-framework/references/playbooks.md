@@ -468,12 +468,17 @@ PieceDef def = PieceCatalog.Get(PieceKind.Shield, StarTier.Two);   // 目录类�
 - `GameConfig.Initialize` 必须做的校验，**全部攒成一份清单一起抛出**（策划一轮改完，而不是玩一步炸一步）：表是否加载且非空；枚举 Kind 覆盖（缺行、多行、不认识的行都报）；数值有限（**必须显式拒 `NaN/Infinity`**，`NaN` 与任何数比较都是 false，会绕过区间检查）；区间；整数参数不能是小数；必填数值缺失；模板占位符；跨参数约束（`Min ≤ Max`）；`BalanceRule` 里**代码没读到的多余键**（多半是键名拼错，改了不生效）；与预制体绑定的行数（章节数）。失败时旧配置保持不变。
 - 业务服务在启动入口注册时配置还没加载，所以**构造函数与字段初始化里不得读配置**；需要初始状态的用惰性属性（RevGame：`_unlockedKinds` 首次使用时从 `PieceConfig.UnlockedAtStart` 创建）。
 - 战斗热路径不要按名称反复查表：领取/应用时把数值**缓存进字段**（RevGame 的 `_prepXxx`），热路径只读字段。
-- 退出时先 `GameConfig.Reset()` 再 `RevDataTableManager.Unload<>()`，之后迟到的读取立刻报错而不是读到半卸载数据。
+- 退出时先 `GameConfig.Reset()` 再 `RevDataTableManager.Unload<>()`（它会清数据并还掉资源引用），之后迟到的读取立刻报错而不是读到半卸载数据。
+- `LoadAsync<T>()` 本身幂等（已加载直接返回缓存，在途请求共享同一个任务），但"启动只装配一次"的开关要在**成功之后**才置位，这样加载失败时玩家点返回还能重试真实加载。
+- ★ **编辑器断言/工程外测试要直读 txt，就必须用编译开关把那个类挡在真机包外**（`#if UNITY_EDITOR || <自定义离线符号>`）。原因有两层：出包后 `Data/*.txt` 在 AB 包里，磁盘上没有散文件，`File.ReadAllText` 必然失败；而且自己拼路径读资源会绕过缓存、引用计数、分组卸载和热更（铁律 4）。它与运行时共用同一批生成表类、同一个解析器和同一个校验入口，差别只有"文本从哪来"，所以断言结论对真机仍然成立。**验证方法**：复用 Unity 的 `.rsp` 但去掉 `-define:UNITY_EDITOR` 再编译一次运行时程序集，0 错误才算证明运行时不依赖这个类。
+- 非 Play 的编辑器断言之所以拿不到资源系统，是因为它没执行过 `RevInitialize.Initialize()`，策略链未装配；不要为了跑断言在非 Play 下硬初始化框架。
 
 **5. 导表：必须用框架导表工具生成，不手写、不手改生成物**
 
 - 在 Unity：`Revolution.Tools/配置表/导表工具`，把 `配置表/` **文件夹**（不是单个 xlsx）加进来；只改数值点“仅数据”（不触发脚本编译），增删字段/表点“导出”。
-- 生成的 `*.cs` 在 `Generated/`、`*.txt` 在 `<资源根目录>/Data/`，**都要提交**；新增表后 Unity 编辑器版会自动生成资源映射，WPF 版或无头导出必须手动补 `ResMap.txt` 的 `Data/<表名>|data_tables|<表名>` 并跑一次 RevAB“仅生成映射”，否则**编辑器好用、真机 `PathNotMapped`**。
+- 生成的 `*.cs` 在 `Generated/`、`*.txt` 在 `<资源根目录>/Data/`，**都要提交**；新增表后 Unity 编辑器版会自动生成资源映射，WPF 版或无头导出必须手动补 `ResMap.txt` 的 `Data/<表名>|<数据包名>|<表名>` 并跑一次 RevAB“仅生成映射”，否则**编辑器好用、真机 `PathNotMapped`**。
+- **数据表要进 AB 包，AB 标记打在 `Data` 文件夹上，不要逐文件打**：Unity 的子资源继承文件夹的 `assetBundleName`，所以每个 `*.txt.meta` 里的 `assetBundleName` 应当是**空的**（新建 meta 时照抄同目录现有数据文件的 meta，不要自己填包名，填了反而和项目约定不一致）。包名由项目的打包脚本集中维护（RevGame 是 `GameResourceBuild.Groups` 里的 `{ "Data", "data_tables" }`，`markMode = ScanExisting` + 先清空再按目录打标），所以**新增表不需要改打包脚本也不需要改 meta**，自动落进同一个数据包。
+- 装配前先核对三件事能对上，可写脚本离线检查（不需要开 Unity）：① 生成表 `base("Xxx")` → `ResourceRoot`（默认 `"Data/"`）+ `ResourceName` 推出的逻辑路径；② `ResMap.txt` 里有这条 `逻辑路径|包名|资源名`；③ 包名与打包脚本里该目录的包名一致。三者任一不符，真机就是 `PathNotMapped` / `FileNotExist`。
 - **无头导出**（Unity 已占用工程时不能再开第二个批处理 Unity）：导表核心 `Assets/Revolution/Editor/RevExcelTool/Core/*.cs` 是纯 C#，加上运行时的 `RevDataTextFormat.cs` 即可编成控制台壳，按 `RevExcelService.Read → ExcelExportPlanner.Plan → Write` 的顺序调用，产物与 Unity 内导出一致。用它之前**先对一份已有表回归**：导出到临时目录，与工程里现有生成物逐字节比对（忽略“生成时间”行），一致再用。
 - Excel 注意：`openpyxl` 写布尔会被读成 `TRUE/FALSE`（运行时 `ToBool` 认）；空的可选列留空即可（行内始终补齐到表头列数，不会被当坏行）；以 `#` 开头的工作表是说明页，不导出；**表名=工作表名=生成类名前缀，不要和已有类型重名**（导表会报）。
 
