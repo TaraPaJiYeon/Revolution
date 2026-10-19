@@ -19,6 +19,8 @@
 | `Revolution.Tools/配置表/导表工具` | Excel → 数据（可只出数据 / 全量出代码+数据）；拖入即读、Excel 开着也能读、改表自动重读、只写有变化的文件 |
 | `Revolution.Tools/配置表/快速导出（仅数据，不生成代码）` | 只改数值时用：**不触发脚本编译** |
 | `Revolution.Tools/配置表/快速导出（用上次的 Excel 源）` | 用上次源直接重导 |
+
+> 玩法数值**必须**经这个导表工具进游戏，而不是写在 C# 里；“什么该进表、怎么分表、怎么校验与验证”见 `playbooks.md` R22。Excel 来源请添加**整个配置表文件夹**而不是单个 xlsx，新增工作簿才不会被漏导。Unity 已占用工程时可用工程外的无头导出（链接 `RevExcelTool/Core/*.cs` + `RevDataTextFormat.cs`，做法见 R22 第 5 节）。
 | `Revolution.Tools/热更新/热更清单窗口` | 生成 `RevHotManifest.txt` / `RevHotBuiltin.txt` + 自检（`Revolution.HotUpdate` 扩展包） |
 | `Revolution.Tools/热更新/Demo/① 一键：打包 + 清单 + 装配本地 CDN` | 热更 demo：构建序号 +1 → 收集校验 → 打 AB → 写映射表/产物清单 → 拷首包 → 生成清单 → 装配 `{工程根}/LocalCDN`（内容先、清单最后） |
 | `Revolution.Tools/热更新/Demo/②③④` | 打开本地 CDN 目录 / 清空客户端本地热更目录（验证回退出包基线）/ 打印该填的 URL |
