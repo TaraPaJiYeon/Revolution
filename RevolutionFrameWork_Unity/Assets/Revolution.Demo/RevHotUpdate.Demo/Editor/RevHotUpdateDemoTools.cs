@@ -195,12 +195,31 @@ namespace Revolution.Demo.HotUpdate
             bool ok = EditorUtility.DisplayDialog("清空客户端本地热更目录", message, "删除", "取消");
             if (ok == false) return;
 
-            Directory.Delete(localRoot, true);
+            DeleteClientCache();
             Debug.Log($"[RevHotDemo] 已删除 {localRoot} —— 现在回到出包基线了（再点“检查更新”会发现又要重新下一遍）。");
+        }
+
+        // CLI 已通过 --confirm 表达允许删除，不再弹会阻塞无人值守流程的对话框。
+        internal static string DeleteClientCache()
+        {
+            string persistentRoot = Path.GetFullPath(Application.persistentDataPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string root = Path.GetFullPath(Path.Combine(persistentRoot, "RevHotUpdate"));
+            if (Path.GetDirectoryName(root) != persistentRoot) { throw new InvalidOperationException("客户端缓存路径越界"); }
+            if (Directory.Exists(root))
+            {
+                if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) { throw new InvalidOperationException("拒绝递归删除重解析点：" + root); }
+                Directory.Delete(root, true);
+            }
+            return root;
         }
 
         [MenuItem("Revolution.Tools/热更新/Demo/④ 打印本次要填的 URL（排错用）", false, 24)]
         public static void PrintUrls()
+        {
+            Debug.Log(DescribeUrls());
+        }
+
+        internal static string DescribeUrls()
         {
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
             string platform = ABBuildSetting.GetPlatformName(target);
@@ -214,7 +233,7 @@ namespace Revolution.Demo.HotUpdate
                 $"  最新资源版本包目录      ：{ComposeUrl(platform, appVersion, resVersion, "bundles/" + DemoBundleName)}\n" +
                 $"  CDN 根（本机）          ：{LocalCdnRoot()}\n" +
                 $"  客户端落地目录          ：{Path.Combine(Application.persistentDataPath, "RevHotUpdate")}";
-            Debug.Log(urls);
+            return urls;
         }
 
         // ============================================================

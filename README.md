@@ -13,8 +13,9 @@
 
 ## 📖 简介
 
-**Revolution** 是一套**从零手写**的 Unity 游戏框架：**19 个运行期模块 + 2 套编辑器工具**（Runtime 184 个 `.cs` / 约 3.03 万行），
+**Revolution** 是一套**具有革命性**的 Unity 游戏框架：**19 个运行期模块 + 2 套编辑器工具**（Runtime 184 个 `.cs` / 约 3.03 万行），
 覆盖资源加载 / UI / 动作序列 / 状态机 / 音效 / 计时器 / 输入 / 日志 / 事件 / GM 指令 / 导表 等常规需求。
+它不依赖任何的第三方插件和框架，**只用 Unity 官方包**，同时支持热更新框架的热插拔
 
 > ⚠️ **先说清楚：框架本体不自带热更新** —— 既没有代码热更（HybridCLR / ILRuntime / xLua），也没有 AB 远程下载与版本管理
 > （AB 只从本机 `StreamingAssets` 读）。但**资源热更现在有官方扩展包 `RevHotUpdate`**（独立包、按需安装、不装零影响）；
@@ -601,3 +602,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 **Made with ❤️ by Revolution**
 
 [⭐ Star](https://github.com/Yokino337088/Revolution) | [🐛 Issues](https://github.com/Yokino337088/Revolution/issues) | [📖 文档](Revolution.Document) | [MIT License](LICENSE)
+
+## 通用业务自动化
+
+Python + CLI 可以调用 Revolution 编辑器工具与 GM，并组合任意业务场景的循环、等待、断言和报告。入口与接入模板见 [Automation 使用说明](Automation/README.md)，网页文档见 [自动化工具](Revolution.Document/自动化工具/Revolution自动化工具使用说明.html)。
