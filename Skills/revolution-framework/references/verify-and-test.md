@@ -132,6 +132,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 - **推送目标**：工作副本配了多个远程（个人 fork + 原仓库）时，先 `git remote -v` 确认要推哪一个再推，别默认 `origin`。
 - 提交信息统一中文；PowerShell 下用 `git commit -F <UTF-8 文件>`，**不要** `-m "多行中文"`（会乱码 / 解析失败，已踩过）；临时信息文件提交后删掉，别被 `git add -A` 误带入。
 - 修已推送提交的信息需要 `commit --amend` + `push --force-with-lease`——**属于改写历史，先得到人的明确同意**，并先核对该提交的作者是不是本人。
+- **完成即交付（自动推送）**：一次任务里完成的功能改动，按上面规则确认暂存范围后，**直接提交并推送一次，不等用户催**。推送目标按上一条先 `git remote -v` 确认（本仓库 `main` 跟踪 `upstream/main`）。与功能无关的 Unity 生成噪声（`ProjectSettings*`、仅换行符差异的 `packages-lock.json`、`TimelineSettings.asset`、来历不明的空文件等）**不提交**，留在工作区并向用户说明；文档/Skill 改动推完即视为交付完成，生成分支由 CI 自动重建。
 
 ## 6. 收尾习惯
 
