@@ -2,6 +2,12 @@
 
 > 这个框架的哲学是"**没有'猜它能不能工作'，只有'跑给看'**"。改完代码不要停在"应该没问题"。
 
+## 0. Revolution.Automation 业务回归入口
+
+先读 `automation-integration.md`，定位目标工程的 CLI/Editor Bridge 和真实业务GM。开发完成后环境允许就执行 `scenario validate → scenario run`；可联合 `revolution-automation-tester` 完成环境发现、精确断言、MCP观察与报告。验证不止列出命令，更要记录本次实际执行结果。
+
+使用未暂停图形Play与 `--mode live`，batch仅资产操作。刚补接线需等编译并从运行期 `gm list` 确认；场景每轮清理，保护用户原有Play与未保存场景。通过必须检查完整response、场景成功、轮次齐全、Unity错误为零且无取消。截图/AB/真机等未执行项单列，不被离线断言或历史数字替代。
+
 ## 1. 五级验证（由快到慢，按改动范围选）
 
 | 级别 | 适用 | 怎么做 |

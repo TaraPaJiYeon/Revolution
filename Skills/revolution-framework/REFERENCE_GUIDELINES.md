@@ -14,6 +14,18 @@
 
 **结论要可执行**：每条给出"改哪一行 / 改成什么"，别只说"建议优化"。
 
+## 自动化可验收检查
+
+- [ ] 业务变更有正常路径、非法前置与结果数据断言，而不是只有GM成功或状态回Idle。
+- [ ] 优先复用已安装的 Revolution.Automation CLI/Editor Bridge；未把它与可选Unity MCP混为一谈。
+- [ ] GM只调用真实业务入口，注册/注销对称且限定开发环境；查询无副作用，参数有上限。
+- [ ] scenario.setup只执行一次，每轮需要的数据由steps/cleanup正确复位，整场teardown能收尾。
+- [ ] 当前注册表经过Play中gm list确认，脚本修改后完成编译；未保存场景和原始Play状态受保护。
+- [ ] 已有完整作业response与scenario-result证据；未把编译/JSON校验/Editor帧间隔当业务或真机通过。
+- [ ] 失败保留根因和原始报告，不放宽expected/门限、不无限重试；未验证项明确列出。
+
+详细执行配方见 `references/automation-integration.md`。
+
 ## 1. 清理与生命周期
 
 - [ ] 每个计时器、每帧回调与事件监听有明确归属和收尾：显式 `owner` + 对应清理、模块 `OpenScope()`，或开启 `TakeOverOwner` 的活动 `RevScope` 兜底 + `Exit`。不要把已由域接管的注册判为泄漏；显式 owner 优先，未 `Attach` 的显式 owner 不会因此改归当前域。

@@ -59,7 +59,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | 先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再按 `references/playbooks.md`（22 个任务配方）选接口；功能里出现任何策划会调的数字，同时读 R22 |
 | 血量/攻击/倍率/概率/冷却/奖励/关卡阵容/说明文案里的数字 / "配置怎么管" / 审查有没有写死数值 | **配置数值** | `references/playbooks.md` R22（Excel → 导表 → 启动校验 → 强类型读取）+ 铁律 21 |
 | 自定义域 / 登录大厅战斗结算退出 / FSM 联动 | **统一流程** | 先读《Revolution 官方编程架构规范》，再读 `references/playbooks.md` R19 与 `modules-core.md` §12 |
-| 关键业务 GM 测试接口 / AI 或 MCP 自动验收 | **可测试业务** | `references/playbooks.md` R21；明确只提供 GM 后端，没有已接通的 GM→MCP 桥 |
+| 关键业务 GM 测试接口 / 一句话测试 / AI 或 MCP 自动验收 | **开发与自动化闭环** | 先读 `references/automation-integration.md`，再按 R21 接真实业务；已有 Revolution.Automation 时复用其 CLI/Editor 桥，联合 `revolution-automation-tester` 执行，不假设 Unity MCP 已连接 |
 | "XX 和 YY 用哪个 / 该不该用事件 / 要不要新建 System" | **选型** | `references/decision-guide.md` §1 对照表 |
 | "框架有没有 XX 能力 / 能不能 XX"（尤其是你不确定 API 存不存在时） | **查边界** | `references/decision-guide.md` §2「不存在 / 不做」清单（防幻觉） |
 | "XX 不工作 / 出现 XX 现象 / 报错 XX / 编辑器好真机坏" | **排错** | `references/troubleshooting.md`（症状 → 原因 → 先查什么） |
@@ -152,6 +152,18 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 5. 交付 → 验证：文档 / demo / GM 命令 / change 说明同步
 ```
 
+## 自动化优先的开发交付（新增约定）
+
+开发功能时先确定可验证的真实业务入口与预期：动作、无副作用查询、结果断言、每轮复位、整场收尾。完成实现后，环境允许时立即执行 Revolution.Automation 回归，不只提供教程或命令等待用户手动运行。
+
+- 读取 `references/automation-integration.md`。已有 `revolution-automation-tester` 时加载或直接遵循已加载协议；开发规范由本Skill负责，发现/执行/证据由测试Skill负责，避免重复造客户端脚本。
+- 识别 `RevGM`（后端）、Automation（CLI/Editor文件桥）、Unity MCP（可选观察/交互）三层。已有桥直接复用；不存在时明确缺项，不虚构工具、不假定所有项目都已连接。
+- 测试前记录原始编辑器状态；资产变更与Play串行，保护未保存场景；业务回归只能在未暂停图形Play，不用batch代替。
+- 刚修改GM/脚本后等编译，运行期 `gm list` 确认注册。使用真实动作与数据断言，不能把回Idle、命令成功当全部业务成立。
+- 场景 `setup` 全场一次、`cleanup` 每轮、`teardown` 全场收尾；改参数后导表、校验与回归一起维护。异常与拒绝场景也应验证状态未改变。
+- 最终依据完整response和scenario-result判定轮次、错误、取消与清理；输出可复现报告路径，分别标记编译/离线/Play/AB/MCP视觉/真机证据。
+- 若缺测试接线且用户允许编辑，补最小项目侧开发态GM或Check并实际继续测试；不能重写玩法、改生产存档或降低断言来制造通过。没有执行权限/桥接时报告阻塞，不宣称已完成运行验证。
+
 ## 典型工作流
 
 ### A. 写新功能（7 步）
@@ -192,5 +204,6 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 - **按任务找**（优先）：`references/playbooks.md`（22 个配方）· `references/decision-guide.md`（选型 + 不存在清单）· `references/troubleshooting.md`（症状速查）
 - **查 API 与专题**：`references/modules-core.md` · `references/modules-content.md` · `references/startup-and-platform.md` · `references/resource-and-ab.md` · `references/ui-and-layering.md` · `references/hot-update.md`
 - **规范与交付**：`references/code-style.md` · `references/editor-tools.md` · `references/verify-and-test.md` · `references/docs-map.md` · `references/pitfalls.md`（坑位 + 已修复缺陷的现行契约）
+- **自动化开发闭环**：`references/automation-integration.md`；执行任务联合 `revolution-automation-tester`，先确认真实工具/GM，再运行与验收。
 - **审查**：`REFERENCE_GUIDELINES.md`
 - **骨架模板**（`templates/`）：`RevBoot.cs.txt`（启动入口）· `RevXxxPanel.cs.txt`（UI 面板）· `RevXxxService.cs.txt`（业务服务）· `RevXxxDemo.cs.txt`（Demo 场景脚本）· `offline-harness/`（工程外断言工程）
