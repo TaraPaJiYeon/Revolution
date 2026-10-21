@@ -64,17 +64,20 @@ SetData(new DetailData { Id = Data.Id, Count = Data.Count + 1 });   // 写法 B�
 | 业务：数据异步到达 | 回调里 `panel.SetData(..)`；面板没开就 `RevUI.Open<T,TData>(data)` | 网络回包 / 协程加载完成 |
 | 面板内部 | 一般不调 `SetData`；原地改后 `RefreshView()` | — |
 
-## 1.2 控件事件三种接法（可混用）
+## 1.2 控件事件三种接法（优先用方法特性）
 
-① **方法特性**（九个，标在面板/Part 任意方法上）：`[RevButtonClick("btnStart")] void OnStart()`；另有 `RevButtonLongPress` / `RevButtonLoosen` / `RevToggleChanged` / `RevSliderChanged` / `RevInputChanged` / `RevInputEndEdit` / `RevDropdownChanged` / `RevScrollChanged`。控件名 = 节点名（区分大小写；多级路径只取最后一段）；**写错第一次装配就报"找不到节点"**，不静默。参数形状只支持文档列出的几种（点击：`()` / `(string nodeName)`；Toggle：`()` / `(bool)` / `(string, bool)`…），其它装配时报错。
-② **重写节点名回调**：`OnClick(string nodeName)` 等（集中处理，`switch (nodeName)`）。**高频事件（ScrollRect 滚动 / 输入框每次敲键）首选它**：方法特性走反射调用，每次触发一次小分配。
-③ **`[RevBind]` 字段 + 自己 `AddListener`**：要用 UGUI 其它回调（拖拽 / 悬停）或第三方控件时。自研控件用 `RevUI.RegisterAutoEvent<T>((dispatch, c) => …)` 接进来。
+**项目默认规范：UGUI 控件事件优先用方法特性标注。** 对普通点击、Toggle、Dropdown 等低频交互，这是最清晰的默认写法；不需要字段和手动订阅/退订，也不容易因面板复用造成重复监听。只有事件特性无法覆盖的控件能力或经 Profiling 确认的高频性能热点，才选另外两种接法。
+
+① **方法特性（默认首选）**（九个，标在面板/Part 任意方法上）：`[RevButtonClick("btnStart")] void OnStart()`；另有 `RevButtonLongPress` / `RevButtonLoosen` / `RevToggleChanged` / `RevSliderChanged` / `RevInputChanged` / `RevInputEndEdit` / `RevDropdownChanged` / `RevScrollChanged`。控件名 = 节点名（区分大小写；多级路径只取最后一段）；**写错第一次装配就报"找不到节点"**，不静默。参数形状只支持文档列出的几种（点击：`()` / `(string nodeName)`；Toggle：`()` / `(bool)` / `(string, bool)`…），其它装配时报错。
+② **重写节点名回调**：`OnClick(string nodeName)` 等（集中处理，`switch (nodeName)`）。仅当想集中分发很多事件，或 ScrollRect / 每次键入等高频回调经 Profiling 确认为 GC 热点时优先；方法特性每次触发有小分配，但普通按钮等低频交互无需为了微小开销绕开特性。
+③ **`[RevBind]` 字段 + 自己 `AddListener`**：仅用于特性与节点名回调都不能覆盖的 UGUI 其它回调（如拖拽/悬停）或第三方控件；必须按面板生命周期配对解绑。自研控件可用 `RevUI.RegisterAutoEvent<T>((dispatch, c) => …)` 接入框架事件绑定。
 - **长按判定**：按住 ≥ `RevUISetting.ButtonLongPressSeconds`（默认 0.5s），**松开时**触发；只对 `Button` 生效；同一次操作也触发"松开"。
 - 同一次事件里"重写回调"与"方法特性"**两条路都会走**——同一件事只放一处做。
 
 ## 1.3 动画（内置库，不依赖 DOTween）
 
-- 面板 / Part：重写 `ShowAnimation` / `HideAnimation` 一行预设（`RevUIAnimPreset.PopIn` / `PopOut` / `FadeIn` / `SlideInFromTop` … 共 14 个）；显示动画**播完才算"打开完成"**，隐藏动画**播完才回收**。想自己掌控节奏重写 `PlayOpenTransition(Action onDone)`，★ **结束时必须调 `onDone`**，否则面板永远停在 `Opening`。
+- 面板 / Part 的生命周期动画，项目业务优先成对重写 `PlayOpenTransition(Action onDone)` 与 `PlayCloseTransition(Action onDone)`，用 `RevUIAnim.Play(this, 预设, duration: 0f, onDone: onDone, owner: this)` 接入框架动画。打开与关闭各自只会在钩子完成后推进状态；★ **两边都必须在动画结束时调用 `onDone`**，否则打开会一直停在 `Opening`，关闭则一直停在 `Closing`、无法回池。
+- 简单标准效果可选 `ShowAnimation` / `HideAnimation` 一行预设（`FadeIn`、`PopIn`、`SlideInFromTop` 等）；不要同时设置预设属性并在钩子里播放同一段动画，框架先等待转场钩子、再播放显示/隐藏预设，会导致串播。需要自定义生命周期动画时，以成对钩子为主。
 - 任意控件：`RevUIAnim.FadeIn / SlideIn / ScaleTo / FadeTo / Breathe / AddHoverFeedback / Play(...)`；**一定传 `owner: this`**（关闭/销毁时框架一行 `StopAllOf(owner)` 清干净）。
 - 同一控件上只留一个动画（再起一个顶掉上一个）；动画走 `unscaledDeltaTime`（`timeScale = 0` 也播）；`RevUISetting.UIAnimationsEnabled = false` 一键关全部（预设直接写终态，业务零改动）；时长不传或 ≤ 0 = 预设默认时长。
 - 透明度写 `CanvasGroup`（没有自动补），缩放/位移写 `RectTransform`；恢复基准态 `RevUIAnim.RestoreBase(控件)`。

@@ -179,15 +179,17 @@ void RevUI.RegisterAutoEvent<T>(Action<RevUIEventDispatch, T> bind) where T : Co
 int RevUI.ShutdownAll()          // 全清：所有面板 + 实例池 + 根节点（回登录 / 切大版本）
 string RevUI.DumpStats()         // 打开的界面 / 在途加载 / 实例池快照
 
-// ★ 控件事件三种接法（可混用；同一次事件里"重写回调"与"方法特性"两条路都会走到，同一件事只放一处）：
-//   ① 方法特性（九个，标在面板/Part 的任意方法上；控件名 = 节点名，区分大小写，写错当场报错）
+// ★ 控件事件三种接法（可混用；项目默认优先方法特性；同一件事只放一处）：
+//   ① 方法特性（九个，标在面板/Part 的任意方法上；普通控件事件首选；控件名 = 节点名，区分大小写，写错当场报错）
 [RevButtonClick("btnStart")] void OnStart() { }        [RevToggleChanged("tglSound")] void OnSound(bool on) { }
 [RevButtonLongPress] [RevButtonLoosen] [RevSliderChanged] [RevInputChanged] [RevInputEndEdit] [RevDropdownChanged] [RevScrollChanged]
-//   ② 重写节点名回调：OnClick(string nodeName) / OnToggleChanged / OnSliderChanged / OnInputChanged / OnScrollChanged（高频事件首选：直调、零分配）
-//   ③ [RevBind] 字段 + 自己 AddListener（最灵活，要用 UGUI 其它回调时）
+//   ② 重写节点名回调：OnClick(string nodeName) / OnToggleChanged / OnSliderChanged / OnInputChanged / OnScrollChanged（仅集中分发或已确认的高频性能热点优先）
+//   ③ [RevBind] 字段 + 自己 AddListener（仅特性不覆盖的 UGUI 其它回调或第三方控件）
 
 // ★ 动画（内置库，不依赖 DOTween，零 GC，掉帧不改总时长）
-protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 面板/Part 一行预设；显示动画播完才算"打开完成"
+protected override void PlayOpenTransition(Action onDone) => RevUIAnim.Play(this, RevUIAnimPreset.PopIn, 0f, onDone, owner: this);
+protected override void PlayCloseTransition(Action onDone) => RevUIAnim.Play(this, RevUIAnimPreset.PopOut, 0f, onDone, owner: this);
+// 自定义生命周期动画优先成对用以上钩子；只用标准预设时可改用 ShowAnimation / HideAnimation，不要意外串播。
 RevUIAnim.FadeIn(icon) / SlideIn(this, RevUISlideDirection.Top) / ScaleTo(icon, 1.2f, 0.12f) / Breathe(tip) / AddHoverFeedback(btn)
 RevUIAnim.StopAllOf(this)   RevUIAnim.ApplyEnd(panel, 预设)   RevUISetting.UIAnimationsEnabled = false   // 一键关全部动效
 ```

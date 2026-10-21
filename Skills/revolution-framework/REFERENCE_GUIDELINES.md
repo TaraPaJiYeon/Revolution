@@ -57,8 +57,8 @@
 - [ ] 有数据的面板走 `SetData` 单向流；`OnRefreshView` 只读 `Data`，且用 `Data` 前**判空**（`SetData(null)` / 回池复用会清成 null）。
 - [ ] **刷新时机**：原地改了数据内容（`Data.X++` / `Items.Add`）→ 有手动 `RefreshView()`；换数据走 `SetData`；`OnDataChanged` 里**没有**多余的手动 `RefreshView()`（会画两遍）；`struct` 数据没有"原地改 Data"的写法（读到的是拷贝）。
 - [ ] `SetData` / `Open<T,TData>` 写在**业务侧数据产生处**（点击回调 / 网络回包），不是写在面板里。
-- [ ] 控件事件：控件名与节点名一致（写错装配时就报错）；高频事件（滚动 / 每次敲键）用重写回调而不是方法特性；同一件事不在"重写回调"和"方法特性"两处都做。
-- [ ] 动画：传了 `owner: this`；重写 `PlayOpenTransition` / `PlayCloseTransition` 的在结束时调了 `onDone`。
+- [ ] 控件事件：普通控件事件优先用 `[RevButtonClick]` 等方法特性；控件名与节点名一致（写错装配时就报错）；只有集中分发或 Profiling 确认的高频性能热点才改用重写回调；手动 `AddListener` 仅用于特性不覆盖的控件能力；同一件事不重复处理。
+- [ ] 面板开关动画：自定义生命周期动画优先成对重写 `PlayOpenTransition` / `PlayCloseTransition`，传 `owner: this` 且两边结束时都调 `onDone`；不要与 `ShowAnimation` / `HideAnimation` 重复播放同一动画。
 - [ ] 打开用 `Open<T>(onOpened)` / `OpenAsync<T>`；没有在真机路径上用"同步 `Open<T>()` 并假设它会加载"。
 - [ ] 弹窗/常驻 HUD 正确设置 `InBackStack`；`ExclusiveGroup` 按语义设置；`RevUICacheMode` 与 `KeepAlive` 一致。
 - [ ] 面板里没有跨界面复用的重逻辑（交给服务）；域内无界面业务用 `RevLogicBase`。面板没有未在 `OnReuse` 重置的缓存状态。

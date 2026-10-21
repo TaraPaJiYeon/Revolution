@@ -270,9 +270,9 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
       <table>
         <thead><tr><th>接法</th><th>长什么样</th><th>什么时候选它</th></tr></thead>
         <tbody>
-          <tr><td>① <b>方法特性</b>（最省事）</td><td><code>[RevButtonClick("btnStart")] void OnStart() =&gt; StartGame();</code></td><td>"点一下做一件事"：不写绑定字段、不重写回调，方法上标个特性就行</td></tr>
-          <tr><td>② <b>按节点名分发</b></td><td><code>protected override void OnClick(string nodeName) { … }</code></td><td>一个面板上按钮很多、想集中处理（<code>switch (nodeName)</code>）</td></tr>
-          <tr><td>③ <b>绑字段 + 自己挂监听</b>（最灵活）</td><td><code>[RevBind] Button _btn;</code> → <code>_btn.onClick.AddListener(...)</code></td><td>要用 UGUI 的其它回调（拖拽 / 悬停…）或接第三方控件</td></tr>
+          <tr><td>① <b>方法特性（默认首选）</b></td><td><code>[RevButtonClick("btnStart")] void OnStart() =&gt; StartGame();</code></td><td>普通按钮及受支持控件事件：不需绑定字段或手动订阅/退订</td></tr>
+          <tr><td>② <b>按节点名分发</b></td><td><code>protected override void OnClick(string nodeName) { … }</code></td><td>想集中处理多个控件，或高频事件经 Profiling 确认为 GC 热点</td></tr>
+          <tr><td>③ <b>绑字段 + 自己挂监听</b></td><td><code>[RevBind] Button _btn;</code> → <code>_btn.onClick.AddListener(...)</code></td><td>仅用于特性不覆盖的 UGUI 回调或第三方控件；自行配对解绑</td></tr>
         </tbody>
       </table>
     </div>
@@ -311,7 +311,7 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
       <p>· <b>控件名写错会当场报错</b>：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。</p>
       <p>· 同一次事件里，"重写的 <code>OnToggleChanged(节点名, 值)</code>"这类回调和"方法特性"<b>两条路都会走到</b> —— 同一件事只放一处做。</p>
       <p>· <b>输入框那两个特性的单个 <code>string</code> 参数是"文本"</b>（不是节点名）—— 节点名靠特性声明，用不上；两个都要就写 <code>(string nodeName, string text)</code>。</p>
-      <p style="margin-bottom:0">· <b>高频事件建议用重写回调</b>：特性走反射调用（每次触发一次小分配）。按钮 / Toggle / Dropdown 这类低频事件完全无所谓；<b>ScrollRect 滚动</b>与<b>输入框每次敲键</b>较频繁，若在意 GC 就重写 <code>OnScrollChanged</code> / <code>OnInputChanged</code>（直调、零分配）—— 两种写法可以并存。</p>
+      <p style="margin-bottom:0">· <b>普通控件事件默认优先方法特性</b>：按钮 / Toggle / Dropdown 等低频交互无需为了微小开销绕开特性。特性反射调用有小分配；只有 ScrollRect 滚动、输入框每次敲键等高频事件经 Profiling 确认为 GC 热点时，才优先用重写回调（直调、零分配）。</p>
     </div>
 
   <h2><span class="num">二</span>面板的生命周期（谁先谁后）</h2>
@@ -347,9 +347,15 @@ RevUI.Close&lt;BagPanel&gt;();</pre>
     <div class="card">
       <div class="h">自定义开场 / 关闭动画</div>
       <div class="when">想让"打开动画播完再算打开完"，重写这两个方法即可</div>
-      <pre><span class="k">protected override void</span> PlayOpenTransition(Action onDone)  { <span class="c">/* 播动画，结束后 */</span> onDone?.Invoke(); }
-<span class="k">protected override void</span> PlayCloseTransition(Action onDone) { onDone?.Invoke(); }</pre>
-      <div class="note">不重写就立即算完成（默认实现就是直接回调）。</div>
+      <pre><span class="k">protected override void</span> PlayOpenTransition(Action onDone)
+{
+    RevUIAnim.Play(<span class="k">this</span>, RevUIAnimPreset.PopIn, <span class="n">0f</span>, onDone, owner: <span class="k">this</span>);
+}
+<span class="k">protected override void</span> PlayCloseTransition(Action onDone)
+{
+    RevUIAnim.Play(<span class="k">this</span>, RevUIAnimPreset.PopOut, <span class="n">0f</span>, onDone, owner: <span class="k">this</span>);
+}</pre>
+      <div class="note">自定义进出动画优先成对重写；两边动画结束都必须调用 onDone。不重写就立即算完成（默认实现直接回调）。简单标准效果可单独用 ShowAnimation / HideAnimation；不要与钩子重复播放同一动画。</div>
     </div>
   </section>
 
@@ -633,18 +639,17 @@ RevUISetting.CanvasPlaneDistance = 100f;</pre>
 
     <h3>面板 / Part / 控件的动画（一行加动效，不依赖 DOTween）</h3>
     <p>框架自带一套 <b>UI 专用</b>的轻量动画库（代码在 <code>Runtime\RevUISystem\Animation\</code>，入口 <code>RevUIAnim</code>）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。</p>
-    <p><b>面板：一行预设属性</b>（显示动画播完才算"打开完成" ✓，隐藏动画播完才真正回收 ✓）：</p>
+    <p><b>面板：自定义生命周期动画优先使用成对转场钩子</b>（入场动画播完才算打开完成；退场动画结束才真正回收）：</p>
     <pre style="margin:10px 0 6px">[RevUIPanel(<span class="s">"UI/Panel"</span>)]
 <span class="k">public sealed class</span> BagPanel : RevUIPanel&lt;BagData&gt;
 {
-    <span class="k">protected override</span> RevUIAnimPreset ShowAnimation =&gt; RevUIAnimPreset.PopIn;    <span class="c">// 打开时自动播</span>
-    <span class="k">protected override</span> RevUIAnimPreset HideAnimation =&gt; RevUIAnimPreset.PopOut;   <span class="c">// 关闭时自动播（播完才关）</span>
-
-    <span class="c">// 想自己掌控节奏（与预设并存；★ 结束时必须调 onDone）</span>
     <span class="k">protected override void</span> PlayOpenTransition(Action onDone)
-        =&gt; RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top, <span class="n">0.25f</span>, onDone, owner: <span class="k">this</span>);
+        =&gt; RevUIAnim.Play(<span class="k">this</span>, RevUIAnimPreset.PopIn, <span class="n">0f</span>, onDone, owner: <span class="k">this</span>);
+
+    <span class="k">protected override void</span> PlayCloseTransition(Action onDone)
+        =&gt; RevUIAnim.Play(<span class="k">this</span>, RevUIAnimPreset.PopOut, <span class="n">0f</span>, onDone, owner: <span class="k">this</span>);
 }</pre>
-    <p><b>Part</b> 同理（重写 <code>ShowAnimation</code> ✓）。<b>任意控件</b>直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：</p>
+    <p>简单标准效果也可单独重写 <code>ShowAnimation</code> / <code>HideAnimation</code>（如 <code>FadeIn</code> / <code>FadeOut</code>）；不要与转场钩子重复播同一动画。<b>Part</b> 同理。<b>任意控件</b>直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：</p>
     <pre style="margin:10px 0 6px">RevUIAnim.FadeIn(icon);                                        <span class="c">// 淡入</span>
 RevUIAnim.SlideIn(<span class="k">this</span>, RevUISlideDirection.Top);              <span class="c">// 从上滑入</span>
 RevUIAnim.ScaleTo(icon, <span class="n">1.2f</span>, <span class="n">0.12f</span>);                          <span class="c">// 缩放到 1.2 倍（相对基准缩放）</span>

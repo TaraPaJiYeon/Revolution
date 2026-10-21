@@ -33,14 +33,19 @@ namespace <你的命名空间>
     [RevUIPanel(RevResPath.Data, RevUILayer.Normal, ExclusiveGroup = "XxxTab")]
     public sealed class RevXxxPanel : RevUIPanel<RevXxxData>
     {
-        // ★ [RevBind] 字段名 ↔ 节点名；写全路径可以跨层（"Top/Title"）
-        [RevBind] private Button _btnClose;
+        // ★ 普通控件事件优先用反射标注特性；这里只绑定需要直接读写的展示字段。
         [RevBind] private Text _title;
 
-        /// <summary>只装配：找节点、挂事件。不要在这里发请求 / 读表 / 起计时器。</summary>
+        /// <summary>只装配：找节点、配置视图。普通按钮事件由方法特性自动接线。</summary>
         protected override void OnBindView()
         {
-            _btnClose.onClick.AddListener(CloseSelf);
+        }
+
+        /// <summary>控件名必须与预制体节点名一致；普通点击优先用这个特性而非手写 AddListener。</summary>
+        [RevButtonClick("btnClose")]
+        private void OnCloseClick()
+        {
+            CloseSelf();
         }
 
         /// <summary>

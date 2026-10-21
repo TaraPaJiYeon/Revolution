@@ -117,15 +117,15 @@ RevUI.Close<BagPanel>();
 ---
 
 
-### 控件事件的三种接法（挑一种就用，能混用）
+### 控件事件的三种接法（默认优先方法特性）
 
-同一个控件的事件，框架给三条路 —— **都可用、可混用**，按场景挑：
+同一个控件的事件，框架提供三种写法。**项目默认优先用方法特性**：普通按钮、Toggle、Dropdown 等控件事件直接在面板/Part 方法上标注，减少手动接线与复用时重复订阅。只有特性覆盖不了的能力，或集中分发/高频事件经 Profiling 确认为性能热点时，才选其它接法。
 
 | 接法 | 长什么样 | 什么时候选它 |
 |---|---|---|
-| ① **方法特性**（最省事） | `[RevButtonClick("btnStart")] void OnStart() => StartGame();` | "点一下做一件事"：不写绑定字段、不重写回调，方法上标个特性就行 |
-| ② **按节点名分发** | `protected override void OnClick(string nodeName) { … }` | 一个面板上按钮很多、想集中处理（`switch (nodeName)`） |
-| ③ **绑字段 + 自己挂监听**（最灵活） | `[RevBind] Button _btn;` → `_btn.onClick.AddListener(...)` | 要用 UGUI 的其它回调（拖拽 / 悬停…）或接第三方控件 |
+| ① **方法特性（默认首选）** | `[RevButtonClick("btnStart")] void OnStart() => StartGame();` | 普通按钮与其它受支持控件事件：不用绑定字段、不用手动 Add/RemoveListener |
+| ② **按节点名分发** | `protected override void OnClick(string nodeName) { … }` | 想集中处理很多控件，或 ScrollRect / 每次键入等高频事件经 Profiling 确认为 GC 热点 |
+| ③ **绑字段 + 自己挂监听** | `[RevBind] Button _btn;` → `_btn.onClick.AddListener(...)` | 仅用于特性不覆盖的 UGUI 回调（拖拽 / 悬停等）或第三方控件；自行配对解绑 |
 
 方法特性一共九个（标在面板 / Part 的**任意方法**上），覆盖全部控件事件：
 
@@ -162,7 +162,7 @@ RevUI.Close<BagPanel>();
 > · **控件名写错会当场报错**：第一次装配就打"找不到名为 xxx 的节点"，不会静默成"点了没反应"。
 > · 同一次事件里，"重写的 `OnToggleChanged(节点名, 值)`"这类回调和"方法特性"**两条路都会走到** —— 同一件事只放一处做。
 > · **输入框那两个特性的单个 `string` 参数是"文本"**（不是节点名）—— 节点名靠特性声明，用不上；两个都要就写 `(string nodeName, string text)`。
-> · **高频事件建议用重写回调**：特性走反射调用（每次触发一次小分配）。按钮 / Toggle / Dropdown 这类低频事件完全无所谓；**ScrollRect 滚动**与**输入框每次敲键**较频繁，若在意 GC 就重写 `OnScrollChanged` / `OnInputChanged`（直调、零分配）—— 两种写法可以并存。
+> · **普通控件事件默认优先方法特性**：按钮 / Toggle / Dropdown 等低频交互无需为了微小开销绕开特性。特性反射调用有小分配；只有 ScrollRect 滚动、输入框每次敲键等高频事件经 Profiling 确认为 GC 热点时，才优先用重写回调（直调、零分配）。
 
 ## 二、面板的生命周期（谁先谁后）
 
@@ -183,15 +183,21 @@ OnInit → OnBindView → OnOpen → OnReuse（复用打开时） → OnRefreshV
 
 **自定义开场 / 关闭动画**
 
-*想让"打开动画播完再算打开完"，重写这两个方法即可*
+需要自定义面板进出动画时，优先成对重写这两个钩子。动画完成后必须调用 `onDone`，否则面板会一直停留在 `Opening` 或 `Closing`，不能完成打开/回收：
 
-protected override void
-PlayOpenTransition(Action onDone)  {
-/* 播动画，结束后 */
-onDone?.Invoke(); }
-protected override void
-PlayCloseTransition(Action onDone) { onDone?.Invoke(); }
-> 不重写就立即算完成（默认实现就是直接回调）。
+```csharp
+protected override void PlayOpenTransition(Action onDone)
+{
+    RevUIAnim.Play(this, RevUIAnimPreset.PopIn, 0f, onDone, owner: this);
+}
+
+protected override void PlayCloseTransition(Action onDone)
+{
+    RevUIAnim.Play(this, RevUIAnimPreset.PopOut, 0f, onDone, owner: this);
+}
+```
+
+不重写时默认立即调用 `onDone`。简单标准效果也可单独使用 `ShowAnimation` / `HideAnimation` 预设；不要同时在钩子和预设属性中重复播放同一段进出动画，框架会先等待转场钩子，再执行预设动画。
 
 
 ---
@@ -495,22 +501,21 @@ public sealed class MainHudPanel : RevUIPanel
 
 框架自带一套 **UI 专用**的轻量动画库（代码在 `Runtime\RevUISystem\Animation\`，入口 `RevUIAnim`）：零第三方依赖 ✓、每帧零 GC ✓、掉帧不改变动画总时长 ✓（采样模型 + 帧余量结转）。
 
-**面板：一行预设属性**（显示动画播完才算"打开完成"✓，隐藏动画播完才真正回收 ✓）：
+**面板：优先用成对的转场钩子实现自定义进出动画**（打开完成回调等到入场动画播完；关闭动画结束才真正回收）：
 
 ```csharp
 [RevUIPanel("UI/Panel")]
 public sealed class BagPanel : RevUIPanel<BagData>
 {
-    protected override RevUIAnimPreset ShowAnimation => RevUIAnimPreset.PopIn;    // 打开时自动播
-    protected override RevUIAnimPreset HideAnimation => RevUIAnimPreset.PopOut;   // 关闭时自动播（播完才关）
-
-    // 想自己掌控节奏（与预设并存；★ 结束时必须调 onDone）
     protected override void PlayOpenTransition(Action onDone)
-        => RevUIAnim.SlideIn(this, RevUISlideDirection.Top, 0.25f, onDone, owner: this);
+        => RevUIAnim.Play(this, RevUIAnimPreset.PopIn, 0f, onDone, owner: this);
+
+    protected override void PlayCloseTransition(Action onDone)
+        => RevUIAnim.Play(this, RevUIAnimPreset.PopOut, 0f, onDone, owner: this);
 }
 ```
 
-**Part** 同理（重写 `ShowAnimation` ✓）。**任意控件**直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：
+简单标准效果也可单独重写 `ShowAnimation` / `HideAnimation` 一行设置预设（如 `FadeIn` / `FadeOut`）；不要和转场钩子重复播同一动画。**Part** 同理。**任意控件**直接用门面（面板自己 / Image / Text / Button / RectTransform / CanvasGroup 都能传 ✓）：
 
 ```csharp
 RevUIAnim.FadeIn(icon);                                        // 淡入

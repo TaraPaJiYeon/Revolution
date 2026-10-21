@@ -51,7 +51,9 @@
 | 场景里有未激活 EventSystem，运行时又多一个，输入重复处理 | `EnsureEventSystem` 只找 active（已修） | 现行含未激活对象；`RevUISetting.AutoCreateEventSystem` |
 | 自定义动画 `Wrap=Once` 但 `Loops=-1` 不结束 | 引擎对所有 Wrap 都检查 `Loops`（已修） | 现行 `Once` 忽略 `Loops` |
 | 二次 Play 后 UI 动画不推进 / 旧句柄误操作新会话动画 | 驱动被复位清空；动画 ID 计数重置（已修） | **不要跨 Play 会话保存旧动画句柄** |
-| 重写 `PlayOpenTransition` 后面板永远停在 Opening | 没调 `onDone` | 动画结束必须 `onDone?.Invoke()` |
+| 重写 `PlayOpenTransition` 后面板永远停在 Opening，或 `PlayCloseTransition` 后一直 Closing | 对应钩子漏调 `onDone` | 开、关动画都必须在完成时调用 `onDone?.Invoke()`；自定义转场优先成对实现 |
+| 自定义钩子和 `ShowAnimation` / `HideAnimation` 播了两段动画 | 两套生命周期动画串行执行 | 自定义转场优先只用 `PlayOpenTransition` / `PlayCloseTransition`；标准预设才单独用 `ShowAnimation` / `HideAnimation` |
+| RevGM 面板点命令/“填入命令”后输入框仍是旧内容 | IMGUI TextField 保留焦点时内部 TextEditor 缓存旧文本，下一次 OnGUI 又覆盖程序设置的新命令 | 填入前先释放 `GUIUtility.keyboardControl`，更新输入状态后在下一次 OnGUI 请求搜索框焦点；不要只改 `_input` |
 | 一直 `RefreshView` 死循环 / 每次刷新发一次请求 | 在 `OnRefreshView` 里发请求或改数据 | 请求放 `OnOpen` / 交互回调 |
 | 竖屏下 UI 仍按横屏缩放，或旋转后 Match 不符合预期 | 方向设置过晚、`UseDesign` 保留原设计，或 Scaler 不是框架支持的模式 | 首次 `Open` / `Preload` 前选 `CanvasOrientation`（默认 `Auto`）；横屏基准转竖屏换位为 `1080×1920`、Match 默认 `0`，转回横屏恢复设计 Match；见 `ui-and-layering.md` §1.5 |
 | Boot 已设 `Portrait`，Prefab 编辑预览仍横屏，或手机没锁竖屏 | Prefab Mode 不走 `RevUIRoot` 运行时链路；UI 设计方向不控制设备方向 | 手动配预览 Scaler / Game 竖屏，或运行 `RevUI.OpenAsync` 真链路；设备方向在 Player Settings / 平台配置，安全区和布局重排另做 |
