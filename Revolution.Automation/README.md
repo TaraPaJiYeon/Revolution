@@ -2,6 +2,16 @@
 
 Python 3.10+，仅使用标准库。通过 CLI 调用 Revolution 的 Unity 编辑器工具、运行期 GM，以及由 GM 组成的通用业务场景。登录、背包、任务、商城、UI、场景和战斗都使用同一套执行机制。
 
+## 单独获取 automation 分支
+
+只需要 CLI 工具时，可以把 `automation` 分支克隆到仓库或工程内：
+
+```powershell
+git clone -b automation --depth 1 https://github.com/Yokino337088/Revolution.git Revolution.Automation
+```
+
+这条分支只包含 Python CLI、命令清单、示例与报告工具。要控制 Unity 编辑器、执行 GM 或 scenario，目标 Unity 工程还必须安装 `Assets/Revolution/Editor/RevAutomation` 桥接，并由业务项目注册对应 GM；CLI 不会自动生成业务测试接口。完整框架与业务接入说明见本文件下文。
+
 **业务功能由游戏自己实现。** 工具负责调用、等待、断言、循环、采集、清理和报告。`examples/business.*` 是接入模板，里面的“业务/…”指令必须由业务开发者提供。现有 GM 演示示例只操作演示数据。
 
 ## 1. 目录与运行环境
