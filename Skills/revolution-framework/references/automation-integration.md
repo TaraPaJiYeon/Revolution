@@ -2,11 +2,13 @@
 
 ## 1. 先识别实际能力，不猜桥接
 
-区分三层：
+先区分真实执行入口和协议适配：
 
 - `RevGM`：运行期同步命令注册/执行后端，由项目实现真实动作与查询。
-- `Revolution.Automation`：Python CLI + `Assets/Revolution/Editor/RevAutomation` 文件通信桥；在图形编辑器 Play 内调用 GM、执行 scenario、采集和导出报告。
-- Unity MCP：独立可选连接，用于编辑器观察、Console、场景对象与截图；并非 Automation 的同义词，不能假设任何 GM→MCP 工具已存在。
+- `Revolution.Automation`：Editor CLI/文件工单，覆盖场景/对象/组件/资产/设置/构建/测试及旧 GM scenario。
+- `RevRuntimeAutomation`：开发态真实业务注册表，Editor 与独立开发版 Player 共用 UI、状态、日志和截图；Player 显式开启本机 HTTP。
+- `Revolution.RevMCP`：外部 Python stdio MCP，统一 Editor/game/gm/cli 的发现、调用、断言、清理和 image 证据。Unity 内入口是 RevMCP 控制台。
+- 第三方 Unity MCP：可选补充连接，调用前核对目标工程，不能从包已安装推断已连接。
 
 工程内已安装 Automation 时优先复用，不再要求项目重复建一套 GM 文件桥。未安装时发现并明确缺项；框架、CLI、项目业务命令需版本兼容。通用工具不自动提供游戏业务。
 
@@ -33,20 +35,22 @@
 
 ## 3. 开发完成后实际跑，不只交命令
 
-若可加载 `revolution-automation-tester`，加载它执行环境发现、编排、运行、诊断和报告；已加载时直接遵循，避免重复加载。不具备该技能时使用同目录参考或执行下列步骤。
+跨 Editor/游戏/UI/Player 的一句话任务优先加载 `revolution-ai-automation`，用 RevMCP rev_discover/rev_run 做真实验证。GM 多轮/性能 scenario 可继续用 `revolution-automation-tester`。未安装新版时先明确缺项，不把旧桥当成新能力。
 
 1. 定位目标 Unity 工程、`Revolution.Automation/rev.py`、`commands.json` 和真实启动场景。始终显式传 `--project`，不能默认测框架 Demo。
 2. 查询 `doctor`、`editor status`，记录原始Play/场景状态；编译中有界等待，未保存场景不得擅自覆盖，不另开占用工程。
-3. 游戏回归用未暂停图形 Play、`--mode live`；batch仅资产操作。资产变更退出Play后做，等待导表/编译完成再开Play。
+3. Editor 游戏回归用未暂停图形 Play、`--mode live`；batch仅资产操作。独立开发版 Player 用 runtime endpoint。资产变更退出Play后做，等待导表/编译完成再开Play。
 4. 查看运行期 `gm list`，确认刚补的入口实际注册。源码里的注册语句或编辑期快照不代表运行期可用。
 5. 复制/生成本次scenario到报告目录，先 `scenario validate`，再 `scenario run`；默认1轮、0预热、无性能阈值，按用户要求调整。
 6. 回合间使用 `cleanup`，全场用 `teardown`。`setup`只执行一次，重复测试不能复用已被消耗的数据。
-7. 场景有副作用时串行执行；MCP若可用补Console/视觉证据，不能在scenario期间并发停止Play或改场景。
+7. 同一实例串行执行；RevMCP 可调用运行时日志、UGUI 与截图。旧 scenario 执行期间不能并发停止Play或改场景。
 8. 按原始状态和安全清理契约收尾，保留失败证据，禁止自动无限重试或降低断言门槛。
 
 ## 4. 场景格式和验证要求
 
-以对应版本 `commands.json`、CLI校验器及README为准。顶层字段为 `name/repeat/warmup/setup/steps/cleanup/teardown/stopOnFailure/failOnUnityError/thresholds`。步骤仅 `gm/wait/until/assert`。
+三个格式按当前源码区分：RevMCP plan 为 name/steps/finally，步骤 target/action/arguments，可 expect/until/$ref；Automation pipeline 用 action/payload；旧 GM scenario 才是下列格式。不要混用字段。教程见 `Revolution.Document/自动化工具/RevMCP使用说明.md`。
+
+旧 scenario 顶层为 `name/repeat/warmup/setup/steps/cleanup/teardown/stopOnFailure/failOnUnityError/thresholds`，步骤仅 `gm/wait/until/assert`。
 
 - `until/assert.expected` 比较GM Message精确字符串，不支持包含/表达式。
 - 等业务就绪用带正数超时的`until`，不靠固定等待猜资源装配时间。

@@ -1,10 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Revolution 自动化工具 · 新手版使用说明</title>
-<style>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Revolution 自动化工具 · 新手使用说明</title><style>
 /* ============================================================
    Revolution 文档 · 公共样式
    —— 与 assets/docs.css 同一套视觉语言（配色 / 字体 / 组件）。
@@ -136,407 +132,282 @@ footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);
   .toc{display:none;}
 }
 
-</style>
-</head>
 
-<body>
+pre code{background:transparent;border:0;padding:0;color:inherit;font:inherit;white-space:pre;}
+img{display:block;max-width:100%;height:auto;margin:18px auto;border-radius:8px;}
+td,th{overflow-wrap:anywhere;}section>p{overflow-wrap:anywhere;}
+@media(max-width:640px){section{padding:18px 16px;}main{padding:18px 12px;}h2{display:block;font-size:20px;}.hero h1{font-size:25px;}}
 
-<header class="hero">
-  <div class="wrap">
-    <span class="kicker">使用说明 · 新手友好版</span>
-    <h1>Revolution 自动化工具 · 新手版使用说明</h1>
-    <p>不用手点 Unity：一条命令完成打包、导表、进 Play、跑 GM、跑性能测试并出报告。</p>
-    <p class="meta">先讲人话再上命令 · 30 秒跑通 · 常见问题速查 · 术语表</p>
-  </div>
-  <div class="deco"></div>
-</header>
-
-<main>
-  <nav class="toc">
-    <ol>
-      <li><a href="#s0">〇、先说人话：它到底在干嘛</a></li>
-      <li><a href="#s1">一、它到底能帮你干什么</a></li>
-      <li><a href="#s2">二、30 秒跑通（复制粘贴就行）</a></li>
-      <li><a href="#s3">三、三分钟看懂"为什么有时候会失败"</a></li>
-      <li><a href="#s4">四、常用操作（照抄改参数）</a></li>
-      <li><a href="#s5">五、一张图记住文件都在哪</a></li>
-      <li><a href="#s6">六、写第一个测试场景（10 分钟）</a></li>
-      <li><a href="#s7">七、报告怎么看</a></li>
-      <li><a href="#s8">八、常见问题（照着查）</a></li>
-      <li><a href="#s9">九、三条铁律 + 最容易踩的 8 个坑</a></li>
-      <li><a href="#s10">十、命令速查（按前缀）</a></li>
-      <li><a href="#s11">十一、给 CI / Codex 的最小集成</a></li>
-      <li><a href="#s12">十二、术语表</a></li>
-    </ol>
-  </nav>
-
-<section id="s0">
-
-  <h2><span class="num">〇</span>先说人话：它到底在干嘛</h2>
-
-  <p>想象你去餐厅点菜：</p>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>餐厅</th><th>这套工具</th>
-</tr></thead><tbody>
-<tr><td>你把菜单写好递给服务员</td><td>你写一个 <b>JSON 请求文件</b>放进 <code>inbox/</code> 文件夹</td></tr>
-<tr><td>服务员把单子送进厨房</td><td>Unity 编辑器每 0.1 秒<b>看一眼</b> <code>inbox/</code>，取走单子</td></tr>
-<tr><td>厨房做菜</td><td>Unity 执行动作（打包 / 导表 / 进 Play / 跑 GM）</td></tr>
-<tr><td>菜端回来</td><td>Unity 把结果写成 <b><code>response.json</code></b></td></tr>
-<tr><td>你等菜上桌</td><td>你的命令行每 0.08 秒看一眼 <code>response.json</code> 在不在</td></tr>
-</tbody></table>
-  </div>
-
-  <p><b>没有网络、没有端口、没有 socket</b> —— 全程就是两个人在同一个文件夹里<b>递纸条</b>。好处是极稳（防火墙、杀毒、代理都影响不到），代价是有一点点延迟（通常几百毫秒）。</p>
-
-  <p>三种&quot;递纸条&quot;的模式：</p>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>模式</th><th>谁在跑 Unity</th><th>适合</th>
-</tr></thead><tbody>
-<tr><td><code>live</code></td><td><b>你手动开着</b> Unity，工具把纸条塞进它的 inbox</td><td>边开发边调、需要看画面</td></tr>
-<tr><td><code>batch</code></td><td>工具<b>自己起一个</b> <code>Unity.exe -batchmode</code> 进程，跑完自动退出</td><td>CI / 无人值守打包导表</td></tr>
-<tr><td><code>auto</code>（默认）</td><td>有活着的编辑器就用它，没有就退化成 batch</td><td>90% 的场景直接用这个</td></tr>
-</tbody></table>
-  </div>
-
-</section>
-
-<section id="s1">
-
-  <h2><span class="num">一</span>它到底能帮你干什么</h2>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>你原本要手动做的事</th><th>现在一行命令</th>
-</tr></thead><tbody>
-<tr><td>点菜单打包 AssetBundle</td><td><code>rev.cmd ab build --target Android</code></td></tr>
-<tr><td>打开导表窗口、选表、点导出</td><td><code>rev.cmd excel export --source Assets/Excel</code></td></tr>
-<tr><td>手动进 Play、手点 GM 按钮</td><td><code>rev.cmd gm exec &quot;背包/添加道具 1001 2&quot;</code></td></tr>
-<tr><td>反复进 Play 测 100 次帧率，自己记数</td><td><code>rev.cmd scenario run Automation/examples/business.scenario.json</code></td></tr>
-<tr><td>生成 UI 面板脚本、绑定控件</td><td><code>rev.cmd ui generate --prefab Assets/UI/Bag.prefab</code></td></tr>
-<tr><td>检查工程配置对不对</td><td><code>rev.cmd doctor</code></td></tr>
-</tbody></table>
-  </div>
-
-  <p>它<b>不会</b>替你做业务：GM 指令、场景脚本里的断言，都要项目自己先注册/写好（见第 6 节）。</p>
-
-</section>
-
-<section id="s2">
-
-  <h2><span class="num">二</span>30 秒跑通（复制粘贴就行）</h2>
-
-  <p>命令从<b>仓库根目录</b>执行（<code>rev.cmd</code> 默认用 <code>py -3</code>；没有 Python Launcher 就设 <code>$env:REV_PYTHON</code> 指向 python.exe）：</p>
-
-  <pre># ① 先自检：工程路径、Unity 位置、桥接是否就绪
-.\Automation\rev.cmd doctor
-
-# ② 看看有哪些命令（离线清单，不需要 Unity）
-.\Automation\rev.cmd commands
-
-# ③ 编辑器已经开着的话，问一句它现在什么状态
-.\Automation\rev.cmd --mode live editor status</pre>
-
-  <p>想让它<b>自己把 Unity 起起来</b>（需要告诉它 Unity.exe 在哪）：</p>
-
-  <pre>$env:UNITY_EDITOR = &#x27;E:\你的Unity安装目录\Editor\Unity.exe&#x27;
-.\Automation\rev.cmd --timeout 300 editor launch
-.\Automation\rev.cmd --mode live editor status</pre>
-
-  <div class="callout"><p><b>全局选项必须写在子命令前面</b>：<code>--project</code>、<code>--unity</code>、<code>--mode</code>、<code>--timeout</code>、<code>--confirm</code>、<code>--output</code>、<code>--no-graphics</code>。 例如 <code>rev.cmd --mode live --timeout 300 gm exec &quot;...&quot;</code> ✅ ／ <code>rev.cmd gm exec &quot;...&quot; --mode live</code> ❌</p></div>
-
-</section>
-
-<section id="s3">
-
-  <h2><span class="num">三</span>三分钟看懂&quot;为什么有时候会失败&quot;</h2>
-
-  <p>这四条规则能解释你 90% 的报错：</p>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>规则</th><th>为什么</th><th>报错长什么样</th>
-</tr></thead><tbody>
-<tr><td><b>改资源的动作必须退出 Play</b></td><td>Play 时改资源会被 Unity 打断，轻则改不进去，重则重载脚本</td><td><code>编辑器资产操作需要先退出 Play</code></td></tr>
-<tr><td><b>GM / 场景测试必须在&quot;未暂停的 Play&quot;里</b></td><td>它们操作的是<b>运行中的游戏</b>，编辑模式下没有游戏可操作</td><td><code>GM 执行需要已进入且未暂停的 Play</code></td></tr>
-<tr><td><b>同一时刻只能有 1 个请求</b></td><td>编辑器主线程就一条，并发会互相踩</td><td><code>Busy</code>（等上一个跑完再发）</td></tr>
-<tr><td><b>执行期间 Unity 只要报红，这次请求就算失败</b></td><td>自动化要的是&quot;干净环境&quot;，有错误还继续跑等于自欺欺人</td><td><code>success=false</code>，<code>unity-errors.jsonl</code> 里有原文</td></tr>
-</tbody></table>
-  </div>
-
-  <p>另外两个时间概念（<b>新手最容易混</b>）：</p>
-
-  <ul><li><b><code>--timeout</code></b>（CLI 参数）= <b>你愿意等多久</b>；</li><li><b><code>deadlineUtc</code></b>（请求里）= Unity 认为这张单子<b>什么时候过期</b>。</li></ul>
-
-  <p>单子过期还没轮到执行，Unity 会直接回 <code>Expired</code> —— 这是为了防止&quot;你早就关掉终端了，Unity 还在傻跑&quot;。</p>
-
-</section>
-
-<section id="s4">
-
-  <h2><span class="num">四</span>常用操作（照抄改参数）</h2>
-
-  <h3>4.1 查状态 / 刷新</h3>
-
-  <pre>.\Automation\rev.cmd --mode live editor status     # 版本、工程、是否在 Play、是否在编译、GM 数量
-.\Automation\rev.cmd --mode live editor refresh    # 让编辑器刷新资源
-.\Automation\rev.cmd --mode live editor menus      # 列出可自动打开的菜单（只挑工具窗口）</pre>
-
-  <h3>4.2 进 Play / 出 Play</h3>
-
-  <pre>.\Automation\rev.cmd --mode live editor play --scene &#x27;Assets/Scenes/Battle.unity&#x27;
-.\Automation\rev.cmd --mode live editor stop</pre>
-
-  <div class="callout"><p>⚠️ 成功只代表&quot;<b>已经进入 Play 且观察到 2 帧</b>&quot;，<b>不代表你的游戏初始化完了</b>。要等初始化，用 <code>scenario</code> 里的 <code>until</code> 步骤。</p></div>
-
-  <h3>4.3 执行 GM 指令（项目自己的业务命令）</h3>
-
-  <pre>.\Automation\rev.cmd --mode live gm list                       # 看有哪些命令、参数、是否高危
-.\Automation\rev.cmd --mode live gm exec &quot;背包/添加道具 1001 2&quot;  # 执行
-.\Automation\rev.cmd --mode live --confirm gm exec &quot;存档/清空&quot;  # 高危命令要显式 --confirm</pre>
-
-  <h3>4.4 打包 / 导表 / 生成 UI（都要退出 Play）</h3>
-
-  <pre>.\Automation\rev.cmd ab validate --target Android
-.\Automation\rev.cmd ab build    --target Android
-.\Automation\rev.cmd ab diff                                   # 和上次快照比，看看包结构变了没
-
-.\Automation\rev.cmd excel read   --source Assets/Excel
-.\Automation\rev.cmd excel plan   --source Assets/Excel
-.\Automation\rev.cmd excel export --source Assets/Excel --force
-
-.\Automation\rev.cmd ui scan     --prefab Assets/UI/Bag.prefab
-.\Automation\rev.cmd ui generate --prefab Assets/UI/Bag.prefab --class-name BagPanel</pre>
-
-  <h3>4.5 跑性能测试并出报告</h3>
-
-  <pre>.\Automation\rev.cmd --timeout 300 scenario run Automation/examples/business.scenario.json --repeat 50 --warmup 5
-.\Automation\rev.cmd report Automation/results/xxx/scenario-result.json --directory Automation/results/report</pre>
-
-</section>
-
-<section id="s5">
-
-  <h2><span class="num">五</span>一张图记住文件都在哪</h2>
-
-  <pre>&lt;你的工程&gt;/Library/RevolutionAutomation/
-├─ inbox/                      ← 外部写给 Unity 的&quot;工单&quot;（每张一个 &lt;32位id&gt;.json）
-│     （Unity 取走后会立刻删除，避免重复执行）
-└─ jobs/&lt;32位id&gt;/              ← 一次请求一个文件夹，所有过程文件都在里面
-      request.json             ← 请求原文（Unity 存一份，便于事后复盘）
-      response.json            ← ★ 最终结果（success / error / message / dataJson）
-      cancel                   ← 外部想取消：创建这个空文件即可
-      progress.json            ← 场景跑到第几轮/第几步（**仅供参考，不能当完成信号**）
-      scenario-result.json     ← 场景测试的汇总指标
-      iterations.jsonl         ← 每一轮一行（几百轮也不会爆内存）
-      unity-errors.jsonl       ← 测试期间 Unity 报的错（最多前 50 条）
-      unity.log                ← batch 模式的完整 Unity 日志</pre>
-
-  <p><b>判断&quot;跑完了没&quot;永远只看一个东西：<code>response.json</code> 是否存在</b>（以及里面的 <code>success</code>）。 <code>progress.json</code>、<code>endpoint.json</code> 都是&quot;尽力而为&quot;的旁路信息。</p>
-
-</section>
-
-<section id="s6">
-
-  <h2><span class="num">六</span>写第一个测试场景（10 分钟）</h2>
-
-  <p>场景就是一段 JSON，告诉工具：<b>先做什么 → 重复做什么 → 最后清理什么</b>。</p>
-
-  <pre>{
-  &quot;name&quot;: &quot;战斗冒烟&quot;,
-  &quot;repeat&quot;: 3,                  // 正式跑 3 轮
-  &quot;warmup&quot;: 1,                  // 先空跑 1 轮预热（不计入成绩）
-  &quot;stopOnFailure&quot;: true,        // 任一轮失败就停
-  &quot;failOnUnityError&quot;: true,     // Unity 报红即失败（建议保持 true）
-  &quot;setup&quot;: [                    // 每轮之前跑一次
-    { &quot;kind&quot;: &quot;gm&quot;, &quot;command&quot;: &quot;战斗/进入关卡 1-1&quot; }
+pre code{background:transparent;border:0;padding:0;color:inherit;font:inherit;white-space:pre;}
+img{display:block;max-width:100%;height:auto;margin:18px auto;border-radius:8px;}
+td,th{overflow-wrap:anywhere;}section>p{overflow-wrap:anywhere;}
+@media(max-width:640px){section{padding:18px 16px;}main{padding:18px 12px;}h2{display:block;font-size:20px;}.hero h1{font-size:25px;}}
+</style></head><body>
+<header class="hero"><div class="wrap"><span class="kicker">REVOLUTION · AI AUTOMATION</span><h1>Revolution 自动化工具 · 新手使用说明</h1><p>Unity 内接线 · 真实业务契约 · 断言、截图与清理</p><div class="meta">2026-10-22 · Python 3.10+ · Unity 2022.3</div></div><div class="deco"></div></header>
+<main><section class="toc"><h2>目录</h2><ol><li><a href="#s1">1. 先理解三个角色</a></li><li><a href="#s2">2. 最快连通</a></li><li><a href="#s3">3. 发现命令与覆盖范围</a></li><li><a href="#s4">4. 参数怎么传</a></li><li><a href="#s5">5. 修改场景、组件与资产</a></li><li><a href="#s6">6. Console、编译、测试与构建</a></li><li><a href="#s7">7. Pipeline：编辑器步骤、引用、断言和清理</a></li><li><a href="#s8">8. GM 与旧 scenario 接入</a></li><li><a href="#s9">9. 运行时、MCP 与扩展动作</a></li><li><a href="#s10">10. 工单、取消与报告</a></li><li><a href="#s11">11. CI 与常见问题</a></li><li><a href="#s12">12. 本次验证口径</a></li></ol></section><section id="intro">
+<p>更新：2026-10-22，版本 2.0。Python 3.10+，仅标准库。工具用命令行驱动 Unity 编辑器和 Play 中的真实游戏接口；需要 Agent MCP 或独立开发版 Player，请读 <a href="RevMCP%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.html">RevMCP 使用说明</a>。</p>
+</section><section id="s1"><h2>1. 先理解三个角色</h2>
+<p>Revolution.Automation 是 Python CLI；Unity 里的 RevAutomationBridge 在主线程执行工单；游戏业务由项目已有 Service/Logic/GM 实现。工具不会代写任意玩法。Editor 实际安装能力从 editor.capabilities 获取，commands.json 只用于离线帮助。</p>
+<pre><code class="language-text">CLI 写 request → Unity 轮询 inbox → 校验参数与环境
+             → 主线程执行/逐帧等待 → response.json
+             → CLI 读取结果，导出报告，返回退出码
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Revolution.Automation/rev.py / rev.cmd</td>
+<td>命令行入口</td>
+</tr>
+<tr>
+<td>Revolution.Automation/commands.json</td>
+<td>动作名、参数白名单、类型、运行环境</td>
+</tr>
+<tr>
+<td>Revolution.Automation/revautomation/</td>
+<td>Python 客户端、pipeline、报告和校验</td>
+</tr>
+<tr>
+<td>Assets/Revolution/Editor/RevAutomation/</td>
+<td>Editor 桥与各类适配器</td>
+</tr>
+<tr>
+<td>Assets/Revolution/Runtime/RevAutomation/</td>
+<td>共用游戏注册表与 UI/截图实现</td>
+</tr>
+<tr>
+<td>Unity工程/Library/RevolutionAutomation/</td>
+<td>本机会话、工单、进度、结果，不提交 Git</td>
+</tr>
+</tbody></table></div>
+</section><section id="s2"><h2>2. 最快连通</h2>
+<p>先用 Unity 打开正确工程，等待脚本编译。以下从仓库根目录执行；其他项目请替换 --project。</p>
+<pre><code class="language-powershell">$project = &#39;G:\RevRoot\Revolution\RevolutionFrameWork_Unity&#39;
+$env:PYTHONIOENCODING = &#39;utf-8&#39;
+python Revolution.Automation/rev.py --project $project doctor
+python Revolution.Automation/rev.py --project $project --mode live editor status
+python Revolution.Automation/rev.py --project $project --mode live commands --live
+python Revolution.Automation/rev.py --project $project --mode live editor coverage
+</code></pre>
+<p>需要工具启动 Unity 时指定真实 Unity.exe 路径，再执行 editor launch。已有工程绝不另开 batch 争用。</p>
+<pre><code class="language-powershell">$env:UNITY_EDITOR = &#39;G:\Unity\Editor\2022.3.15f1c1\Editor\Unity.exe&#39;
+python Revolution.Automation/rev.py --project $project --timeout 300 editor launch
+python Revolution.Automation/rev.py --project $project --mode live editor wait
+</code></pre>
+<p>全局参数 --project、--unity、--mode、--timeout、--output、--confirm、--no-graphics 放在子命令前。默认 timeout=120 秒，按每个 Unity 请求计时。rev.cmd 默认 py -3，可通过 REV_PYTHON 指定解释器；直接 python rev.py 更便于定位环境。</p>
+</section><section id="s3"><h2>3. 发现命令与覆盖范围</h2>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py commands
+python Revolution.Automation/rev.py commands --action component.set
+python Revolution.Automation/rev.py --project $project --mode live commands --live --action component.set
+</code></pre>
+<p>当前离线清单 125 项，示例工程实时 Editor 122 项；editor.launch/editor.wait/scenario.validate 在 Python 本地实现。可选 HotUpdate、Demo、Test Framework 未安装时，相应真实动作不可用。menu coverage 会核对当前实际 Revolution.Tools 菜单的精确映射；新增菜单未登记会显示 covered=false。它不是对每个动作执行效果的验收报告。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>动作组</th>
+<th>手动操作的命令入口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>editor.*</td>
+<td>状态、刷新、能力/菜单覆盖、Console、编译、暂停/恢复/单帧、选择、Undo/Redo</td>
+</tr>
+<tr>
+<td>scene.*</td>
+<td>已加载场景、层级、新建、打开、保存、关闭、活动场景</td>
+</tr>
+<tr>
+<td>gameobject.*</td>
+<td>查找、创建、读取/修改 Inspector、父子关系、复制、删除</td>
+</tr>
+<tr>
+<td>component.*</td>
+<td>组件/类型发现、添加、读写、移除</td>
+</tr>
+<tr>
+<td>asset.*</td>
+<td>搜索、资产/Importer 序列化读写、导入、建目录、创建 ScriptableObject、复制/移动/删除</td>
+</tr>
+<tr>
+<td>prefab.*</td>
+<td>实例化、创建、读取与保存 Prefab 子节点/组件</td>
+</tr>
+<tr>
+<td>settings.*</td>
+<td>Player/Tags/Layers/Input/Graphics 等 .asset 项目设置读写</td>
+</tr>
+<tr>
+<td>build.*</td>
+<td>构建场景配置、切平台、真实 Player BuildReport</td>
+</tr>
+<tr>
+<td>test.*</td>
+<td>Test Runner 发现、运行、结果；无匹配测试不算通过</td>
+</tr>
+<tr>
+<td>runtime.* / ui.*</td>
+<td>Play 中的状态、日志、UI、截图、HTTP 启停/共用能力调用；同时保留 UI 代码生成动作</td>
+</tr>
+<tr>
+<td>gm.* / scenario.*</td>
+<td>真实 GM 与带循环/清理/采样的业务测试</td>
+</tr>
+<tr>
+<td>ab.* / excel.* / platform.* / hot.*</td>
+<td>现有 AB、导表、裁剪、体积、热更窗口背后的真实服务</td>
+</tr>
+</tbody></table></div>
+<p>不能经通用序列化入口实现的第三方按钮或项目业务，需要用 RevAutomationAction 扩展专用动作。editor.menu 只打开受支持的工具窗口，真正执行使用专用接口。</p>
+</section><section id="s4"><h2>4. 参数怎么传</h2>
+<p>优先写 UTF-8 JSON 文件，再调用 call 动作ID --json 文件。这样不用在 PowerShell 中手工嵌套转义。</p>
+<pre><code class="language-json">{&quot;query&quot;:&quot;AutomationFixture&quot;,&quot;includeInactive&quot;:true,&quot;offset&quot;:0,&quot;limit&quot;:100}
+</code></pre>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode live call gameobject.find --json find.json
+</code></pre>
+<p>简单数字/布尔可以 --set limit=20、--set includeInactive=true。字符串 --set 仍需合法 JSON 双引号，因此中文/复杂值更适合文件。未知字段、错误类型、小数传整数和 Int32 溢出会拒绝。</p>
+<p>对象返回 id（instance:数字）、完整类型名、层级路径和场景。instance id 只对当前会话/对象有效；重载、删除、换场景后重新查。重名路径会拒绝。分页结果有 total/offset/truncated，必要时继续下一页。</p>
+</section><section id="s5"><h2>5. 修改场景、组件与资产</h2>
+<p>先 inspect/get 读取真实 property 名与类型，再 set；Inspector 显示名不一定等于序列化路径。以下以查到的 Transform 组件 id 为目标：</p>
+<pre><code class="language-json">{
+  &quot;id&quot;:&quot;instance:用本次查询的真实组件ID替换&quot;,
+  &quot;changes&quot;:[{&quot;property&quot;:&quot;m_LocalPosition&quot;,&quot;value&quot;:&quot;{\&quot;x\&quot;:1,\&quot;y\&quot;:2,\&quot;z\&quot;:3}&quot;}]
+}
+</code></pre>
+<p>changes.value 固定为字符串：布尔写 &quot;true&quot;，数字写 &quot;3&quot;，向量写 JSON 对象字符串，对象引用写本次 id 或 &quot;null&quot;。只支持代码明确适配的序列化类型；不可写属性会拒绝。整组 changes 先检查再一次 Apply，使用 SerializedObject/Undo 保留 Unity 的正常编辑语义。</p>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode live component list --id &#39;instance:真实GameObjectID&#39;
+python Revolution.Automation/rev.py --project $project --mode live component get --id &#39;instance:真实组件ID&#39;
+python Revolution.Automation/rev.py --project $project --mode live call component.set --json transform.json
+python Revolution.Automation/rev.py --project $project --mode live scene save
+</code></pre>
+<p>场景修改产生 dirty，需明确 scene.save 才落盘。切场景、构建或测试前遇未保存内容会失败，保护现有工作。删除对象/组件/资产等标记动作需要全局 --confirm；它表示调用参数，不替代用户授权。</p>
+<p>asset.find 支持 Unity 搜索语法 t:Prefab；Importer 修改用 asset.importer-set 并重新导入。prefab.inspect/modify 使用 asset path，objectPath 为相对 Prefab 根的子路径，省略表示根。Prefab 内容结束后立即卸载，返回的临时对象身份不能用于后续调用。项目设置 path 为 ProjectSettings/*.asset。</p>
+</section><section id="s6"><h2>6. Console、编译、测试与构建</h2>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode live editor console --limit 100
+python Revolution.Automation/rev.py --project $project --mode live editor compilation
+python Revolution.Automation/rev.py --project $project --mode live test list --test-mode EditMode
+python Revolution.Automation/rev.py --project $project --mode live --timeout 300 test run --test-mode EditMode
+</code></pre>
+<p>test.run 可用 JSON 提供 mode/testNames/categories/assemblies 过滤；assemblies 填真实 asmdef 名，例如本仓库 Revolution.Automation.EditorTests。测试结果必须 passed&gt;0、failed/skipped/inconclusive=0 才通过。跨重载只恢复等待，不重复 Execute。Test Framework 1.1 没有公开强制取消，取消 CLI 等待后仍阻止编辑器变更，直到测试引擎完成；用 test.result 查询原 id。</p>
+<p>build.configure 的参数：</p>
+<pre><code class="language-json">{&quot;scenes&quot;:[{&quot;path&quot;:&quot;Assets/你的场景.unity&quot;,&quot;enabled&quot;:true}]}
+</code></pre>
+<p>build.player 的参数：</p>
+<pre><code class="language-json">{&quot;target&quot;:&quot;StandaloneWindows64&quot;,&quot;development&quot;:true}
+</code></pre>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode live build settings
+python Revolution.Automation/rev.py --project $project --mode live call build.configure --json build-scenes.json
+python Revolution.Automation/rev.py --project $project --mode live --timeout 600 call build.player --json build-player.json
+</code></pre>
+<p>跨平台先 build.target 等实际切换完成，要求本机安装目标支持。构建只用启用场景，输出默认 Unity工程/Builds/RevAutomation/工单ID/Player.exe 等平台对应产物，报告仍在 Library 工单。自定义 path 必须位于本工程 Builds 内的新空目录，不覆盖旧产物。只有真实 BuildReport 成功且无错误才判成功。构建本身可能长时间占用 Unity 主线程，心跳变旧不能作为另开编辑器的理由。</p>
+</section><section id="s7"><h2>7. Pipeline：编辑器步骤、引用、断言和清理</h2>
+<pre><code class="language-json">{
+  &quot;name&quot;:&quot;创建并验证临时对象&quot;,
+  &quot;steps&quot;:[
+    {&quot;id&quot;:&quot;created&quot;,&quot;action&quot;:&quot;gameobject.create&quot;,&quot;payload&quot;:{&quot;name&quot;:&quot;AutomationTemporary&quot;}},
+    {&quot;action&quot;:&quot;gameobject.inspect&quot;,&quot;payload&quot;:{&quot;id&quot;:{&quot;$ref&quot;:&quot;created#/data/id&quot;}},&quot;expect&quot;:[{&quot;path&quot;:&quot;/data/target/name&quot;,&quot;equals&quot;:&quot;AutomationTemporary&quot;}]}
   ],
-  &quot;steps&quot;: [                    // ★ 必填、不能为空：这是每轮真正要测的东西
-    { &quot;kind&quot;: &quot;gm&quot;, &quot;command&quot;: &quot;战斗/开始&quot; },
-    { &quot;kind&quot;: &quot;until&quot;, &quot;command&quot;: &quot;战斗/查询状态&quot;, &quot;expected&quot;: &quot;running&quot;, &quot;timeoutSeconds&quot;: 10 },
-    { &quot;kind&quot;: &quot;wait&quot;, &quot;seconds&quot;: 5 },
-    { &quot;kind&quot;: &quot;assert&quot;, &quot;command&quot;: &quot;战斗/查询结果&quot;, &quot;expected&quot;: &quot;win&quot; }
+  &quot;finally&quot;:[
+    {&quot;action&quot;:&quot;gameobject.delete&quot;,&quot;payload&quot;:{&quot;id&quot;:{&quot;$ref&quot;:&quot;created#/data/id&quot;}}}
+  ]
+}
+</code></pre>
+<p>示例需要 --confirm 允许清理删除。场景 dirty 仍需管理。引用不存在（例如创建失败）会记录清理失败；测试优先提供不依赖成功步骤的幂等清理入口。</p>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --confirm pipeline workflow.json --validate
+python Revolution.Automation/rev.py --project $project --mode live --confirm --output pipeline-result.json pipeline workflow.json
+</code></pre>
+<p>每步可用 payload 或 file（二选一，file 相对流程目录），id、expect、until。expect 是 JSON Pointer + equals/exists；$ref 保留原类型，仅引用此前步骤。until 只允许清单声明 readOnly 的查询，包含 timeoutSeconds/intervalSeconds。整份流程先静态预检，发生错误停止工作步骤，finally 逐条尝试。不是事务，不自动回滚/重试变更。</p>
+<p>生成代码/导入后用 editor.wait 等新心跳稳定、无编译/导入和编译错误，再进入 Play。需要跨 Editor、Player、GM、外部工具的计划用 RevMCP target/action/arguments 格式。</p>
+</section><section id="s8"><h2>8. GM 与旧 scenario 接入</h2>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode live editor play --scene &#39;Assets/你的启动场景.unity&#39;
+python Revolution.Automation/rev.py --project $project --mode live gm list
+python Revolution.Automation/rev.py --project $project --mode live gm exec &#39;你的业务/真实完整命令 参数&#39;
+</code></pre>
+<p>业务提供准备、动作、状态/断言、每轮复位、全场收尾。GM 调玩家同一个服务，注册/注销对称，限定开发环境。编辑模式 gm.list 的注册入口快照不等于 Play 真实注册表。RevGM.Execute 同步返回；异步业务通过状态命令有界等待，不能主线程忙等。</p>
+<pre><code class="language-json">{
+  &quot;name&quot;:&quot;业务循环模板&quot;,
+  &quot;repeat&quot;:10,&quot;warmup&quot;:0,
+  &quot;stopOnFailure&quot;:true,&quot;failOnUnityError&quot;:true,
+  &quot;setup&quot;:[{&quot;kind&quot;:&quot;gm&quot;,&quot;command&quot;:&quot;业务/准备&quot;}],
+  &quot;steps&quot;:[
+    {&quot;kind&quot;:&quot;gm&quot;,&quot;command&quot;:&quot;业务/执行 {round}&quot;},
+    {&quot;kind&quot;:&quot;until&quot;,&quot;command&quot;:&quot;业务/状态&quot;,&quot;expected&quot;:&quot;完成&quot;,&quot;timeoutSeconds&quot;:30,&quot;intervalSeconds&quot;:0.1},
+    {&quot;kind&quot;:&quot;assert&quot;,&quot;command&quot;:&quot;业务/断言&quot;,&quot;expected&quot;:&quot;通过&quot;},
+    {&quot;kind&quot;:&quot;wait&quot;,&quot;frames&quot;:2}
   ],
-  &quot;cleanup&quot;: [                  // 每轮结束（失败也会尽量执行）
-    { &quot;kind&quot;: &quot;gm&quot;, &quot;command&quot;: &quot;战斗/退出&quot; }
-  ],
-  &quot;teardown&quot;: [                 // 全部跑完
-    { &quot;kind&quot;: &quot;gm&quot;, &quot;command&quot;: &quot;战斗/回主界面&quot; }
-  ],
-  &quot;thresholds&quot;: {               // 0 表示不检查；超了就判失败
-    &quot;maxFrameP95Ms&quot;: 16,
-    &quot;maxFrameMs&quot;: 50,
-    &quot;maxMonoUsedBytes&quot;: 0
-  }
-}</pre>
-
-  <h3>4 种步骤，记住这张表就够了</h3>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>kind</th><th>干什么</th><th>必填字段</th><th>备注</th>
-</tr></thead><tbody>
-<tr><td><code>gm</code></td><td>执行一条 GM 指令</td><td><code>command</code></td><td>失败即中断（除非在 <code>cleanup</code> 里）</td></tr>
-<tr><td><code>wait</code></td><td>等一会儿</td><td><code>seconds</code> 或 <code>frames</code></td><td>两个都给时<b>都满足</b>才继续</td></tr>
-<tr><td><code>until</code></td><td>反复执行 GM，直到返回等于期望</td><td><code>command</code>、<code>expected</code>、<code>timeoutSeconds</code></td><td><b>超时必须 &gt; 0</b>，防死等</td></tr>
-<tr><td><code>assert</code></td><td>一次性断言</td><td><code>command</code>、<code>expected</code></td><td>不等立刻失败</td></tr>
-</tbody></table>
-  </div>
-
-  <div class="callout"><p><b><code>expected</code> 是&quot;精确字符串相等&quot;</b>，不是&quot;包含&quot;。GM 返回 <code>&quot;win&quot;</code> 就写 <code>&quot;win&quot;</code>，不能写 <code>&quot;胜&quot;</code>。 想知道某条 GM 到底返回什么：先 <code>gm exec</code> 手动跑一次，看输出。</p></div>
-
-  <h3>命令里的占位符</h3>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>写法</th><th>会被替换成</th>
-</tr></thead><tbody>
-<tr><td><code>{iteration}</code></td><td>当前正式轮号（从 0 开始）</td></tr>
-<tr><td><code>{round}</code></td><td>含预热在内的总轮号</td></tr>
-</tbody></table>
-  </div>
-
-</section>
-
-<section id="s7">
-
-  <h2><span class="num">七</span>报告怎么看</h2>
-
-  <p><code>scenario-result.json</code> 里最重要的几个字段：</p>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>字段</th><th>含义</th><th>怎么判断好坏</th>
-</tr></thead><tbody>
-<tr><td><code>success</code></td><td>整体是否通过</td><td><b>只信这个</b></td></tr>
-<tr><td><code>completed</code> / <code>repeat</code></td><td>完成轮数 / 要求轮数</td><td>必须相等，否则 <code>success=false</code></td></tr>
-<tr><td><code>frameMeanMs</code> / <code>frameP95Ms</code> / <code>frameMaxMs</code></td><td>帧耗时（毫秒）</td><td>P95 超过 <code>maxFrameP95Ms</code> 就失败</td></tr>
-<tr><td><code>peakMonoUsedBytes</code></td><td>Mono 堆峰值</td><td>看有没有内存泄漏趋势（多轮对比）</td></tr>
-<tr><td><code>unityErrors</code></td><td>测试期间 Unity 报错数</td><td><code>failOnUnityError=true</code> 时 &gt;0 就失败</td></tr>
-<tr><td><code>errors[]</code></td><td>人读的失败原因列表</td><td>第一条通常就是根因</td></tr>
-</tbody></table>
-  </div>
-
-  <p>还有一条容易忽略的规则：<b>配了帧门禁但一个样本都没采到 → 判失败</b>（防止&quot;空跑也绿灯&quot;）。</p>
-
-</section>
-
-<section id="s8">
-
-  <h2><span class="num">八</span>常见问题（照着查）</h2>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>现象</th><th>原因</th><th>怎么办</th>
-</tr></thead><tbody>
-<tr><td><code>Busy</code></td><td>上一个请求还在跑</td><td>等它结束，或 <code>job &lt;id&gt; --cancel</code> 取消</td></tr>
-<tr><td><code>Expired</code></td><td>单子过期了（排队太久）</td><td>增大 <code>--timeout</code>，或减少并发</td></tr>
-<tr><td><code>Session</code></td><td>编辑器重启过，会话变了</td><td>重新 <code>editor status</code> 确认后重发</td></tr>
-<tr><td><code>编辑器资产操作需要先退出 Play</code></td><td>你在 Play 模式下点了打包/导表</td><td>先 <code>editor stop</code></td></tr>
-<tr><td><code>GM 执行需要已进入且未暂停的 Play</code></td><td>没进 Play，或游戏被暂停</td><td>先 <code>editor play</code>，别暂停</td></tr>
-<tr><td><code>未知 Unity BuildTarget</code></td><td><code>--target</code> 拼错</td><td>用 <code>StandaloneWindows64</code> / <code>Android</code> / <code>iOS</code> / <code>WebGL</code></td></tr>
-<tr><td><code>路径必须在当前工程 Assets 内</code></td><td>传了工程外/带 <code>../</code> 的路径</td><td>改成 <code>Assets/...</code> 相对路径</td></tr>
-<tr><td><code>动作不存在或重复</code></td><td>扩展动作名写错，或同名注册了两份</td><td>全局搜 <code>RevAutomationAction(&quot;名字&quot;)</code></td></tr>
-<tr><td>请求成功但结果不对</td><td>界面/业务还没初始化好</td><td>用 <code>until</code> 等状态，别用 <code>wait</code> 猜</td></tr>
-<tr><td>想看 Unity 到底在干嘛</td><td>——</td><td>batch 看 <code>unity.log</code>；live 看 <code>unity-errors.jsonl</code></td></tr>
-<tr><td><code>InterruptedByReload</code></td><td>执行中改了脚本，Unity 重载了域</td><td><b>不会自动重放</b>（防重复副作用），重发一次即可</td></tr>
-</tbody></table>
-  </div>
-
-</section>
-
-<section id="s9">
-
-  <h2><span class="num">九</span>三条铁律 + 最容易踩的 8 个坑</h2>
-
-  <p><b>铁律</b></p>
-
-  <ol><li><b>不要并发</b>：一次只发一个请求，串行跑。</li><li><b>改资源的动作先退出 Play</b>：打包、导表、生成 UI、生成 link.xml 都属于此类。</li><li><b>失败要看原因，不要重试掩盖</b>：错误码 + <code>errors[]</code> 基本能直接定位。</li></ol>
-
-  <p><b>坑</b></p>
-
-  <ol><li><code>ab.mark</code> 里 <b>bundle 传空字符串 = 移除标记</b>，不是&quot;不设包名&quot;。</li><li><code>ab.snapshot</code> 会<b>覆盖</b>上次基准；<code>ab.diff</code> 没基准会直接报&quot;请先 ab.snapshot&quot;。</li><li><code>ab.sizes</code> 是<b>源码字节估算</b>，真实压缩后大小看 <code>ab.artifacts</code>（产物文件大小）。</li><li><code>excel.mark</code> 复用 <code>bundle</code> 字段传&quot;数据目录&quot;，<b>语义和 AB 的 bundle 完全不同</b>。</li><li><code>excel.clean</code> / 高危 GM <b>必须显式 <code>--confirm</code></b>（故意加的门槛）。</li><li><code>editor.menu</code> <b>只能打开工具窗口</b>（白名单 6 个），不能点任意菜单 —— 否则会卡在确认弹窗上。</li><li>batch 模式<b>不能</b>做 <code>play/stop/gm/scenario/菜单</code>，它没有交互能力。</li><li>编辑器被杀掉时，可能残留 <code>.json.tmp</code> 文件（写入采用&quot;临时文件 + 原子替换&quot;），删掉即可。</li></ol>
-
-</section>
-
-<section id="s10">
-
-  <h2><span class="num">十</span>命令速查（按前缀）</h2>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>前缀</th><th>数量</th><th>用途</th><th>典型命令</th>
-</tr></thead><tbody>
-<tr><td><code>doctor</code> / <code>commands</code></td><td>2</td><td>自检 / 离线清单</td><td><code>doctor</code></td></tr>
-<tr><td><code>job</code></td><td>2</td><td>查进度 / 取消</td><td><code>job &lt;id&gt; --cancel</code></td></tr>
-<tr><td><code>pipeline</code></td><td>1</td><td>顺序执行多个动作，失败即停（最后跑 finally）</td><td><code>pipeline x.pipeline.json</code></td></tr>
-<tr><td><code>report</code></td><td>1</td><td>场景结果 → JSON/CSV/HTML</td><td><code>report result.json --directory out</code></td></tr>
-<tr><td><code>editor.*</code></td><td>5</td><td>状态/刷新/菜单/进 Play/出 Play</td><td><code>editor status</code></td></tr>
-<tr><td><code>gm.*</code></td><td>2</td><td>列指令 / 执行</td><td><code>gm exec &quot;...&quot;</code></td></tr>
-<tr><td><code>ab.*</code></td><td>23</td><td>标记/改名/扫描/依赖/体积/快照/校验/构建/拷贝</td><td><code>ab build --target Android</code></td></tr>
-<tr><td><code>excel.*</code></td><td>8</td><td>读表/计划/孤儿/清理/导出</td><td><code>excel export --force</code></td></tr>
-<tr><td><code>ui.*</code></td><td>3</td><td>扫描预制体 / 预览代码 / 生成面板脚本</td><td><code>ui generate --prefab ...</code></td></tr>
-<tr><td><code>platform.*</code></td><td>2</td><td>首包资源审计 / 生成 link.xml</td><td><code>platform.linkxml</code></td></tr>
-<tr><td><code>hot.*</code></td><td>6</td><td>热更清单/自检/本地演示</td><td><code>hot manifest</code></td></tr>
-<tr><td><code>scenario</code></td><td>1</td><td>跑测试场景</td><td><code>scenario run x.json</code></td></tr>
-</tbody></table>
-  </div>
-
-  <p>完整参数见 <code>Automation/commands.json</code>（离线可读），或 <code>rev.cmd commands</code>。</p>
-
-</section>
-
-<section id="s11">
-
-  <h2><span class="num">十一</span>给 CI / Codex 的最小集成</h2>
-
-  <pre># CI 里不依赖桌面 Unity：直接用 batch 起进程跑完就退
-$env:UNITY_EDITOR = &#x27;C:\Program Files\Unity\Editor\Unity.exe&#x27;
-.\Automation\rev.cmd --mode batch --timeout 600 ab build --target Android
-if ($LASTEXITCODE -ne 0) { throw &quot;打包失败&quot; }
-
-# 跑性能测试并判门禁（退出码非 0 = 不达标）
-.\Automation\rev.cmd --mode batch --timeout 900 scenario run Automation/examples/business.scenario.json
-if ($LASTEXITCODE -ne 0) { throw &quot;性能门禁未通过&quot; }</pre>
-
-  <p><b>关键</b>：脚本只看<b>退出码</b>（0 成功 / 非 0 失败）和 <code>response.json</code> 的 <code>success</code>，不用解析日志。</p>
-
-</section>
-
-<section id="s12">
-
-  <h2><span class="num">十二</span>术语表</h2>
-
-  <div class="table-wrap">
-  <table><thead><tr>
-<th>词</th><th>人话</th>
-</tr></thead><tbody>
-<tr><td>动作（action）</td><td>编辑器能做的一件事，如 <code>ab.build</code>、<code>gm.exec</code></td></tr>
-<tr><td>场景（scenario）</td><td>一组按顺序执行的测试步骤 + 性能门禁</td></tr>
-<tr><td>轮（round / iteration）</td><td>把场景里的 <code>steps</code> 完整跑一遍</td></tr>
-<tr><td>预热（warmup）</td><td>跑但不计分的轮次，用来消除首次运行的抖动</td></tr>
-<tr><td>门禁（threshold）</td><td>性能红线，超了就算失败</td></tr>
-<tr><td>桥（bridge）</td><td>Unity 侧那个负责收发文件的组件（<code>RevAutomationBridge</code>）</td></tr>
-<tr><td>作业（job）</td><td>一次请求 = 一个 job 目录</td></tr>
-<tr><td>会话（session）</td><td>一次编辑器进程的生命周期；重启后旧请求作废</td></tr>
-<tr><td>域重载（domain reload）</td><td>改脚本后 Unity 重新加载程序集；正在跑的动作会被打断且<b>不重放</b></td></tr>
-</tbody></table>
-  </div>
-
-  <div class="callout"><p>看完还是不知道从哪下手？<b>就跑第 2 节那三条命令</b>（<code>doctor</code> / <code>commands</code> / <code>editor status</code>）。 三条都通了，说明环境没问题，接着抄第 4 节的命令改参数即可。</p></div>
-
-</section>
-
-</main>
-
-<footer>
-  Revolution · 自动化工具　|　2026-10-19　|　Python 标准库客户端 / Unity Editor 本机桥接<br>
-  <a href="../index.html">文档总入口</a> · <a href="../GM指令/GM指令使用说明.html">GM 指令使用说明</a> ·
-  <a href="https://yokino337088.github.io/Revolution/">在线文档站</a>
-</footer>
-
-</body>
-</html>
+  &quot;cleanup&quot;:[{&quot;kind&quot;:&quot;gm&quot;,&quot;command&quot;:&quot;业务/复位&quot;}],
+  &quot;teardown&quot;:[{&quot;kind&quot;:&quot;gm&quot;,&quot;command&quot;:&quot;业务/收尾&quot;}],
+  &quot;thresholds&quot;:{&quot;maxFrameP95Ms&quot;:0,&quot;maxFrameMs&quot;:0,&quot;maxMonoUsedBytes&quot;:0}
+}
+</code></pre>
+<p>“业务/…”都是待接入模板，不能在未注册时宣称执行。until/assert 比较 GM Message 精确字符串，不执行表达式或模糊包含；复杂业务用专门查询或 RevMCP 结构化能力。setup 全场一次、cleanup 每轮执行、teardown 准备失败后仍尝试。repeat=1..1000000，warmup=0..1000000；{round} 含预热总轮号从 0 开始，{iteration} 正式轮从 0 开始、预热固定 0。</p>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py scenario validate Revolution.Automation/examples/business.scenario.json
+python Revolution.Automation/rev.py --project $project --mode live --timeout 86400 scenario run Revolution.Automation/examples/business.scenario.json --repeat 10000 --warmup 10
+</code></pre>
+<p>scenario 必须图形 Editor Play，不支持 batch。每帧最多推进一次步骤/查询，wait 秒数和超时用墙钟；编辑器暂停会中断。预热失败同样使整体失败。性能阈值为 0 表示关闭，不能说性能达标；Editor 帧间隔不是设备 CPU/GPU 耗时。</p>
+</section><section id="s9"><h2>9. 运行时、MCP 与扩展动作</h2>
+<p>runtime.call 接受 runtimeAction 与 argumentsJson 字符串，在 Editor 中转发给共用注册表；runtime.state/screenshot、ui.dump/click/input/back/close 也有直接适配。runtime.start/stop 管本机 HTTP，Player 配置和业务注册详见 <a href="RevMCP%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.html">RevMCP 教程</a>。</p>
+<pre><code class="language-csharp">[RevAutomationAction(&quot;project.check&quot;, Environment = &quot;either&quot;, Keys = new[] { &quot;path&quot; }, Description = &quot;核对项目资源规则&quot;)]
+public static object Check(RevAutomationRequest request) {
+    // 解析并校验自己的参数，调用实际服务，失败抛带原因的异常。
+    return new RevAutomationActions.RevAutomationText(&quot;检查结果&quot;);
+}
+</code></pre>
+<p>方法必须 static、一个 RevAutomationRequest 参数、非 void。只在实际编译安装后出现在实时目录。Environment 默认为 edit，可指定 either/live/play；Confirm 标记显式确认要求。跨帧返回 RevAutomationOperation；只有明确可恢复等待的动作才声明 ResumeAfterReload，不能重放导出或变更。离线 help/schema 还需同步 commands.json。新增 Revolution.Tools 菜单也要补 editor.coverage 精确映射。</p>
+</section><section id="s10"><h2>10. 工单、取消与报告</h2>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project job &#39;32位工单ID&#39;
+python Revolution.Automation/rev.py --project $project job &#39;32位工单ID&#39; --cancel
+python Revolution.Automation/rev.py report &#39;你的scenario-result.json&#39; --directory &#39;报告目录&#39;
+</code></pre>
+<p>一个请求一个 jobs/id 目录。request.json 是请求，progress.json 是进度，response.json 是完成回执；scenario 另有 scenario-result.json、iterations.jsonl、unity-errors.jsonl 和导出的 HTML/CSV/JSON。CLI 解包后的业务数据在 data。退出码非零、response.success=false、业务断言失败、轮数不足或清理失败都不能算通过。</p>
+<p>Ctrl+C/超时会请求取消；同步主线程函数不能被强行抢占，已发生效果不自动回滚。域重载默认标失败不重放；平台切换/Test Runner 等声明恢复能力的工单只继续等待。Editor/HTTP 共用变更门禁，Busy/TestsRunning 时先看原工单。</p>
+</section><section id="s11"><h2>11. CI 与常见问题</h2>
+<p>关闭工程后，资产操作可用 batch；Play 回归应由图形编辑器 live 或开发版 Player 运行。示例：</p>
+<pre><code class="language-powershell">python Revolution.Automation/rev.py --project $project --mode batch --timeout 600 ab validate --target Android
+if ($LASTEXITCODE -ne 0) { throw &#39;资产校验失败&#39; }
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>问题</th>
+<th>排查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>没有在线桥</td>
+<td>确认工程路径、桥已安装、Unity Console 无编译错误</td>
+</tr>
+<tr>
+<td>参数无效</td>
+<td>查 commands --action 或实时能力；不要把 scenario/plan/pipeline 混用</td>
+</tr>
+<tr>
+<td>未保存场景</td>
+<td>保留原内容，明确保存到目标路径后再切场景</td>
+</tr>
+<tr>
+<td>目标不唯一或 id 失效</td>
+<td>按场景重新查对象与组件，用新 id</td>
+</tr>
+<tr>
+<td>GM 不存在/高危拒绝</td>
+<td>查 Play 实际 gm list，完整名/参数和 --confirm</td>
+</tr>
+<tr>
+<td>脚本生成后连接旧会话</td>
+<td>editor.wait 等待稳定，再发现能力</td>
+</tr>
+<tr>
+<td>超时</td>
+<td>查看原 id 的工单及已发生副作用，不自动重新执行</td>
+</tr>
+</tbody></table></div>
+</section><section id="s12"><h2>12. 本次验证口径</h2>
+<p>2026-10-22：Automation Python 19 项、RevMCP Python 13 项、Unity EditMode 24 项通过；MCP stdio 到 Editor 和独立 Windows 开发版 Player 的按钮/GM/断言/PNG/清理均通过，Player BuildReport 0 错误、0 警告。当前20个菜单映射完整。完整 <a href="%E9%AA%8C%E8%AF%81%E8%AE%B0%E5%BD%95/2026-10-22-RevMCP.md">脱敏记录</a> 含截图。</p>
+<p>本次未对全部 122 个 Editor 动作逐一做集成验收，未测 Android/IL2CPP/小游戏真机，也未跑任意业务一万轮或设备性能。业务项目需登记自己的真实契约；工具返回成功不能代替业务断言。</p>
+</section></main>
+<footer>Revolution · 2026-10-22<br><a href="../index.html">文档总入口</a> · <a href="Revolution自动化工具使用说明.md">Markdown 源文档</a></footer>
+</body></html>

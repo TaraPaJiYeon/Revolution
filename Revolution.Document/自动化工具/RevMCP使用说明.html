@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RevMCP · AI 控制编辑器与游戏使用说明</title><style>
+/* ============================================================
+   Revolution 文档 · 公共样式
+   —— 与 assets/docs.css 同一套视觉语言（配色 / 字体 / 组件）。
+   ★ 本套文档刻意「自包含」：样式内联在 <head> 里，不依赖外部文件 ——
+     因为外链样式在「单独打开 / IDE 预览（虚拟根）/ 单文件分享」时解析不到，
+     页面会退化成一坨无样式 HTML（详见仓库提交说明）。
+     新增文档：复制本段样式（或从 assets/docs.css 取值）内联进来即可。
+   兼容类名：hero / toc / callout(good|warn|bad) / plain / table-wrap / card / cheat / cmp / flow / pre
+   ============================================================ */
+:root{
+  --accent:#2F6FED; --accent-soft:#EAF1FE;
+  --page:#F4F6F9; --panel:#FFFFFF; --border:#E3E7ED;
+  --text:#1F2329; --text-sub:#6B7280;
+  --good:#12A150; --good-soft:#E8F8EF;
+  --warn:#B7791F; --warn-soft:#FDF6E3;
+  --bad:#D93F31;  --bad-soft:#FDECEA;
+  --code-bg:#1E2430; --code-fg:#D7DEEA;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0; background:var(--page); color:var(--text);
+  font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+  font-size:15.5px; line-height:1.85; -webkit-font-smoothing:antialiased;
+}
+.hero{background:linear-gradient(135deg,#2F6FED 0%,#4A84F5 55%,#6E9BFF 100%);color:#fff;padding:46px 24px 40px;position:relative;overflow:hidden;}
+.hero .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:2;}
+.hero .kicker{display:inline-block;font-size:12px;letter-spacing:.12em;background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;margin-bottom:14px;}
+.hero h1{margin:0 0 12px;font-size:31px;line-height:1.35;font-weight:700;}
+.hero p{margin:6px 0 0;color:rgba(255,255,255,.94);font-size:14.5px;}
+.hero code{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff;}
+.hero .meta{margin-top:16px;font-size:13px;color:rgba(255,255,255,.85);}
+.hero .deco{position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.85) 0 26px,transparent 26px 52px);
+  animation:march 1.1s linear infinite;opacity:.75;z-index:1;}
+
+main{max-width:1000px;margin:0 auto;padding:26px 24px 70px;}
+section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-bottom:20px;}
+h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+h2 .num{flex:0 0 auto;min-width:30px;height:30px;line-height:30px;text-align:center;border-radius:9px;
+  background:var(--accent);color:#fff;font-size:14px;font-weight:700;padding:0 8px;}
+h2 + .lead{color:var(--text-sub);font-size:14px;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+h3{font-size:17px;margin:28px 0 10px;}
+h3:first-of-type{margin-top:6px;}
+h4{font-size:15px;margin:20px 0 8px;color:#2B3444;}
+p{margin:10px 0;}
+ul,ol{margin:10px 0;padding-left:24px;}
+li{margin:6px 0;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+code{font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:13px;
+  background:#EEF2F8;border:1px solid #E1E7F0;border-radius:4px;padding:1px 5px;color:#22304A;}
+
+.toc{background:#FBFCFE;}
+.toc ol{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;}
+.toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--text);font-size:14px;}
+.toc a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none;}
+
+.table-wrap{overflow-x:auto;margin:14px 0;}
+table{border-collapse:collapse;width:100%;font-size:13.5px;}
+th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top;}
+thead th{background:#F3F6FB;font-weight:700;}
+tbody tr:nth-child(even){background:#FAFBFD;}
+tbody tr:hover{background:#F1F6FF;}
+td.c,th.c{text-align:center;white-space:nowrap;}
+
+.plain{border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14.5px;background:#F7F9FC;border:1px solid #E4E9F2;}
+.plain .tag{display:inline-block;font-size:11.5px;background:#5B6B84;color:#fff;border-radius:999px;padding:1px 9px;margin-right:8px;vertical-align:2px;}
+.plain p:first-child{margin-top:0;}
+.plain p:last-child{margin-bottom:0;}
+
+.callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:14.5px;
+  border-left:4px solid var(--accent);background:var(--accent-soft);}
+.callout.good{border-left-color:var(--good);background:var(--good-soft);}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-soft);}
+.callout.bad{border-left-color:var(--bad);background:var(--bad-soft);}
+.callout p:first-child{margin-top:0;}
+.callout p:last-child{margin-bottom:0;}
+.callout .t{font-weight:700;display:block;margin-bottom:4px;}
+
+pre{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:15px 17px;overflow-x:auto;
+  font-family:"Cascadia Mono",Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.7;margin:14px 0;}
+pre .c{color:#7D8CA6;}
+pre .k{color:#8FB8FF;}
+pre .s{color:#A5D6A7;}
+pre .n{color:#FFB86C;}
+pre b{color:#FFD479;font-weight:700;}
+
+.card{border:1px solid var(--border);border-radius:10px;background:#FBFCFE;padding:16px 18px;margin:16px 0;}
+.card > .h{font-weight:700;font-size:15.5px;margin-bottom:4px;}
+.card > .when{font-size:13.5px;color:var(--text-sub);margin-bottom:10px;}
+.card pre{margin:10px 0;}
+.card .note{font-size:13px;color:var(--text-sub);margin-top:8px;}
+
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+.cmp > div{border-radius:9px;padding:12px 14px;font-size:13.5px;border:1px solid;}
+.cmp .no{background:var(--bad-soft);border-color:#F3C9C3;}
+.cmp .yes{background:var(--good-soft);border-color:#BFE9D2;}
+.cmp .h{font-weight:700;margin-bottom:6px;}
+.cmp pre{margin:6px 0 0;font-size:12px;}
+
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0;}
+.flow .n{border:1.5px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;}
+.flow .n.on{border-color:var(--accent);background:var(--accent-soft);}
+.flow .n.wait{border-color:#EBCF8A;background:var(--warn-soft);}
+.flow .ar{color:var(--accent);font-weight:700;}
+
+.cheat{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:14px 0;}
+.cheat div{border:1px solid var(--border);border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;}
+.cheat div b{display:block;font-size:12.5px;color:var(--text-sub);font-weight:400;margin-bottom:2px;}
+
+footer{max-width:1000px;margin:0 auto;padding:0 24px 60px;color:var(--text-sub);font-size:13px;}
+
+@keyframes march{to{background-position:28px 0;}}
+@media (max-width:760px){
+  .hero h1{font-size:23px;}
+  section{padding:18px 16px;}
+  .cmp{grid-template-columns:1fr;}
+}
+@media (prefers-reduced-motion:reduce){ .hero .deco{animation:none !important;} }
+@media print{
+  body{background:#fff;font-size:12px;}
+  .hero{background:#fff;color:#000;border-bottom:2px solid #000;}
+  .hero .kicker,.hero .meta{color:#333;}
+  section{break-inside:avoid;border:0;padding:0;margin-bottom:20px;}
+  pre{background:#F5F5F5;color:#000;border:1px solid #CCC;}
+  .toc{display:none;}
+}
+
+
+pre code{background:transparent;border:0;padding:0;color:inherit;font:inherit;white-space:pre;}
+img{display:block;max-width:100%;height:auto;margin:18px auto;border-radius:8px;}
+td,th{overflow-wrap:anywhere;}section>p{overflow-wrap:anywhere;}
+@media(max-width:640px){section{padding:18px 16px;}main{padding:18px 12px;}h2{display:block;font-size:20px;}.hero h1{font-size:25px;}}
+
+pre code{background:transparent;border:0;padding:0;color:inherit;font:inherit;white-space:pre;}
+img{display:block;max-width:100%;height:auto;margin:18px auto;border-radius:8px;}
+td,th{overflow-wrap:anywhere;}section>p{overflow-wrap:anywhere;}
+@media(max-width:640px){section{padding:18px 16px;}main{padding:18px 12px;}h2{display:block;font-size:20px;}.hero h1{font-size:25px;}}
+</style></head><body>
+<header class="hero"><div class="wrap"><span class="kicker">REVOLUTION · AI AUTOMATION</span><h1>RevMCP · AI 控制编辑器与游戏使用说明</h1><p>Unity 内接线 · 真实业务契约 · 断言、截图与清理</p><div class="meta">2026-10-22 · Python 3.10+ · Unity 2022.3</div></div><div class="deco"></div></header>
+<main><section class="toc"><h2>目录</h2><ol><li><a href="#s1">1. 为什么需要 Unity 内的 RevMCP</a></li><li><a href="#s2">2. 文件放在哪里</a></li><li><a href="#s3">3. 新手先跑通 Demo</a></li><li><a href="#s4">4. 接到 Agent</a></li><li><a href="#s5">5. 三个稳定 MCP 工具</a></li><li><a href="#s6">6. 注册自己的游戏能力</a></li><li><a href="#s7">7. 内置运行时能力与 UI</a></li><li><a href="#s8">8. 独立开发版 Player</a></li><li><a href="#s9">9. 显式登记 CLI / Python</a></li><li><a href="#s10">10. 带断言与清理的计划</a></li><li><a href="#s11">11. 结果、故障与实际边界</a></li><li><a href="#s12">12. 2026-10-22 验证记录</a></li></ol></section><section id="intro">
+<p>更新：2026-10-22。适用：Python 3.10+，Revolution 当前源码，Unity 2022.3。无需安装 Python 第三方库。</p>
+<p>RevMCP 把 Unity Editor、游戏实际注册的 GM、运行时业务能力和项目登记的 CLI/Python 工具提供给 Agent。Agent 把一句话转成调用计划，工具负责执行、等待、断言、截图和收尾。玩法必须提供真实接口，工具不会凭空理解未开放的游戏业务。</p>
+</section><section id="s1"><h2>1. 为什么需要 Unity 内的 RevMCP</h2>
+<p>有必要提供 Unity 内插件。它负责知道当前工程、Play 状态、真实命令和 Unity 主线程；外部服务负责 MCP 协议与 Agent 连接。当前实现采用两端配合：Unity 内有桥和控制台，外部运行 Python MCP 服务。独立开发版 Player 复用同一个运行时注册表。</p>
+<pre><code class="language-text">第一层  人的一句话：点击增加，再用 GM 加 2，验证计数 3，并截图
+第二层  Agent + revolution-ai-automation Skill：发现、编排、判断结果
+第三层  RevMCP：rev_discover / rev_call / rev_run + 动态工具
+        ├─ Editor 文件工单 → Revolution.Automation
+        ├─ 游戏注册表 → GM / 业务能力 / UGUI / 状态 / 截图
+        └─ 显式清单 → CLI / Python 子进程
+第四层  Unity 主线程 → 玩家共用的 Service / Logic / UI 入口
+</code></pre>
+<p>第三层是稳定契约。每个接口明确名称、参数、环境、是否只读、是否需要 confirm、结果和错误。Agent 先发现真实注册表，再调用。可与已有 Unity MCP 共存；两个连接不能同时修改同一工程。</p>
+<p>维护者接线、线程/工单生命周期与扩展选型详见 <a href="RevMCP%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90.html">RevMCP 架构解析</a>。</p>
+</section><section id="s2"><h2>2. 文件放在哪里</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>路径</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Revolution.RevMCP/rev_mcp.py</code></td>
+<td>人/CI 的 CLI 与 Agent 的 stdio MCP 入口</td>
+</tr>
+<tr>
+<td><code>Revolution.RevMCP/revmcp/</code></td>
+<td>协议、统一调度、运行时 HTTP、外部进程和测试编排</td>
+</tr>
+<tr>
+<td><code>Revolution.Automation/</code></td>
+<td>Editor CLI、文件工单和旧 GM scenario；保留相邻目录</td>
+</tr>
+<tr>
+<td><code>Assets/Revolution/Editor/RevAutomation/</code></td>
+<td>Editor 接线与 RevMCP 控制台</td>
+</tr>
+<tr>
+<td><code>Assets/Revolution/Runtime/RevAutomation/</code></td>
+<td>开发态游戏接口注册表、UI/截图及本机 HTTP</td>
+</tr>
+<tr>
+<td><code>Assets/Revolution.Demo/RevAutomation.Demo/</code></td>
+<td>可直接运行的教学场景</td>
+</tr>
+<tr>
+<td><code>Skills/revolution-ai-automation/</code></td>
+<td>一句话测试 Skill 源码</td>
+</tr>
+</tbody></table></div>
+<p>复制到其他项目时，同时保留 Python 两个工具目录和 Unity 里的框架代码。只拷贝 Python 无法控制没有桥的工程。无需为了使用 Editor 文件桥而开启 HTTP。</p>
+</section><section id="s3"><h2>3. 新手先跑通 Demo</h2>
+<p>以下命令在仓库根目录的 PowerShell 执行。<code>--project</code> 填的是含 Assets/ProjectSettings 的 Unity 工程目录。先用 Unity 打开该工程并等待编译完成。</p>
+<pre><code class="language-powershell">$project = &#39;G:\RevRoot\Revolution\RevolutionFrameWork_Unity&#39;
+$env:PYTHONIOENCODING = &#39;utf-8&#39;
+python Revolution.Automation/rev.py --project $project --mode live editor status
+python Revolution.Automation/rev.py --project $project --mode live editor coverage
+python Revolution.Automation/rev.py --project $project --mode live editor play --scene &#39;Assets/Revolution.Demo/RevAutomation.Demo/RevAutomationDemo.unity&#39;
+python Revolution.RevMCP/rev_mcp.py --project $project discover
+python Revolution.RevMCP/rev_mcp.py --project $project run Revolution.RevMCP/examples/ui-gm.plan.json
+python Revolution.Automation/rev.py --project $project --mode live editor stop
+</code></pre>
+<p>成功计划会完成：计数归零 → 查找真实按钮 → EventSystem 点击加 1 → GM 加 2 → 精确断言 3 → 截图 → 检查错误数 → finally 归零。截图中计数为 3，执行结束后状态为 0，这是清理成功的正常表现。</p>
+<p>Unity 菜单 <code>Revolution.Tools/AI/RevMCP 控制台</code> 可查看工程/Play/GM 数量、启停 HTTP、复制配置和打开工单目录。编辑模式没有 game/GM 能力时，discover 的 unavailable 会给出原因；Editor 能力仍然可以使用。</p>
+</section><section id="s4"><h2>4. 接到 Agent</h2>
+<p>菜单中点击“复制 MCP 配置（Editor 模式）”，把配置放入所用 Agent 的 MCP 设置。窗口仅复制配置，不修改全局设置。以下是使用 mcpServers JSON 的客户端示例；其他客户端按其实际配置格式填写同一 command 和 args。</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;revolution&quot;: {
+      &quot;command&quot;: &quot;python&quot;,
+      &quot;args&quot;: [
+        &quot;G:/RevRoot/Revolution/Revolution.RevMCP/rev_mcp.py&quot;,
+        &quot;--project&quot;, &quot;G:/RevRoot/Revolution/RevolutionFrameWork_Unity&quot;,
+        &quot;serve&quot;
+      ]
+    }
+  }
+}
+</code></pre>
+<p>把 command 改为本机 Python 的绝对路径可避免 PATH 差异。所有全局参数放在 serve/discover/call/run 前。stdio 由 Agent 启动并持有；命令行直接运行 serve 后等待输入属于正常状态。stdout 只输出 MCP JSON-RPC，调试信息不能混入 stdout。</p>
+<p>安装 Skill：把仓库 <code>Skills/revolution-ai-automation</code> 整个目录复制到你的 Agent skills 目录。本次在当前电脑已安装到 <code>C:/Users/zhuohengyu/.codex/skills/revolution-ai-automation</code>；客户端如尚未刷新列表，开启新会话后使用。</p>
+<p>连接后可说：</p>
+<blockquote>
+<p>使用 revolution-ai-automation，测试 RevAutomationDemo：点击增加按钮，再通过 GM 增加 2，断言计数为 3，截图并清理归零；给我结果和证据。</p>
+</blockquote>
+<p>真实业务也可以说“测试背包添加道具后数量与格子刷新”，前提是项目已注册对应查询、动作与复位接口。Agent 根据实际接口组织测试，不要求用户手写 JSON。</p>
+</section><section id="s5"><h2>5. 三个稳定 MCP 工具</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>输入</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rev_discover</code></td>
+<td><code>{}</code></td>
+<td>读取当前 Editor、game、GM、CLI 能力及不可用原因</td>
+</tr>
+<tr>
+<td><code>rev_call</code></td>
+<td>target/action/arguments/confirm</td>
+<td>调用一个真实注册接口</td>
+</tr>
+<tr>
+<td><code>rev_run</code></td>
+<td><code>{ &quot;plan&quot;: { ... } }</code></td>
+<td>执行带断言、等待和 finally 的完整测试</td>
+</tr>
+</tbody></table></div>
+<p>tools/list 还会把真实接口生成 <code>editor_*</code>、<code>game_*</code>、<code>gm_*</code>、<code>cli_*</code> 动态工具。动态工具名包含稳定摘要，中文 GM 完整名保留在说明中。动态工具参数是 <code>{ &quot;arguments&quot;: { ... }, &quot;confirm&quot;: false }</code>。场景/注册表变化后重新刷新工具列表或使用 rev_discover，再用稳定 rev_call 调用；服务不声明主动 listChanged 推送。</p>
+<pre><code class="language-json">{
+  &quot;target&quot;: &quot;gm&quot;,
+  &quot;action&quot;: &quot;自动化演示/增加&quot;,
+  &quot;arguments&quot;: { &quot;arg0&quot;: 2 }
+}
+</code></pre>
+<p>GM 参数使用 arg0/arg1 等位置名，类型、必填、枚举和 Int32 范围由真实 RevGMArg 推导。只允许完整注册名；HighRisk 必须 confirm=true。Hidden 是显示标记，不是权限隔离。GM 本体是否允许执行仍由 RevGM.Enabled 控制。</p>
+</section><section id="s6"><h2>6. 注册自己的游戏能力</h2>
+<p>业务应先提供玩家共用入口，再登记受控能力。最小完整范例见 <code>Assets/Revolution.Demo/RevAutomation.Demo/RevAutomationDemo.cs</code>。下面是接入结构，<code>inventory</code> 是项目已有的业务服务，需要替换为你的实际实现。</p>
+<pre><code class="language-csharp">#if UNITY_EDITOR || DEVELOPMENT_BUILD || REV_AUTOMATION
+// 在业务启动处登记一次。查询可轮询，动作调用玩家同一个服务。
+RevRuntimeAutomation.Register(
+    &quot;inventory.state&quot;, &quot;查询真实背包数量&quot;,
+    &quot;{\&quot;type\&quot;:\&quot;object\&quot;,\&quot;additionalProperties\&quot;:false}&quot;,
+    _ =&gt; new InventoryState { count = inventory.Count },
+    readOnly: true, owner: this);
+
+RevRuntimeAutomation.Register(
+    &quot;inventory.add&quot;, &quot;测试账号调用正常添加道具入口&quot;,
+    &quot;{\&quot;type\&quot;:\&quot;object\&quot;,\&quot;properties\&quot;:{\&quot;amount\&quot;:{\&quot;type\&quot;:\&quot;integer\&quot;,\&quot;minimum\&quot;:1,\&quot;maximum\&quot;:100}},\&quot;required\&quot;:[\&quot;amount\&quot;],\&quot;additionalProperties\&quot;:false}&quot;,
+    json =&gt; {
+        var args = JsonUtility.FromJson&lt;AddArgs&gt;(json);
+        inventory.Add(args.amount);
+        return new InventoryState { count = inventory.Count };
+    }, owner: this);
+
+// 场景退出/服务释放时清掉自己登记的委托。
+RevRuntimeAutomation.UnregisterAllOf(this);
+#endif
+</code></pre>
+<p>返回 DTO 要声明 <code>[Serializable]</code>，使用可序列化字段；也可返回字符串键字典、数组、数字、布尔或 null。失败抛出带原因的异常。不要返回 Unity 对象、任意复杂服务、循环引用或把 <code>success=false</code> 藏在普通业务 DTO 中代替工单失败；跨帧能力用 RevRuntimeOperation.Success/Message 明确结果。</p>
+<p>回调只在 Unity 主线程调用，必须快速返回。网络登录/战斗等异步流程由现有 RevTask/业务生命周期启动，另提供 readOnly 状态查询；需要直接等待多帧时返回 RevRuntimeOperation，在 Tick 返回 true 时结束，并实现 Cancel/Dispose。取消不能撤销已发生的业务效果。</p>
+<p>Schema 支持：单一 type（object/array/string/integer/number/boolean/null）、properties、required、additionalProperties 布尔值、items、enum、minimum/maximum、min/maxLength、min/maxItems，以及 description/title/default。default 只作说明，不自动补值；不支持 oneOf、远程引用或正则 pattern。未知关键字在注册时拒绝。数字内核使用 double，不承诺任意 Int64 无损；大 ID 用字符串。</p>
+</section><section id="s7"><h2>7. 内置运行时能力与 UI</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>能力</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>runtime.state</code></td>
+<td>活动场景、帧、timeScale、作用域/服务/计时器/UI 状态和错误数</td>
+</tr>
+<tr>
+<td><code>runtime.logs</code></td>
+<td>最近 128 条日志、当前局累计 Error/Exception/Assert 数</td>
+</tr>
+<tr>
+<td><code>runtime.ping</code></td>
+<td>运行实例产品名和平台</td>
+</tr>
+<tr>
+<td><code>runtime.screenshot</code></td>
+<td>等待完整 PNG，返回路径、base64、mimeType，MCP 转为 image 内容</td>
+</tr>
+<tr>
+<td><code>ui.dump</code></td>
+<td>分页查询 UGUI/TMP Selectable、文本、可交互与中心射线可达状态</td>
+</tr>
+<tr>
+<td><code>ui.click</code></td>
+<td>目标 id/objectPath，真实 EventSystem 指针事件，拒绝禁用/中心遮挡</td>
+</tr>
+<tr>
+<td><code>ui.input</code></td>
+<td>输入框 text；submit=true 时触发结束编辑</td>
+</tr>
+<tr>
+<td><code>ui.back</code> / <code>ui.close</code></td>
+<td>使用 RevUI 的真实返回/关闭入口</td>
+</tr>
+</tbody></table></div>
+<p>先 dump 再点击当次 id；同名路径会拒绝，跨场景/重载后 id 过期。通用点击测试的是控件中心，不能代表所有边缘位置。非 UGUI 控件、拖拽、摇杆、战斗移动、虚拟列表等应登记项目专用能力。输入接口设置控件文本，不模拟输入法逐键交互。场景切换可以登记调用 RevScene 的能力，由业务清理和查询实际就绪。</p>
+<p>截图保存在 <code>Application.persistentDataPath/RevolutionAutomation/screenshots/</code>，最大 8 MiB PNG。MCP 一次响应最多附带 4 张图片；报告省略重复 base64 并保留图片路径。截图需要图形渲染环境，不应用无图形模式验视觉。</p>
+</section><section id="s8"><h2>8. 独立开发版 Player</h2>
+<p>勾选 Development Build 出包。启动时显式指定：</p>
+<pre><code class="language-powershell">&amp; &#39;G:\你的构建目录\Player.exe&#39; -revAutomation -revAutomationPort 18767
+</code></pre>
+<p>也可在开发态启动入口调用 <code>RevRuntimeAutomation.Start(18767)</code>。默认端口 18766。Editor 控制台启用服务时凭据在工程 <code>Library/RevolutionAutomation/runtime.json</code>；Player 在 <code>Application.persistentDataPath/RevolutionAutomation/runtime.json</code>。凭据含随机 token、session、pid 和本机 URL，不提交 Git、不贴到聊天。</p>
+<pre><code class="language-powershell">$endpoint = &quot;$env:USERPROFILE\AppData\LocalLow\DefaultCompany\RevolutionFrameWork_Unity\RevolutionAutomation\runtime.json&quot;
+python Revolution.RevMCP/rev_mcp.py --runtime-endpoint $endpoint discover
+python Revolution.RevMCP/rev_mcp.py --runtime-endpoint $endpoint run Revolution.RevMCP/examples/ui-gm.plan.json
+</code></pre>
+<p>Company/Product 改名后上述路径也会变化，以实际 persistentDataPath 为准。Player 的 MCP 配置将 --project 换成 --runtime-endpoint 与实际路径。游戏必须运行并持续刷新帧；服务启动期间临时启用 runInBackground，停止时恢复。</p>
+<p>HTTP 是运行时内部传输，不是直接提供给 Agent 的 MCP Streamable HTTP；Agent 仍连接 Python stdio。只监听 loopback，要求 Bearer token 和 session，拒绝浏览器 Origin，不自动跟随重定向。POST /call 接单、GET /jobs/id 查询、DELETE /jobs/id 取消。队列最多 16，单 session 最多保存 1024 工单，达到后结束本轮再重启服务；旧请求不重放。</p>
+<p>正式构建默认不包含运行时测试模块，除非项目主动定义 REV_AUTOMATION。WebGL 无本机 HttpListener，此版本明确拒绝；手机/小游戏真机、跨机器连接与端口转发未在本次验证。不要将本机监听直接改为公网监听。</p>
+</section><section id="s9"><h2>9. 显式登记 CLI / Python</h2>
+<p>外部工具使用 JSON 清单，不扫描硬盘并执行任意脚本。复制 <code>Revolution.RevMCP/examples/external-tools.example.json</code>，按本机修改 command 和 cwd。Python.exe 用 <code>python -c &quot;import sys; print(sys.executable)&quot;</code> 查询。command 是固定参数数组，第一个元素必须为真实绝对可执行文件；py 文件由 Python.exe 启动。</p>
+<pre><code class="language-json">{
+  &quot;version&quot;: 1,
+  &quot;tools&quot;: [{
+    &quot;name&quot;: &quot;project.echo&quot;,
+    &quot;description&quot;: &quot;教学：返回收到的文本&quot;,
+    &quot;command&quot;: [&quot;C:/你的Python/python.exe&quot;, &quot;G:/RevRoot/Revolution/Revolution.RevMCP/examples/echo_tool.py&quot;],
+    &quot;cwd&quot;: &quot;G:/RevRoot/Revolution&quot;,
+    &quot;inputSchema&quot;: {&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{&quot;text&quot;:{&quot;type&quot;:&quot;string&quot;}},&quot;required&quot;:[&quot;text&quot;],&quot;additionalProperties&quot;:false},
+    &quot;readOnly&quot;: true, &quot;confirm&quot;: false, &quot;timeoutSeconds&quot;: 10, &quot;output&quot;: &quot;json&quot;
+  }]
+}
+</code></pre>
+<pre><code class="language-powershell">python Revolution.RevMCP/rev_mcp.py --project $project --external-manifest &#39;G:/你的配置/tools.json&#39; discover
+</code></pre>
+<p>Agent 用 target=cli、action=project.echo、arguments={&quot;text&quot;:&quot;你好&quot;}。参数通过 UTF-8 JSON stdin 传递；stdout 返回 JSON（或 output=text），stderr 用于日志。进程非零退出或 JSON 顶层 success=false 判失败。shell=False，不直接启动 cmd/bat/ps1；原工具只接受 argv 时，为它写固定 JSON 包装脚本。输出合计限制 4 MiB。取消会终止直接子进程，工具自己派生的进程应自行管理生命周期。</p>
+</section><section id="s10"><h2>10. 带断言与清理的计划</h2>
+<p>计划顶层 name/steps/finally；步骤 target/action/arguments，可选 id/confirm/expect/until。完整可执行示例为 <code>Revolution.RevMCP/examples/ui-gm.plan.json</code>。</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;验证按钮增加&quot;,
+  &quot;steps&quot;: [
+    {&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;demo.reset&quot;},
+    {&quot;id&quot;:&quot;button&quot;,&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;ui.dump&quot;,&quot;arguments&quot;:{&quot;query&quot;:&quot;AutomationCanvas/Increment&quot;},&quot;expect&quot;:[{&quot;path&quot;:&quot;/data/total&quot;,&quot;equals&quot;:1}]},
+    {&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;ui.click&quot;,&quot;arguments&quot;:{&quot;id&quot;:{&quot;$ref&quot;:&quot;button#/data/items/0/id&quot;}}},
+    {&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;demo.state&quot;,&quot;until&quot;:{&quot;path&quot;:&quot;/data/count&quot;,&quot;equals&quot;:1,&quot;timeoutSeconds&quot;:5,&quot;intervalSeconds&quot;:0.2}},
+    {&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;runtime.screenshot&quot;}
+  ],
+  &quot;finally&quot;: [{&quot;target&quot;:&quot;game&quot;,&quot;action&quot;:&quot;demo.reset&quot;,&quot;expect&quot;:[{&quot;path&quot;:&quot;/data/count&quot;,&quot;equals&quot;:0}]}]
+}
+</code></pre>
+<p>断言 path 是完整响应中的 JSON Pointer：结构化数据通常在 /data/count，GM 文本在 /data/message。支持 equals 或 exists，不能同时提供；精确比较，布尔值与数字不同。$ref 必须单独构成一个对象，只能引用先前步骤，保留数字、布尔、对象等原类型。</p>
+<p>整份计划先预检，引用值在实际调用前再次验证。until 仅允许 readOnly=true 的查询，必须有期限，不能自动重复变更。单次请求期限由 --timeout 控制（RevMCP 最大 3600 秒）；条件期限可能要等一个已提交请求结束后才被观察到。finally 在失败、取消后继续逐条执行，清理失败使总结果失败。断言失败后的已执行动作不自动回滚。finally 尽量使用不依赖前面成功步骤的幂等复位。</p>
+<p>三个格式不要混用：RevMCP plan 用 target/action/arguments；Automation pipeline 用 action/payload；旧 GM scenario 用 kind/command，并提供 repeat/warmup/cleanup/teardown 与性能采样。循环和性能测试仍可用 scenario，详见 <a href="Revolution%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.html">Automation 使用说明</a>。</p>
+</section><section id="s11"><h2>11. 结果、故障与实际边界</h2>
+<p>CLI 退出码 0 表示顶层成功；MCP 看 isError 和 structuredContent.success，并核对每步业务断言、日志和 cleanup。结果默认写 <code>Revolution.RevMCP/results/</code>，可用 --reports 修改。Editor 原始工单在 <code>Library/RevolutionAutomation/jobs/</code>。不能以 progress、握手成功或按钮 dispatched 代替玩法通过。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Editor unavailable</td>
+<td>检查 --project、桥是否编译、是否正在重载；已有工程不另开 batch</td>
+</tr>
+<tr>
+<td>game/GM 不可用</td>
+<td>进入目标场景 Play，确认注册/RevGM.Enabled；重新 discover</td>
+</tr>
+<tr>
+<td>HTTP 401 / SessionChanged</td>
+<td>检查凭据属于当前 pid/session；不能重放刚才可能已执行的变更</td>
+</tr>
+<tr>
+<td>Busy / RuntimeBusy / TestsRunning</td>
+<td>等待或取消原工单后核对副作用；Editor/HTTP 串行操作</td>
+</tr>
+<tr>
+<td>参数小数/拼错字段被拒绝</td>
+<td>按真实 inputSchema 修改，不靠静默类型转换</td>
+</tr>
+<tr>
+<td>UI 中心被挡</td>
+<td>先排查真实遮罩/滚动位置；不要绕过射线直接 Invoke 点击事件</td>
+</tr>
+<tr>
+<td>测试被取消但引擎仍运行</td>
+<td>Test Framework 1.1 不支持公开强制取消；查询 test.result，保持变更门禁到完成</td>
+</tr>
+<tr>
+<td>报告失败但业务似乎完成</td>
+<td>查看各步、Unity Error、断言和清理结果；不能忽略清理失败</td>
+</tr>
+</tbody></table></div>
+</section><section id="s12"><h2>12. 2026-10-22 验证记录</h2>
+<p>本次本机验证覆盖 Python 自动化 19 项、RevMCP 13 项、Unity EditMode 24 项。真实 MCP stdio → Editor 文件桥，以及 stdio → 本机 HTTP → Windows Development Player 均完成 UI、GM、计数断言、PNG 和归零清理。Windows64 BuildReport 成功，0 错误、0 警告。当前实际 20 个 Revolution.Tools 菜单均有命令映射；离线清单 125 个动作，示例工程实时 122 个（另 3 个由 Python 客户端实现）。</p>
+<p>首次集成曾发现重载恢复、测试夹具场景管理和 Player 输出目录问题，已修复后复测；零匹配测试会明确失败。本记录不代表每个编辑器动作、任意项目业务或所有平台逐一通过。Android、IL2CPP、小游戏和真机性能未验证。</p>
+<p>脱敏证据见 <a href="%E9%AA%8C%E8%AF%81%E8%AE%B0%E5%BD%95/2026-10-22-RevMCP.md">本次验证记录</a>，包括可核对的计数、构建摘要和截图；本机原始凭据/日志不入库。</p>
+</section></main>
+<footer>Revolution · 2026-10-22<br><a href="../index.html">文档总入口</a> · <a href="RevMCP使用说明.md">Markdown 源文档</a></footer>
+</body></html>

@@ -1,5 +1,7 @@
 # revolution-framework
 
+2026-10-22 新增 [revolution-ai-automation](revolution-ai-automation/SKILL.md)：一句话驱动 RevMCP 发现真实 Editor/GM/业务/UI/截图/外部工具，执行断言和清理。仓库同时维护框架开发 Skill 与旧 GM scenario 测试 Skill；跨接口测试用新 Skill，循环采样可继续用 revolution-automation-tester。安装时把对应完整目录复制进所用 Agent 的 skills 目录。教程见 [RevMCP 使用说明](../Revolution.Document/自动化工具/RevMCP使用说明.html)。
+
 `revolution-framework` 是一个面向 **Revolution**（本仓库的 Unity 游戏框架，代码前缀 `Rev`）的专用 **开发与代码审查 Skill**。
 
 它不是通用 C# / Unity 助手，而是围绕 Revolution 的真实写法，给 AI Agent 提供
@@ -7,7 +9,7 @@
 
 核心目标：
 
-- 默认遵循[《Revolution 官方编程架构规范》](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/编程范式/Revolution官方编程架构规范.md)：常用能力走现有门面；FSM + RevScope 统一登录/大厅/战斗/结算/退出；关键业务留受控 GM 查询、动作、拒绝测试接口；MCP/AI 接线由项目安全适配，不能假设已有 GM 桥；
+- 默认遵循[《Revolution 官方编程架构规范》](https://github.com/Yokino337088/Revolution/blob/main/Revolution.Document/编程范式/Revolution官方编程架构规范.md)：常用能力走现有门面；FSM + RevScope 管流程；关键业务留受控 GM 或结构化能力，优先通过新版 RevMCP 接线，先发现目标工程真实注册表；
 - 让 Agent 一上手就用**门面**写业务（`RevTimer` / `RevResManager` / `RevUI` / `RevEvent` / `RevTask` …），不越界碰内核；
 - 按本框架的**硬规范**生成或检查代码（`Rev` 前缀、方法括号不换行、方法必须带大括号、核心处写小白向注释）；
 - 把"编辑器直读 vs AB 模式""引用计数与分组卸载""面板池与 Back 语义""事件/计时器清理""热更覆盖式语义"这些**只有踩过才知道**的点提前说清；

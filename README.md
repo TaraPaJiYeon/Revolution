@@ -28,6 +28,8 @@
 
 ### ✨ 核心特性
 
+- 🤖 **RevMCP AI 自动化（2026-10-22）** - Unity 内控制台与外部 MCP 服务，发现真实 GM、业务、UI、截图、Editor 和显式 CLI/Python；一句话执行操作、断言与清理。已实测 Editor 与独立 Windows 开发版 Player，接入见[使用说明](Revolution.Document/自动化工具/RevMCP使用说明.html)、[架构解析](Revolution.Document/自动化工具/RevMCP架构解析.html)和[Skill](Skills/revolution-ai-automation/SKILL.md)。
+
 - 🧩 **模块化** - 每个模块一个门面（`RevSound` / `RevTimer` / `RevLog` …），可单独拿走、可整块删除
 - 🚀 **一行就能用** - 播放音效、延迟 2 秒、每帧回调、分级日志都是**一行调用**，零配置（不摆物体、不挂脚本）
 - 🧪 **可脱离 Unity 验证** - 内核是纯 C#，`dotnet run` 就能跑断言（误差契约 / 代际失效 / 异常隔离都钉死过）

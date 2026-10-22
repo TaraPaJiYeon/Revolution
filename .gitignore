@@ -80,3 +80,10 @@ desktop.ini
 # ---------------- 本机 AI 工具目录（不入库） ----------------
 # Codex 在项目里安装的 skill 副本（.codex/skills/…）只在本机生效，不进仓库。
 .codex/
+
+# Python / 本机测试证据与运行时凭据（文档中的脱敏验证记录单独维护）
+__pycache__/
+*.pyc
+/Revolution.RevMCP/results/
+/Revolution.Automation/results/
+/.rev-mcp/

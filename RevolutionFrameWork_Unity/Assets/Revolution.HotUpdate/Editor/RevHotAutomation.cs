@@ -8,7 +8,7 @@ namespace Revolution.HotUpdate.Editor
 {
     public static class RevHotAutomation
     {
-        [RevAutomationAction("hot.manifest")]
+        [RevAutomationAction("hot.manifest", Keys = new[] { "target", "outputDir", "appVersion", "resVersion", "channel", "env" }, Description = "构建并校验热更清单")]
         public static object Manifest(RevAutomationRequest request)
         {
             var options = JsonUtility.FromJson<RevAutomationOptions>(request.payloadJson);
@@ -23,7 +23,7 @@ namespace Revolution.HotUpdate.Editor
             return new RevAutomationActions.RevAutomationText(Path.GetFullPath(output));
         }
 
-        [RevAutomationAction("hot.check")]
+        [RevAutomationAction("hot.check", Keys = new[] { "target", "outputDir" }, Description = "检查热更清单和真实产物一致性")]
         public static object Check(RevAutomationRequest request)
         {
             var options = JsonUtility.FromJson<RevAutomationOptions>(request.payloadJson);

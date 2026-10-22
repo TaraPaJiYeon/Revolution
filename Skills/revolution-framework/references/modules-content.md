@@ -278,7 +278,7 @@ handle.Stop();
 ## 7. RevGM —— GM 指令（纯 C#，不引用 UnityEngine）
 
 - 门面：`Revolution.RevGM`（static）· `RevGMCommand/Facade/RevGM.cs`
-- 职责：一行注册、统一执行（解析 → 查命令 → 预校验 → 执行兜异常 → 返回结果 + 耗时）、模糊联想。**项目**应给关键业务留测试命令，与 UI/网络共享同一流程控制者或服务；框架只提供运行时执行后端和编辑器面板，不提供游戏内交互控制台或现成 GM-MCP 桥。官方约定见 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`。
+- 职责：一行注册、统一执行（解析 → 查命令 → 预校验 → 执行兜异常 → 返回结果 + 耗时）、模糊联想。**项目**应给关键业务留测试命令，与 UI/网络共享同一服务。2026-10-22新增RevMCP自动发现真实GM与参数、并经主线程执行，结构化能力用RevRuntimeAutomation.Register；接入见automation-integration.md。仍没有游戏内交互控制台UI。
 - 常用 API：
 
 ```csharp
@@ -303,7 +303,7 @@ RevGM.Register("战斗/清空敌人", "把所有敌人血量清零", args => Cle
   2. **注册只写在一处**（组合根 / 一个静态类）；命令体里不要再注册别的命令；参数用 `args.Int(0, 默认值)` 取，**不要**自己解析字符串。
   3. 业务拒绝执行时抛 `RevGMUsageException("为什么不行")` —— 这句话原样显示在面板上，别静默 return。
   4. `[RevGMEntry]` 仅用于静态无参注册方法供非 Play 态编目，不能在方法外层读取服务或切场景；处理器在 Play 时才取项目业务服务。
-  5. 正式包不会自动编译裁剪 GM：变更类测试命令只在受控测试环境注册，临时关闭用 `Enabled = false`。`HighRisk` 仅编辑器面板提示，直接 `RevGM.Execute` 不经二次确认；`Hidden` 只影响联想，两者都不提供授权。项目 MCP/AI 适配需自建安全白名单与主线程调用，不宣称已接通。
+  5. 正式包不会自动编译裁剪 GM 本体：变更类测试命令只在受控环境注册，临时关闭用 `Enabled = false`。直接 `RevGM.Execute` 不做二次确认；RevMCP/Automation桥另外检查HighRisk与confirm。Hidden只影响联想，不提供授权。RevAutomation运行时桥默认仅Editor/开发构建存在，项目仍负责业务注册边界。
 - 文档：`Revolution.Document/GM指令/GM指令使用说明.md` · 模块 README：`Runtime/RevGMCommand/README.md`
 
 ---

@@ -2,6 +2,8 @@
 
 > 全部菜单都挂在顶级菜单 `Revolution.Tools` 下。改代码前先确认"这件事有没有现成工具做"。
 
+2026-10-22新增 `Revolution.Tools/AI/RevMCP 控制台`：显示工程/Play/GM、管理本机运行时服务、复制Agent配置。CLI用`editor.capabilities`与`editor.coverage`核对实际能力；当前20个菜单已映射。Editor场景/Inspector/资产/Prefab/测试/构建和游戏接口见`automation-integration.md`与RevMCP使用说明。
+
 ## 1. 菜单一览
 
 | 菜单 | 用途 |

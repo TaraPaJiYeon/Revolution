@@ -1,11 +1,11 @@
 ---
 name: revolution-framework
-description: 本指南适用于 Revolution Unity 游戏框架业务开发、官方编程架构规范、架构选型、排错与代码审查。优先复用 Rev 前缀门面；用 RevLightFSM / RevLightStackFSM + RevScope / RevLogic 统一管理登录、大厅、战斗、结算、退出，并在关键业务注册受控 RevGM 指令供项目 MCP/AI 自动测试；也覆盖 RevServices、RevScene、RevUI、RevResManager、RevPool、RevTimer、RevMono、RevEvent、RevTask、RevInput、RevSound、RevSequence、RevLog、RevDataTableManager、RevAppLifecycle、RevStripGuard 和 RevHotUpdate 的用法与验证。任务涉及 Assets/Revolution、游戏流程、作用域、状态机、GM测试接口、Unity平台适配、文档或技能包同步时使用；只依据真实现有API，不假设已内置GM-MCP桥。
+description: 本指南适用于 Revolution Unity 游戏框架业务开发、官方编程架构规范、架构选型、排错与代码审查。优先复用 Rev 前缀门面；用 FSM + RevScope / RevLogic 管流程和生命周期，在关键业务注册受控 GM 或 RevRuntimeAutomation 能力供 RevMCP/AI 验证。涉及 Assets/Revolution、玩法、GM、资源/UI、Unity平台、文档或技能包同步时使用；一句话实际测试联合 revolution-ai-automation，先核对目标项目安装的版本和真实能力。
 ---
 
 # Revolution 框架开发 Skill
 
-Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏框架（C#）：**20 个功能模块 + 1 个启动门面（`RevInitialize`），共 21 个 Runtime 目录**。
+Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏框架（C#）。2026-10-22 新增开发态 `RevAutomation` 模块与 `RevRuntimeAutomation` 门面，Runtime 目录由历史 21 个增为 22 个；下表保留基础模块索引。
 2026-10-16 已跟踪源码快照：Runtime **199** 个 `.cs`、Editor **44** 个 `.cs`、独立扩展包 `RevHotUpdate` **20** 个 `.cs`；Demo 仍为 **18 个 `.unity` 场景**，新增 `RevScopeFlowDemo.cs` 挂任意场景运行，不计作独立场景。
 
 > 按需读取 `Facade/` 文件头与对应 Demo；不要为了了解框架通读内核。
@@ -19,7 +19,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 2. **失败必须可见**：不吞异常、不静默 return —— 失败一律给原因枚举 / 句柄字段 / 返回值，日志有唯一出口 `RevLog`。
 3. **内核尽量不依赖引擎**：路径、句柄、槽位表、池引擎、日志/计时器内核是纯 C#，**能链接进普通 .NET 工程跑断言**（见 `references/verify-and-test.md`）。
 
-## 模块总览（21 个 Runtime 目录，一张表找全）
+## 基础模块总览（新增开发态 RevAutomation 见自动化接入参考）
 
 > "我想做 X → 用哪个门面"。签名与最小示例在对应参考文件里；没有合适门面时先按生存期选面板、域 Logic 或服务，不为单个业务新造框架系统。
 
@@ -44,7 +44,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | 单例 | `RevSingleton*` | 三个基类（优先服务定位器） | `modules-content.md` §4 |
 | 做界面 | `RevUI` / `RevUIPanel` | 声明式面板、数据单向流、动画库 | `modules-content.md` §5、`ui-and-layering.md` |
 | 一串动作（播放→等待→并行） | `RevSequence` | 不可变蓝图 + 取消收尾契约 | `modules-content.md` §6 |
-| 关键业务测试接口 | `RevGM.Register` / `RevGM.Execute` | 项目注册受控业务命令；编辑器面板 Play 态执行，运行时只提供可自接的后端 | `modules-content.md` §7、`playbooks.md` R21 |
+| 关键业务测试接口 | `RevGM.Register` / `RevRuntimeAutomation.Register` | 项目真实业务入口，经 RevMCP 开放给 Agent；Editor 与开发版 Player 共用注册表 | `automation-integration.md`、`playbooks.md` R21 |
 | 读配置表 | `RevDataTableManager` | 表也是资源，走资源系统 | `modules-content.md` §8 |
 | 玩法数值/文案/概率放哪（血攻、倍率、冷却、奖励、关卡） | Excel 导表（铁律 21） | 策划数值进表、代码只读；启动时统一校验 | `playbooks.md` R22 |
 | 资源热更（扩展包） | `RevHotUpdate` | 清单 + 差量下载 + 版本目录 | `modules-content.md` §9、`hot-update.md` |
@@ -59,7 +59,7 @@ Revolution 是一套**从零手写、可读可测、无魔法**的 Unity 游戏�
 | "帮我写个 XX 功能 / 怎么实现 XX / 我想做 XX" | **写功能** | 先读 `Revolution.Document/编程范式/Revolution官方编程架构规范.md`，再按 `references/playbooks.md`（22 个任务配方）选接口；功能里出现任何策划会调的数字，同时读 R22 |
 | 血量/攻击/倍率/概率/冷却/奖励/关卡阵容/说明文案里的数字 / "配置怎么管" / 审查有没有写死数值 | **配置数值** | `references/playbooks.md` R22（Excel → 导表 → 启动校验 → 强类型读取）+ 铁律 21 |
 | 自定义域 / 登录大厅战斗结算退出 / FSM 联动 | **统一流程** | 先读《Revolution 官方编程架构规范》，再读 `references/playbooks.md` R19 与 `modules-core.md` §12 |
-| 关键业务 GM 测试接口 / 一句话测试 / AI 或 MCP 自动验收 | **开发与自动化闭环** | 先读 `references/automation-integration.md`，再按 R21 接真实业务；已有 Revolution.Automation 时复用其 CLI/Editor 桥，联合 `revolution-automation-tester` 执行，不假设 Unity MCP 已连接 |
+| 关键业务 GM 测试接口 / 一句话测试 / AI 或 MCP 自动验收 | **开发与自动化闭环** | 先读 `references/automation-integration.md`，再按 R21 接真实业务；联合 `revolution-ai-automation` 使用 RevMCP，GM循环采样继续旧tester；核对实际连接 |
 | "XX 和 YY 用哪个 / 该不该用事件 / 要不要新建 System" | **选型** | `references/decision-guide.md` §1 对照表 |
 | "框架有没有 XX 能力 / 能不能 XX"（尤其是你不确定 API 存不存在时） | **查边界** | `references/decision-guide.md` §2「不存在 / 不做」清单（防幻觉） |
 | "XX 不工作 / 出现 XX 现象 / 报错 XX / 编辑器好真机坏" | **排错** | `references/troubleshooting.md`（症状 → 原因 → 先查什么） |

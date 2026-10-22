@@ -4,7 +4,7 @@
 
 ## 0. Revolution.Automation 业务回归入口
 
-先读 `automation-integration.md`，定位目标工程的 CLI/Editor Bridge 和真实业务GM。开发完成后环境允许就执行 `scenario validate → scenario run`；可联合 `revolution-automation-tester` 完成环境发现、精确断言、MCP观察与报告。验证不止列出命令，更要记录本次实际执行结果。
+先读 `automation-integration.md`，定位目标工程与真实能力。跨接口测试联合 `revolution-ai-automation` 使用 RevMCP；旧 GM 循环/采样继续 `scenario validate → scenario run`。先发现、再实际运行、核对业务断言/日志/清理并记录证据，不止列出命令。
 
 使用未暂停图形Play与 `--mode live`，batch仅资产操作。刚补接线需等编译并从运行期 `gm list` 确认；场景每轮清理，保护用户原有Play与未保存场景。通过必须检查完整response、场景成功、轮次齐全、Unity错误为零且无取消。截图/AB/真机等未执行项单列，不被离线断言或历史数字替代。
 
@@ -125,7 +125,7 @@ Editor/RevResourceSystem/ABTool/Snapshot/ABLayoutSnapshot.cs   AB 布局快照�
 
 官方架构规范：`Revolution.Document/编程范式/Revolution官方编程架构规范.md`。关键业务必须设计“查询前置 → 受控动作 → 查询后置 → 非法前置应拒绝”的 GM 命令，handler 走真实业务服务或流程控制者，而不是改 UI、FSM 内核或存档。验收至少覆盖登录、大厅、战斗、结算、退出、重复同名域与异步取消，记录输入命令、`RevGMResult.Success/Message`、FSM 状态、`RevScope.Dump()`、判空后的 `LastCloseReport`、`RevLogic.Count` 与异常日志。
 
-- 当前有 `RevGM.Register` / `Execute` 的运行时后端和编辑器 GM 窗口；Unity 工程声明第三方 Unity MCP 包，但**没有框架提供的专用 GM→MCP 工具、已验证连接或自动化测试工作流**。须由项目提供受控适配器和白名单、身份/环境/参数边界、主线程调用、超时与审计；`HighRisk` 只在编辑器窗口确认，不授权直接 Execute。
+- 2026-10-22 已提供 `Revolution.RevMCP`、Unity 内 RevMCP 控制台和 `RevRuntimeAutomation`。实际 GM/业务能力经主线程调用并校验 Schema/confirm，开发版 Player 显式开启本机 HTTP；优先加载 `revolution-ai-automation` 跑接口、断言、日志、截图与清理。项目仍需自己注册业务，不能从离线文档假定目标工程已安装新版。
 - “命令已注册”“AI 写出了测试方案”“离线断言通过”都不等于 PlayMode/设备/MCP 验收完成；报告按实际执行环境和证据分别标明通过、失败或未执行。变更类测试命令不得仅靠 `Hidden` / `HighRisk` 保护正式环境。
 
 ## 5. 文档站与分支（交付验证）

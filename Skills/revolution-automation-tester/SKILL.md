@@ -1,11 +1,11 @@
 ---
 name: revolution-automation-tester
-description: 当用户用一句话要求测试某个 Unity 游戏功能、修复、业务流程、Boss/AI、UI、GM 行为或回归时使用。自动发现 Revolution.Automation 与 Unity 工程，读取真实 GM/Editor 检查入口，制定并运行可重复的场景测试，必要时配合已连接的 Unity MCP 检查 Play 画面/Console；输出通过/失败、报告路径和根因。绝不假造 GM、断言或测试已通过。
+description: 执行或维护 Revolution.Automation 的 GM scenario 循环回归、预热、性能采样及报告时使用；发现真实GM，验证轮次、业务断言和清理。跨Editor/业务/UI/截图/独立Player/外部工具的一句话自动化任务使用revolution-ai-automation与RevMCP，本Skill保留旧scenario格式与采样流程。
 ---
 
 # Revolution Automation Tester
 
-把“一句话测试需求”转成**真实业务入口 + 精确预期 + 可回收清理**的自动化测试，并实际执行、核对结果。优先使用 Revolution.Automation 的 `scenario`；Unity MCP 若已连接，用于补充检查当前编辑器/视觉/Console，不把 MCP 可用性当作既有 GM 桥。
+把“一句话测试需求”转成**真实业务入口 + 精确预期 + 可回收清理**的自动化测试，并实际执行、核对结果。本 Skill 专注 Revolution.Automation 的 GM scenario 循环/性能采样；跨 Editor/业务/UI/截图/Player/CLI 的一句话任务优先使用 `revolution-ai-automation` 与 RevMCP。已有 scenario 可继续复用，无需改格式。
 
 ## 一句话执行协议（优先于后文的通用说明）
 
@@ -82,7 +82,7 @@ description: 当用户用一句话要求测试某个 Unity 游戏功能、修复
 
 ### 6. MCP 配合和视觉验证
 
-- Automation 是可重复执行与精确断言的主通道；MCP 是 Unity Editor 的交互/观察通道，两者职责不同。
+- 新版 RevMCP 已能发现真实 GM 与业务注册表，并提供 UI/截图；通过它复用 Automation 工单，不另建重复执行链。第三方 Unity MCP 仍可补充目标工程的观察，但先确认实例身份。
 - 调用 MCP 前先确认对应 MCP 工具 schema；若 MCP 已连接，用它核对当前 Play/场景、Console 编译错误、技能对象/效果是否在场，并在用户要求视觉测试时取实际截图。
 - 没有 Unity MCP 或无法取截图时，明确标注“本次只做逻辑/Automation 验收，视觉未验证”。禁止把离线回归、scenario validate 或编译成功说成 Play 视觉通过。
 

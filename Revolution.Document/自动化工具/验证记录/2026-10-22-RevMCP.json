@@ -1,0 +1,210 @@
+{
+  "date": "2026-10-22",
+  "environment": {
+    "unity": "2022.3.15f1c1",
+    "os": "Windows",
+    "python": "3.11"
+  },
+  "pythonTests": {
+    "automation": 19,
+    "revmcp": 13
+  },
+  "editmode-final-verification": {
+    "success": true,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "inconclusive": 0,
+    "seconds": 2.3996067
+  },
+  "mcp-editor-final-verification": {
+    "success": true,
+    "protocolVersion": "2025-11-25",
+    "toolCount": 141,
+    "gmToolCount": 4,
+    "imageCount": 1,
+    "steps": [
+      {
+        "target": "game",
+        "action": "demo.reset",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.dump",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.click",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "gm",
+        "action": "自动化演示/增加",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.screenshot",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.logs",
+        "success": true
+      }
+    ],
+    "cleanup": [
+      {
+        "action": "demo.reset",
+        "success": true,
+        "count": 0
+      }
+    ]
+  },
+  "mcp-http-verification": {
+    "success": true,
+    "protocolVersion": "2025-11-25",
+    "toolCount": 19,
+    "gmToolCount": 4,
+    "imageCount": 1,
+    "steps": [
+      {
+        "target": "game",
+        "action": "demo.reset",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.dump",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.click",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "gm",
+        "action": "自动化演示/增加",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.screenshot",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.logs",
+        "success": true
+      }
+    ],
+    "cleanup": [
+      {
+        "action": "demo.reset",
+        "success": true,
+        "count": 0
+      }
+    ]
+  },
+  "mcp-player-verification": {
+    "success": true,
+    "protocolVersion": "2025-11-25",
+    "toolCount": 19,
+    "gmToolCount": 4,
+    "imageCount": 1,
+    "steps": [
+      {
+        "target": "game",
+        "action": "demo.reset",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.dump",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "ui.click",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "gm",
+        "action": "自动化演示/增加",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "demo.state",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.screenshot",
+        "success": true
+      },
+      {
+        "target": "game",
+        "action": "runtime.logs",
+        "success": true
+      }
+    ],
+    "cleanup": [
+      {
+        "action": "demo.reset",
+        "success": true,
+        "count": 0
+      }
+    ]
+  },
+  "menu-coverage-final": {
+    "complete": true,
+    "menus": 20,
+    "covered": 20
+  },
+  "player-build-verification": {
+    "target": "StandaloneWindows64",
+    "result": "Succeeded",
+    "bytes": 103529671,
+    "errors": 0,
+    "warnings": 0,
+    "seconds": 8.7472117
+  },
+  "http-boundary-verification": {
+    "success": true
+  },
+  "bridge-mutex-verification": {
+    "overlappingMutationRejected": true,
+    "resumeWhileHttpPending": true,
+    "pendingActionExecutedOnce": true,
+    "cleanupCount": 0
+  }
+}
